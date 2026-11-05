@@ -2,33 +2,21 @@ import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { isObserved } from "../../lib/media.ts";
-import { color, size, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Answer } from "../ui/Answer.tsx";
 import { Ask } from "../ui/Ask.tsx";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
-import { Icon } from "../ui/Icon.tsx";
 import { Raw } from "../ui/Raw.tsx";
 import { SourceChip } from "../ui/SourceChip.tsx";
-import { Spinner } from "../ui/Spinner.tsx";
 import { type } from "../ui/type.ts";
 import { AnswerText } from "./AnswerText.tsx";
 import { DiagnosisText } from "./DiagnosisText.tsx";
+import { DockActivity } from "./DockActivity.tsx";
 import { RevertConflict } from "./RevertConflict.tsx";
 import { type Again, changed, metaLine, type RunCard, runBadges, type Turn } from "./turns.ts";
 
 const styles = stylex.create({
-  tools: {
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s2,
-    color: color.textMuted,
-  },
-  tool: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, overflowWrap: "anywhere" },
-  toolMark: { display: "inline-flex", flex: "none", width: size.iconSm, color: color.success },
   trouble: { display: "flex", flexDirection: "column", gap: space.s1 },
   troubleTitle: { color: color.text },
   troubleText: { margin: 0, color: color.text },
@@ -58,29 +46,14 @@ export function UserTurn({ turn }: { turn: Turn }) {
   );
 }
 
-// ponytail: Claude's side of a turn — what it read as it goes, the answer with its sources, and the run's card:
+// ponytail: Claude's side of a turn — what it does as it goes (DockActivity), the answer with its sources, and the run's card:
 // what changed, the numbers, Show changes, Revert, the raw output; a failure says what happened and offers Retry
 export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnActions }) {
-  const pending = t.tools.some((x) => !x.done);
   const failed = !t.running && !!(t.again || t.trouble);
-  const words = t.text || (t.running && !pending);
+  const words = t.text || (t.running && !t.tools.some((x) => !x.done));
   return (
     <>
-      {t.tools.length > 0 && (
-        <ul aria-label="What Claude read" {...stylex.props(type.small, styles.tools)}>
-          {t.tools.map((x, i) => (
-            <li key={i} {...stylex.props(styles.tool)}>
-              <span {...stylex.props(styles.toolMark)}>
-                {x.done ? <Icon name="check" size="sm" /> : <Spinner size="sm" />}
-              </span>
-              <span>
-                {x.label}
-                {!x.done && "…"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <DockActivity turn={t} />
       {(words || t.trouble || t.run || t.note || t.sources?.length || !t.running) && (
         <Answer
           title={t.trouble ? "The run failed" : "Claude"}

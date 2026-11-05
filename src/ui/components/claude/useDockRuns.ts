@@ -15,6 +15,7 @@ import {
   fixOutcome,
   PROJECT_RUN,
   type RunResult,
+  skillOf,
   type Turn,
   toolLabel,
   transcript,
@@ -73,7 +74,15 @@ export function useDockRuns(app: AppState) {
     else if (ev.type === "tool")
       patch(id, (t) => ({
         ...t,
-        tools: [...t.tools.map((x) => ({ ...x, done: true })), { label: toolLabel(ev.name, ev.input), done: false }],
+        tools: [
+          ...t.tools.map((x) => ({ ...x, done: true })),
+          {
+            label: toolLabel(ev.name, ev.input),
+            done: false,
+            at: Date.parse(e.at) || Date.now(),
+            skill: skillOf(ev.name, ev.input),
+          },
+        ],
       }));
   };
 
@@ -157,7 +166,7 @@ export function useDockRuns(app: AppState) {
   };
 
   const begin = (turn: Omit<Turn, "id">, user?: Omit<Turn, "id">) => {
-    const answer: Turn = { ...turn, id: ++seq };
+    const answer: Turn = { ...turn, id: ++seq, startedAt: Date.now() };
     setTurns((all) => [...all, ...(user ? [{ ...user, id: ++seq }] : []), answer]);
     setBusy(true);
     setStarted(Date.now());

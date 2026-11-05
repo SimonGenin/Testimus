@@ -45,12 +45,17 @@ export type RunCard = {
   fix?: boolean;
 };
 
+// one thing Claude did in a turn: what it says, whether it is over, when (ms), the skill it opened
+export type Tool = { label: string; done: boolean; at?: number; skill?: string };
+
 export type Turn = {
   id: number;
   role: "user" | "assistant";
   kind?: "run" | "chat";
   text: string;
-  tools: { label: string; done: boolean }[];
+  tools: Tool[];
+  /** when the request was sent (ms): the steps' times count from it */
+  startedAt?: number;
   running?: boolean;
   label?: string;
   testId?: string;
@@ -113,24 +118,55 @@ export function metaLine(m: Meta): string {
     .join(" · ");
 }
 
+// ponytail: the Testimus commands Claude calls most, said as what they do (« Used docs.list » said nothing)
+const SAID: Record<string, string> = {
+  "docs.list": "Listed the documents",
+  "tests.list": "Listed the existing tests",
+  "columns.list": "Listed the columns",
+  "contexts.list": "Read the saved contexts",
+  "project.info": "Read the project settings",
+  "xray.folders": "Looked up the Xray folders",
+  "check.run": "Ran the check",
+  "check.show": "Read the check",
+};
+
+const tail = (p: string) => p.split(/[\\/]/).slice(-2).join("/");
+
 export function toolLabel(name: string, input: string): string {
   let args: Record<string, unknown> = {};
   try {
     args = JSON.parse(input) as Record<string, unknown>;
   } catch {}
+  const str = (k: string) => (typeof args[k] === "string" ? (args[k] as string) : "");
   const short = name.replace(/^mcp__testimus__/, "").replace(/_/g, ".");
-  const q = typeof args.query === "string" ? args.query : typeof args.question === "string" ? args.question : "";
+  const q = str("query") || str("question");
+  if (name === "Skill") return str("skill") ? `Opened the ${str("skill")} skill` : "Opened a skill";
   if (/search/i.test(short) && q) return `Searched the documents for “${q}”`;
-  if (/passage/i.test(short) && typeof args.docId === "string")
-    return `Read ${args.docId} ${String(args.anchor ?? "")}`;
-  if (/^(Read|Glob|Grep)$/.test(name)) return `Read ${String(args.file_path ?? args.pattern ?? "")}`.trim();
-  if (/^(Edit|Write|MultiEdit)$/.test(name))
-    return `Edited ${String(args.file_path ?? "a file")
-      .split(/[\\/]/)
-      .slice(-2)
-      .join("/")}`;
+  if (/passage/i.test(short) && str("docId")) return `Read ${str("docId")} ${str("anchor")}`;
+  if (SAID[short]) return SAID[short];
+  if (short === "tests.save") return str("id") ? `Wrote the steps of ${str("id")}` : "Wrote the steps of a test";
+  if (short === "tests.show" && str("id")) return `Opened ${str("id")}`;
+  if (short === "docs.show" && str("id")) return `Looked up ${str("id")}`;
+  const path = str("file_path");
+  const doc = path.match(/docs[\\/]+([^\\/]+)[\\/]+doc\.md$/)?.[1];
+  if (name === "Read" && doc) return `Read ${doc}`;
+  if (name === "Read") return `Read ${tail(path)}`.trim();
+  if (name === "Grep") return str("pattern") ? `Searched the files for “${str("pattern")}”` : "Searched the files";
+  if (name === "Glob") return `Listed ${str("pattern")}`.trim();
+  if (/^(Edit|Write|MultiEdit)$/.test(name)) return `Edited ${path ? tail(path) : "a file"}`;
   return `Used ${short}`;
 }
+
+// the skill a tool call opened, if it is one
+export const skillOf = (name: string, input: string): string | undefined => {
+  if (name !== "Skill") return undefined;
+  try {
+    const s = (JSON.parse(input) as { skill?: unknown }).skill;
+    return typeof s === "string" && s ? s : undefined;
+  } catch {
+    return input.match(/"skill"\s*:\s*"([^"]+)"/)?.[1];
+  }
+};
 
 // ponytail: what the panel shows until Clear goes with every request, as a transcript Claude reads as background;
 // the chat turns are left out when the documents conversation resumes, its session has them already

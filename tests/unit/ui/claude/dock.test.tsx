@@ -89,8 +89,14 @@ describe("dock helpers", () => {
     expect(toolLabel("mcp__testimus__rag_passage", '{"docId":"D","anchor":"§1"}')).toBe("Read D §1");
     expect(toolLabel("mcp__testimus__rag_passage", '{"docId":"D"}')).toBe("Read D ");
     expect(toolLabel("Read", '{"file_path":"tests/a.md"}')).toBe("Read tests/a.md");
-    expect(toolLabel("Glob", '{"pattern":"**/*.md"}')).toBe("Read **/*.md");
-    expect(toolLabel("Grep", "not json")).toBe("Read");
+    expect(toolLabel("Read", '{"file_path":"/Users/s/P/docs/SECIB/doc.md"}')).toBe("Read SECIB");
+    expect(toolLabel("Glob", '{"pattern":"**/*.md"}')).toBe("Listed **/*.md");
+    expect(toolLabel("Grep", '{"pattern":"menu"}')).toBe("Searched the files for “menu”");
+    expect(toolLabel("Grep", "not json")).toBe("Searched the files");
+    expect(toolLabel("Skill", '{"skill":"generate-tests"}')).toBe("Opened the generate-tests skill");
+    expect(toolLabel("mcp__testimus__docs_list", "{}")).toBe("Listed the documents");
+    expect(toolLabel("mcp__testimus__check_show", "{}")).toBe("Read the check");
+    expect(toolLabel("mcp__testimus__tests_save", '{"id":"T-1"}')).toBe("Wrote the steps of T-1");
     expect(toolLabel("Edit", '{"file_path":"C:\\\\p\\\\tests\\\\x\\\\test.md"}')).toBe("Edited x/test.md");
     expect(toolLabel("Write", "{}")).toBe("Edited a file");
     expect(toolLabel("WebFetch", "{}")).toBe("Used WebFetch");

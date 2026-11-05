@@ -1016,7 +1016,11 @@ Every command is documented by its zod schema; `testimus help <group.verb>` prin
     haiku · custom… (a typed alias), effort low…max, per run over the project defaults (a new project: opus / high, as
     in Xray Editor). « Context: » chips list the
     focused test's effective contexts (`contexts.ofTest`, the project defaults with no test), each a toggle for this
-    run only, reset when the focused test changes; the run sends the effective list minus the ones switched off. Each
+    run only, reset when the focused test changes; the run sends the effective list minus the ones switched off.
+    What Claude does takes two lines at most above its answer: while it works, the step under way in plain words with
+    a spinner (« Listed the documents », « Read SECIB », « Opened the generate-tests skill »; an unknown tool is « Used
+    <name> »), then a fold « N steps » with the skills it opened as violet badges; once done, the fold alone,
+    « Worked 1 min 12 s · N steps », closed. Opened, the fold lists every step with its time since the request. Each
     answer ends with « 12.3 s · 24k tokens in · 1.2k out · opus / high · session … » (« no tokens reported »; on a
     subscription the cost means nothing, so it is kept in the results but not shown); a seconds counter runs
     beside Cancel; the folded dock shows « Last run: N s — <first line of the summary> ». On a test or the project the
