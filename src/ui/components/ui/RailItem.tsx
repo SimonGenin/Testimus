@@ -28,7 +28,7 @@ const styles = stylex.create({
     margin: 0,
     paddingTop: space.pill,
     paddingBottom: space.s2,
-    paddingInline: 0,
+    paddingInline: space.snug,
     borderWidth: 0,
     borderRadius: radius.r3,
     backgroundColor: { default: "transparent", ":hover": color.surfaceHover },
@@ -54,7 +54,7 @@ const styles = stylex.create({
   focus: { outline: `${border.widthStrong} solid ${color.focusRing}` },
   icon: { display: "inline-flex" },
   iconCurrent: { color: color.accentText },
-  label: { maxWidth: size.railItem, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  label: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   labelWrap: { whiteSpace: "normal" },
   mono: { fontFamily: fontFamily.mono, fontSize: fontSize.micro, lineHeight: lineHeight.micro },
   avatar: {
@@ -72,7 +72,7 @@ const styles = stylex.create({
   count: {
     position: "absolute",
     top: space.s1,
-    right: space.snug,
+    right: space.s4,
     boxSizing: "border-box",
     display: "inline-flex",
     alignItems: "center",
