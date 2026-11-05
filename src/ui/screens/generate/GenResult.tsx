@@ -46,8 +46,6 @@ const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   line: { margin: 0, color: color.text },
   muted: { margin: 0, color: color.textMuted },
-  cov: { display: "flex", flexDirection: "column", gap: space.s2 },
-  caption: { margin: 0, color: color.textMuted },
   skipped: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: space.s2 },
   no: { display: "flex", alignItems: "flex-start", gap: space.s2, minWidth: 0 },
   noIcon: { display: "inline-flex", flex: "none", marginTop: space.s1, color: color.warning },
@@ -58,6 +56,9 @@ const styles = stylex.create({
 });
 
 const ID = /^(?=.*[\d_])[\w.#-]+$/;
+
+// ponytail: a list longer than this starts folded, so the tests below stay in sight
+const SHORT = 5;
 
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
 
@@ -296,10 +297,7 @@ export function GenSummary({
         </p>
       )}
       {skipped.length > 0 && (
-        <section aria-labelledby="gen-not-covered" {...stylex.props(styles.cov)}>
-          <h3 id="gen-not-covered" {...stylex.props(type.caption, styles.caption)}>
-            Not covered · {skipped.length} — and why
-          </h3>
+        <Disclosure summary={`Not covered · ${skipped.length} — and why`} defaultOpen={skipped.length <= SHORT}>
           <ul {...stylex.props(type.compact, styles.skipped)}>
             {skipped.map((u) => (
               <li key={u.item} {...stylex.props(styles.no)}>
@@ -313,7 +311,7 @@ export function GenSummary({
               </li>
             ))}
           </ul>
-        </section>
+        </Disclosure>
       )}
       {result.changed.length > 0 && (
         <Banner

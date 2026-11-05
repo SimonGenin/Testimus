@@ -351,4 +351,14 @@ describe("Generate › result helpers", () => {
     expect(screen.queryByText(/also changed/)).toBeNull();
     expect(screen.queryByRole("region", { name: /Not covered/ })).toBeNull();
   });
+
+  it("GenSummary: a long not-covered list starts folded and unfolds on its summary", () => {
+    const skipped = Array.from({ length: 6 }, (_, i) => ({ item: `Item ${i}`, why: "no passage" }));
+    render(<GenSummary result={output({ skipped })} checked="" />);
+    const fold = screen.getByRole("button", { name: "Not covered · 6 — and why" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Item 0")).toBeNull();
+    fireEvent.click(fold);
+    expect(within(screen.getByRole("region", { name: /Not covered/ })).getByText("Item 5")).toBeInTheDocument();
+  });
 });
