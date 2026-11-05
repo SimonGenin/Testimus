@@ -31,10 +31,19 @@ const styles = stylex.create({
     borderBottomColor: color.border,
   },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s3 },
-  lines: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
-  mono: { overflow: "hidden", textOverflow: "ellipsis" },
+  lines: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.snug, minWidth: 0 },
+  mono: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", color: color.textSubtle },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
-  batches: { display: "flex", flexDirection: "column", gap: space.s1, margin: 0, padding: 0, listStyle: "none" },
+  batches: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s1,
+    alignSelf: "stretch",
+    minWidth: 0,
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+  },
   batch: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, color: color.textMuted },
   batchName: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   out: { color: color.textSubtle },
@@ -61,15 +70,14 @@ function BatchLines({ batches }: { batches: Batch[] }) {
 type Item = { key: string; doc?: DocRef; upload?: Upload };
 
 function docItem(d: DocRef, batches: Batch[]): ListItemProps {
+  const code = [d.code, d.version].filter(Boolean).join(" · ");
   return {
     title: d.title,
-    tooltip: `${d.code} · ${d.version} — ${d.title}`,
+    tooltip: code ? `${code} — ${d.title}` : d.title,
     lead: <Icon name={/\.pdf$/i.test(d.source.file) ? "file" : "documents"} />,
     meta: (
       <span {...stylex.props(styles.lines)}>
-        <span {...stylex.props(type.mono, styles.mono)}>
-          {d.code} · {d.version}
-        </span>
+        {code && <span {...stylex.props(type.mono, styles.mono)}>{code}</span>}
         <span {...stylex.props(styles.badges)}>
           <DocBadges doc={d} />
         </span>

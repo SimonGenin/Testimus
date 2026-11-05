@@ -58,13 +58,12 @@ const styles = stylex.create({
     borderWidth: border.width,
     borderStyle: "solid",
     borderColor: color.border,
-    borderStartStartRadius: radius.r4,
-    borderEndStartRadius: radius.r4,
     backgroundColor: color.surface,
     boxShadow: shadow.s1,
     overflow: "hidden",
   },
-  frameOpen: { borderRadius: radius.r4, marginInlineEnd: { default: 0, [breakpoint.dock]: space.s3 } },
+  round: { borderRadius: radius.r4 },
+  frameOpen: { marginInlineEnd: { default: 0, [breakpoint.dock]: space.s3 } },
   screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" },
   dock: {
     boxSizing: "border-box",
@@ -243,7 +242,7 @@ export function App() {
       ) : (
         <div {...stylex.props(styles.app)}>
           <Rail counts={counts} kit={p.mock} />
-          <div key={p.dir ?? ""} {...stylex.props(styles.frame, !dock.folded && styles.frameOpen)}>
+          <div key={p.dir ?? ""} {...stylex.props(styles.frame, styles.round, !dock.folded && styles.frameOpen)}>
             <TopBarContext.Provider value={bar.value}>
               <TopBar title={TITLES[route.screen]} onPalette={openPalette} slots={bar} />
               <ServerLost />
