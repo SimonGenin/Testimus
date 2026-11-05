@@ -198,7 +198,12 @@ export function StepCard({
               tooltip="Kept in test.md, never pushed: the project has no such step field in Xray"
             />
           ) : c.off ? (
-            <Badge label="off in Xray" size="sm" icon="eye-off" tooltip="Switched off in Xray's project settings" />
+            <Badge
+              label="off in Xray"
+              size="sm"
+              icon="eye-off"
+              tooltip="Switched off in Xray's project settings: what it holds stays in Testimus, never pushed"
+            />
           ) : undefined
         }
         onPaste={(e) => {

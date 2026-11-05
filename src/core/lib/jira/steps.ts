@@ -46,9 +46,16 @@ export const toMarkers = (text: string, ids: Map<string, string>) =>
 
 export const fieldOf = (s: Step, name: string) => s.fields[name] ?? "";
 
-export const refsIn = (s: Step) => {
+// ponytail: a step field switched off in Xray is never sent — Xray refuses a step whose disabled field holds a value;
+// what a step holds in it stays in test.md (pull keeps it, the push plan says so)
+export const offInXray = (schema: XrayField[], name: string) => !!schema.find((f) => f.name === name)?.disabled;
+
+// ponytail: a built-in field's text as it goes up — empty while the field is switched off in Xray
+export const sent = (s: Step, schema: XrayField[], name: string) => (offInXray(schema, name) ? "" : fieldOf(s, name));
+
+export const refsIn = (s: Step, schema: XrayField[] = []) => {
   const files: string[] = [];
-  mapRefs(BUILTIN.map((b) => fieldOf(s, b.name)).join("\n"), (file) => {
+  mapRefs(BUILTIN.map((b) => sent(s, schema, b.name)).join("\n"), (file) => {
     files.push(file);
     return "";
   });
@@ -94,7 +101,7 @@ export function customInput(
   only?: (name: string) => boolean,
 ): Array<{ id: string; value: unknown }> {
   return schema
-    .filter((f) => !f.builtin && (only ? only(f.name) : !!fieldOf(s, f.name)))
+    .filter((f) => !f.builtin && !f.disabled && (only ? only(f.name) : !!fieldOf(s, f.name)))
     .map((f) => ({ id: f.id, value: customValue(f, fieldOf(s, f.name)) }));
 }
 
@@ -139,12 +146,12 @@ export async function attachmentInput(file: string, read: ReadImage) {
 
 export const stepInput = async (s: Step, read: ReadImage, schema: XrayField[]) => {
   const none = new Map(s.images.map((im) => [im.file, ""]));
-  const action = toMarkers(fieldOf(s, "Action"), none);
+  const action = toMarkers(sent(s, schema, "Action"), none);
   const custom = customInput(s, schema);
   return {
-    action: action.trim() ? action : orBlank(fieldOf(s, "Action")),
-    data: toMarkers(fieldOf(s, "Data"), none),
-    result: toMarkers(fieldOf(s, "Expected Result"), none),
+    action: action.trim() ? action : orBlank(sent(s, schema, "Action")),
+    data: toMarkers(sent(s, schema, "Data"), none),
+    result: toMarkers(sent(s, schema, "Expected Result"), none),
     attachments: await Promise.all(s.images.map((im) => attachmentInput(im.file, read))),
     ...(custom.length ? { customFields: custom } : {}),
   };

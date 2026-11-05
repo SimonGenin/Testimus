@@ -1920,7 +1920,7 @@ describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
     expect(screen.queryByLabelText("Retired of step 2")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const row = screen.getByRole("radiogroup", { name: "Retired column" });
-    expect(row.parentElement).toHaveTextContent("Off in Xray · kept, folded unless filled");
+    expect(row.parentElement).toHaveTextContent("Off in Xray · kept here, never pushed, folded unless filled");
     expect(within(row).getByRole("radio", { name: "When filled" })).toHaveAttribute("aria-checked", "true");
     fireEvent.click(within(row).getByRole("radio", { name: "Open" }));
     await waitFor(() => expect(state.refreshInfo).toHaveBeenCalled());

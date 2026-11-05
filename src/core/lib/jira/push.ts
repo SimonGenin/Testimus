@@ -12,10 +12,12 @@ import {
   fieldOf,
   imageOps,
   knownIds,
+  offInXray,
   orBlank,
   type RawStep,
   type ReadImage,
   refsIn,
+  sent,
   stepInput,
   toMarkers,
 } from "./steps.ts";
@@ -125,6 +127,14 @@ export async function planPush(
       `${unknown.map((n) => `"${n}"`).join(", ")} ${unknown.length > 1 ? "are not step fields" : "is not a step field"} of ${deps.project.key} — not pushed (refresh the fields with xray.refreshFields if it was just added).`,
     );
   for (const f of schema) {
+    if (!f.disabled) continue;
+    const held = local.steps.flatMap((s, i) => (s.fields[f.name]?.trim() ? [i + 1] : []));
+    if (held.length)
+      warnings.push(
+        `${f.name} is switched off in Xray — what step ${held.join(", ")} hold${held.length > 1 ? "" : "s"} in it stays in Testimus and is not pushed.`,
+      );
+  }
+  for (const f of schema) {
     if (!f.required || f.disabled || f.builtin) continue;
     const empty = local.steps.flatMap((s, i) => (s.fields[f.name]?.trim() ? [] : [i + 1]));
     if (empty.length) warnings.push(`${f.name} is required in Xray and empty in step ${empty.join(", ")}.`);
@@ -142,7 +152,7 @@ export async function planPush(
   };
 
   const embedOp = (i: number) => {
-    const n = new Set(refsIn(local.steps[i])).size;
+    const n = new Set(refsIn(local.steps[i], schema)).size;
     embeds.push({
       label: `Embed ${n} image${n > 1 ? "s" : ""} in step ${i + 1}`,
       kind: "embed",
@@ -157,9 +167,9 @@ export async function planPush(
         await gql(UPDATE_STEP, {
           stepId: rs.id,
           step: {
-            action: orBlank(toMarkers(fieldOf(s, "Action"), ids)),
-            data: toMarkers(fieldOf(s, "Data"), ids),
-            result: toMarkers(fieldOf(s, "Expected Result"), ids),
+            action: orBlank(toMarkers(sent(s, schema, "Action"), ids)),
+            data: toMarkers(sent(s, schema, "Data"), ids),
+            result: toMarkers(sent(s, schema, "Expected Result"), ids),
           },
         });
       },
@@ -232,7 +242,7 @@ export async function planPush(
     });
     linkOps({ covers: [] });
     local.steps.forEach((s, i) => {
-      if (refsIn(s).length) embedOp(i);
+      if (refsIn(s, schema).length) embedOp(i);
     });
     return done();
   }
@@ -329,7 +339,7 @@ export async function planPush(
       });
     });
     local.steps.forEach((s, i) => {
-      if (refsIn(s).length) embedOp(i);
+      if (refsIn(s, schema).length) embedOp(i);
     });
     return done();
   }
@@ -353,11 +363,11 @@ export async function planPush(
     const ids = knownIds(ls);
     const { add, removeIds } = imageOps(ls.images, rs.images);
     const alive = rs.images.flatMap((im) => (im.remoteId && !removeIds.includes(im.remoteId) ? [im.remoteId] : []));
-    const embed = refsIn(ls).some((f) => !alive.includes(ids.get(f) ?? ""));
+    const embed = refsIn(ls, schema).some((f) => !alive.includes(ids.get(f) ?? ""));
     const text: Record<string, unknown> = {};
     const norm = (t: string) => t.replace(/\r\n/g, "\n").trim();
     const differs = (name: string) =>
-      norm(byId(fieldOf(ls, name), ls.images)) !== norm(byId(fieldOf(rs, name), rs.images));
+      !offInXray(schema, name) && norm(byId(fieldOf(ls, name), ls.images)) !== norm(byId(fieldOf(rs, name), rs.images));
     if (!embed) {
       if (differs("Action")) text.action = orBlank(toMarkers(fieldOf(ls, "Action"), ids));
       if (differs("Data")) text.data = toMarkers(fieldOf(ls, "Data"), ids);
@@ -392,7 +402,7 @@ export async function planPush(
       kind: "update",
       run: async () => void (await gql(ADD_STEP, { issueId, step })),
     });
-    if (refsIn(local.steps[i]).length) embedOp(i);
+    if (refsIn(local.steps[i], schema).length) embedOp(i);
   }
 
   return done();

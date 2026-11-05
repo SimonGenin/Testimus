@@ -6,7 +6,7 @@ import { fieldOrder } from "../columns.ts";
 import { reviewOfLabels, withoutReviewLabels } from "../jira/labels.ts";
 import { pullTest } from "../jira/read.ts";
 import { byId } from "../jira/steps.ts";
-import { readProject } from "../project.ts";
+import { readProject, readXray } from "../project.ts";
 import { addImage, markRemoteChanged, readTest, removeImageFile, testDir, writeRemote, writeTest } from "../store.ts";
 import { imageRef, mapRefs } from "../test-blocks.ts";
 import { parseTest, serializeTest } from "../testfile.ts";
@@ -19,8 +19,9 @@ export const extOf = (filename: string) => (/\.([A-Za-z0-9]+)$/.exec(filename)?.
 
 // ponytail: the diff keeps only what a push can carry — attachment ids instead of our file names, no
 // `status`, no Sources and no review keys (local by design; the review travels as a label, compared with
-// the labels), and preconditions/covers as the sets Xray and Jira treat them as
-export const forCompare = (t: Test) =>
+// the labels), no step field switched off in Xray (`local`: it never goes up), and preconditions/covers as the sets
+// Xray and Jira treat them as
+export const forCompare = (t: Test, local: readonly string[] = []) =>
   serializeTest({
     ...t,
     status: undefined,
@@ -36,7 +37,7 @@ export const forCompare = (t: Test) =>
       ...s,
       fields: Object.fromEntries(
         Object.entries(s.fields)
-          .filter(([, v]) => v !== "")
+          .filter(([k, v]) => v !== "" && !local.includes(k))
           .map(([k, v]) => [k, byId(v, s.images)]),
       ),
       sources: [],
@@ -44,10 +45,23 @@ export const forCompare = (t: Test) =>
     })),
   });
 
-// Jira knows nothing of Sources and review notes: a pull keeps them from the local copy it replaces. A
-// step is matched by its Xray id; on the post-push re-pull (`prev` given) a step Jira re-created under a
-// new id is matched by position, like its images. The review state comes from the label when there is one.
-function keepLocal(pulled: Test, before: Test | null, byPosition: boolean, prefix: string): void {
+// The step fields switched off in Xray: Xray refuses them a value, so they live in test.md alone
+export const localOnly = (project: string) =>
+  readXray(project)
+    .fields.filter((f) => f.disabled)
+    .map((f) => f.name);
+
+// Jira knows nothing of Sources, review notes and the fields switched off in Xray (`local`): a pull keeps them from
+// the local copy it replaces. A step is matched by its Xray id; on the post-push re-pull (`prev` given) a step Jira
+// re-created under a new id is matched by position, like its images. The review state comes from the label when
+// there is one.
+function keepLocal(
+  pulled: Test,
+  before: Test | null,
+  byPosition: boolean,
+  prefix: string,
+  local: readonly string[],
+): void {
   const labelled = reviewOfLabels(pulled.labels, prefix);
   pulled.labels = withoutReviewLabels(pulled.labels, prefix);
   pulled.review = labelled ?? before?.review ?? "draft";
@@ -62,6 +76,7 @@ function keepLocal(pulled: Test, before: Test | null, byPosition: boolean, prefi
     const was: Step | undefined =
       before?.steps.find((b) => b.id && b.id === s.id) ?? (byPosition ? before?.steps[i] : undefined);
     s.sources = was?.sources.map((x) => ({ ...x })) ?? [];
+    if (was) for (const name of local) s.fields[name] = was.fields[name] ?? "";
   });
 }
 
@@ -154,7 +169,7 @@ function doPull(project: string, key: string, { prev, signal, report }: PullOpts
         st.fields[name] = mapRefs(st.fields[name], (file, params) => imageRef(file === from ? to : file, params));
     }
 
-    keepLocal(pulled.test, before, !!prev, readProject(project).labelPrefix);
+    keepLocal(pulled.test, before, !!prev, readProject(project).labelPrefix, localOnly(project));
     stopIfCancelled();
     report?.("writing test.md", { phase: "write" });
     const md = writeTest(project, key, pulled.test, fieldOrder(project));
@@ -178,7 +193,8 @@ export function movedInJira(project: string, remote: Test, remoteMd: string): bo
   const prefix = readProject(project).labelPrefix;
   const was = parseTest(remoteMd).test;
   const label = reviewOfLabels(remote.labels, prefix);
-  const bare = (t: Test) => forCompare({ ...t, labels: withoutReviewLabels(t.labels, prefix) });
+  const local = localOnly(project);
+  const bare = (t: Test) => forCompare({ ...t, labels: withoutReviewLabels(t.labels, prefix) }, local);
   return bare(remote) !== bare(was) || (label !== undefined && label !== was.review);
 }
 

@@ -182,7 +182,12 @@ export function ColumnCard({
             Xray has this step field. Write above what Claude puts in it — or leave it empty: Claude never fills it.
           </Banner>
         )}
-        {field?.disabled && <Note>Switched off in Xray: it stays folded unless a step holds something.</Note>}
+        {field?.disabled && (
+          <Note>
+            Switched off in Xray: what a step holds in it stays in test.md and is never pushed (Xray refuses it). It
+            stays folded unless a step holds something.
+          </Note>
+        )}
         {c.origin === "local" && c.status !== "gone" && (
           <Note>Kept in test.md and never pushed. Add the field in Xray and it becomes an Xray column.</Note>
         )}

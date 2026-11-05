@@ -26,7 +26,10 @@ const field = z.object({
   type: z.string().describe("Xray's field type (text, text-single, toggle, multi-select…)"),
   builtin: z.boolean().describe("One of Action, Data, Expected Result"),
   required: z.boolean().optional().describe("Xray requires a value on every step"),
-  disabled: z.boolean().optional().describe("Switched off in Xray's project settings (kept, shown « off in Xray »)"),
+  disabled: z
+    .boolean()
+    .optional()
+    .describe("Switched off in Xray's project settings (kept in test.md, never pushed, shown « off in Xray »)"),
 });
 const xrayJson = z.object({
   fetchedAt: z.string().optional().describe("When the fields were read from Xray (absent: never read)"),

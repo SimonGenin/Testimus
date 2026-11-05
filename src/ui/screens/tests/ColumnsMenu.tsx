@@ -31,7 +31,7 @@ const LABEL: Record<ColumnMode, string> = { open: "Open", filled: "When filled",
 
 const what = (c: Column, mode: ColumnMode) =>
   c.off
-    ? "Off in Xray · kept, folded unless filled"
+    ? "Off in Xray · kept here, never pushed, folded unless filled"
     : (MODES.find((m) => m.value === mode)?.title ?? "") + (c.kind === "line" ? " · one line" : "");
 
 // Which step columns fold, for this test or for every test of the project: the one place that decides it, a step
