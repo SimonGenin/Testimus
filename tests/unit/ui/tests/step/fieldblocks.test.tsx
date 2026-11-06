@@ -89,35 +89,51 @@ describe("FieldBlocks", () => {
   });
 
   it("opens a draft box between blocks, focuses it and drops it on blur", () => {
-    fb("One\n\n![](images/a.png)\n\nTwo");
+    const { container } = fb("One\n\n![](images/a.png)\n\nTwo");
+    expect(container.querySelectorAll('[data-testid="block-insert"]')).toHaveLength(2);
     const plus = screen.getAllByRole("button", { name: "Text" });
-    fireEvent.mouseDown(plus[1]);
-    fireEvent.click(plus[1]);
+    fireEvent.mouseDown(plus[0]);
+    fireEvent.click(plus[0]);
     const boxes = screen.getAllByLabelText("Action of step 1") as HTMLTextAreaElement[];
     expect(boxes.map((b) => b.value)).toEqual(["One", "", "Two"]);
     expect(document.activeElement).toBe(boxes[1]);
     fireEvent.blur(boxes[1]);
     expect(screen.getAllByLabelText("Action of step 1")).toHaveLength(2);
-    fireEvent.click(screen.getAllByRole("button", { name: "Text" })[3]);
-    expect((screen.getAllByLabelText("Action of step 1") as HTMLTextAreaElement[]).map((b) => b.value)).toEqual([
-      "One",
-      "Two",
-      "",
-    ]);
+    cleanup();
+    fb("![](images/a.png)");
+    fireEvent.click(screen.getAllByRole("button", { name: "Text" })[1]);
+    const blocks = document.querySelectorAll('[data-testid="block"]');
+    expect(blocks[1]).toContainElement(screen.getByLabelText("Action of step 1"));
   });
 
-  it("adds an image or a table at an insert point", () => {
+  it("lays no insert strip over a text block: the field's edges next to text have none", () => {
+    const { container } = fb("One\n\nTwo");
+    expect(container.querySelector('[data-testid="block-insert"]')).toBeNull();
+  });
+
+  it("adds an image or a table after a text block from its tools", () => {
     const { onAddFiles, onText, container } = fb("One");
-    const picker = container.querySelectorAll('input[type="file"]')[1] as HTMLInputElement;
+    const picker = container.querySelector('input[type="file"]') as HTMLInputElement;
     expect(picker).toHaveAttribute("accept", "image/*");
     const click = vi.spyOn(picker, "click");
-    fireEvent.click(screen.getAllByRole("button", { name: "Image" })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Add an image after this text of Action of step 1" }));
     expect(click).toHaveBeenCalled();
     const shot = new File(["x"], "s.png", { type: "image/png" });
     fireEvent.change(picker, { target: { files: [shot] } });
     expect(onAddFiles).toHaveBeenCalledWith(3, [shot]);
     fireEvent.change(picker, { target: { files: null } });
     expect(onAddFiles).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Add a table after this text of Action of step 1" }));
+    expect(onText).toHaveBeenCalledWith(3, 3, NEW_TABLE);
+  });
+
+  it("adds an image or a table at an insert point beside a picture", () => {
+    const { onAddFiles, onText, container } = fb("![](images/a.png)");
+    const picker = container.querySelectorAll('input[type="file"]')[1] as HTMLInputElement;
+    fireEvent.click(screen.getAllByRole("button", { name: "Image" })[1]);
+    const shot = new File(["x"], "s.png", { type: "image/png" });
+    fireEvent.change(picker, { target: { files: [shot] } });
+    expect(onAddFiles).toHaveBeenCalledWith(17, [shot]);
     fireEvent.click(screen.getAllByRole("button", { name: "Table" })[0]);
     expect(onText).toHaveBeenCalledWith(0, 0, NEW_TABLE);
   });
@@ -193,7 +209,7 @@ describe("FieldBlocks", () => {
   });
 
   it("drops a moved block or files on an insert point and highlights it while dragging", () => {
-    const { container, onDropBlock, onAddFiles } = fb("One\n\nTwo");
+    const { container, onDropBlock, onAddFiles } = fb("One\n\n![](images/a.png)");
     const zones = container.querySelectorAll('[data-testid="block-insert"]');
     const zone = zones[1] as HTMLElement;
     fireEvent.dragOver(zone, dt());
@@ -210,10 +226,10 @@ describe("FieldBlocks", () => {
     expect(onAddFiles).not.toHaveBeenCalled();
     const shot = new File(["x"], "s.png", { type: "image/png" });
     fireEvent.drop(zone, dt({ types: ["Files"], files: [shot] }));
-    expect(onAddFiles).toHaveBeenCalledWith(8, [shot]);
+    expect(onAddFiles).toHaveBeenCalledWith(22, [shot]);
     const moved = { step: 1, field: "Data", at: 0, end: 2 };
     fireEvent.drop(zone, dt({ types: [MOVE], move: JSON.stringify(moved) }));
-    expect(onDropBlock).toHaveBeenCalledWith(8, moved);
+    expect(onDropBlock).toHaveBeenCalledWith(22, moved);
   });
 
   it("drops onto the field itself at its end, but not when read-only", () => {

@@ -10,7 +10,7 @@ import { AppContext } from "../../lib/app.ts";
 import { blocksOf } from "../../lib/blocks.ts";
 import { NEW_TABLE } from "../../lib/table.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { blockMarker, fieldMarker } from "./markers.stylex.ts";
+import { blockMarker } from "./markers.stylex.ts";
 import { BlockInsert } from "./step/BlockInsert.tsx";
 import { ExternBlock, ImageBlock } from "./step/ImageBlock.tsx";
 import { MOVE, type Moved } from "./step/moved.ts";
@@ -125,21 +125,22 @@ export function FieldBlocks({
     if (i >= 0) document.getElementById(id(i))?.focus();
   });
 
-  const insert = (at: number, empty = false, edge?: "first" | "last") =>
+  const addTable = (at: number) => {
+    const left = text.slice(0, at).replace(/\s+$/, "");
+    newTable.current = left ? left.length + 2 : 0;
+    onText(at, at, NEW_TABLE);
+  };
+
+  const insert = (at: number, empty = false) =>
     readOnly ? null : (
       <BlockInsert
         empty={empty}
-        edge={edge}
         onText={() => {
           focusDraft.current = true;
           setDraft({ at, text });
         }}
         onImage={(files) => onAddFiles(at, files)}
-        onTable={() => {
-          const left = text.slice(0, at).replace(/\s+$/, "");
-          newTable.current = left ? left.length + 2 : 0;
-          onText(at, at, NEW_TABLE);
-        }}
+        onTable={() => addTable(at)}
         onDrop={(d) => ("moved" in d ? onDropBlock(at, d.moved) : onAddFiles(at, d.files))}
       />
     );
@@ -162,7 +163,7 @@ export function FieldBlocks({
     <div
       data-testid="blocks"
       data-empty={!items.length || undefined}
-      {...stylex.props(fieldMarker, styles.blocks)}
+      {...stylex.props(styles.blocks)}
       onDragOver={(e) => !readOnly && takes(e) && e.preventDefault()}
       onDrop={(e) => {
         if (readOnly || !takes(e)) return;
@@ -173,7 +174,7 @@ export function FieldBlocks({
       }}
     >
       {readOnly && !items.length && <p {...stylex.props(styles.ro)}>—</p>}
-      {items.length ? insert(0, false, "first") : insert(0, true)}
+      {items.length ? items[0].kind !== "text" && insert(0) : insert(0, true)}
       {items.map((b, i) => (
         <Fragment key={i}>
           <div
@@ -214,6 +215,22 @@ export function FieldBlocks({
                 </div>
                 {!readOnly && !b.draft && (
                   <span {...stylex.props(styles.tools)}>
+                    <Button
+                      variant="quiet"
+                      size="xs"
+                      iconOnly
+                      icon="image"
+                      label={`Add an image after this text of ${where}`}
+                      pick={{ accept: "image/*", multiple: true, onFiles: (files) => onAddFiles(b.end, files) }}
+                    />
+                    <Button
+                      variant="quiet"
+                      size="xs"
+                      iconOnly
+                      icon="table"
+                      label={`Add a table after this text of ${where}`}
+                      onClick={() => addTable(b.end)}
+                    />
                     <Grip />
                     {remove(b, "text")}
                   </span>
@@ -281,7 +298,7 @@ export function FieldBlocks({
               </div>
             )}
           </div>
-          {insert(b.draft ? b.at : b.end, false, i === items.length - 1 ? "last" : undefined)}
+          {(i < items.length - 1 || b.kind !== "text") && insert(b.draft ? b.at : b.end)}
         </Fragment>
       ))}
     </div>

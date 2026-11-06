@@ -359,9 +359,9 @@ describe("StepCard block moves", () => {
 
   it("embeds a loose attachment, but only one this step holds", () => {
     const { container, apply } = card(step);
-    const zone = blocksOf(container, "Expected Result").querySelector('[data-testid="block-insert"]') as HTMLElement;
+    const zone = blocksOf(container, "Expected Result");
     fireEvent.drop(zone, dt({ types: [MOVE], move: { step: 2, file: "images/loose.png" } }));
-    expect(apply().fields["Expected Result"]).toBe("![](images/loose.png)\n\nDone");
+    expect(apply().fields["Expected Result"]).toBe("Done\n\n![](images/loose.png)");
     fireEvent.drop(zone, dt({ types: [MOVE], move: { step: 2, file: "images/other.png" } }));
     expect(apply()).toBe(step);
     fireEvent.drop(zone, dt({ types: [MOVE], move: { step: 2 } }));
