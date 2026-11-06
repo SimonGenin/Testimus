@@ -86,8 +86,11 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
       la fiche de test interactive de `D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\skills\testing\` (HTML +
       `data.json`, OK / NOK par ligne).
 
-## 7. Navigation
+## 7. Navigation et interface
 
+- [ ] **Plus d'identifiants internes à l'écran.** On voit parfois des ids internes comme « local-4df6ff7b » : ce n'est
+      pas acceptable, on ne sait pas ce que c'est. Trouver tous les endroits où l'interface en affiche, et les
+      remplacer par ce qui parle à l'utilisateur (le résumé du test, sa clé Jira, le titre du document…).
 - [ ] **Menu du projet simplifié.** Dans le menu principal, un clic sur le nom du projet ne montre plus « Open a
       folder », « New project » ni « Open by Jira key » : juste un bouton qui ramène à l'écran de sélection de projet.
 
