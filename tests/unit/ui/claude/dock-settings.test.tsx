@@ -606,7 +606,9 @@ describe("always on top", () => {
     );
     const sw = screen.getByRole("switch", { name: /Always on top/ });
     const pin = screen.getByRole("button", { name: "Always on top" });
-    expect(screen.getByRole("button", { name: /Search everything/ }).parentElement?.nextElementSibling).toContainElement(pin);
+    expect(
+      screen.getByRole("button", { name: /Search everything/ }).parentElement?.nextElementSibling,
+    ).toContainElement(pin);
     expect(sw).toHaveAttribute("aria-checked", "false");
     expect(pin).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(sw);
