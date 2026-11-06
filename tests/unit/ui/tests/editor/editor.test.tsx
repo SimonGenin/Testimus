@@ -1798,7 +1798,7 @@ describe("TestEditor › parity", () => {
   });
 });
 
-describe("TestEditor › late callbacks after the same test reloads (PARITY #3, #10)", () => {
+describe("TestEditor › late callbacks after the same test reloads", () => {
   const imageStep = (): Step => ({
     fields: { Action: "![](images/a.png)", "Expected Result": "ok" },
     sources: [],
@@ -1894,7 +1894,7 @@ describe("TestEditor › late callbacks after the same test reloads (PARITY #3, 
   });
 });
 
-describe("TestEditor › header and columns (PARITY #5, #47, #87)", () => {
+describe("TestEditor › header and columns", () => {
   it("Ask Claude in the header asks on the whole test even while a step has the focus", async () => {
     const { state } = editor();
     await ready();

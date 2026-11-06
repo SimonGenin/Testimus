@@ -136,7 +136,7 @@ export function DocumentsScreen() {
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
   const wordsOnly = rag.data?.exists && rag.data.degraded ? wordsOnlyWhy(rag.data) : null;
   const { routeId, anchor, quote, from } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
-  // ponytail: a source may name a document by its code (SPEC §7) — the route opens it by its id
+  // ponytail: a source may name a document by its code — the route opens it by its id
   const named = routeId ? (docs?.find((d) => d.id === routeId) ?? docs?.find((d) => d.code === routeId)) : undefined;
   const activeId = named?.id || routeId || docs?.[0]?.id || "";
   const active = activeId ? docs?.find((d) => d.id === activeId) : undefined;

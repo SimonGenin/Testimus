@@ -66,7 +66,7 @@ const SCREENS: [string, string][] = [
   ["#/settings", "Settings screen"],
 ];
 
-describe("the activity indicator (PARITY #63)", () => {
+describe("the activity indicator", () => {
   it("shows the running jobs in the top bar of every screen, with the list and Cancel", async () => {
     render(
       <DataProvider>

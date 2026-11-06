@@ -50,7 +50,7 @@ afterEach(() => {
 const row = (summary: string) =>
   screen.getAllByRole("treeitem").find((r) => r.textContent?.startsWith(summary)) as HTMLElement;
 
-describe("TestList › a local row (PARITY #54)", () => {
+describe("TestList › a local row", () => {
   it("shows its summary, its key and its sync state, and a ✕ that deletes the local copy", () => {
     render(
       <WithData client={testClient()}>

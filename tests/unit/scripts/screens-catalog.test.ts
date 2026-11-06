@@ -24,7 +24,7 @@ const MOCK_VALUES: Record<string, (v: string) => boolean> = {
   TESTIMUS_MOCK_MAX_ATTACHMENT: (v) => Number(v) > 0,
 };
 
-describe("npm run screens: the catalog (GOAL-V3 proof 5, audit M-X1)", () => {
+describe("npm run screens: the catalog", () => {
   const scenarios = SCENARIOS(ESSAI);
 
   it("has scenarios with unique ids, each with a note and at least one shot", () => {

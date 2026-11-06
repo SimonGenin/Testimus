@@ -5,7 +5,7 @@ import { registry } from "../../../src/core/commands/index.ts";
 
 const CORE = join(import.meta.dirname, "..", "core");
 
-// ponytail: a ratchet like the architecture guards — it may only go down, and at 0 it blocks (GOAL-V3 N6, wave 5)
+// ponytail: a ratchet like the architecture guards — it may only go down, and at 0 it blocks
 const LIMIT = 18;
 
 function files(dir: string): string[] {
@@ -21,7 +21,7 @@ function namesCalled(): Set<string> {
   return seen;
 }
 
-describe("every command has a unit test through the registry (GOAL-V3 N6, audit M-K2)", () => {
+describe("every command has a unit test through the registry", () => {
   it(`commands never called by invoke("…") or call("…") under tests/unit/core: at most ${LIMIT}`, () => {
     const called = namesCalled();
     const missing = registry.map((c) => c.name).filter((n) => !called.has(n));

@@ -12,7 +12,7 @@ export function fixtureCopy(tag: string): string {
 }
 
 // ponytail: every call goes through the registry (parseInput, the open-project check, the job start) and its result
-// must pass the command's own output schema (GOAL-V3 N1: a typed output)
+// must pass the command's own output schema (a typed output)
 export async function call<T = unknown>(
   name: string,
   input: unknown,

@@ -64,7 +64,7 @@ function stream(): string {
   return out.join("\n");
 }
 
-describe("evidence ledger (SPEC-RAG §5.3)", () => {
+describe("evidence ledger", () => {
   const ledger = ledgerOf(PROJECT, toolCalls(stream()));
 
   it("takes what the run opened from its tool calls: passages, related refs, figures, Read ranges of doc.md", () => {

@@ -72,7 +72,7 @@ const claudeOn = (id: string, testId?: string): Job =>
     rerun: { name: "claude.run", input: { scope: testId ? { kind: "test", testId } : { kind: "project" } } },
   });
 
-describe("App › the « Claude is working » lock is read from the running jobs (review #2, PARITY #15)", () => {
+describe("App › the « Claude is working » lock is read from the running jobs", () => {
   it("a Claude run started elsewhere (CLI, MCP, another window) locks, and its end unlocks", async () => {
     jobs = [job({ id: "pull-1", kind: "pull" }), claudeOn("c1", "t9")];
     const lock = await boot();

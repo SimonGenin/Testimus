@@ -61,7 +61,7 @@ afterEach(() => {
   env.spawnClaude = real;
 });
 
-describe("claude args (SPEC §11)", () => {
+describe("claude args", () => {
   it("builds exactly the spec flags, MCP tools allowed, contexts and resume appended", () => {
     expect(
       claudeArgs({

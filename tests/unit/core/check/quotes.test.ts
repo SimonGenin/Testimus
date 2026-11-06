@@ -36,7 +36,7 @@ describe("minor 3 — a quote must be under the anchor it cites", () => {
     ]);
   });
 
-  test("fig: is its caption paragraph only (SPEC-RAG §5.1)", () => {
+  test("fig: is its caption paragraph only", () => {
     expect(findings('fig:40 "Figure 40 – Représentation graphique sectionneur"')).toEqual([]);
     expect(findings(`fig:40 ${S566}`)).toEqual([expect.stringMatching(/not under fig:40: it is under §5.6.6/)]);
     expect(findings(`fig:40 ${S5}`)).toEqual([expect.stringMatching(/not under fig:40/)]);
@@ -82,7 +82,7 @@ const evid = (...sources: string[]) =>
       sources: f.sources,
     }));
 
-describe("R2 — the quote is looked for in the cited passage (SPEC-RAG §5.1)", () => {
+describe("R2 — the quote is looked for in the cited passage", () => {
   test("found elsewhere: quote-not-at-anchor, naming the anchor that holds it", () => {
     expect(evid('§3.2 "La vue ligne se rafraîchit toutes les secondes"')).toEqual([
       {
@@ -113,7 +113,7 @@ describe("R2 — the quote is looked for in the cited passage (SPEC-RAG §5.1)",
   });
 });
 
-describe("R2 — weak quotes (SPEC-RAG §5.2)", () => {
+describe("R2 — weak quotes", () => {
   test("fewer than 4 words: quote-weak warning", () => {
     expect(evid('§2.1 "vue ligne"')).toEqual([
       expect.objectContaining({ kind: "quote-weak", severity: "warning", message: expect.stringMatching(/too short/) }),

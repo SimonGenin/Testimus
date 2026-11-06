@@ -19,7 +19,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("the app logo (SPEC §13 « The app logo », audit M-J1)", () => {
+describe("the app logo", () => {
   it("sits at the top of the main navigation, named Testimus", () => {
     withData(<Rail counts={{}} />, { route: { screen: "tests" } });
     const nav = screen.getByRole("navigation", { name: "Main" });

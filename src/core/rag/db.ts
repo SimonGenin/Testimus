@@ -156,7 +156,7 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
   }
 }
 
-// Vector spaces (SPEC-RAG §6)
+// Vector spaces
 
 function fingerprintJson(fp: SpaceFingerprint): string {
   const keys = Object.keys(fp).sort() as (keyof SpaceFingerprint)[];
@@ -330,7 +330,7 @@ export function insertChunk(db: DatabaseSync, c: Chunk, hash: string): number {
   return rowid;
 }
 
-// ponytail: a changed chunk loses its vectors in every space; the inactive ones become incomplete (SPEC-RAG §6.3)
+// ponytail: a changed chunk loses its vectors in every space; the inactive ones become incomplete
 export function deleteChunk(db: DatabaseSync, rowid: number): void {
   db.prepare("delete from chunks where rowid = ?").run(rowid);
   db.prepare("delete from chunks_fts where rowid = ?").run(rowid);
@@ -349,7 +349,7 @@ export function chunkCount(db: DatabaseSync): number {
   return Number((db.prepare("select count(*) n from chunks").get() as { n: number }).n);
 }
 
-// Document graph (SPEC-RAG §3.3)
+// Document graph
 
 export function replaceEdges(db: DatabaseSync, docId: string, edges: Edge[]): void {
   transaction(db, () => {

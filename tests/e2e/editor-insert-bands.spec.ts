@@ -24,7 +24,7 @@ const fieldOf = (page: Page, label: string) =>
     .getByRole("textbox", { name: `${label} of step 1` })
     .locator("xpath=ancestor::*[@data-field][1]");
 
-test("the insert bands of a field fade in only when hovered, and then take a click (PARITY #42)", async ({ page }) => {
+test("the insert bands of a field fade in only when hovered, and then take a click", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const field = fieldOf(page, "Expected Result");
   const plusText = field.getByRole("button", { name: "Text", exact: true });
@@ -40,7 +40,7 @@ test("the insert bands of a field fade in only when hovered, and then take a cli
   await expect(field.getByRole("textbox")).toHaveCount(2);
 });
 
-test("a new table: blank heads, the focus in the first, its tools always in view and the handles on the cell being written (PARITY #44)", async ({
+test("a new table: blank heads, the focus in the first, its tools always in view and the handles on the cell being written", async ({
   page,
 }) => {
   await openTest(page, "LFRPS12-1420");

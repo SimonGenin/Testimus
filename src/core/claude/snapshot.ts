@@ -110,7 +110,7 @@ const originalOf = (project: string, rel: string) => {
 
 const rootFiles = (project: string, roots: string[]) => roots.flatMap((r) => walk(project, r, originalOf(project, r)));
 
-// ponytail: an action may change more than tests — the files that hold the truth (SPEC §3) are copied too, the
+// ponytail: an action may change more than tests — the files that hold the truth are copied too, the
 // whole folder of a document in scope minus its original copy, which no command ever rewrites
 function truthFiles(project: string, scope: ClaudeScope): { roots: string[]; files: string[] } {
   const files = ["project.json", "xray.json", "columns.json"];

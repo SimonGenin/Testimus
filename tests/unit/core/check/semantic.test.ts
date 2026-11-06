@@ -42,7 +42,7 @@ afterEach(() => {
   resetProbe();
 });
 
-describe("check.run decides the semantic pass itself (GOAL-V3 N1)", () => {
+describe("check.run decides the semantic pass itself", () => {
   it("with Claude connected, runs the check-test skill and says so", async () => {
     claude(true);
     const out = await call<Out>("check.run", { ids: ["LFRPS12-1420"] }, P);

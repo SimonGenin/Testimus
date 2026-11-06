@@ -306,7 +306,7 @@ describe("--mock review loop (scripted check-test and fix-test)", () => {
   });
 });
 
-describe("review.evidence (SPEC-RAG §5.3)", () => {
+describe("review.evidence", () => {
   const ledger = (consulted: string[]) => {
     mkdirSync(join(project, ".testimus", "gen"), { recursive: true });
     writeFileSync(

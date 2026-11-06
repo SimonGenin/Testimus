@@ -42,7 +42,7 @@ const report = (ranks: (number | null)[], over: Partial<EvalReport["config"]> = 
     behaviors: ranks.map((rank, i) => ({ id: `q${i}`, policies: { search: { rank } } })),
   }) as unknown as EvalReport;
 
-describe("the reference document (SPEC §5)", () => {
+describe("the reference document", () => {
   it("ships the Syntec agreement and its 100 validated questions, each answered by an article of the document", () => {
     const dir = refdocSource();
     const md = readFileSync(join(dir, "docs", REFDOC.id, "doc.md"), "utf8");

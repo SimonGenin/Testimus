@@ -1,212 +1,96 @@
 # ROADMAP.md
 
-Each phase is usable on its own and ends on SPEC §15. Tick a line when it is built and verified;
-the behavior itself is described in SPEC.md, not here.
+Ce qui vient ensuite, regroupé par thème. Rien ici n'est construit tant que le code ne le dit pas. Le comment et le
+pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'existant est en fin d'ARCHITECTURE.md
+(§16).
 
-## Phase 1 — Base: what Xray Editor does, behind the three faces
+## 1. Génération
 
-The testers can use it as soon as this lands.
+- [ ] **Voir le test en cours d'écriture.** Pendant une génération, la page Génération montre le test que Claude est en
+      train d'écrire : celui en cours est déplié, il se replie quand il est fini, et on peut déplier / replier ceux
+      qu'on veut. Lecture seule, aucune édition. Uniquement sur la page Génération, pas en Review.
+- [ ] **Plus de refus au-delà de 15 pas.** Des tests ont été refusés parce qu'ils dépassaient 15 pas. Aucun prompt ne
+      doit imposer une limite stricte : c'est au prompt de l'utilisateur d'en décider. On peut pousser vers 15 pas au
+      plus, mais un test plus long est écrit quand même.
+- [ ] **Mieux expliquer les tests non écrits (skipped).** Dire un peu mieux pourquoi un test n'a pas été écrit, et
+      ranger les refus par catégorie. Les catégories viennent de Claude, elles sont dynamiques (pas de liste en dur) :
+      elles font donc partie des prompts et des outils (le bloc `gen-report`, ses `skipped`).
+- [ ] **Redemander des changements après une génération.** Une fois les tests générés, pouvoir demander des
+      changements sur tous les tests et des ajouts. C'est déjà possible avec Claude, mais sur la page Génération la
+      barre de gauche devient un Claude block avec des options pertinentes pour ces changements, et quelques Claude
+      action buttons liés aux findings et aux skipped.
 
-- [x] Scaffold (SPEC §1): Node 26, TS 7 (erasable only), Vite 8, vitest 5, playwright, Biome;
-      `src/faces/cli.ts` with the registry, `help`, `--json`
-- [x] Registry → MCP (`testimus mcp`) and HTTP (`testimus serve`, SSE progress) adapters
-- [x] `project.init` + `templates/project/` (CLAUDE.md, `.mcp.json`, skills)
-- [x] Port `testfile` / `table` / `adf` with generic step fields and `### Sources`, round-trip tests
-- [x] Port `jira` / `sync`: pull, folders, push plan, push; `xray.fields` (custom step fields)
-- [x] `xray.json.prefs`: field order, folded by default, hidden
-- [x] ~~`xray.importCsv` local mode (column mapping saved), then direct mode~~ — removed 2026-11-03
-- [x] UI: port shell, editor, ui vocabulary, styles; generic fields; Claude dock (`claude -p`)
-- [x] `serve --mock` with the fixture Jira; e2e green
-- [x] `system.setup` / `system.doctor` (CLI, MCP, first-run screen)
-- [x] `npm run release` + `install.ps1` (portable Node, prebuilt natives, no admin); proven on a
-      clean Windows Sandbox account — v1: installed for real in `%LOCALAPPDATA%\Testimus` (doctor green,
-      project init, docx indexed, serve) and into a fresh folder with fresh user dirs; Windows Sandbox is
-      not enabled on the build PC (needs admin), and PATH / Start-menu entries await the user's go-ahead
+## 2. Documents
 
-## Phase 2 — Documents and index
+- [ ] **Les images deviennent des documents à part entière.** Ce ne sont plus des pièces jointes ni des annexes d'un
+      autre document. Un document peut être un PDF, un Word, un `.txt`, une image, une vidéo… ou un ensemble d'images
+      et de vidéos. Une image ou plusieurs images forment un document, comme un document est un ensemble de sections,
+      et comme une vidéo est elle-même un ensemble d'images.
+      - Remplace les « lots en annexe » construits le 2026-11-05 (`doc.json.media`, groupe `media`, ARCHITECTURE.md
+        §5). À garder : normalisation des photos, lecture par Claude par paquets de 20, une source tirée d'une photo dit
+        *comment* faire une étape, pas ce qui est *attendu* (`observed-only`).
+      - Pistes déjà étudiées pour la vidéo, tout en local : `ffprobe` (durée, pistes) ; son → Whisper (transformers.js,
+        une entrée `speech` au catalogue) → transcription horodatée ; images candidates par changement de scène plus une
+        toutes les 5 s, quasi-doublons retirés (dHash) ; mosaïques 4×4 pour un survol par Claude (chapitres, moments à
+        voir), puis les images clés en pleine résolution ; `media.frame` et `media.transcript` comme commandes, donc
+        outils MCP. ffmpeg téléchargé à la demande comme llama.cpp (build win64 épinglé + SHA-256), sans admin. `/files`
+        avec les requêtes `Range` pour un lecteur vidéo.
+- [ ] **Un document à partir d'un dossier.** Choisir un dossier et ajouter tous ses éléments valides, prêts à l'import.
+- [ ] **Plusieurs conversions à la fois.**
+- [ ] **Un document qui relie les documents entre eux.** Après un import de documents et de photos, Claude écrit une
+      sorte de README qui parle des documents et des liens entre eux ; il est ensuite ajouté au contexte de chaque
+      commande, pour que tous les outils connaissent ces liens. Optionnel. Corrigé après chaque import, de façon
+      intelligente : on met à jour ce qui change, on ne recommence pas tout.
 
-- [x] `docs.add` / `docs.convert`: docx → `doc.md` with stable anchors + figures; PDF fallback
-- [x] Figure descriptions by Claude at conversion
-- [x] `rag.index`: section chunks, context headers, FTS5 + `sqlite-vec`, bge-m3 local; models as
-      profiles (`rag/models.ts`, `project.json.rag`)
-- [x] Default model profiles shipped in the release `models/`; `system.pullModel`; doctor checks
-      the project's profiles
-- [x] `rag.search`, `rag.passage`, `rag.figure` over MCP
-- [x] `rag.eval` + the testers' question set; settings fixed by measurement; bge-m3 vs
-      Qwen3-Embedding-0.6B — v1: measured on the fixture set (bge-m3 kept); the testers' set over the
-      real D401 documents is still to write
-- [x] `chat.ask` with `--resume` sessions and source chips; Documents screen
+## 3. Index, modèles et recherche
 
-## Phase 3 — Generation with sources
+- [ ] **Pas de warnings pendant l'indexation.** Pendant qu'elle tourne, l'indexation affiche des avertissements de
+      problèmes d'indexation : c'est normal puisqu'elle travaille, ça n'a pas de sens pour l'utilisateur et ça le
+      perturbe. Ils doivent disparaître.
+- [ ] **Rendre clair qui utilise quoi : embedding, reranker, recherche.** Aujourd'hui on comprend mal quelle recherche
+      et quel RAG sont utilisés. Exemple : avec le pack Qualité, l'app propose quand même d'installer BGE-M3. Il faut
+      dire clairement qui a besoin de quoi et qui utilise quoi — d'autant que d'autres LLM que Claude vont bientôt
+      arriver.
+- [ ] **Packs : marge du bandeau.** Au-dessus des packs de modèles, le bandeau info / warning n'a pas de marge par
+      rapport aux packs.
+- [ ] **Packs : des textes justes, un code générique.** Ce qui est écrit dans les packs n'est pas toujours vrai, par
+      exemple « skipped car trop gros » pour un modèle qu'on est littéralement en train d'utiliser. Retravailler ce code
+      pour le rendre global et générique : il montre clairement du spaghetti.
+- [ ] **Une recherche plus puissante,** avec des réglages modifiables dans Settings › Search.
 
-- [x] `generate-tests` skill (from the testers' prompt, with source rules)
-- [x] `gen.tests` job; Generate screen with live output
-- [x] Figures from documents embedded in generated steps
+## 4. Claude
 
-## Phase 4 — Check and review
+- [ ] **Onglet de Settings « Context ».** Toutes les prompts utilisées par le système y sont visibles.
+- [ ] **Claude actions triées par cible.** Les Claude actions sont triées par target (ce sur quoi porte l'action), et
+      cette target est clairement visible.
 
-- [x] Mechanical check (sources resolve, quotes found)
-- [x] `check-test` skill, parallel over a batch; `check.json`
-- [x] Review screen: editor + findings + highlighted source passage; Validate / To fix
-- [x] `fix-test` skill from a To fix note; review state mirrored to Jira labels
+## 5. Chargement et performance
 
-## Parity with Xray Editor (2026-11-02, behavior in SPEC §3, §10, §11, §12, §13)
+- [ ] **Montrer que ça avance.** Parfois le squelette de contenu s'affiche pendant le chargement mais rien ne bouge :
+      on ne sait pas s'il se passe quelque chose. C'est assez courant que ça prenne de longues secondes. Il faut un
+      signe de vie, et vérifier s'il reste des problèmes de performance.
+      - Pistes laissées par la passe du 2026-11-05 : un `test.md` écrit invalide beaucoup de lectures (à restreindre à
+        celles affichées, ou à regrouper) ; le détail d'un job en cours recalcule tout son journal à chaque événement
+        (regrouper par frame) ; le `stat` de tout le projet avant et après chaque job alors que le watcher sait ce qui a
+        bougé ; un seul bundle de 1,4 Mo (découper par écran) ; les premières lectures synchrones d'un gros projet
+        (~0,4 s au démarrage) ; `docs.show` renvoie tout `doc.md` au premier affichage.
 
-The capability-by-capability verdict (114 rows, all OK) is PARITY.md.
+## 6. Exécution des tests
 
-Audit of everything Xray Editor lets a user see, do or edit, then the gaps closed:
+- [ ] **Un onglet « Run » pour les testeurs.** Les testeurs y font leurs tests. À imaginer avec /design : ce qui compte
+      pour eux. A priori : créer un run avec une série de tests, puis annoter chaque test (« passe », « problème »),
+      ajouter des commentaires, des questions, etc.
+- [ ] **Un run en pages HTML, hors de l'app.** Générer, un peu comme des artifacts, un dossier pour un run : une page
+      `index.html` qui lance le run dans le navigateur en localhost. Le dossier peut aller sur une autre machine que
+      l'app, on y fait le run, puis on le réimporte dans l'application avec ses résultats. Un modèle existe sur ce PC :
+      la fiche de test interactive de `D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\skills\testing\` (HTML +
+      `data.json`, OK / NOK par ligne).
 
-- [x] Core: `contexts.*` (per project, per-test override), `tests.restore` / `columns` / `setColumns` /
-      `removeImage`, preconditions in `tests.edit`, `xray.preconditions`, `xray.browse`, `filled` column mode
-- [x] Tests editor: `⋯` menu (Clone, Download from Jira, Undo local changes, Open in Jira, Delete local copy), remote
-      re-check on open, step diff marks + Jira version + restore + deleted placeholders, preconditions editor and
-      panel, contexts chip box, Columns popover, Details persisted, resizable column, reload on focus
-- [x] Step card: header fold toggles (open · when filled · collapsed), Ask Claude per step, project column kinds,
-      split tracks, Undo by field with image clean-up, orphan detach, empty field = insert strip
-- [x] Sidebar: tab counts, direct/total folders, infinite scroll + sticky head, pull queue + pulling pane, hover ✕,
-      resizable width, narrow drawer, activity popover, toast countdown
-- [x] Claude dock and Settings: see SPEC §13 « Claude dock » and « Settings »
+## 7. Navigation
 
-## RAG v2 — SPEC-RAG.md (built 2026-11; behavior in SPEC §4, §5, §8, §12, §14)
+- [ ] **Menu du projet simplifié.** Dans le menu principal, un clic sur le nom du projet ne montre plus « Open a
+      folder », « New project » ni « Open by Jira key » : juste un bouton qui ramène à l'écran de sélection de projet.
 
-- [x] R1 Benchmark v2: `behaviors.jsonl`, L1 metrics, `rag.compare` (bootstrap), reports with fingerprints, `gen.bench`
-- [x] R2 Evidence model: document graph, passage cap, `quote-not-at-anchor`, `quote-weak`
-- [x] R3 `rag.mentions`, `rag.related`, `expand`; skills updated; evidence ledger, `review.evidence`
-- [x] R4 French lexical search: Snowball stemmer, glossary, stop words
-- [x] R5 Vector spaces by fingerprint, migration, per-machine activation, BM25 fallback, transformers.js devices
-- [x] R6 Model manager: catalog, `models.*`, storage folder (move · keep · copy), path and download (SHA-256),
-      Settings › Models, doctor rows
-- [x] R7 Ollama runtime and panel — Removed by decision (D-12): GGUF runs on llama.cpp only
-- [x] R8 Hardware fit, timings journal (fed by every runtime), advice with the benchmark's quality side, packs, first-launch pack
-- [x] R9 llama.cpp runtime: managed server, build download, backend choice
-- [x] R10 Experiments of SPEC-RAG §10.8 on the RATP corpus (L1, 25 variants; L2 bounded), thresholds per reranker,
-      reference kept on Light, pack variants reordered — provisional until the testers validate the bootstrap set
-- [x] R11 Qwen3-Reranker through transformers.js (`yes-no-lm`), figure descriptions v2 (labels, kind) on the bench
-      documents (figure recall 0.69 → 1.00, provisional); multimodal embeddings stay deferred
+## À compléter
 
-## Desktop app — SPEC-ELECTRON.md (behavior in SPEC §1, §2, §13 « Desktop shell », §14, §15)
-
-- [ ] E0 Signing and execution policy on a tester's PC — cannot be done on the build PC; open
-- [x] E1 `serve --port 0 --ready-json --exit-with-stdin`, clean stop, `TESTIMUS_SHELL`
-- [x] E2 Shell: core spawn, splash and error page, window state, lock-down, single instance, quit with jobs
-- [x] E3 Bridge in the UI: Browse, `pathOf` → `docs.add { file }`, pickers, taskbar progress, notifications, reveal, CSP
-- [x] E4 Release: pinned Electron + SHA-256, rename, icon, fuses, asar (integrity), locales, shortcuts, `Unblock-File` —
-      proven in a fresh folder (no Windows Sandbox on the build PC; a clean account remains with E0)
-- [x] E5a Updates from the team folder (no path in the code: `--publish <dir>` or Settings › Updates; a mapped drive
-      recorded as `\\server\share`; `--channel` moves it): `npm run release -- --publish` (hidden
-      `.partial` copy, renamed whole; release.json counts the files and names the folder), `system.updates` /
-      `system.update` (the release's install.ps1, same options; a half copy refused; two versions kept), Settings ›
-      Updates, the « available » and « installed — restart » notices, desktop `relaunch` on the new version's exe
-- E5b (optional): proxy from Windows settings, Explorer « Open in Testimus »
-
-## Smart columns — 2026-11-03
-
-- [x] A step column is a smart column: Claude fills it from its description (Settings › Smart columns); nothing else
-      about a column is special — the documents, the index, the check and the skills know no column by name
-
-## Claude actions — built 2026-11-03
-
-- [x] A1 `actions.*` commands (list, show, propose, dismiss, run, triage), action files in `.testimus/actions/`, stale when the
-      problem place changes, one open action per problem, a dismissed problem stays dismissed
-- [x] A2 Run kinds `action` (the whole command set minus another Claude run, Jira writes and the machine) and `triage`;
-      `claude.run` scope `doc`; snapshots copy project.json, xray.json and the document folder, so Revert puts them back
-- [x] A3 One right panel « Ask Claude » with a scope (step, test, document, project), action cards with their own model and
-      effort, the open actions of the scope listed under the thread
-- [x] A4 Claude action buttons beside the problem: document warnings, documents list, Review rows and findings, test header,
-      Generate, failed jobs; counters in the screen headers
-- [x] A5 Proposals from the check and the generation (`actions_propose` in their prompts and skills), a triage of a new
-      document's warnings with the import's model and effort, and of a failed job when Claude is there
-- A6 (later) Jira writes from an action: the push plan shown in the card, pushed on the user's yes
-
-## Runtime skills from the claude -p traces — built 2026-11-03
-
-What 85 real runs showed (one « whole document » generation: 103 turns, 20 tests written from one read, one of 40
-steps, 172 findings, `vague-result` first; `rag_related` never called):
-
-- [x] K1 `plan-tests` skill: when a request takes more than one test the generation answers with a `test-plan` block
-      instead of tests; `gen.tests` then runs generate-tests once per planned test (every one, as many at a time as
-      the agents setting and the PC's load allow — `lib/agents.ts`, `system.testAgents`), one revert for all
-      (`planned` in the result); a failed run stops the plan, what is left is in `skipped` and `remaining`, and
-      `gen.tests --resume <generation>` (the UI's Resume) writes it under the same generation and revert
-- [x] K2 `edit-test` skill for the Claude panel on a test or a step (`claude.run` names it), with `check_run` allowed
-- [x] K3 generate-tests: an expected result is observable on the screen (else left out), the test states its starting
-      point, a chapter is not a scenario, every `check_run` finding fixed (`quote-weak` too), re-read with `tests_show`
-- [x] K4 check-test: `rag_mentions` once per object, a missing case is checked
-      against the other tests first; figures read at the path `rag_figure` gives
-- [x] K5 the team context is `docs_show`'s `context` (most documents have no `context.md`)
-
-## Reference document — 2026-11-03
-
-« Measure » on a pack card failed on every project without `eval/behaviors.jsonl`, and pointed to a skill the
-projects do not have. A pack is now measured on a document Testimus ships (SPEC §5 « Reference document »):
-
-- [x] M1 `templates/reference/syntec/`: the Syntec agreement (90 articles) and the 100 questions of MTEB-French
-      SyntecRetrieval (Apache-2.0), each with its answering article
-- [x] M2 `models.measure` (a job, no project needed): `rag.eval` on this PC's copy with the pack's variant and its
-      retrieval settings; scored by « right article first » and « in the top 5 » (recall@10 saturates)
-- [x] M3 Pack cards: quality on the reference document (this PC's measure, else the catalog's), « On this project »
-      when the project's own set measured it; the Measure dialog says what is measured
-- [x] M4 `scripts/refdoc.ts` writes the figures into `models/catalog.json` — Light measured (60 % first, 91 % top 5)
-- [ ] M5 Measure Performance, Balanced and Quality on the dev PC (DirectML and llama.cpp variants need Windows):
-      `node scripts/refdoc.ts`
-
-## v3 — nettoyage (GOAL-V3.md, branch `grand-nettoyage`, 2026-11-04)
-
-The code rewritten clean, behavior kept (PARITY.md, each row with the test that proves it); report in
-`.build/v3/REPORT.md`.
-
-- [x] N1 Every gesture is a command: typed registry (`CommandMap`), no unknown command name in the page, no fetch or
-      storage outside `lib/data/` and `lib/prefs.ts`, the HTTP face serves the registry only; `jobs.rerun`, `ctx.invoke`
-- [x] N2 One kit (`src/ui/components/ui/`): one component per control, `Text` and `ClaudeBlock` built on it, every
-      screen on it; the old kit and every bare control outside it gone (Biome refuses them)
-- [x] N3 One data layer (TanStack Query v5): keys `[project, command, input]`, one SSE stream that keeps the cache true
-      (file `changed` events from a per-project watcher, job events), autosave as a mutation (400 ms or blur, one save
-      in flight, conflict by mtime, drafts)
-- [x] N4 StyleX only, tokens only (`tokens.stylex.ts` generated from `design/tokens.css`, revised design of
-      2026-11-04: Inter, Source Serif 4, JetBrains Mono); no CSS file but the fonts; core modules split by
-      responsibility (jira/, sync/, docs-*, models-*, eval-*, gen-*)
-- [x] N5 `#/kit`: every component in each of its states, light and dark, captured by `tests/e2e/kit.spec.ts`
-- [x] N6 Tests by behavior and by area, coverage not lower in any folder, ≥ 90 % in core, shared, the kit and the data
-      layer
-- [x] N7 `src/shared/run/` the one place for processes, waits and cleanup (the whole tree killed on cancel and exit)
-- [x] Guards (`tests/unit/guards/`) blocking at zero
-- [ ] Live read-only Jira check (`xray.pull` of an LFRPS12 test) on the Windows PC — this Mac has no Atlassian
-      credentials
-
-## Jira in the editor — GOAL-JIRA.md (built 2026-11-05)
-
-Design: the canvas « Testimus — test head & Jira » (link in GOAL-JIRA.md).
-
-- [x] J1 The assignee in test.md (`assignee`, `assignee_id`, a copy of Jira's like `status`: written by the pull and
-      by `issue.*`, kept from disk by a save, never pushed nor compared); the --mock Jira has a workflow, people and
-      comments (`TESTIMUS_MOCK_JIRA_NO_COMMENT=1` refuses comments)
-- [x] J2 The `issue` group: `transitions`, `transition`, `people`, `assign`, `comments`, `comment`, `editComment`,
-      `deleteComment` — every write goes to Jira at once with a `dryRun`, out of every Claude run's reach; mentions
-      `@[Name](accountId)` ↔ ADF `mention`; `claude.draftComment` (skill `draft-comment`) drafts, the person sends
-- [x] J3 `assignee:me|none|<name>` in the filters (search.all, the list's Assignee menu); « me » kept on disk for offline
-- [x] J4 The head (summary, badges, status menu, assignee picker, comment count), the Details card (folded line,
-      Jira version, before Claude), the comments card (mentions, Claude draft, edit, delete), the list's Assignee
-      filter and avatar; the kit's Avatar
-- [x] J5 Unit tests over the fake Jira, `tests/e2e/jira-side.spec.ts`
-- [ ] Live read-only check of the three reads (transitions, assignable search, comments) on a real project
-
-## Photos and videos as annexes — GOAL-MEDIA.md
-
-Design: the canvas « Testimus — photos & videos » (link in GOAL-MEDIA.md).
-
-- [x] M1 Batches of photos (2026-11-05): `doc.json.media`, `body.md` + `doc.md` assembled from it and each included
-      `media/<lot>/part.md`; the `media` group (`add`, `addFiles`, `removeFile`, `include`, `analyse`, `context`,
-      `remove`, `list`, `show`, one job kind `media`); jpg/png/webp → jpg ≤ 2000 px with EXIF orientation and date
-      (sharp, already shipped with transformers.js); Claude reads 20 photos a run (`claude/media.ts`, run kind
-      `media`) with the batch's context and the document's outline; `docs.add {media}`, `docs.convert {media}`;
-      `observed-only` in the mechanical check (unless the batch is a reference) and the rule in generate-tests,
-      check-test, fix-test; the batches in Documents (list, side panel, dialog, drop on an open document, Convert),
-      the annex in the contents and its « Observed » banner, « Observed » sources, annexes in the generation scope;
-      the fixture's batch (2 photos, not in the document), scripted Claude; `tests/unit/core/media/`,
-      `tests/e2e/media.spec.ts`, the `media` scenario of the screens catalogue
-- [ ] The `observed` token (teal) proposed by the canvas: M1 uses the `info` tokens until design/ has it
-- [ ] M2 — the conversion leans on the ticked photos; M3–M6 — videos, sound, the player
-
-## Later
-
-- Execution support: test sheets for testers, screenshots from R4 runs, NOK → bug draft
+- [ ] « J'aimerais pouvoir… » — la phrase s'arrêtait là dans la note d'origine.

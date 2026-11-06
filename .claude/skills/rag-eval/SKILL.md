@@ -1,12 +1,12 @@
 ---
 name: rag-eval
-description: Measuring Testimus retrieval quality (benchmark v2, SPEC-RAG §10) — the behavior set eval/behaviors.jsonl with all its evidence, rag.eval (L1 evidence recall@10/20/50, complete, recall by role, precision, nDCG@10, MRR, characters, for search and for search + related + mentions), rag.compare (paired bootstrap interval, adopt rule), gen.bench (L2 with Claude, costly), retrieval settings. Use before choosing or changing any retrieval setting or model, and when someone says search results are bad.
+description: Measuring Testimus retrieval quality (benchmark v2, ARCHITECTURE.md §6) — the behavior set eval/behaviors.jsonl with all its evidence, rag.eval (L1 evidence recall@10/20/50, complete, recall by role, precision, nDCG@10, MRR, characters, for search and for search + related + mentions), rag.compare (paired bootstrap interval, adopt rule), gen.bench (L2 with Claude, costly), retrieval settings. Use before choosing or changing any retrieval setting or model, and when someone says search results are bad.
 ---
 
 # Retrieval evaluation (benchmark v2)
 
 A retrieval setting or model is chosen by this measurement, never by reputation or by one
-good-looking answer (SPEC §5, SPEC-RAG §10). What counts is **complete evidence**: every passage a
+good-looking answer (ARCHITECTURE.md §6). What counts is **complete evidence**: every passage a
 tester needs to write the test, not the rank of the first hit.
 
 ## The behavior set — `<project>/eval/behaviors.jsonl`
@@ -60,12 +60,12 @@ chunker version (hash of chunk ids and hashes), header mode, vector space (id + 
 retrieval settings, reranker, ks, corpus hash, set hash and format, app version, `provisional`.
 
 `--embedding` / `--reranker` take a catalog id installed on this PC: the
-candidate is embedded into its own vector space of `index/rag.db` (SPEC-RAG §6.3) and searched there;
+candidate is embedded into its own vector space of `index/rag.db` and searched there;
 the active space, `index/state.json` and this PC's choice are not touched, and switching to it later
 reuses those vectors. Without them the run measures this PC's active models. `--mode bm25` embeds
 nothing.
 
-## Retrieval settings (SPEC-RAG §4.3)
+## Retrieval settings
 
 Order: defaults < the active pack's `retrieval` < `project.json.rag.retrieval` < the run override.
 `project.json.rag.retrieval` — all optional, defaults = `{ candidates: 50, rrfK: 60,
@@ -82,7 +82,7 @@ never copy it to another model.
 (one name = compare it with the latest other report). Behaviors are paired by id; the mean difference
 in `must` recall at k gets a bootstrap 95 % interval (fixed seed: same reports, same numbers).
 **Adopt** only when the interval is above zero **and** no role goes down (exceptions first). Then
-write the result and its numbers into SPEC §5 and change `project.json.rag.reference`. On a
+write the result and its numbers into ARCHITECTURE.md §6 (« Results so far ») and change `project.json.rag.reference`. On a
 provisional set, the decision is provisional too.
 
 ## L2 — `gen.bench` (Claude, costly, explicit)
@@ -96,7 +96,7 @@ quote errors, cost and duration. The tests of each run are reverted once scored 
 the previously active configuration is restored at the end. Keep it sober: 4 behaviors × 2
 configurations (the reference and the best in L1) × 3 runs.
 
-## Order of experiments (SPEC-RAG §10.8)
+## Order of experiments
 
 1. today's system (baseline); 2. + graph, passage cap; 3. + related/mentions
 (`search+graph`); 4. + French stemming, glossary, stop words; 5. embeddings (bge-m3, Qwen3 0.6B / 4B /

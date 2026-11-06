@@ -63,7 +63,7 @@ describe("rag.mentions", () => {
   const refs = (m: Mentions) => m.docs.flatMap((d) => d.sections.map((s) => s.ref));
   const section = (m: Mentions, ref: string) => m.docs.flatMap((d) => d.sections).find((s) => s.ref === ref);
 
-  describe("rag.mentions (SPEC-RAG §4.1)", () => {
+  describe("rag.mentions", () => {
     it("finds an id as an exact code, never as the prefix of a longer id", () => {
       const m = mentions(dir, { term: "EXI_MOP_SPF_900_A_1" });
       expect(m.forms).toEqual(["EXI_MOP_SPF_900_A_1"]);

@@ -57,7 +57,7 @@ async function darkTheme(page: Page): Promise<void> {
 
 const theme = (page: Page) => page.evaluate(() => localStorage.getItem("testimus.theme"));
 
-test("a preference chosen in the desktop app is there after the window restarts (PARITY #101)", async () => {
+test("a preference chosen in the desktop app is there after the window restarts", async () => {
   const env = sandbox();
   const first = await launch(env);
   await darkTheme(first.page);
@@ -70,7 +70,7 @@ test("a preference chosen in the desktop app is there after the window restarts 
   await second.app.close();
 });
 
-test("when the core had to take another port, the preferences copied to settings.json come back (PARITY #101)", async () => {
+test("when the core had to take another port, the preferences copied to settings.json come back", async () => {
   const env = sandbox();
   const first = await launch(env);
   await darkTheme(first.page);

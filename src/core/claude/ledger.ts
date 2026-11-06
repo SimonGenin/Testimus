@@ -41,8 +41,8 @@ const str = (v: unknown) => (typeof v === "string" ? v.trim() : typeof v === "nu
 const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : d);
 
 // ponytail: what the generation really opened, read from its stream-json tool calls, never from its own report
-// (SPEC-RAG §5.3) — rag_passage / rag_figure / rag_related refs, Read ranges of doc.md mapped to the sections they
-// cross, Read of a figure image; searches (rag_search, rag_mentions, Grep on the documents) go to `searched`
+// (rag_passage / rag_figure / rag_related refs, Read ranges of doc.md mapped to the sections they
+// cross, Read of a figure image); searches (rag_search, rag_mentions, Grep on the documents) go to `searched`
 export function ledgerOf(project: string, calls: ToolCall[]): Ledger {
   const docs = new Map<string, Doc | null>();
   const docOf = (id: string): Doc | null => {

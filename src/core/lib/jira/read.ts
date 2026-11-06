@@ -83,7 +83,7 @@ export async function getProjectInfo(key: string): Promise<ProjectInfo> {
 
 type RawField = { id: string; name: string; type?: string; required?: boolean; disabled?: boolean };
 
-// SPEC §10 (verified read-only on LFRPS12, 2026-11-02): the built-in three answer lowercase, a custom
+// Verified read-only on LFRPS12, 2026-11-02: the built-in three answer lowercase, a custom
 // field answers under its own name; a field switched off in Xray is kept, marked disabled (Xray Editor
 // shows it « off in Xray », folded unless a step holds something)
 export async function getStepFields(projectId: string): Promise<XrayField[]> {

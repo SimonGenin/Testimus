@@ -4,7 +4,7 @@ import { env } from "../../../../src/core/env.ts";
 import type { EvalReport } from "../../../../src/core/rag/eval.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
-// ponytail: the numbers rag.eval gave on the fixture project before the core-rag rewrite (GOAL-V3 wave 2); the same
+// ponytail: the numbers rag.eval gave on the fixture project before the core-rag rewrite; the same
 // call must give the same numbers after it. bm25 is the lexical mode (no model); hybrid runs on the --mock runtime.
 let dir: string;
 const realMock = env.mock;

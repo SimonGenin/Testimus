@@ -129,7 +129,7 @@ export const commands = [
           app: z.string().describe("Testimus version"),
           index: z.string().describe("The rag.db measured"),
         })
-        .describe("Everything needed to reproduce the run (SPEC-RAG §10.5)"),
+        .describe("Everything needed to reproduce the run"),
       policies: z
         .array(
           z.object({

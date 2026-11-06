@@ -52,7 +52,7 @@ function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
 }
 
 // ponytail: the edges the index holds for a document indexed as it is now, else derived from doc.md the way the
-// indexer does — the graph never depends on a model, so every PC gets the same neighbours (SPEC-RAG P1)
+// indexer does — the graph never depends on a model, so every PC gets the same neighbours
 function graphOf(project: string): Graph {
   const docs = projectDocs(project);
   const key = corpusKey(project, docs);

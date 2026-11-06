@@ -62,7 +62,7 @@ describe("diagnose (ported from Xray Editor)", () => {
     expect(diagnose("all good")).toBeUndefined();
   });
 
-  it("gives each kind its exact plain-word title and detail (PARITY #81)", () => {
+  it("gives each kind its exact plain-word title and detail", () => {
     expect(diagnose("spawn claude ENOENT")).toEqual({
       kind: "connect",
       title: "Claude Code is not installed or not found.",

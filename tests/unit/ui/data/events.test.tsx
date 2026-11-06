@@ -116,7 +116,7 @@ describe("the event bridge", () => {
     stop();
   });
 
-  it("drops the reads of a project the window leaves, so coming back reads it again (SPEC: a switch drops the caches)", async () => {
+  it("drops the reads of a project the window leaves, so coming back reads it again (a switch drops the caches)", async () => {
     const client = createQueryClient();
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>

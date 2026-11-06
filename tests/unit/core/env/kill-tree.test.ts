@@ -32,7 +32,7 @@ afterEach(() => {
     } catch {}
 });
 
-describe("a cancelled Claude run takes its whole process tree with it, on every platform (PARITY #74)", () => {
+describe("a cancelled Claude run takes its whole process tree with it, on every platform", () => {
   for (const detached of [false, true])
     it(`kills a grandchild${detached ? " that left the process group" : ""} when the run is cancelled`, async () => {
       const ctrl = new AbortController();

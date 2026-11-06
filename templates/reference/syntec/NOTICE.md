@@ -1,6 +1,6 @@
 # Reference document
 
-Testimus measures its search packs on this folder (SPEC §5 « Reference document »).
+Testimus measures its search packs on this folder: the same test on every PC, no project needed (ARCHITECTURE.md §6 « Reference document »).
 
 - `docs/syntec/doc.md`: the articles of the Convention collective nationale des bureaux d'études techniques, des
   cabinets d'ingénieurs-conseils et des sociétés de conseil (Syntec, IDCC 1486), as published by the Syntec

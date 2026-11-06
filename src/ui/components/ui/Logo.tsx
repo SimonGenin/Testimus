@@ -23,7 +23,7 @@ export type LogoProps = {
   label?: string;
 };
 
-// ponytail: the Testimus logo on its light tile, white in both themes (shell.mjs .rail__logo, SPEC §13) — the top of
+// ponytail: the Testimus logo on its light tile, white in both themes (shell.mjs .rail__logo) — the top of
 // the rail and the first-launch screen; the one place it is drawn
 export function Logo({ label = "" }: LogoProps) {
   return (

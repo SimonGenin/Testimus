@@ -74,7 +74,7 @@ export type PassageProps = {
 
 const squeeze = (s: string) => s.replace(/\s+/g, " ").toLowerCase();
 
-// ponytail: the quote is found whitespace- and case-insensitively (SPEC §6), on a squeezed copy mapped back to the
+// ponytail: the quote is found whitespace- and case-insensitively, on a squeezed copy mapped back to the
 // paragraph's own offsets
 export function quoteMarks(text: string, quote: string): [number, number][] {
   const q = squeeze(quote).trim();

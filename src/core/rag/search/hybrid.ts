@@ -162,7 +162,7 @@ async function ranked(
     let rerankFailed: string | null = null;
     let reranked: Awaited<ReturnType<typeof rerankOf>> = null;
     // ponytail: a reranker that cannot answer (server down, out of memory) leaves the fused ranking as it is — the
-    // search never fails for it, and the warning says why (SPEC §5)
+    // search never fails for it, and the warning says why
     if (ranked.length)
       try {
         reranked = await rerankOf(

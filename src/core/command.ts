@@ -63,7 +63,7 @@ export class UserError extends Error {
 }
 
 export function notBuilt(name: string): never {
-  throw new UserError(`${name} is not built yet.`, "See ROADMAP.md (RAG v2 and desktop sections).");
+  throw new UserError(`${name} is not built yet.`, "See ROADMAP.md.");
 }
 
 export function projectOf(ctx: Ctx): string {

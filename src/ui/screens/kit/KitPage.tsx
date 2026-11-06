@@ -168,7 +168,7 @@ function ThemePanel({ name, theme, section }: { name: string; theme: typeof ligh
 }
 
 // ponytail: one component's page — its name, family and file, what it is for, its props read from its source, every
-// state light and dark side by side (SPEC §13), then how to use it
+// state light and dark side by side, then how to use it
 export function KitPage({ section }: { section: KitSection }) {
   return (
     <article aria-labelledby="kit-title" {...stylex.props(styles.page)}>

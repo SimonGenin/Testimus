@@ -46,7 +46,7 @@ function write(name: string, lines: unknown[]): string {
   return f;
 }
 
-describe("behavior set (SPEC-RAG §10.1)", () => {
+describe("behavior set", () => {
   it("reads the v2 format with its defaults and keeps validated", () => {
     const s = readBehaviors(
       write("b.jsonl", [
@@ -129,7 +129,7 @@ const B: Behavior = {
   ],
 };
 
-describe("L1 metrics, computed by hand (SPEC-RAG §10.3)", () => {
+describe("L1 metrics, computed by hand", () => {
   const ranked = [
     { item: item("A", "§9"), chars: 100 },
     { item: item("A", "§2"), chars: 50 },

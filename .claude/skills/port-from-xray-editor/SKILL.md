@@ -12,7 +12,7 @@ and never imports from it.
 
 1. Read the module's contract in `D:\Projects\XrayEditor\SPEC.md` §5 and its notes in that project's
    `CLAUDE.md`, then the source and its tests in `tests/unit/`.
-2. Find where it lands in Testimus (`CLAUDE.md` Layout) and which SPEC section changes its behavior.
+2. Find where it lands in Testimus (CODE.md « Layout ») and which ARCHITECTURE.md section changes its behavior.
 
 ## What lands where
 

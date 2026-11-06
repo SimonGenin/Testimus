@@ -10,7 +10,7 @@ import { markIndexedInDb } from "../../helpers/index-state.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 // ponytail: every command that starts Claude, called through the registry against the scripted Claude of --mock; `call`
-// fails when an output does not pass the command's own schema (GOAL-V3 N1, N6)
+// fails when an output does not pass the command's own schema
 
 const real = env.spawnClaude;
 const realDelay = process.env.TESTIMUS_MOCK_CLAUDE_MS;

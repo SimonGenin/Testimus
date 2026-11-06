@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GUARDS, type GuardName, show } from "./scan.ts";
 
-// ponytail: a ratchet — each guard may only go down; at 0 everywhere they are blocking (GOAL-V3, wave 5)
+// ponytail: a ratchet — each guard may only go down; at 0 everywhere they are blocking
 const LIMITS: Record<GuardName, number> = {
   "N1a unknown or dynamic command names in src/ui": 0,
   "N1b value imports from src/core or src/shared/run in src/ui": 0,
@@ -24,7 +24,7 @@ const LIMITS: Record<GuardName, number> = {
   "G2 framed boxes (edge and rounded corners) drawn outside the kit": 10,
 };
 
-describe("architecture guards (GOAL-V3 N1, N2, N4, N7; design-system audit G1, G8)", () => {
+describe("architecture guards", () => {
   for (const [name, scan] of Object.entries(GUARDS) as [GuardName, () => unknown][])
     it(`${name}: at most ${LIMITS[name]}`, async () => {
       const found = (await scan()) as { file: string; line: number; text: string }[];

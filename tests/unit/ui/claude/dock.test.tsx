@@ -599,7 +599,7 @@ describe("Claude dock: requests from the app", () => {
     expect(screen.getByRole("radio", { name: "Step 3" })).toHaveAttribute("aria-checked", "true");
   });
 
-  it("a whole-test request from the test header leaves the step scope even while a step has the focus (PARITY #5)", async () => {
+  it("a whole-test request from the test header leaves the step scope even while a step has the focus", async () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
     const { update } = mount(
       { request: { mode: "test", scope: "step", nonce: 1 } },
@@ -615,7 +615,7 @@ describe("Claude dock: requests from the app", () => {
     expect(callsOf("claude.run")[0].input.scope).toEqual({ kind: "test", testId: "local-1" });
   });
 
-  it("counts the running seconds of a Claude job and cancels it with jobs.cancel (PARITY #74)", async () => {
+  it("counts the running seconds of a Claude job and cancels it with jobs.cancel", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
     try {
       net.routes["claude.run"] = () => ({ jobId: "r7" });

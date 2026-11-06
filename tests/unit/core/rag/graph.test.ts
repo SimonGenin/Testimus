@@ -25,7 +25,7 @@ describe("the document graph", () => {
   const A = "SPEC_A";
   const a = (anchor: string) => `${A}#${anchor}`;
 
-  describe("document graph (SPEC-RAG §3.3)", () => {
+  describe("document graph", () => {
     const edges = edgesOf(A);
 
     it("every edge is a full reference and carries its document", () => {

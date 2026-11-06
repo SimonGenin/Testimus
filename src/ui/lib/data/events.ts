@@ -6,7 +6,7 @@ import { invalidate, invalidateProject, type Key, key, type Prefix, setReachable
 
 type Rule = [pattern: RegExp, keys: (m: RegExpMatchArray) => Prefix[]];
 
-// ponytail: a file changed in the project → the reads that show it (SPEC §3: the files are the state)
+// ponytail: a file changed in the project → the reads that show it (the files are the state)
 const PATHS: Rule[] = [
   [
     /^tests\/([^/]+)\/test\.md$/,
@@ -222,7 +222,7 @@ export function connectEvents(client: QueryClient): () => void {
   });
   const offEvents = events((e) => apply(client, e));
   // ponytail: the events of a project the window left are not applied, so its reads are dropped rather than kept
-  // stale — a project one comes back to is read again (SPEC §13: a switch drops the caches)
+  // stale — a project one comes back to is read again (a switch drops the caches)
   const offProject = onProjectChange((left) => {
     if (left !== null) client.removeQueries({ predicate: (q) => (q.queryKey as Key)[0] === left });
   });

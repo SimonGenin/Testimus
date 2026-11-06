@@ -125,7 +125,7 @@ export function suggestPack(rows: PackRow[], hw: Hardware | null, catalog: Catal
 
 type Picker = { pickFolder?: (o: { title: string; defaultPath?: string }) => Promise<string | null> };
 
-// ponytail: the desktop shell's folder picker when it is there (SPEC §13 bridge); the browser mode types the path
+// ponytail: the desktop shell's folder picker when it is there; the browser mode types the path
 export function folderPicker(): Picker["pickFolder"] | null {
   const bridge = (globalThis as { testimusDesktop?: Picker }).testimusDesktop;
   return bridge?.pickFolder ? (o) => bridge.pickFolder?.(o) ?? Promise.resolve(null) : null;

@@ -28,7 +28,7 @@ const opened = z.object({
   jiraProject: z.string().describe("Its Jira project key"),
 });
 
-// ponytail: project.json keeps retrieval as an override (SPEC-RAG §4.3) — the keys given change, a rerank key too
+// ponytail: project.json keeps retrieval as an override — the keys given change, a rerank key too
 function withRetrieval(cur: ProjectJson["rag"]["retrieval"], over: RetrievalOverride): ProjectJson["rag"]["retrieval"] {
   const rerank = over.rerank ? { rerank: { ...cur?.rerank, ...over.rerank } } : {};
   return { ...cur, ...over, ...rerank } as ProjectJson["rag"]["retrieval"];

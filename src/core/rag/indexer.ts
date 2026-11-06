@@ -242,7 +242,7 @@ async function runIndex(project: string, ctx: Ctx, opts: IndexOpts, file: string
   const h: Headers = { describe: opts.describe, claude: opts.claude };
   return withDb(file, async (db) => {
     // ponytail: --force chunks every document again and re-embeds the active space only; an unchanged chunk keeps its
-    // row, so the other spaces keep their vectors (activating a model never destroys another space, SPEC-RAG P3)
+    // row, so the other spaces keep their vectors (activating a model never destroys another space)
     if (opts.force) db.exec("delete from docs");
     const docs = projectDocs(project);
     const report: IndexReport["docs"] = [];

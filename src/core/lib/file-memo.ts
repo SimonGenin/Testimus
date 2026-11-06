@@ -12,7 +12,7 @@ export function fileStamp(path: string): string {
 }
 
 // ponytail: what is worked out from a few files (a test's row, a job's summary) is worked out once per version of
-// them — the files stay the truth (SPEC §3), each read only stats them; the oldest entries go past `max`
+// them — the files stay the truth, each read only stats them; the oldest entries go past `max`
 export function fileMemo<T>(max = 20_000): (key: string, files: readonly string[], compute: () => T) => T {
   const cache = new Map<string, { stamp: string; value: T }>();
   return (key, files, compute) => {

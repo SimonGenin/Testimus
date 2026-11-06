@@ -104,7 +104,7 @@ test("step text survives the round trip byte for byte", () => {
   }
 });
 
-test("serialized output is exactly the format of SPEC section 6", () => {
+test("serialized output is exactly the test.md format", () => {
   const t: Test = {
     key: "BHPTCC-2234",
     project: "BHPTCC",

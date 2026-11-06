@@ -61,7 +61,7 @@ function positions(md: string): (anchor: string) => number {
 const cache = new Map<string, { key: string; docs: CorpusDoc[] }>();
 
 // ponytail: the index's chunks when the document is indexed as it is now, else the same chunks cut from doc.md —
-// both paths give the same passages, so the tools answer the same with or without an index (SPEC-RAG P1)
+// both paths give the same passages, so the tools answer the same with or without an index
 function corpusDocs(project: string): CorpusDoc[] {
   const docs = projectDocs(project);
   const key = corpusKey(project, docs);

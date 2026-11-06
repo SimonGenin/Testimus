@@ -2,8 +2,8 @@
 
 Cet outil photographie chaque écran, chaque dialogue et chaque état de Testimus : vide et avec données, en
 plusieurs tailles d'écran, en clair et en sombre. Il sert d'inventaire visuel. La session design s'en sert pour
-redessiner le système (GOAL-DESIGN.md). Le nettoyage s'en sert pour vérifier qu'aucun écran ni aucun état ne se
-perd (GOAL-V3.md, vagues 0 et 3).
+redessiner le système. Le nettoyage s'en sert pour vérifier qu'aucun écran ni aucun état ne se
+perd.
 
 Jira et Claude sont **toujours factices** : chaque scénario démarre son propre `serve --mock`. Rien n'est écrit dans
 un vrai Jira, aucun vrai Claude ne tourne. Un vrai projet de ce PC (« Essai ») est **copié** dans un dossier
@@ -68,8 +68,8 @@ six morceaux au plus. La page elle-même ne défile jamais, ce sont ses panneaux
 | `essai`                                                | Copie du projet « Essai » de ce PC (pas un projet de production), avec le faux Jira (clé LFRPS12).                                                                 |
 | `desktop`                                              | Les pages du shell Electron : démarrage, cœur arrêté.                                                                                                              |
 
-Les variables `TESTIMUS_MOCK_*` derrière chaque scénario sont décrites dans SPEC.md (paragraphes « Mock seeds » et
-« Mock »). La plus utile est `TESTIMUS_MOCK_SEED` : `fixture`, `empty`, `none` ou un dossier de projet, séparés par
+Les variables `TESTIMUS_MOCK_*` derrière chaque scénario sont décrites dans CODE.md (« Mock and fixtures »).
+La plus utile est `TESTIMUS_MOCK_SEED` : `fixture`, `empty`, `none` ou un dossier de projet, séparés par
 des virgules ; le premier est ouvert.
 
 ## Sorties

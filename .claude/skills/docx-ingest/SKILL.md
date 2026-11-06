@@ -5,7 +5,7 @@ description: Converting a client specification (.docx first, .pdf as fallback) i
 
 # Document ingestion
 
-Target shape: SPEC §4. The conversion is good when every section and figure of the original can be
+Target shape: ARCHITECTURE.md §5. The conversion is good when every section and figure of the original can be
 pointed at by a stable anchor and nothing was silently dropped.
 
 ## Never touch the original

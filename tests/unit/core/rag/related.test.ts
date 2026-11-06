@@ -43,7 +43,7 @@ describe("rag.related", () => {
       .filter((n) => n.kind === kind && (!direction || n.direction === direction) && n.depth === depth)
       .map((n) => n.ref);
 
-  describe("rag.related (SPEC-RAG §3.3, §4.1)", () => {
+  describe("rag.related", () => {
     it("a section: parent, children, siblings, cross-references both ways, figures, amendments", () => {
       const r = related(dir, { ref: "SPEC_A#§2.1" });
       expect(r.ref).toBe("SPEC_A#§2.1");
@@ -120,7 +120,7 @@ describe("rag.related", () => {
     });
   });
 
-  describe("recall tools reach Claude (SPEC-RAG §4.6, SPEC §11)", () => {
+  describe("recall tools reach Claude", () => {
     it("rag_mentions, rag_related and review_evidence are read-only tools of every run kind", async () => {
       const { mcpAccess } = await import("../../../../src/core/claude/access.ts");
       for (const kind of ["chat", "check", "generate", "fix"] as const) {

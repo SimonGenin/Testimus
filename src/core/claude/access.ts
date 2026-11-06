@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 // ponytail: what a Claude run may touch — the built-in tools and the app's own commands (the MCP tools) by kind of
 // run, and the files no run edits by hand; the command list comes from the registry, never imported from here
-// (the registry imports every command, and a command starts Claude: GOAL-V3 N4, no cycle)
+// (the registry imports every command, and a command starts Claude: no cycle)
 
 const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
 const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];

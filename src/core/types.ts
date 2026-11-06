@@ -1,4 +1,4 @@
-// Tests and steps (SPEC §6, Xray Editor SPEC §3)
+// Tests and steps
 
 export type StepImage = { file: string; remoteId?: string; figure?: string };
 
@@ -107,7 +107,7 @@ export type PushPlanView = {
 };
 export type PushOpResult = { label: string; status: "done" | "failed" | "not-started"; error?: string };
 
-// Xray step field schema (SPEC §10)
+// Xray step field schema
 
 export type XrayField = {
   id: string;
@@ -158,7 +158,7 @@ export type TestState = { remoteChangedAt?: string; generatedPrint?: string };
 
 export const BUILTIN_FIELDS: readonly string[] = ["Action", "Data", "Expected Result"];
 
-// Check (SPEC §8)
+// Check
 
 export type Severity = "error" | "warning" | "info";
 export type FindingKind =
@@ -192,7 +192,7 @@ export type Finding = {
 };
 export type CheckFile = { at: string; testHash: string; findings: Finding[] };
 
-// Documents (SPEC §4)
+// Documents
 
 export type DocKind = "spec" | "minutes" | "other";
 export type DocStatus = "draft" | "submitted" | "validated";
@@ -267,7 +267,7 @@ export type FigureEntry = {
 };
 export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing" };
 
-// Index (SPEC §5)
+// Index
 
 export type ChunkKind = "section" | "figure";
 export type Chunk = {
@@ -353,12 +353,12 @@ export type Passage = {
   doc: { code: string; title: string; version: string; status: DocStatus };
 };
 
-// Document graph (SPEC-RAG §3)
+// Document graph
 
 export type EdgeKind = "refers" | "parent" | "sibling" | "shows" | "amends";
 export type Edge = { from: string; to: string; kind: EdgeKind; docId: string };
 
-// Retrieval (SPEC-RAG §4)
+// Retrieval
 
 export type RerankMode = "topk" | "threshold";
 export type RetrievalSettings = {
@@ -371,7 +371,7 @@ export type RetrievalSettings = {
 export type RagChoice = { pack: string } | { embedding: string; reranker: string | null };
 export type ActiveChoice = RagChoice & { variant?: PackVariant };
 
-// Models (SPEC-RAG §7, §8)
+// Models
 
 export type RuntimeId = "transformers" | "llamacpp" | "mock";
 export type ModelKind = "embedding" | "reranker";
@@ -461,7 +461,7 @@ export type EmbeddingRuntime = {
 };
 export type RerankRuntime = { rerank(m: ResolvedModel, query: string, texts: string[]): Promise<number[]> };
 
-// Vector spaces (SPEC-RAG §6)
+// Vector spaces
 
 export type SpaceFingerprint = {
   runtime: RuntimeId;
@@ -485,7 +485,7 @@ export type VectorSpace = {
   lastUsed: string | null;
 };
 
-// Machine, fit, timings, advice (SPEC-RAG §7.8–§7.10)
+// Machine, fit, timings, advice
 
 export type GpuInfo = {
   name: string;
@@ -557,7 +557,7 @@ export type Advice = {
   quality: string;
 };
 
-// Benchmark (SPEC-RAG §10)
+// Benchmark
 
 export type EvidenceRole = "definition" | "rule" | "condition" | "exception" | "amendment" | "contradiction" | "figure";
 export type Behavior = {
@@ -569,7 +569,7 @@ export type Behavior = {
   validated?: boolean;
 };
 
-// Project (SPEC §3)
+// Project
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export type ClaudeRun = { model?: string; effort?: Effort };
@@ -617,7 +617,7 @@ export type Settings = {
   updates?: { from?: string };
 };
 
-// Claude runs (SPEC §11)
+// Claude runs
 
 export type ClaudeScope =
   | { kind: "step"; testId: string; step: number }
@@ -688,7 +688,7 @@ export type ChatSession = {
   problem?: ChatProblem;
 };
 
-// Jobs (SPEC §2)
+// Jobs
 
 export type JobStatus = "running" | "done" | "failed" | "cancelled";
 export type JobCause = { jobId: string; why: "after-failure" | "follow-up" | "retry" };
@@ -772,7 +772,7 @@ export type JobEvent = (
   | { jobId: ""; at: string; type: "notice"; message: string }
 ) & { project?: string | null };
 
-// System (SPEC §14)
+// System
 
 export type CheckState = "ok" | "warn" | "fail" | "skip";
 export type DoctorAction = { label: string; command: string; input?: Record<string, unknown>; value?: string };

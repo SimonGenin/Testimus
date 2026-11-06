@@ -8,7 +8,7 @@ type Ref = { id: string; key?: string; generated: boolean; review: string };
 const D3 = "SOSIE_211_D401-1_3";
 const D4 = "SOSIE_211_D401-1_4";
 
-describe("gen.preview: what a generation would do, before it runs (GOAL-V3 N1)", () => {
+describe("gen.preview: what a generation would do, before it runs", () => {
   it("names the tests discard would replace: Claude's tests awaiting review, never one in Jira", async () => {
     const P = fixtureCopy("gen-preview");
     const refs = await call<Ref[]>("tests.list", {}, P);

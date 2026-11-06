@@ -95,7 +95,7 @@ export const commands = [
         .array(
           z.object({
             step: z.number().int().min(1).optional().describe("Step number (1-based); absent for the whole test"),
-            kind: z.enum(FINDING_KINDS).describe("Finding kind (SPEC §8)"),
+            kind: z.enum(FINDING_KINDS).describe("Finding kind"),
             severity: SEVERITY,
             message: z.string().min(1).describe("One sentence in the project language naming the exact discrepancy"),
             sources: z

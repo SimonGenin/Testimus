@@ -21,7 +21,7 @@ type Asked = { testId: string; jobId?: string; project: string | null };
 
 // ponytail: « Claude is working » is a fact of the server — a running Claude job of the open project, whoever started
 // it (the dock, the CLI, MCP, another window). The dock only says what it asked for until its job is known, and the
-// test it is on; the job's end unlocks even when the dock is gone (PARITY #15)
+// test it is on; the job's end unlocks even when the dock is gone
 export function useClaudeLock(running: Job[]): {
   claudeRunning: string | null;
   setClaudeRunning: (testId: string | null, jobId?: string) => void;

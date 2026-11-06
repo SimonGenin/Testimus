@@ -16,7 +16,7 @@ export type ReadImage = (file: string) => Promise<Uint8Array>;
 const ATTACHMENT_MARKER = /!xray-attachment:\/\/([^!\n|]+)(?:\|([^!\n]*))?!/g;
 
 // The three step fields Xray builds in, under the name test.md gives them and the key the API uses.
-// SPEC §10: getProjectSettings lists them lowercase (action/data/result), everything else is custom.
+// getProjectSettings lists them lowercase (action/data/result), everything else is custom.
 export const BUILTIN = [
   { name: "Action", key: "action" },
   { name: "Data", key: "data" },
@@ -67,7 +67,7 @@ export const byId = (text: string, images: StepImage[]) =>
 
 export const knownIds = (s: Step) => new Map(s.images.map((im) => [im.file, im.remoteId ?? ""]));
 
-// Custom step fields, read and written (SPEC §10, verified read-only on LFRPS12-327, 2026-11-02):
+// Custom step fields, read and written (verified read-only on LFRPS12-327, 2026-11-02):
 // read `customFields { id name value }` (value is a JSON scalar), write `customFields: [{ id, value }]`
 // in CreateStepInput / UpdateStepInput. This pair of functions is the only place that knows the shape.
 

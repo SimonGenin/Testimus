@@ -44,7 +44,7 @@ describe("passages", () => {
     });
   });
 
-  describe("passage cap (SPEC-RAG §3.4)", () => {
+  describe("passage cap", () => {
     it("defaults to 12,000 characters, project.json.rag.passageMaxChars overrides", () => {
       expect(passageMaxChars(project)).toBe(PASSAGE_MAX_CHARS);
       expect(PASSAGE_MAX_CHARS).toBe(12_000);

@@ -129,7 +129,7 @@ afterEach(() => {
 
 const scoreOf = (text: string) => Number(text.match(/score ([\d.]+)/)?.[1]);
 
-describe("retrieval settings (SPEC-RAG §4.3)", () => {
+describe("retrieval settings", () => {
   it("defaults to today's constants, then project.json, then the per-run override", () => {
     expect(RETRIEVAL_DEFAULTS).toEqual({
       candidates: 50,
@@ -172,7 +172,7 @@ describe("retrieval settings (SPEC-RAG §4.3)", () => {
   });
 });
 
-describe("reranking (SPEC-RAG §4.5)", () => {
+describe("reranking", () => {
   it("topk reranks the top max(k, rerank.top) candidates and returns k", async () => {
     seen.rerank = { model: "m", score: scoreOf };
     const hits = await searchChunks(dir, "q", { k: 2, retrieval: { rerank: { top: 3 } } });

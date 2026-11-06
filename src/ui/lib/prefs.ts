@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 // ponytail: presentation only (widths, folds, theme, layout) — a preference that changes what the app does is a
-// command (GOAL-V3 decision 5). Kept per browser profile under `testimus.<name>`; a session preference lives as long
+// command. Kept per browser profile under `testimus.<name>`; a session preference lives as long
 // as the tab. Values are stored as the strings the shell's theme.js and the desktop mirror already read.
 type Pref<T> = { fallback: T; parse(raw: string): T | undefined; show(value: T): string; session?: true };
 

@@ -30,7 +30,7 @@ function undescribed(s: Schema | undefined, path: string, out: string[], depth =
 
 const mine = registry.filter((c) => (GROUPS.has(c.name.split(".")[0]) || ALSO.has(c.name)) && c.name !== "gen.bench");
 
-describe("the commands that start Claude describe every field (GOAL-V3 N1)", () => {
+describe("the commands that start Claude describe every field", () => {
   it("covers the zone's commands", () => {
     expect(mine.map((c) => c.name)).toEqual(
       expect.arrayContaining([

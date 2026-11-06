@@ -5,7 +5,8 @@ Local app that turns specification documents into reviewed Xray manual tests: do
 with three faces (CLI, MCP, HTTP + React UI), wrapped in an Electron desktop shell. Claude Code
 (`claude -p`) does the reading and writing.
 
-SPEC.md is the behavioral contract, ROADMAP.md says what is built, CLAUDE.md holds the working rules.
+ARCHITECTURE.md says how it is built and why, CODE.md how to work in the code, ROADMAP.md what comes next,
+CLAUDE.md holds the working rules.
 
 ## Prerequisites
 

@@ -5,7 +5,7 @@ export type Stamp = Map<string, string>;
 
 const SKIP = new Set([".git", ".claude", ".mcp.json", "index", "node_modules"]);
 
-// ponytail: what a screen shows is read from the files (SPEC §3), so a file's size and mtime say whether it moved;
+// ponytail: what a screen shows is read from the files, so a file's size and mtime say whether it moved;
 // Claude Code's own files, the derived index and the app's bookkeeping under .testimus are left out, but for the
 // proposed actions (the project's CLAUDE.md is the team's notes: it counts)
 export const skipped = (rel: string) =>

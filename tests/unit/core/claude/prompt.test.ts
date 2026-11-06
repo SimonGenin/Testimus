@@ -73,7 +73,7 @@ describe("buildPrompt", () => {
     expect(scopeLines({ kind: "project" })[0]).toBe("Scope: the whole project — every test and every document.");
   });
 
-  it("states the scope, the step-only rule, the contexts and the 2-4 line reply, word for word (PARITY #84)", () => {
+  it("states the scope, the step-only rule, the contexts and the 2-4 line reply, word for word", () => {
     const format =
       "Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: " +
       '`<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.';

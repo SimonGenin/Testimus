@@ -2,7 +2,7 @@ import { z } from "zod";
 import { type ClaudeScope, type Effort, type FindingKind, REVIEWS, type Review } from "../types.ts";
 
 // ponytail: the schemas every command that starts Claude shares — this module imports nothing of the app but its
-// types, so no command file imports another command file (the registry cycle, GOAL-V3 N4)
+// types, so no command file imports another command file (the registry cycle)
 
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const satisfies readonly Effort[];
 
@@ -86,7 +86,7 @@ export const RESULT = z.object({
   raw: z.string().describe("The end of what claude printed, for the log"),
 });
 
-export const REVIEW = z.enum(REVIEWS as [Review, ...Review[]]).describe("draft, to-fix or validated (SPEC §9)");
+export const REVIEW = z.enum(REVIEWS as [Review, ...Review[]]).describe("draft, to-fix or validated");
 
 export const TEST_REF = z
   .string()
@@ -120,7 +120,7 @@ export const SEVERITY = z
 
 const FINDING = z.object({
   step: z.number().int().min(1).optional().describe("Step number (1-based); absent for the whole test"),
-  kind: z.enum(FINDING_KINDS).describe("Finding kind (SPEC §8)"),
+  kind: z.enum(FINDING_KINDS).describe("Finding kind"),
   severity: SEVERITY,
   message: z.string().describe("The exact discrepancy, in one sentence in the project language"),
   sources: z.array(z.string()).describe("The anchors that prove it: docId#anchor"),

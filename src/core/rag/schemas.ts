@@ -57,7 +57,7 @@ export const retrievalOverride = z
       .describe("Reranker settings (the reranker itself is --reranker or the active configuration)"),
     expand: retrievalFields.expand.optional(),
   })
-  .describe("Retrieval settings for this run, over project.json rag.retrieval (SPEC-RAG §4.3)");
+  .describe("Retrieval settings for this run, over project.json rag.retrieval");
 
 export const retrievalSettings = z
   .object({
@@ -86,4 +86,4 @@ export const spaceFingerprint = z
     maxInputTokens: z.number().describe("Longest input the model reads, in tokens"),
     recipe: z.number().describe("Version of the way Testimus builds the vectors"),
   })
-  .describe("What makes two vectors comparable: same fingerprint, same space (SPEC-RAG §6)");
+  .describe("What makes two vectors comparable: same fingerprint, same space");

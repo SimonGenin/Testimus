@@ -45,7 +45,7 @@ describe("rag.compare", () => {
     } as unknown as EvalReport;
   }
 
-  describe("bootstrap (SPEC-RAG §10.6)", () => {
+  describe("bootstrap", () => {
     it("is deterministic: a fixed seed gives the same interval", () => {
       const d = [0.5, -0.25, 0, 0.75, 0.1, 0];
       expect(bootstrap(d, 2000)).toEqual(bootstrap(d, 2000));

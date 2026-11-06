@@ -1024,7 +1024,7 @@ function slowShots(): Shot[] {
 }
 
 // ponytail: Claude absent shows at once; Claude installed but signed out is known only once something asks it — a run,
-// or the system check's sign-in probe (SPEC §12 claude.status signIn) — so the logged-out shots ask
+// or the system check's sign-in probe (claude.status signIn) — so the logged-out shots ask
 function claudeOfflineShots(signIn = false): Shot[] {
   return [
     {
@@ -1346,7 +1346,7 @@ export function SCENARIOS(essai: string): Scenario[] {
     },
     {
       id: "media",
-      note: "Photos as annexes: the fixture's batch in the document (GOAL-MEDIA M1)",
+      note: "Photos as annexes: the fixture's batch in the document",
       env: { TESTIMUS_MOCK_SEED: "fixture" },
       before: async (s) => {
         const { jobId } = await s.api<{ jobId: string }>("media.include", {

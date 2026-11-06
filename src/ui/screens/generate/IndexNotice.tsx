@@ -11,7 +11,7 @@ const RUNS: Record<Work, { title: string; label: string }> = {
   add: { title: "Adding documents", label: "Adding" },
 };
 
-// ponytail: the index gate of the scope (SPEC §7), and the document work under way that Generate waits for, named by
+// ponytail: the index gate of the scope, and the document work under way that Generate waits for, named by
 // what runs; a document not indexed is out of the scope, the banner says why and offers the reindex
 export function IndexNotice({
   missing,

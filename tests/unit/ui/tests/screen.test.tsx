@@ -337,7 +337,7 @@ describe("TestsScreen", () => {
     expect(side().style.width).toBe("320px");
   });
 
-  it("ignores a stored width below 260 and clamps a drag between 260 and 480 (PARITY #58)", () => {
+  it("ignores a stored width below 260 and clamps a drag between 260 and 480", () => {
     localStorage.setItem("testimus.sidebarWidth", "100");
     screenOf();
     expect(side().style.width).toBe("320px");

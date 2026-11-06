@@ -22,7 +22,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 const refs = (hits: SearchHit[]) => hits.map((h) => `${h.docId}#${h.anchor}${h.via ? ` via ${h.via}` : ""}`);
 
-describe("rag.search expand (SPEC-RAG §4.1)", () => {
+describe("rag.search expand", () => {
   it("none adds nothing", async () => {
     const hits = await search(dir, "double clic", { mode: "bm25", k: 2 });
     expect(hits).toHaveLength(2);

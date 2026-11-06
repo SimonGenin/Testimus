@@ -183,7 +183,7 @@ export const PROJECT_JSON = z.object({
       reference: RAG_CHOICE.optional().describe("The team's reference configuration"),
       queryTask: z.string().optional().describe("The task sentence of the query instruction"),
       passageMaxChars: z.number().optional().describe("Cap of a passage returned to Claude"),
-      retrieval: retrievalOverride.optional().describe("Retrieval settings (SPEC-RAG §4.3)"),
+      retrieval: retrievalOverride.optional().describe("Retrieval settings"),
     })
     .describe("Retrieval settings of the project"),
   claude: z

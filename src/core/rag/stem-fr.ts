@@ -417,7 +417,7 @@ export function foldKeep(text: string): string {
   return out;
 }
 
-// ponytail: articles and prepositions only (SPEC-RAG §4.2) — negation and restriction words (ne, pas, sauf, excepté,
+// ponytail: articles and prepositions only — negation and restriction words (ne, pas, sauf, excepté,
 // uniquement, seulement, interdit, jamais, sans) and meaningful prepositions (sous, hors, avant, après) stay searchable
 export const STOP_WORDS: ReadonlySet<string> = new Set(
   "le la les l un une des du de d au aux a en dans par pour sur avec chez vers entre parmi selon via the an of to in on for by with".split(
