@@ -306,6 +306,27 @@ export function uncPath(path: string, rootOf: (letter: string) => string = drive
 // sees half of it; a version already there is never replaced — a fix ships as a new version. The copy's release.json
 // names the folder PCs look in for the next one (`channel`, this folder unless a move says another): a PC that
 // installs it follows that, wherever the copy was taken from
+// ponytail: a share (a NAS, an antivirus scanning what was just copied) can hold the fresh copy a moment: the rename is
+// tried again for a few seconds on EPERM / EBUSY / EACCES before it fails
+export function renameSoon(
+  from: string,
+  to: string,
+  rename: (from: string, to: string) => void = renameSync,
+  tries = 8,
+  waitMs = 1500,
+): void {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      rename(from, to);
+      return;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code ?? "";
+      if (attempt >= tries || !["EPERM", "EBUSY", "EACCES"].includes(code)) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, waitMs);
+    }
+  }
+}
+
 export function publishRelease(out: string, folder: string, channel = folder): string {
   if (!existsSync(join(out, "release.json")))
     throw new Error(`${out} has no release.json: build it with npm run release.`);
@@ -318,7 +339,7 @@ export function publishRelease(out: string, folder: string, channel = folder): s
   cpSync(out, partial, { recursive: true });
   const meta = join(partial, "release.json");
   writeFileSync(meta, `${JSON.stringify({ ...JSON.parse(readFileSync(meta, "utf8")), channel }, null, 2)}\n`);
-  renameSync(partial, target);
+  renameSoon(partial, target);
   return target;
 }
 

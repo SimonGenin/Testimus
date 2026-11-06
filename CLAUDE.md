@@ -32,6 +32,7 @@ node src/faces/cli.ts serve [--mock] [--port 4317|0] [--project <dir>] [--no-ope
 node src/faces/cli.ts mcp [--project <dir>]          # MCP server on stdio (what claude -p calls back)
 npm run desktop [-- --mock] [-- --ui-dev]            # bundle src/desktop → dist/desktop and open the Electron window (desktop:build only bundles)
 npm run release [-- --notes "…"] [-- --publish [<dir>]] [-- --channel <dir>] [-- --publish-only]   # dist/testimus-<version>-win-x64/ (Testimus.exe Electron shell, portable Node 26, bundle, models, install.ps1, release.json); --publish copies it to the team folder (default: this PC's Settings › Updates folder; a mapped drive is recorded as \\server\share), where installed copies find it; --channel moves the team folder (the PCs installing this release look there next)
+npm run publish <x.x.x> [-- --notes "…"] [-- --to <dir>]   # the usual way to ship: refuses a version the team folder already holds (before building), sets package.json's version, builds and publishes; the folder is --to, else Settings › Updates, else the channel of this PC's installed copy (%LOCALAPPDATA%\Testimus\install.json)
 powershell -ExecutionPolicy Bypass -File dist\testimus-<v>-win-x64\install.ps1 [-Root <dir>] [-NoPath] [-NoShortcut] [-NoDesktop] [-NoSetup] [-InstallClaude] [-NoPrompt] [-Keep <n>]
 ```
 
@@ -111,7 +112,7 @@ src/ui/              React app; talks to /api only:
   lib/prefs.ts       the presentation preferences (typed, localStorage); lib/theme.ts the theme on <html>
   styles/            tokens.stylex.ts (generated from design/tokens.css by scripts/tokens.ts) and fonts.css
 templates/project/   copied into every project folder by `project init` (CLAUDE.md, .mcp.json, skills)
-scripts/             release.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico; tokens.ts and icons.ts
+scripts/             release.ts, publish.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico; tokens.ts and icons.ts
                      (design → tokens.stylex.ts, icons.ts); screens.ts + screens-catalog.ts (npm run screens)
 tests/unit/          vitest, by area (core/<zone>/, ui/<zone>/, shared/, desktop/), helpers/, guards/ (the tests of
                      the architecture rules, at zero); tests/e2e/ playwright (desktop/ drives Electron; kit.spec the catalogue);
