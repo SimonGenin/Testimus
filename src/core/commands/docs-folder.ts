@@ -9,7 +9,7 @@ import { FOLDER_MAX_FILES, FOLDER_REASONS, scanFolder } from "../lib/docs-folder
 import { isVideo } from "../lib/media.ts";
 import { addMediaDocs } from "../lib/media-add.ts";
 import type { DocJson } from "../types.ts";
-import { after, contexts, docJson, effort, kind, model } from "./docs.ts";
+import { after, contexts, docJson, effort, kind, model } from "./docs-schemas.ts";
 
 const dir = z
   .string()

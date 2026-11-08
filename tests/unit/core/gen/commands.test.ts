@@ -2,8 +2,8 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
-import { commands as docsCommands } from "../../../../src/core/commands/docs.ts";
 import { commands as genCommands } from "../../../../src/core/commands/gen.ts";
+import { registry as docsCommands } from "../../../../src/core/commands/index.ts";
 import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 
 const seen = vi.hoisted(() => ({ requests: [] as string[] }));

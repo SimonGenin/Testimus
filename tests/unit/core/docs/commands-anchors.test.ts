@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { docRunLines } from "../../../../src/core/claude/prompt.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
-import { commands } from "../../../../src/core/commands/docs.ts";
+import { registry as commands } from "../../../../src/core/commands/index.ts";
 import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../../../src/core/lib/check.ts";
 import { headingAt, sectionOf } from "../../../../src/core/lib/docs.ts";
 import { sha256 } from "../../../../src/core/lib/hash.ts";
