@@ -28,8 +28,10 @@ const styles = stylex.create({
     boxSizing: "border-box",
     flex: "none",
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: space.s4,
+    columnGap: space.s4,
+    rowGap: space.s2,
     minWidth: 0,
     minHeight: size.topbar,
     paddingBlock: space.s2,
@@ -52,7 +54,7 @@ const styles = stylex.create({
   },
   path: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   fixed: { flex: "none", display: "inline-flex", alignItems: "center", gap: space.s4 },
-  grow: { flex: 1, minWidth: 0 },
+  actions: { marginInlineStart: "auto" },
   body: { flex: 1, minHeight: 0, overflowY: "auto" },
   col: {
     boxSizing: "border-box",
@@ -152,8 +154,7 @@ export function ReviewTest(p: ReviewTestProps) {
           )}
           <Badge {...sync} />
         </span>
-        <span {...stylex.props(styles.grow)} />
-        <span {...stylex.props(styles.fixed)}>
+        <span {...stylex.props(styles.fixed, styles.actions)}>
           <Button
             size="sm"
             variant="quiet"
