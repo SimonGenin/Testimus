@@ -4,6 +4,7 @@ import type { CommandOutput } from "../../../core/commands/index.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Card } from "../../components/ui/Card.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Table } from "../../components/ui/Table.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
@@ -68,6 +69,7 @@ export function SearchUsers() {
             ]}
           />
         )}
+        {!usage.data && !usage.error && <Loading read="models.usage" />}
         <Hint>
           Every search finds the same evidence by its words and the documents' structure; the models only rank it.
         </Hint>

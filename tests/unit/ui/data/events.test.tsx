@@ -139,6 +139,44 @@ describe("the event bridge", () => {
     stop();
   });
 
+  it("a read in flight when its files change is not dropped: it lands, then is read once more for all the bursts", async () => {
+    const answers: ((v: Response) => void)[] = [];
+    const aborted: boolean[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: { signal?: AbortSignal }) => {
+        const i = answers.length;
+        aborted.push(false);
+        init?.signal?.addEventListener("abort", () => {
+          aborted[i] = true;
+        });
+        return new Promise<Response>((ok) => answers.push(ok));
+      }),
+    );
+    const client = createQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const r = renderHook(() => useRead("tests.list"), { wrapper });
+    await waitFor(() => expect(answers).toHaveLength(1));
+    const changed = (n: number) =>
+      apply(client, { jobId: "", at: "", type: "changed", paths: [`tests/t${n}/test.md`], project: "/p" }, "/p");
+    act(() => {
+      changed(1);
+      changed(2);
+      changed(3);
+    });
+    expect(answers).toHaveLength(1);
+    expect(aborted).toEqual([false]);
+    await act(async () => answers[0](new Response(JSON.stringify(["before"]), { status: 200 })));
+    await waitFor(() => expect(answers).toHaveLength(2));
+    await act(async () => answers[1](new Response(JSON.stringify(["after"]), { status: 200 })));
+    await waitFor(() => expect(r.result.current.data).toEqual(["after"]));
+    expect(answers).toHaveLength(2);
+    act(() => changed(4));
+    await waitFor(() => expect(answers).toHaveLength(3));
+  });
+
   it("lets a listener follow every event of the page's project", () => {
     const client = createQueryClient();
     const stop = connectEvents(client);
@@ -153,16 +191,25 @@ describe("the event bridge", () => {
     stop();
   });
 
-  it("keeps the jobs list and a job's page live from its events, without reading again", () => {
+  it("keeps the jobs list and a job's page live from its events, once per frame, without reading again", async () => {
     const client = createQueryClient();
     const run = { ...job("running"), steps: [{ id: "a", label: "A", status: "running" }] } as Job;
     client.setQueryData(["/p", "jobs.list", {}], [run]);
     client.setQueryData(["/p", "jobs.list", { running: true }], [run]);
     client.setQueryData(["/p", "jobs.show", { id: "j1" }], { job: run, events: [] });
+    const show = ["/p", "jobs.show", { id: "j1" }];
+    let shownAgain = 0;
+    const off = client.getQueryCache().subscribe((e) => {
+      if (e.type === "updated" && e.query.queryHash === JSON.stringify(show)) shownAgain++;
+    });
     const send = (e: Record<string, unknown>) => apply(client, { jobId: "j1", at: "", ...e } as JobEvent, "/p");
     send({ type: "progress", message: "half", done: 1, total: 2, step: "a" });
     send({ type: "steps", steps: [{ id: "a", label: "A", status: "done" }] });
     send({ type: "process", process: { id: "p1", label: "llama", pid: 9 } } as never);
+    expect(client.getQueryData<{ events: JobEvent[] }>(show)?.events).toEqual([]);
+    await waitFor(() => expect(client.getQueryData<{ events: JobEvent[] }>(show)?.events).toHaveLength(3));
+    expect(shownAgain).toBe(1);
+    off();
     const listed = client.getQueryData<Job[]>(["/p", "jobs.list", {}])?.[0];
     expect(listed).toMatchObject({ message: "half", progress: { done: 1, total: 2 }, steps: [{ status: "done" }] });
     expect(listed?.processes).toHaveLength(1);

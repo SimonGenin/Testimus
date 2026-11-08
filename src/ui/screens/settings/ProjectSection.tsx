@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Field } from "../../components/ui/Field.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
@@ -104,7 +105,10 @@ export function ProjectSection() {
         <Column>
           <Card title="Project">
             {!p ? (
-              <Skeleton lines={4} />
+              <>
+                <Skeleton lines={4} />
+                <Loading read="project.info" />
+              </>
             ) : (
               <Stack>
                 <Grid>

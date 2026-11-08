@@ -11,14 +11,13 @@ import {
   amendedBy,
   contextMtime,
   docDir,
+  docShape,
   headingAt,
+  partOf,
   readContext,
   readDoc,
   readDocMd,
-  readFigures,
   removeDoc,
-  sectionOf,
-  tocOf,
   writeContext,
   writeDoc,
 } from "../lib/docs.ts";
@@ -41,7 +40,6 @@ import { findLot, updateLot, writePart } from "../lib/media.ts";
 import { prepareLot, readLot, writeAnnex } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
-import { docFigures } from "../rag/chunk.ts";
 import { chunksOf, withIndex } from "../rag/db.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { renderPage } from "../rag/pdf.ts";
@@ -49,6 +47,8 @@ import { REVIEW } from "../schemas.ts";
 import type { DocJson } from "../types.ts";
 import { addLot, MEDIA_FILES } from "./media.ts";
 
+// ponytail: a page of doc.md for docs.show without an anchor — about 15 000 tokens, what an answer to Claude can hold
+const DOC_PAGE = 60_000;
 export const kind = z.enum(["spec", "minutes", "other"]);
 const status = z.enum(["draft", "submitted", "validated"]);
 
@@ -684,6 +684,14 @@ export const commands = [
         .describe(
           "Leave the text out (md empty): the facts, outline and figures only — what a conversion has written so far",
         ),
+      from: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe(
+          "Without anchor: where the page of text starts, in characters of doc.md (the next of the previous answer); 0 by default",
+        ),
     }),
     output: z.object({
       doc: docJson,
@@ -698,15 +706,23 @@ export const commands = [
             anchor: z.string().describe("Section anchor, §N"),
             title: z.string().describe("Heading title, without its number"),
             level: z.number().describe("Depth, 1 for a chapter"),
+            line: z.number().describe("Line of doc.md the heading is on, from 1"),
           }),
         )
-        .describe("The sections of doc.md, in order"),
+        .describe("The sections of doc.md, in order; with an anchor, those inside the part only"),
       figures: z
-        .array(figure)
+        .array(figure.extend({ line: z.number().optional().describe("Line of doc.md the figure is on, from 1") }))
         .describe(
-          "The figures of the text in reading order: figures.json, and the captions with no picture (a table, or a lost picture)",
+          "The figures of the text in reading order: figures.json, and the captions with no picture (a table, or a lost picture); with an anchor, those inside the part only",
         ),
-      md: z.string().describe("doc.md, or the asked part of it; empty with brief"),
+      lines: z.number().describe("Lines in doc.md"),
+      chars: z.number().describe("Characters in doc.md"),
+      md: z
+        .string()
+        .describe(
+          `The asked part of doc.md; without an anchor a page of it, at most ${DOC_PAGE} characters from \`from\`, cut at a line; empty with brief`,
+        ),
+      next: z.number().optional().describe("Without an anchor, when doc.md goes on: the from of the next page"),
       section: z
         .string()
         .optional()
@@ -717,27 +733,43 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const doc = readDoc(project, input.id);
-      const full = readDocMd(project, input.id);
-      let md = full;
-      let section: string | undefined;
-      if (input.anchor) {
-        const part = sectionOf(full, input.anchor);
-        if (part === null)
-          throw new UserError(
-            `No anchor ${input.anchor} in ${input.id}.`,
-            `testimus docs show ${input.id} lists its toc.`,
-          );
-        md = part;
-        section = headingAt(full, input.anchor) ?? undefined;
-      }
-      return {
+      const shape = docShape(project, input.id);
+      const told = {
         doc,
         context: readContext(project, input.id),
         contextMtime: contextMtime(project, input.id),
         contexts: docContexts(project, input.id),
-        toc: tocOf(full),
-        figures: docFigures(full, readFigures(project, input.id)).map(({ n: _, ...f }) => f),
-        md: input.brief ? "" : md,
+        lines: shape.lines,
+        chars: shape.chars,
+      };
+      const figures = shape.figures.map(({ n: _, ...f }) => f);
+      if (input.brief && !input.anchor) return { ...told, toc: shape.toc, figures, md: "" };
+      const full = readDocMd(project, input.id);
+      if (!input.anchor) {
+        const from = Math.min(input.from ?? 0, full.length);
+        const cut = full.length - from <= DOC_PAGE ? full.length : full.lastIndexOf("\n", from + DOC_PAGE) + 1;
+        const to = cut > from ? cut : Math.min(full.length, from + DOC_PAGE);
+        return {
+          ...told,
+          toc: shape.toc,
+          figures,
+          md: input.brief ? "" : full.slice(from, to),
+          ...(to < full.length ? { next: to } : {}),
+        };
+      }
+      const part = partOf(full, input.anchor);
+      if (part === null)
+        throw new UserError(
+          `No anchor ${input.anchor} in ${input.id}.`,
+          `testimus docs show ${input.id} lists its toc.`,
+        );
+      const inside = (line?: number) => line !== undefined && line >= part.first && line <= part.last;
+      const section = headingAt(full, input.anchor);
+      return {
+        ...told,
+        toc: shape.toc.filter((t) => inside(t.line)),
+        figures: figures.filter((f) => inside(f.line)),
+        md: input.brief ? "" : part.text,
         ...(section ? { section } : {}),
       };
     },

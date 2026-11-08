@@ -173,6 +173,7 @@ export function DocDetail({
     return (
       <DocLoading
         label={label}
+        read="docs.show"
         fold={fold}
         widths={{ toc: panes?.toc.value ?? COLS.toc, side: panes?.side.value ?? COLS.side }}
       />

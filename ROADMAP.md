@@ -66,7 +66,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 
 ## 5. Chargement et performance
 
-- [ ] **Montrer que ça avance.** Parfois le squelette de contenu s'affiche pendant le chargement mais rien ne bouge :
+- [x] **Montrer que ça avance.** Parfois le squelette de contenu s'affiche pendant le chargement mais rien ne bouge :
       on ne sait pas s'il se passe quelque chose. C'est assez courant que ça prenne de longues secondes. Il faut un
       signe de vie, et vérifier s'il reste des problèmes de performance.
       - Pistes laissées par la passe du 2026-11-05 : un `test.md` écrit invalide beaucoup de lectures (à restreindre à

@@ -9,7 +9,7 @@ export type Section = {
   body: string;
 };
 
-type DocFigure = {
+export type DocFigure = {
   n: string;
   anchor: string;
   file: string;

@@ -155,6 +155,7 @@ export function DocList({
           onSelect={pick}
           density="two-line"
           loading={docs ? false : 4}
+          reading="docs.list"
         />
         {run && (
           <div {...stylex.props(styles.run)}>

@@ -15,6 +15,7 @@ import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Kbd } from "../ui/Kbd.tsx";
 import { List, optionId } from "../ui/List.tsx";
+import { Loading } from "../ui/Loading.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
 import { Spinner } from "../ui/Spinner.tsx";
@@ -415,6 +416,7 @@ export function Palette({
           <Skeleton kind="row" />
           <Skeleton kind="row" />
           <Skeleton kind="row" />
+          <Loading read="search.all" />
         </div>
       ) : (
         <div {...stylex.props(styles.list, (nothing || !items.length) && styles.nothing)}>

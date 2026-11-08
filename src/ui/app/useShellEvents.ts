@@ -6,25 +6,17 @@ import { execute } from "../lib/data/query.ts";
 import { toast } from "../lib/toast.ts";
 import { parseRoute } from "./routes.ts";
 
-const touches = (paths: string[], prefixes: string[]) =>
-  paths.some((p) => p === "" || prefixes.some((x) => p === x || p.startsWith(x)));
-
 // ponytail: what the shell does with the event stream — the core is told of a failed job (it decides whether Claude
-// looks at it), a finished check is announced; and the screens not yet on the data layer hear their old signal
-// (testsChanged) until they read through it
-export function useShellEvents(testsChanged: () => void, navigate: (screen: Screen) => void): void {
+// looks at it), a finished check is announced. Files changed on disk are read again by the data layer alone
+// (lib/data/events.ts): the old « tests changed » signal at each burst drew the whole shell again and dropped the
+// tests list read in flight
+export function useShellEvents(navigate: (screen: Screen) => void): void {
   const client = useQueryClient();
-  const latest = useRef(testsChanged);
-  latest.current = testsChanged;
   const go = useRef(navigate);
   go.current = navigate;
   useEffect(
     () =>
       onAnyEvent((e) => {
-        if (e.type === "changed") {
-          if (touches(e.paths, ["tests/"])) latest.current();
-          return;
-        }
         if (e.type !== "status") return;
         if (e.job.status === "failed")
           void execute(client, "actions.triageFailed", { jobId: e.job.id }, { invalidates: "none" }).catch(() => {});

@@ -5,6 +5,7 @@ import type { CommandInput } from "../../../core/commands/index.ts";
 import type { ColumnMode, ColumnShow, StepColumn } from "../../../core/types.ts";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -199,7 +200,10 @@ export function ColumnsSection() {
       )}
       <ColumnsClaude columns={columns} />
       {!info.data ? (
-        <Skeleton kind="block" />
+        <>
+          <Skeleton kind="block" />
+          <Loading read="project.info" />
+        </>
       ) : (
         <ul aria-label="Smart columns" {...stylex.props(styles.list)}>
           {columns.map((c, i) => {

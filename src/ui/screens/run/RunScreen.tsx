@@ -4,6 +4,7 @@ import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
@@ -161,6 +162,7 @@ export function RunScreen() {
             <Skeleton width="40%" />
             <Skeleton width="70%" />
             <Skeleton width="90%" />
+            <Loading read={list ? "runs.show" : "runs.list"} />
           </div>
         )}
       </div>

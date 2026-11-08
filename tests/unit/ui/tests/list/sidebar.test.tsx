@@ -231,7 +231,7 @@ describe("Tests sidebar › tabs and tree", () => {
     list();
     toJira();
     const sk = screen.getByRole("status", { name: "Loading folders" });
-    expect(sk.querySelectorAll('ul > li[role="presentation"]')).toHaveLength(5);
+    expect(sk.querySelectorAll('ul > li[role="presentation"] > [aria-hidden="true"]')).toHaveLength(5);
   });
 
   it("names the root Test Repository and shows direct/total counts", async () => {

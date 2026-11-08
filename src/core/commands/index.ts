@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { sleep } from "../../shared/run/work.ts";
 import { provideCommands } from "../claude/access.ts";
 import { type Command, type Ctx, type Progress, UserError } from "../command.ts";
+import { env } from "../env.ts";
 import { startJob } from "../jobs.ts";
 import type { ClaudeEvent, JobCause } from "../types.ts";
 import { commands as actions } from "./actions.ts";
@@ -171,6 +173,8 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
     if (opts.wait === false) return { jobId: job.id };
     return await done;
   }
+  const paced = env.readMs(c.name);
+  if (paced) await sleep(paced, opts.signal);
   const ctx: Ctx = {
     project: opts.project,
     ...(opts.llm ? { llm: true } : {}),

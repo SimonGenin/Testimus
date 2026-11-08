@@ -56,6 +56,7 @@ export function ReplaceTests({
               items={tests}
               getKey={(t) => t.id}
               loading={listed.isPending ? Math.min(count, 3) : false}
+              reading="tests.list"
               density="two-line"
               onSelect={onReview}
               renderItem={(t) => ({

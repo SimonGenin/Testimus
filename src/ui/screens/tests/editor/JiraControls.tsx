@@ -252,6 +252,7 @@ function AssigneePicker({
               getKey={(r) => r.key}
               selected={rows.find((r) => r.person?.accountId === id && !r.key.startsWith("me:"))?.key ?? null}
               loading={!q.data && q.isFetching ? 3 : false}
+              reading="issue.people"
               empty={<p {...stylex.props(type.small, styles.note)}>Nobody of that name can be assigned.</p>}
               renderItem={(r) => ({
                 title: r.label,

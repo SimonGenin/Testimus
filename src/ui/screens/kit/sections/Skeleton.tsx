@@ -6,7 +6,7 @@ export const section: KitSection = {
   family: "Feedback",
   file: "Skeleton.tsx",
   summary:
-    "The shape of what is loading, drawn at the size of the content it stands for, so nothing moves when it lands. Never stale rows, never a centred spinner; after 10 s it says so and offers Retry.",
+    "The shape of what is loading, drawn at the size of the content it stands for, so nothing moves when it lands. Never stale rows, never a centred spinner. It shimmers (still under reduced motion); the line under it that says what loads is Loading.",
   guidelines: [],
   states: () => (
     <States>
@@ -20,9 +20,6 @@ export const section: KitSection = {
       <Cell label="block · circle" column>
         <Skeleton kind="block" />
         <Skeleton kind="circle" />
-      </Cell>
-      <Cell label="after 10 s: Still loading · Retry (onRetry)" wide column>
-        <Skeleton onRetry={() => {}} debugState="late" />
       </Cell>
       <Cell label="row (a List's loading row)" column>
         <Skeleton kind="row" />

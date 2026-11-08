@@ -252,7 +252,14 @@ export function TestList({
     if (loading && !refs.length)
       return (
         <div role="status" aria-label="Loading tests">
-          <List label="Local tests" items={[]} getKey={String} renderItem={() => ({ title: "" })} loading={4} />
+          <List
+            label="Local tests"
+            items={[]}
+            getKey={String}
+            renderItem={() => ({ title: "" })}
+            loading={4}
+            reading="tests.list"
+          />
         </div>
       );
     if (!listed.length)

@@ -234,6 +234,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
             items={p.items ?? []}
             groups={p.groups}
             loading={p.items === null ? 5 : false}
+            reading="review.queue"
             getKey={(t) => t.id}
             selected={p.activeId}
             onSelect={p.onOpen}

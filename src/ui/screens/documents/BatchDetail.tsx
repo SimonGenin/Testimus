@@ -6,6 +6,7 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
@@ -142,7 +143,14 @@ export function BatchDetail({
   if (!b)
     return (
       <Modal title="Batch" onClose={onClose}>
-        {shown.isError ? <Banner tone="danger">{message(shown.error)}</Banner> : <Skeleton lines={4} />}
+        {shown.isError ? (
+          <Banner tone="danger">{message(shown.error)}</Banner>
+        ) : (
+          <>
+            <Skeleton lines={4} />
+            <Loading read="media.show" />
+          </>
+        )}
       </Modal>
     );
 

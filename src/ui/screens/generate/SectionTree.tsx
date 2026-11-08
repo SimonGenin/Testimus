@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useContext, useMemo, useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { AppContext } from "../../lib/app.ts";
@@ -39,7 +40,7 @@ export function SectionTree({
   picked: string[];
   onChange: (anchors: string[]) => void;
 }) {
-  const r = useRead("docs.show", { id: docId });
+  const r = useRead("docs.show", { id: docId, brief: true });
   const openSource = useContext(AppContext)?.openSource;
   const toc = r.isPending ? null : ((r.data as { toc?: TocEntry[] } | null)?.toc ?? []);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -49,6 +50,7 @@ export function SectionTree({
     return (
       <div aria-busy="true" {...stylex.props(styles.tree)}>
         <Skeleton lines={2} />
+        <Loading read="docs.show" />
       </div>
     );
   if (!toc.length)

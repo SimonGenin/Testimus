@@ -1,8 +1,8 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { Query, QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
 import { events, onProjectChange, onStream, project } from "./client.ts";
-import { invalidate, invalidateProject, type Key, key, matches, type Prefix, setReachable } from "./query.ts";
+import { invalidateProject, type Key, key, matches, type Prefix, setReachable } from "./query.ts";
 
 type Rule = [pattern: RegExp, keys: (m: RegExpMatchArray) => Prefix[]];
 
@@ -164,6 +164,36 @@ function followLive(client: QueryClient, kind: string | undefined, p: string | n
   );
 }
 
+const again = new WeakMap<QueryClient, Set<string>>();
+
+function waitingOf(client: QueryClient): Set<string> {
+  const known = again.get(client);
+  if (known) return known;
+  const waiting = new Set<string>();
+  again.set(client, waiting);
+  client.getQueryCache().subscribe(({ query }) => {
+    if (!waiting.has(query.queryHash) || query.state.fetchStatus !== "idle") return;
+    waiting.delete(query.queryHash);
+    queueMicrotask(() => void client.refetchQueries({ queryKey: query.queryKey, exact: true, type: "active" }));
+  });
+  return waiting;
+}
+
+// ponytail: what moved is read again by the reads a screen shows — at once when idle; when in flight, once it lands
+// (it may have read the files before they moved), never dropped and started over: during a long generation or a
+// pull a slow read was cancelled at every burst of writes and the server still worked each one out. The reads no
+// screen shows are only marked stale (read when shown)
+export function readAgain(client: QueryClient, prefixes: Prefix[], p: string | null = project()): void {
+  const predicate = (q: Query) => prefixes.some((x) => matches(q.queryKey, x, p));
+  void client.invalidateQueries({ predicate, refetchType: "none" });
+  const waiting = waitingOf(client);
+  const idle: string[] = [];
+  for (const q of client.getQueryCache().findAll({ predicate, type: "active" }))
+    if (q.state.fetchStatus === "fetching") waiting.add(q.queryHash);
+    else idle.push(q.queryHash);
+  if (idle.length) void client.refetchQueries({ type: "active", predicate: (q) => idle.includes(q.queryHash) });
+}
+
 export function keysOfPaths(paths: string[]): Prefix[] {
   const out: Prefix[] = [];
   for (const path of paths)
@@ -212,15 +242,47 @@ export function applyJobEvent(jobs: Job[], e: JobEvent): Job[] {
   return jobs;
 }
 
-// ponytail: the jobs reads follow each event of a job without a round trip; a status still reads them again, since a
-// list of the running jobs drops one that ended
-function follow(client: QueryClient, e: JobEvent, p: string | null): void {
+// ponytail: the jobs reads follow the events of the jobs without a round trip; a status still reads them again, since
+// a list of the running jobs drops one that ended
+function follow(client: QueryClient, events: JobEvent[], p: string | null): void {
   client.setQueriesData<Job[]>({ queryKey: key("jobs.list", undefined, p) }, (jobs) =>
-    Array.isArray(jobs) ? applyJobEvent(jobs, e) : jobs,
+    Array.isArray(jobs) ? events.reduce(applyJobEvent, jobs) : jobs,
   );
-  client.setQueriesData<{ job: Job; events: JobEvent[] }>({ queryKey: key("jobs.show", { id: e.jobId }, p) }, (d) =>
-    d?.job ? { job: applyJobEvent([d.job], e)[0], events: [...(d.events ?? []), e] } : d,
-  );
+  for (const id of new Set(events.map((e) => e.jobId))) {
+    const mine = events.filter((e) => e.jobId === id);
+    client.setQueriesData<{ job: Job; events: JobEvent[] }>({ queryKey: key("jobs.show", { id }, p) }, (d) =>
+      d?.job
+        ? { job: mine.reduce((j, e) => applyJobEvent([j], e)[0], d.job), events: [...(d.events ?? []), ...mine] }
+        : d,
+    );
+  }
+}
+
+// ponytail: the events of a running job (Claude's words, progress, steps) reach the cache once per frame, all those
+// that came meanwhile at once: a job's detail is worked out again at most once per frame, not at each of the
+// thousands of events of a run, and its log is copied once. A status is applied at once, after those before it. A
+// timer stands in for the frame in a hidden window, where frames stop (the taskbar's progress still follows)
+let queued: { client: QueryClient; p: string | null; events: JobEvent[] } | null = null;
+
+function flushJobs(): void {
+  const q = queued;
+  queued = null;
+  if (q) follow(q.client, q.events, q.p);
+}
+
+function followSoon(client: QueryClient, e: JobEvent, p: string | null): void {
+  if (queued && (queued.client !== client || queued.p !== p)) flushJobs();
+  if (queued) {
+    queued.events.push(e);
+    return;
+  }
+  const mine = { client, p, events: [e] };
+  queued = mine;
+  const go = () => {
+    if (queued === mine) flushJobs();
+  };
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(go);
+  setTimeout(go, 250);
 }
 
 const jobListeners = new Map<string, Set<(e: JobEvent) => void>>();
@@ -233,11 +295,15 @@ export function apply(client: QueryClient, e: JobEvent, p: string | null = proje
   if (e.type === "notice") client.setQueryData(["notice"], e.message);
   else if (e.type === "changed") {
     if (e.paths.includes("")) void invalidateProject(client, p);
-    else void invalidate(client, keysOfPaths(e.paths), p);
+    else readAgain(client, keysOfPaths(e.paths), p);
   } else {
-    follow(client, e, p);
-    if (e.type === "progress") followLive(client, kindOf(client, e.jobId, p), p);
-    if (e.type !== "status") return;
+    if (e.type !== "status") {
+      followSoon(client, e, p);
+      if (e.type === "progress") followLive(client, kindOf(client, e.jobId, p), p);
+      return;
+    }
+    flushJobs();
+    follow(client, [e], p);
     if (e.job.status === "running") {
       kinds.set(e.jobId, e.job.kind);
       followLive(client, e.job.kind, p);
@@ -246,7 +312,7 @@ export function apply(client: QueryClient, e: JobEvent, p: string | null = proje
     // ponytail: a run's record (.testimus/runs, not watched) is finished after the test.md it wrote — any job may have
     // been a Claude run
     if (e.job.status !== "running") keys.push(...keysOfKind(e.job.kind), ["claude.before"]);
-    void invalidate(client, keys, p);
+    readAgain(client, keys, p);
   }
 }
 

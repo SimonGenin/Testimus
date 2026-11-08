@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Chip } from "../../components/ui/Chip.tsx";
 import { Field } from "../../components/ui/Field.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
@@ -39,7 +40,10 @@ export function DefaultContexts({ chosen }: { chosen: string[] }) {
       >
         <fieldset aria-label="Default contexts" {...stylex.props(styles.set)}>
           {!all.data && !all.isError ? (
-            <Skeleton lines={2} />
+            <>
+              <Skeleton lines={2} />
+              <Loading read="contexts.list" />
+            </>
           ) : all.data?.length ? (
             <div {...stylex.props(styles.chips)}>
               {all.data.map((x) => {

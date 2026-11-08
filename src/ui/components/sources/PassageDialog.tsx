@@ -8,6 +8,7 @@ import { message } from "../../lib/format.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
+import { Loading } from "../ui/Loading.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
 import { type } from "../ui/type.ts";
@@ -139,6 +140,7 @@ export function PassageDialog({
           <div role="status" aria-busy="true" aria-label="Loading the passage">
             <Skeleton kind="title" width="40%" />
             <Skeleton lines={3} />
+            <Loading read="rag.passage" />
           </div>
         ) : (
           <PassageText passage={p} quote={source.quote} />

@@ -3,6 +3,7 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
@@ -59,7 +60,10 @@ export function EvidenceBlock({
             it).
           </p>
         ) : !ev ? (
-          <Skeleton kind="block" />
+          <>
+            <Skeleton kind="block" />
+            <Loading read="review.evidence" />
+          </>
         ) : ev.jobId === null ? (
           <p {...stylex.props(type.small, styles.note)}>
             Not recorded: this test was not written by a generation Testimus followed.

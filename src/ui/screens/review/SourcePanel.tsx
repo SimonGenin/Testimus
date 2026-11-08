@@ -3,6 +3,7 @@ import type { Finding, Passage, Source } from "../../../core/types.ts";
 import { DocBadges, PassageText } from "../../components/sources/PassageView.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Pane } from "../../components/ui/Pane.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -154,7 +155,10 @@ export function SourcePanel(p: SourcePanelProps) {
               {quoted}
             </>
           ) : !passage ? (
-            <Skeleton lines={6} />
+            <>
+              <Skeleton lines={6} />
+              <Loading read="rag.passage" />
+            </>
           ) : (
             <div {...stylex.props(styles.passage)}>
               {quote.trim() && passage.quoteFound === false && !p.misplaced && (

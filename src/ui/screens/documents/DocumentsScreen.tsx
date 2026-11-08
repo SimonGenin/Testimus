@@ -298,6 +298,7 @@ export function DocumentsScreen() {
           {!docs ? (
             <DocLoading
               label="Loading the documents"
+              read="docs.list"
               fold={fold}
               widths={{ toc: panes.toc.value, side: panes.side.value }}
             />

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { kitSectionNames, SCENARIOS } from "../../../scripts/screens-catalog.ts";
+import { readPace } from "../../../src/core/mock/index.ts";
 import { MOCK_MACHINES } from "../../../src/core/mock/machine.ts";
 import { MOCK_ADVICE } from "../../../src/core/mock/models.ts";
 import type { KitSection } from "../../../src/ui/screens/kit/kit.tsx";
@@ -24,6 +25,7 @@ const MOCK_VALUES: Record<string, (v: string) => boolean> = {
   TESTIMUS_MOCK_DOWNLOAD_MS: (v) => Number(v) >= 0,
   TESTIMUS_MOCK_INDEX_MS: (v) => Number(v) > 0,
   TESTIMUS_MOCK_MAX_ATTACHMENT: (v) => Number(v) > 0,
+  TESTIMUS_MOCK_READ_MS: (v) => readPace(v).size === v.split(",").length,
 };
 
 describe("npm run screens: the catalog", () => {

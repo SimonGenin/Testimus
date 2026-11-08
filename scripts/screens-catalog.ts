@@ -1476,6 +1476,38 @@ export function SCENARIOS(essai: string): Scenario[] {
       ],
     },
     {
+      id: "loading-slow",
+      note: "Reads that take long (TESTIMUS_MOCK_READ_MS): the skeleton's loading line, then « answering slowly »",
+      env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_READ_MS: "tests.list=600000,docs.list=600000" },
+      shots: [
+        {
+          id: "tests-status",
+          note: "Tests after a second: Loading the tests… and the seconds under the skeleton",
+          sizes: ["lg"],
+          page: async (p, s) => {
+            await p.goto(`${s.url}/#/tests`);
+            await see(p, /^Loading the tests… \d s$/);
+          },
+        },
+        {
+          id: "tests-slow",
+          note: "Tests after 10 s: Still loading, Testimus is answering slowly, Try again",
+          page: async (p, s) => {
+            await p.goto(`${s.url}/#/tests`);
+            await see(p, "Testimus is answering slowly. The page keeps waiting.");
+          },
+        },
+        {
+          id: "documents-slow",
+          note: "Documents after 10 s: one line for the list and the document pane waiting on the same read",
+          page: async (p, s) => {
+            await p.goto(`${s.url}/#/documents`);
+            await see(p, "Testimus is answering slowly. The page keeps waiting.");
+          },
+        },
+      ],
+    },
+    {
       id: "machine-small-gpu",
       note: "A PC with a 4 GB GPU",
       env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_MACHINE: "gpu-small" },

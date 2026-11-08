@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
+import { Loading } from "../../../components/ui/Loading.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { Progress } from "../../../components/ui/Progress.tsx";
 import { RadioGroup } from "../../../components/ui/RadioGroup.tsx";
@@ -179,7 +180,10 @@ export function FolderDialog({
             The drives could not be read: {hw.error.message}. Type a folder below.
           </Banner>
         ) : !hw.data ? (
-          <Skeleton kind="block" />
+          <>
+            <Skeleton kind="block" />
+            <Loading read="models.hardware" />
+          </>
         ) : (
           <div {...stylex.props(styles.field)}>
             <span id="models-drives" {...stylex.props(type.label)}>

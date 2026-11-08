@@ -5,6 +5,7 @@ import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge, HEALTH } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFolder } from "../../lib/desktop.ts";
@@ -104,6 +105,7 @@ export function DoctorScreen() {
               The check could not run: {d.error}
             </Banner>
           )}
+          {!d.checks && !d.error && <Loading read="system.doctor" />}
           <section aria-label="Checks" aria-busy={!d.checks} {...stylex.props(styles.checks)}>
             {d.checks
               ? sections(d.checks).map((s) => (

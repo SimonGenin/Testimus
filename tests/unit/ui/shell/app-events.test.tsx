@@ -11,9 +11,9 @@ import { app as appState } from "../../helpers/ui-desktop.tsx";
 import { clearAllToasts } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestsScreen.tsx", async () => {
-  const { useApp } = await import("../../../../src/ui/lib/app.ts");
+  const { useRead } = await import("../../../../src/ui/lib/data/query.ts");
   return {
-    TestsScreen: () => <output aria-label="tests nonce">{useApp().testsNonce}</output>,
+    TestsScreen: () => <output aria-label="tests read">{String(useRead("tests.list", {}).data ?? "")}</output>,
   };
 });
 vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", () => ({ ClaudeDock: () => null }));
@@ -31,6 +31,7 @@ beforeEach(() => {
   net.routes["jobs.list"] = () => [];
   net.routes["system.doctor"] = () => [];
   net.routes["project.list"] = () => [];
+  net.routes["tests.list"] = () => callsOf("tests.list").length;
 });
 
 afterEach(() => {
@@ -49,7 +50,7 @@ describe("App, when a job changed project files", () => {
         <App />
       </DataProvider>,
     );
-    expect(await screen.findByLabelText("tests nonce")).toHaveTextContent("0");
+    await waitFor(() => expect(screen.getByLabelText("tests read")).toHaveTextContent("1"));
     await waitFor(() => expect(callsOf("project.info")).toHaveLength(1));
   };
 
@@ -58,10 +59,11 @@ describe("App, when a job changed project files", () => {
     changed(["docs/D1/doc.md"]);
     changed(["docs/D1/doc.json"]);
     await waitFor(() => expect(callsOf("project.info")).toHaveLength(2));
-    expect(screen.getByLabelText("tests nonce")).toHaveTextContent("0");
+    expect(callsOf("tests.list")).toHaveLength(1);
     changed(["tests/local-1/test.md"]);
     await waitFor(() => expect(callsOf("project.info")).toHaveLength(3));
-    expect(screen.getByLabelText("tests nonce")).toHaveTextContent("1");
+    await waitFor(() => expect(screen.getByLabelText("tests read")).toHaveTextContent("2"));
+    expect(callsOf("tests.list")).toHaveLength(2);
   });
 
   it("reads a run again when a file of its folder changed (a result, a screenshot), and the list of runs", () => {

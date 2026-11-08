@@ -5,6 +5,7 @@ import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
@@ -123,11 +124,14 @@ export function PackStep({ onBack, onDone }: { onBack: () => void; onDone?: () =
           {s.error}
         </Banner>
       ) : !s.packs ? (
-        <div role="status" aria-busy="true" aria-label="Loading the packs" {...stylex.props(styles.packs)}>
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} kind="block" />
-          ))}
-        </div>
+        <>
+          <div role="status" aria-busy="true" aria-label="Loading the packs" {...stylex.props(styles.packs)}>
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} kind="block" />
+            ))}
+          </div>
+          <Loading read="models.packs" />
+        </>
       ) : (
         <div role="radiogroup" aria-label="Search packs" {...stylex.props(styles.packs)}>
           {s.packs.map((p) => (

@@ -1,17 +1,35 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  rmSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { isAlive } from "../shared/run/process.ts";
 import { sleep } from "../shared/run/work.ts";
 import { type Ctx, UserError } from "./command.ts";
 import { env } from "./env.ts";
-import { addedRemoved, changedPaths, stampProject } from "./lib/changed.ts";
+import { recordChanges } from "./lib/changed.ts";
 import { fileMemo } from "./lib/file-memo.ts";
 import { withPerfScope } from "./lib/models-perf.ts";
 import type { Job, JobCause, JobEvent, JobProcess, JobStep } from "./types.ts";
 
-type Live = { job: Job; ctrl: AbortController; events: JobEvent[]; project: string | null; done: Promise<unknown> };
+type Live = {
+  job: Job;
+  ctrl: AbortController;
+  events: JobEvent[];
+  project: string | null;
+  done: Promise<unknown>;
+  ended: boolean;
+};
 
 const live = new Map<string, Live>();
 const listeners = new Set<(e: JobEvent) => void>();
@@ -166,7 +184,7 @@ export function startJob(
     ...(extra.cause ? { cause: extra.cause } : {}),
     ...(extra.rerun ? { rerun: extra.rerun } : {}),
   };
-  const l: Live = { job, ctrl, events: [], project, done: Promise.resolve() };
+  const l: Live = { job, ctrl, events: [], project, done: Promise.resolve(), ended: false };
   live.set(id, l);
   // ponytail: a job started while its parent is in a step carries that step, so the step opens the child's row
   const carried = parent && runningStep(parent.job);
@@ -244,7 +262,7 @@ export function startJob(
     },
   };
   emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
-  const before = project ? stampProject(project) : null;
+  const changes = project ? recordChanges(project, id) : null;
   l.done = (async () => {
     try {
       const result = await withPerfScope(
@@ -275,11 +293,10 @@ export function startJob(
       }
       // ponytail: a job says which project files it left changed (a Claude run, a pull, a conversion) before it
       // ends, so every view showing one of them reads it again — whoever started the job
-      const after = project && before ? stampProject(project) : null;
-      const paths = before && after ? changedPaths(before, after) : [];
-      if (before && after && paths.length)
-        emit(l, { jobId: id, at: at(), type: "changed", paths, ...addedRemoved(before, after, paths) });
+      const moved = changes ? await changes() : null;
+      if (moved?.paths.length) emit(l, { jobId: id, at: at(), type: "changed", ...moved });
       emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
+      l.ended = true;
     }
   })();
   l.done.catch(() => {});
@@ -294,15 +311,17 @@ export function cancelJob(id: string, project?: string | null): boolean {
   return true;
 }
 
-// ponytail: a job that ignores its signal past the grace is still logged cancelled — the process is about to exit
+// ponytail: a job that ignores its signal past the grace is still logged cancelled — the process is about to exit; one
+// already stopped but still saying what it changed (its last status not written) is waited for the same way
 export async function cancelAll(graceMs: number): Promise<Job[]> {
-  const running = [...live.values()].filter((l) => l.job.status === "running");
-  for (const l of running) l.ctrl.abort();
+  const running = [...live.values()].filter((l) => l.job.status === "running" || !l.ended);
+  for (const l of running) if (l.job.status === "running") l.ctrl.abort();
   const grace = new AbortController();
   await Promise.race([Promise.allSettled(running.map((l) => l.done)), sleep(graceMs, grace.signal).catch(() => {})]);
   grace.abort();
   for (const l of running) {
-    if (l.job.status !== "running") continue;
+    if (l.ended) continue;
+    l.ended = true;
     l.job.status = "cancelled";
     l.job.interrupted = true;
     l.job.error = "Stopped with Testimus.";
@@ -342,12 +361,37 @@ function jobOf(events: Iterable<JobEvent>): Job | null {
   return job;
 }
 
-function* summaryLines(file: string): Generator<JobEvent> {
-  for (const line of readFileSync(file, "utf8").split("\n")) {
+function summaryLines(lines: string[]): JobEvent[] {
+  const out: JobEvent[] = [];
+  for (const line of lines) {
     if (!SAYS_JOB.test(line)) continue;
     try {
-      yield JSON.parse(line);
+      out.push(JSON.parse(line));
     } catch {}
+  }
+  return out;
+}
+
+const TAIL = 64 * 1024;
+
+// ponytail: a job's summary is its last status line and the steps and processes after it — read from the end of the
+// log, a few KB growing until a status line is whole in it, not the whole log (a long run's is 750 KB; 120 of them
+// took 0.9 s to read at the first jobs list of a big project)
+function summaryOf(file: string): Job | null {
+  const fd = openSync(file, "r");
+  try {
+    const size = fstatSync(fd).size;
+    for (let want = TAIL; ; want *= 4) {
+      const start = Math.max(0, size - want);
+      const buf = Buffer.alloc(size - start);
+      readSync(fd, buf, 0, buf.length, start);
+      const lines = buf.toString("utf8").split("\n");
+      const events = summaryLines(start > 0 ? lines.slice(1) : lines);
+      const last = events.findLastIndex((e) => e.type === "status");
+      if (last >= 0 || start === 0) return jobOf(events.slice(Math.max(0, last)));
+    }
+  } finally {
+    closeSync(fd);
   }
 }
 
@@ -376,7 +420,7 @@ function fromDisk(project: string | null, id: string): { job: Job; events: JobEv
 // ponytail: the list reads each log once per version of it (a finished job's log never moves again)
 function summaryFromDisk(project: string | null, id: string): Job | null {
   const file = logFile(project, id);
-  const job = summaries(file, [file], () => (existsSync(file) ? jobOf(summaryLines(file)) : null));
+  const job = summaries(file, [file], () => (existsSync(file) ? summaryOf(file) : null));
   return job ? settled(id, job) : null;
 }
 

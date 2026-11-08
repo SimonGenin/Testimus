@@ -4,6 +4,7 @@ import { REVIEW } from "../../../components/ui/Badge.tsx";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
+import { Loading } from "../../../components/ui/Loading.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
 import { type } from "../../../components/ui/type.ts";
@@ -72,6 +73,7 @@ export function PushPlan({
             <Skeleton kind="row" />
             <Skeleton kind="row" />
             <Skeleton kind="row" />
+            <Loading read="xray.plan" />
           </div>
         )}
         {error && (

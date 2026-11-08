@@ -293,31 +293,21 @@ export function gist(text: string): string {
 
 export type Outline = { total: number; chapters: number[]; anchors: Map<string, { line: number; title: string }> };
 
-const SECTION_MARK = /<!--\s*§\s*(.*?)\s*-->/;
-const FIGURE_MARK = /<!--\s*fig\s+(\S+?)\s*-->/g;
+export type Shape = {
+  lines: number;
+  toc: { anchor: string; title: string; level: number; line: number }[];
+  figures: { anchor: string; caption: string; line?: number }[];
+};
 
-// ponytail: the lines of doc.md's anchors (headings marked <!-- §x -->, figures <!-- fig N -->), and its chapters: the
-// first heading level that occurs more than once
-export function outlineOf(md: string): Outline {
-  const all = md.split(/\r?\n/);
+// ponytail: the lines of doc.md's anchors (its headings and figures, as docs.show's outline gives them, without the
+// text), and its chapters: the first heading level that occurs more than once
+export function outlineOf(doc: Shape): Outline {
   const anchors: Outline["anchors"] = new Map();
-  const heads: { line: number; level: number }[] = [];
-  all.forEach((l, i) => {
-    const h = l.match(/^(#{1,6})\s+(.*)$/);
-    const s = h?.[2].match(SECTION_MARK);
-    if (h && s) {
-      const key = s[1].trim();
-      let title = h[2].replace(/\s*<!--[\s\S]*?-->/g, "").trim();
-      if (title.startsWith(`${key} `)) title = title.slice(key.length + 1).trim();
-      anchors.set(`§${key}`, { line: i + 1, title });
-      heads.push({ line: i + 1, level: h[1].length });
-    }
-    for (const f of l.matchAll(FIGURE_MARK))
-      if (!anchors.has(`fig:${f[1]}`))
-        anchors.set(`fig:${f[1]}`, { line: i + 1, title: l.match(/!\[([^\]]*)\]/)?.[1] ?? "" });
-  });
-  const level = [1, 2, 3, 4, 5, 6].find((n) => heads.filter((h) => h.level === n).length > 1);
-  return { total: all.length, chapters: heads.filter((h) => h.level === level).map((h) => h.line), anchors };
+  for (const t of doc.toc) anchors.set(t.anchor, { line: t.line, title: t.title });
+  for (const f of doc.figures)
+    if (f.line && !anchors.has(f.anchor)) anchors.set(f.anchor, { line: f.line, title: f.caption });
+  const level = [0, 1, 2, 3, 4, 5].find((n) => doc.toc.filter((t) => t.level === n).length > 1);
+  return { total: doc.lines, chapters: doc.toc.filter((t) => t.level === level).map((t) => t.line), anchors };
 }
 
 export function linesRead(spans: Span[]): {

@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Card } from "../../../components/ui/Card.tsx";
+import { Loading } from "../../../components/ui/Loading.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
 import { border, breakpoint, color, size, space } from "../../../styles/tokens.stylex.ts";
 
@@ -66,6 +67,7 @@ export function EditorLoading({ lead }: { lead?: ReactNode }) {
             <Skeleton lines={4} />
           </Card>
         ))}
+        <Loading read="tests.show" />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -180,11 +181,14 @@ export function ModelsSection() {
             {!hasProject ? (
               <Hint>Open a project to choose its search pack. The models below are shared by every project.</Hint>
             ) : !packs.data ? (
-              <div role="status" aria-busy="true" aria-label="Loading the packs" {...stylex.props(styles.packs)}>
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} kind="block" />
-                ))}
-              </div>
+              <>
+                <div role="status" aria-busy="true" aria-label="Loading the packs" {...stylex.props(styles.packs)}>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} kind="block" />
+                  ))}
+                </div>
+                <Loading read="models.packs" />
+              </>
             ) : (
               <div {...stylex.props(styles.packs)}>
                 {packs.data.map((p) => (
@@ -243,7 +247,10 @@ export function ModelsSection() {
                 catalog.isError ? (
                   <Hint>The catalog could not be read: Try again above.</Hint>
                 ) : (
-                  <Skeleton kind="block" />
+                  <>
+                    <Skeleton kind="block" />
+                    <Loading read="models.catalog" />
+                  </>
                 )
               ) : (
                 <ModelsTable

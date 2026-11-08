@@ -4,6 +4,7 @@ import type { Job } from "../../../core/types.ts";
 import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -126,6 +127,7 @@ export function JobDetailSkeleton() {
       <Skeleton kind="title" width="50%" />
       <Skeleton width="70%" />
       <Skeleton kind="block" />
+      <Loading read="jobs.list" />
     </aside>
   );
 }

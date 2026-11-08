@@ -1,7 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { LoadingRead } from "../../lib/data/loading.ts";
 import { border, color, fontSize, fontWeight, lineHeight, size, space, z } from "../../styles/tokens.stylex.ts";
 import { ListItem, type ListItemProps } from "./ListItem.tsx";
+import { Loading } from "./Loading.tsx";
 import { useRowWindow } from "./rowWindow.ts";
 import { Skeleton } from "./Skeleton.tsx";
 
@@ -18,6 +20,7 @@ const styles = stylex.create({
   },
   flush: { paddingBlock: 0 },
   group: { display: "flex", flexDirection: "column", margin: 0, padding: 0 },
+  status: { listStyle: "none" },
   head: {
     position: "sticky",
     top: 0,
@@ -79,6 +82,8 @@ export type ListProps<T> = {
   groups?: { label: string; meta?: string; keys: string[]; action?: ReactNode; head?: boolean }[];
   /** skeleton rows in place of the rows (true: 3) — never the old rows */
   loading?: boolean | number;
+  /** the read the loading rows stand for: under them, the kit's Loading says it after a second */
+  reading?: LoadingRead;
   /** shown inside the list's frame when there is no row (an EmptyState) */
   empty?: ReactNode;
   /** paged lists: called near the end; with total, « x of y » on top until « All N loaded » */
@@ -110,6 +115,7 @@ export function List<T>({
   divided = false,
   groups,
   loading = false,
+  reading,
   empty,
   onEndReached,
   total,
@@ -270,11 +276,18 @@ export function List<T>({
         </li>
       )}
       {busy
-        ? Array.from({ length: loading === true ? LOADING_ROWS : loading }, (_, n) => `loading-${n}`).map((k) => (
-            <li key={k} role="presentation" {...stylex.props(styles.group)}>
-              <Skeleton kind="row" />
-            </li>
-          ))
+        ? [
+            ...Array.from({ length: loading === true ? LOADING_ROWS : loading }, (_, n) => `loading-${n}`).map((k) => (
+              <li key={k} role="presentation" {...stylex.props(styles.group)}>
+                <Skeleton kind="row" />
+              </li>
+            )),
+            reading && (
+              <li key="loading-status" role="presentation" {...stylex.props(styles.status)}>
+                <Loading read={reading} inset />
+              </li>
+            ),
+          ]
         : groups
           ? groups.map((g, gi) => {
               const inGroup = rows.filter((r) => r.group === gi);

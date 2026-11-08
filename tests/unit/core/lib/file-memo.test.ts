@@ -109,3 +109,26 @@ test("the jobs list reads a job's state from its log, past thousands of lines of
   );
   expect(listJobs(p)[0]).toMatchObject({ status: "done", endedAt: "y" });
 });
+
+test("the jobs list reads a log from its end: a last status larger than the first read is still read whole", () => {
+  const p = mkdtempSync(join(tmpdir(), "testimus-memo-"));
+  const dir = join(p, ".testimus", "jobs");
+  mkdirSync(dir, { recursive: true });
+  const job = { id: "pull-1", kind: "pull", subject: "s", status: "running", startedAt: "2026-01-01" };
+  const words = Array.from({ length: 2000 }, () =>
+    JSON.stringify({ jobId: "pull-1", at: "x", type: "claude", event: { type: "text", text: "w".repeat(100) } }),
+  );
+  const pulled = Array.from({ length: 6000 }, (_, i) => `LFRPS12-${i}`);
+  const done = { ...job, status: "done", endedAt: "z", result: { pulled } };
+  const lines = [
+    JSON.stringify({ jobId: "pull-1", at: "x", type: "status", job }),
+    ...words,
+    JSON.stringify({ jobId: "pull-1", at: "z", type: "status", job: done }),
+    JSON.stringify({ jobId: "pull-1", at: "z", type: "process", process: { id: "p1", label: "Claude", pid: 1 } }),
+  ];
+  writeFileSync(join(dir, "pull-1.jsonl"), `${lines.join("\n")}\n`);
+  expect(JSON.stringify(done).length).toBeGreaterThan(64 * 1024);
+  const listed = listJobs(p)[0] as unknown as { result: { pulled: string[] }; processes: { id: string }[] };
+  expect(listed).toMatchObject({ status: "done", endedAt: "z", processes: [{ id: "p1" }] });
+  expect(listed.result.pulled).toHaveLength(6000);
+});

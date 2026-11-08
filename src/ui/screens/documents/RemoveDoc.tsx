@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DocJson } from "../../../core/types.ts";
 import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -103,6 +104,7 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
         ) : plan.isPending ? (
           <div role="status" aria-busy="true" aria-label="Looking for the tests that cite it">
             <Skeleton width="70%" />
+            <Loading read="docs.remove" />
           </div>
         ) : !cited.length ? (
           <p {...stylex.props(type.small, styles.muted)}>No test cites it.</p>

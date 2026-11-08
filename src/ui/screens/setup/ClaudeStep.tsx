@@ -6,6 +6,7 @@ import { noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatu
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { invalidate, read } from "../../lib/data/query.ts";
@@ -86,7 +87,10 @@ export function ClaudeStep({ onBack, onContinue }: { onBack: () => void; onConti
       }
     >
       {probe.isPending ? (
-        <Skeleton lines={2} />
+        <>
+          <Skeleton lines={2} />
+          <Loading read="claude.status" />
+        </>
       ) : (
         <Card sunken>
           <div role="status" aria-live="polite" {...stylex.props(styles.rows)}>

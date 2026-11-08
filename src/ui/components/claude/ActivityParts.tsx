@@ -1,6 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import { Fragment, type ReactNode, useMemo } from "react";
-import { type Lookup, lines, linesRead, type Outline, outlineOf, type Phase, type Span } from "../../lib/activity.ts";
+import {
+  type Lookup,
+  lines,
+  linesRead,
+  type Outline,
+  outlineOf,
+  type Phase,
+  type Shape,
+  type Span,
+} from "../../lib/activity.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
@@ -36,13 +45,21 @@ export const unique = (xs: string[]) => [...new Set(xs.filter(Boolean))];
 export const docsOf = (p: Phase) =>
   unique([...p.reads.map((r) => r.doc), ...p.lookups.filter((l) => l.kind === "open").map((l) => l.doc)]);
 
-// ponytail: the outline of a document Claude read — its length, chapters and anchors — read once per document
+// ponytail: the outline of a document Claude read — its length, chapters and anchors — read once per document, without
+// its text
 export function useOutline(doc: string): Outline | null | undefined {
-  const r = useRead("docs.show", { id: doc }, { enabled: !!doc });
-  const md = (r.data as { md?: string } | undefined)?.md;
+  const r = useRead("docs.show", { id: doc, brief: true }, { enabled: !!doc });
+  const shown = r.data as Partial<Shape> | undefined;
   return useMemo(
-    () => (r.error ? null : md === undefined ? (r.data ? null : undefined) : outlineOf(md)),
-    [md, r.error, r.data],
+    () =>
+      r.error
+        ? null
+        : !shown
+          ? undefined
+          : shown.lines === undefined
+            ? null
+            : outlineOf({ lines: shown.lines, toc: shown.toc ?? [], figures: shown.figures ?? [] }),
+    [shown, r.error],
   );
 }
 

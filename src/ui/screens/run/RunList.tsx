@@ -11,7 +11,17 @@ export function RunList({
   selected: string;
   onOpen: (slug: string) => void;
 }) {
-  if (!runs) return <List label="Runs" items={[]} getKey={() => ""} renderItem={() => ({ title: "" })} loading={4} />;
+  if (!runs)
+    return (
+      <List
+        label="Runs"
+        items={[]}
+        getKey={() => ""}
+        renderItem={() => ({ title: "" })}
+        loading={4}
+        reading="runs.list"
+      />
+    );
   const open = runs.filter((r) => !r.finished).map((r) => r.slug);
   const done = runs.filter((r) => r.finished).map((r) => r.slug);
   return (

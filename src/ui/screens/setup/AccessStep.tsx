@@ -6,6 +6,7 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
@@ -118,6 +119,7 @@ export function AccessStep({ onBack, onContinue }: { onBack: () => void; onConti
       {!creds.data || testing ? (
         <div role="status" aria-busy="true" aria-label="Testing the access saved on this PC">
           <Skeleton lines={2} />
+          <Loading read="system.credentials" />
         </div>
       ) : (
         <>

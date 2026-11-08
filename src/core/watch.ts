@@ -2,7 +2,7 @@ import { existsSync, type FSWatcher, watch } from "node:fs";
 import { resolve } from "node:path";
 import { debounce } from "../shared/run/work.ts";
 import { filesChanged } from "./jobs.ts";
-import { skipped } from "./lib/changed.ts";
+import { follow, seen, skipped, unfollow } from "./lib/changed.ts";
 
 const watchers = new Map<string, FSWatcher>();
 
@@ -27,6 +27,7 @@ export function watchProject(project: string, settleMs = 200, maxMs = 1000): voi
         return;
       }
       const rel = String(name).replaceAll("\\", "/");
+      seen(dir, rel);
       if (!skipped(rel)) batch.push(rel);
     });
   } catch {
@@ -34,12 +35,14 @@ export function watchProject(project: string, settleMs = 200, maxMs = 1000): voi
   }
   w.on("error", () => unwatchProject(dir));
   watchers.set(dir, w);
+  follow(dir);
 }
 
 export function unwatchProject(project: string): void {
   const dir = resolve(project);
   watchers.get(dir)?.close();
   watchers.delete(dir);
+  unfollow(dir);
 }
 
 export function unwatchAll(): void {

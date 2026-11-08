@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { plural } from "../../lib/format.ts";
 import { size, space } from "../../styles/tokens.stylex.ts";
@@ -87,6 +88,7 @@ export function ReviewLoading() {
           <Skeleton lines={3} />
         </Card>
       ))}
+      <Loading read="tests.show" />
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import type { LoadingRead } from "../../lib/data/loading.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { COLS, type Fold } from "./layout.ts";
 
@@ -75,10 +77,12 @@ const styles = stylex.create({
 export function DocLoading({
   fold = "wide",
   label,
+  read,
   widths = COLS,
 }: {
   fold?: Fold;
   label: string;
+  read: LoadingRead;
   widths?: { toc: number; side: number };
 }) {
   const toc = fold !== "tiny";
@@ -106,6 +110,7 @@ export function DocLoading({
               <Skeleton lines={4} />
               <Skeleton lines={5} />
               <Skeleton kind="block" width="55%" />
+              <Loading read={read} />
             </div>
           </div>
         </div>

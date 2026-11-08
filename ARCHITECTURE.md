@@ -83,7 +83,8 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   in §6). The registry's
   type `CommandMap` (name → input, output, job or not) is what the page imports — types only — so an unknown command
   name does not compile.
-- **`src/core/env.ts` is the one seam**: `http`, home and data dirs, `spawnClaude`. Tests and `--mock` swap it.
+- **`src/core/env.ts` is the one seam**: `http`, home and data dirs, `spawnClaude`, `readMs` (a read held back on
+  purpose: `TESTIMUS_MOCK_READ_MS`). Tests and `--mock` swap it.
 - **Long work is a job** (`src/core/jobs.ts`): id, progress, steps, cancel, rerun (`jobs.rerun`, the same input, the new
   job caused by the old), a log in `<project>/.testimus/jobs/<id>.jsonl`. Before it ends a job says which project files
   it added, modified or removed (`changed`). A job keeps two words for what it works on: `subject`, what the command
@@ -112,6 +113,30 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   once per *version* of the files they come from (size + mtime + inode, `lib/file-memo.ts`); each read only stats. The
   files stay the truth. A job's summary reads only its status, steps and process lines, never Claude's words. Ids sort
   with one shared natural-order collator (`lib/natural.ts`; a new collator per comparison cost 39 ms per 600 ids).
+  Second pass (2026-11-08, a project of 600 tests, 20 documents — one of 1 500 sections, 1.1 MB — and 120 job logs of
+  2 000 events; a Mac shared with other runs, so read the ratios, not the absolute figures):
+  - A job's summary is read **from the end of its log** (64 KB, growing until its last status line is whole: the
+    summary is that line and what follows it): the first jobs list 582 → 111 ms.
+  - A document's fingerprint (all of `doc.md` hashed, against what the index last read) and its outline (headings and
+    figures with their lines) are worked out once per version of their files (`lib/docs.ts` `contentOf`, `docShape`):
+    `docs.list` warm 190 → 71 ms, `rag.status` 236 → 85 ms.
+  - **`docs.show` answers a page**: without an anchor, at most 60 000 characters of `doc.md` from `from`, cut at a
+    line, with `next` while it goes on (Claude reads on with `from`; an MCP answer of a whole 1.1 MB `doc.md` was
+    beyond what Claude takes); with an anchor, the part and only the sections and figures inside it (a section's
+    answer carried the whole 1 500-entry toc). Every answer gives `lines`, `chars` and each toc entry's `line`, so the
+    page draws where Claude read without the text. Brief 61 ms → 7 ms; a section 136 ms / 80 KB → 21 ms / 1.3 KB; the
+    first page 1.14 MB → 158 KB.
+  - Left as it is, measured: the first `tests.list` of the big project still parses 600 `test.md` (0.5–0.9 s, mostly
+    the first disk reads); every later read only stats.
+- **A job's `changed` comes from the watcher** when one follows the project (2026-11-08, `lib/changed.ts`): the
+  watcher keeps a stamp of the project's files (size, mtime) up to date from the paths it reports — a folder renamed
+  into place is walked, a path gone takes what it held — made once at the project's first job; each job running
+  keeps what a path was before it first moved. At the end the job makes a fence folder `.testimus/fence-<id>` and waits
+  for the watcher to report it (2 s at most): every write before it has been reported. Without a watcher (CLI, MCP)
+  the project is stamped before and after, as before. Stopping Testimus waits for a job that stopped but has not
+  written its last status yet (it may be awaiting its fence). Same paths, added and removed as the walk
+  (`tests/unit/core/jobs/changed-watched.test.ts`); the two walks of 1 100 files (~130 ms, synchronous) per job are
+  gone — the job ends ~50 ms after its work, the event loop free meanwhile.
 - **The core is the only writer of managed files** (`.remote.md`, `index/`, `.testimus/`). Claude edits `test.md`
   directly and the core re-reads it. Every file the app owns is written to `<file>.tmp` then renamed (`lib/atomic.ts`;
   folders through `<folder>.tmp`); a guard fails on any other `writeFileSync` in `src/core` outside the model files and
@@ -624,6 +649,26 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   pending save first. Moving to another project drops the old project's reads. Nothing else fetches, opens a stream or
   touches browser storage; `lib/prefs.ts` holds the presentation preferences (typed keys). A preference that changes
   what the app does (model, effort, contexts) is a command, not a pref.
+- **Files changed on disk are read again by the data layer alone** (`readAgain`, `lib/data/events.ts`, 2026-11-08):
+  the reads a screen shows at once when idle, and a read **in flight is never dropped and started over** — it lands,
+  then is asked once more for every burst that came meanwhile (it may have read the files before they moved); the
+  others are only marked stale. The shell's old « tests changed » signal on each burst (it drew the whole shell again
+  and dropped the tests list in flight) is gone. Burst of 30 `test.md` writes, Tests open: `tests.list`
+  asked 6 times, 3 of them dropped → asked 3 times, none dropped.
+- **A running job's events reach the cache once per frame** (a timer stands in for frames in a hidden window, so the
+  taskbar's progress still follows); a status is applied at once, after the events before it. 3 000 events streamed as
+  fast as they come: the job's detail worked out 3 000 times (14.3 s) → 35 times (0.8 s).
+- **Sign of life**: a skeleton shimmers (still under `prefers-reduced-motion`); under the skeleton of a read the kit's
+  `Loading` says after 1 s what loads, in the words of that read (`lib/data/loading.ts`, one vocabulary, never a
+  screen's own text), and the seconds; from 10 s « Still loading… » and a neutral banner « Testimus is answering
+  slowly. The page keeps waiting. » with Try again (the request under way is dropped, the read asked again). One line
+  per read on the page. List `reading` puts it under a list's loading rows. An error stays the screen's danger banner.
+- **One chunk per screen** (`app/Screens.tsx`, `React.lazy`): the page loads the shell and what it uses — React, the
+  data layer, the kit the shell draws — in two files of 550 kB (was one of 1 456 kB, the kit catalogue's 433 kB
+  included); a screen's own chunk (8–104 kB) comes the first time it shows, the empty pane meanwhile. Forcing the whole
+  kit into the first files (a Rolldown chunk group) was measured at 880 kB and left out: a kit piece only screens use
+  travels with them. Opening Tests on the big project: 1.49 MB of script → 0.37 MB, the list shown in 580 → 380 ms
+  (warm), the longest task 90 ms → none over 50 ms.
 - **One kit** (`src/ui/components/ui/`): one component per control, and every drawn piece of the design (Field,
   SaveState, Answer, Ask, Passage, Raw, Facts, Timer, Pane, Tile, Card, Badge vocabularies…). `Text` is every field
   (boxed, inline, bare, table cell) with its save state, Claude's lock and its autosave; `ClaudeBlock` (every place
@@ -753,3 +798,7 @@ first-class: every screen works without the bridge.
   `start.cmd` on a colleague's Windows PC (Node from the installed Testimus, `start ""` opening the browser), a browser
   that blocks `localStorage` on `file://`. Answering a tester's question happens in the Run screen only, not in Review
   yet, and Claude does not draft answers there.
+- The job fence (§3) relies on the watcher reporting a project's paths in the order they were written: true of
+  Windows' and macOS' recursive watch; on Linux, where Node watches each folder apart, a write reported after the
+  fence would be missed by that job's `changed` (the watcher's own event still reaches the page). Measured on macOS
+  only; the Windows PC is to check. The first `tests.list` of a big project (600 `test.md` parsed) is left synchronous.

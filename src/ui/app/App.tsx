@@ -127,7 +127,7 @@ export function App() {
     testsChanged();
   }, [close, testsChanged]);
   const openPalette = useCallback(() => setPalette(true), []);
-  useShellEvents(testsChanged, navigate);
+  useShellEvents(navigate);
 
   const toggleDock = dock.toggle;
   useEffect(() => {

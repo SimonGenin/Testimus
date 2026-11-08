@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -16,9 +17,10 @@ import {
 } from "../../../../src/ui/components/ui/Badge.tsx";
 import { Button } from "../../../../src/ui/components/ui/Button.tsx";
 import { Card } from "../../../../src/ui/components/ui/Card.tsx";
+import { Loading } from "../../../../src/ui/components/ui/Loading.tsx";
 import { Select } from "../../../../src/ui/components/ui/Select.tsx";
-import { Skeleton } from "../../../../src/ui/components/ui/Skeleton.tsx";
 import { Tooltip } from "../../../../src/ui/components/ui/Tooltip.tsx";
+import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 import { files, read } from "../../guards/scan.ts";
 import { openList } from "../../helpers/select.ts";
 
@@ -142,12 +144,15 @@ describe("Button field (audit n° 12)", () => {
 });
 
 describe("catalogue states (audit n° 53)", () => {
-  it("Skeleton's late state says it is still loading and offers Retry", () => {
-    const retry = vi.fn();
-    render(<Skeleton onRetry={retry} debugState="late" />);
-    expect(screen.getByRole("status")).toHaveTextContent("Still loading");
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(retry).toHaveBeenCalledOnce();
+  it("Loading's slow state says it is still loading and offers Try again", () => {
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <Loading read="tests.list" debugState="slow" />
+      </QueryClientProvider>,
+    );
+    expect(screen.getAllByRole("status")[0]).toHaveTextContent("Still loading the tests… 12 s");
+    expect(screen.getByText("Testimus is answering slowly. The page keeps waiting.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
   });
 
   it("a Tooltip can be shown open without the pointer", () => {

@@ -1,9 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useState } from "react";
-import { color, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
-import { Button } from "./Button.tsx";
-
-const RETRY_AFTER_MS = 10_000;
+import { color, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 
 const shimmer = stylex.keyframes({
   "0%": { backgroundPosition: "100% 0" },
@@ -18,7 +14,7 @@ const styles = stylex.create({
     borderRadius: radius.r1,
     backgroundImage: `linear-gradient(90deg, ${color.surfaceSunken} 0%, ${color.surfaceHover} 50%, ${color.surfaceSunken} 100%)`,
     backgroundSize: "200% 100%",
-    animationName: shimmer,
+    animationName: { default: shimmer, "@media (prefers-reduced-motion: reduce)": "none" },
     animationDuration: "1.4s",
     animationTimingFunction: "ease-in-out",
     animationIterationCount: "infinite",
@@ -40,16 +36,6 @@ const styles = stylex.create({
     paddingBlock: space.s3,
     paddingInline: space.s5,
   },
-  late: {
-    display: "flex",
-    alignItems: "center",
-    gap: space.s3,
-    paddingBlock: space.s3,
-    paddingInline: space.s5,
-    color: color.textMuted,
-    fontSize: fontSize.compact,
-    lineHeight: lineHeight.compact,
-  },
 });
 
 export type SkeletonProps = {
@@ -60,36 +46,12 @@ export type SkeletonProps = {
   width?: string;
   /** several text lines, the last one shorter */
   lines?: number;
-  /** after 10 s without data the skeleton becomes « Still loading » with Retry, which calls this */
-  onRetry?: () => void;
-  /** the catalogue only: the « Still loading » state at once */
-  debugState?: "late";
 };
 
 // ponytail: the shape of what is loading, at the size of the content it stands for, so nothing moves when it lands;
-// never stale rows, never a centred spinner
-export function Skeleton({ kind = "text", width, lines = 1, onRetry, debugState }: SkeletonProps) {
-  const [late, setLate] = useState(false);
-  useEffect(() => {
-    if (!onRetry) return;
-    const t = setTimeout(() => setLate(true), RETRY_AFTER_MS);
-    return () => clearTimeout(t);
-  }, [onRetry]);
-  if ((late || debugState === "late") && onRetry)
-    return (
-      <div role="status" {...stylex.props(styles.late)}>
-        Still loading — this is taking longer than usual.
-        <Button
-          size="sm"
-          label="Retry"
-          icon="refresh"
-          onClick={() => {
-            setLate(false);
-            onRetry();
-          }}
-        />
-      </div>
-    );
+// never stale rows, never a centred spinner. It shimmers (it stays still under reduced motion); what loads and for how
+// long is said under it by the kit's Loading
+export function Skeleton({ kind = "text", width, lines = 1 }: SkeletonProps) {
   if (kind === "row")
     return (
       <div aria-hidden="true" {...stylex.props(styles.row)}>

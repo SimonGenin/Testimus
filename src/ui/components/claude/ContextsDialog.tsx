@@ -9,6 +9,7 @@ import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { List } from "../ui/List.tsx";
+import { Loading } from "../ui/Loading.tsx";
 import { Modal } from "../ui/Modal.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
 import { type } from "../ui/type.ts";
@@ -171,6 +172,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
               items={rows}
               getKey={(c) => c.id}
               loading={list === undefined && !listRead.error}
+              reading="contexts.list"
               empty={<span {...stylex.props(type.small, styles.muted)}>No context yet.</span>}
               selected={detail?.id ?? null}
               onSelect={(k) => {
@@ -188,7 +190,10 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
           {detail ? (
             <ContextEditor key={detail.id} detail={detail} words={words} />
           ) : id && !detailRead.error ? (
-            <Skeleton lines={4} />
+            <>
+              <Skeleton lines={4} />
+              <Loading read="contexts.show" />
+            </>
           ) : list !== undefined || listRead.error ? (
             <EmptyState
               icon="context"

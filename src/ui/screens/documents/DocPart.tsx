@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef } from "react";
 import { DocText } from "../../components/sources/DocText.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { isObserved } from "../../lib/media.ts";
@@ -147,7 +148,10 @@ export function DocPart({
           />
         </div>
         {loading ? (
-          <Skeleton lines={4} />
+          <>
+            <Skeleton lines={4} />
+            <Loading read="docs.show" />
+          </>
         ) : (
           <DocText docId={docId} md={md} focus={focus} target={target} onFigure={onFigure ?? onGo} />
         )}

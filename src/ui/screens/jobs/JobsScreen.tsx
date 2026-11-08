@@ -104,7 +104,14 @@ export function JobsScreen() {
                 </Banner>
               </div>
             ) : !j.jobs ? (
-              <List label="Jobs" items={[]} getKey={() => ""} renderItem={() => ({ title: "" })} loading={5} />
+              <List
+                label="Jobs"
+                items={[]}
+                getKey={() => ""}
+                renderItem={() => ({ title: "" })}
+                loading={5}
+                reading="jobs.list"
+              />
             ) : (
               <JobList
                 shown={j.shown}

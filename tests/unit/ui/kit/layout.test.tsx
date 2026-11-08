@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button } from "../../../../src/ui/components/ui/Button.tsx";
@@ -47,20 +47,6 @@ describe("Skeleton", () => {
     expect((lines.children[0] as HTMLElement).style.width).toBe("90%");
     expect(cls(lines.children[2])).not.toBe(cls(lines.children[0]));
     expect(row.querySelectorAll("span")).toHaveLength(4);
-  });
-
-  it("after 10 s without data says so and offers Retry", () => {
-    vi.useFakeTimers();
-    const onRetry = vi.fn();
-    render(<Skeleton onRetry={onRetry} />);
-    expect(screen.queryByRole("status")).toBeNull();
-    act(() => vi.advanceTimersByTime(9_999));
-    expect(screen.queryByRole("status")).toBeNull();
-    act(() => vi.advanceTimersByTime(1));
-    expect(screen.getByRole("status")).toHaveTextContent("Still loading");
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("status")).toBeNull();
   });
 });
 

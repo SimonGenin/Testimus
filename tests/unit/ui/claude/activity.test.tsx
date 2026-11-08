@@ -226,7 +226,7 @@ describe("activityOf", () => {
 
 describe("GenActivity", () => {
   it("shows each phase, the reading bar against the document length, and the actions on demand", async () => {
-    api.routes["docs.show"] = () => ({ md: Array.from({ length: 4000 }, () => "l").join("\n") });
+    api.routes["docs.show"] = () => ({ lines: 4000, toc: [], figures: [], md: "" });
     const events = run();
     render(<GenActivity events={events} running={false} now={Date.now()} />);
     expect(screen.getByRole("heading", { name: "Got ready" })).toBeInTheDocument();
@@ -333,27 +333,33 @@ describe("GenActivity", () => {
   });
 });
 
-const MD = [
-  "# 1 Queues <!-- §1 -->",
-  "text",
-  "## 1.1 Jobs <!-- §1.1 -->",
-  "![Job lifecycle](figures/f12.png) <!-- fig 12 -->",
-  "# 2 Retries <!-- §2 -->",
-  "## 2.1 Retrying failed jobs <!-- §2.1 -->",
-  "text",
-  "# Annex",
-  "end",
-  "",
-].join("\n");
+// the outline docs.show gives (brief) of this doc.md:
+// # 1 Queues <!-- § 1 --> · text · ## 1.1 Jobs <!-- § 1.1 --> · ![Job lifecycle](figures/f12.png) <!-- fig 12 -->
+// # 2 Retries <!-- § 2 --> · ## 2.1 Retrying failed jobs <!-- § 2.1 --> · text · # Annex · end · (empty)
+const SHAPE = {
+  lines: 10,
+  toc: [
+    { anchor: "§1", title: "Queues", level: 0, line: 1 },
+    { anchor: "§1.1", title: "Jobs", level: 1, line: 3 },
+    { anchor: "§2", title: "Retries", level: 0, line: 5 },
+    { anchor: "§2.1", title: "Retrying failed jobs", level: 1, line: 6 },
+  ],
+  figures: [{ anchor: "fig:12", caption: "Job lifecycle", line: 4 }],
+};
 
 describe("what the index and the check add", () => {
   it("reads the outline of doc.md and the gist of what Claude says", () => {
-    const o = outlineOf(MD);
+    const o = outlineOf(SHAPE);
     expect(o.total).toBe(10);
     expect(o.chapters).toEqual([1, 5]);
     expect(o.anchors.get("§2.1")).toEqual({ line: 6, title: "Retrying failed jobs" });
     expect(o.anchors.get("fig:12")).toEqual({ line: 4, title: "Job lifecycle" });
-    expect(outlineOf("# Only <!-- §1 -->\n## a <!-- §1.1 -->\n## b <!-- §1.2 -->").chapters).toEqual([2, 3]);
+    const only = [
+      { anchor: "§1", title: "Only", level: 0, line: 1 },
+      { anchor: "§1.1", title: "a", level: 1, line: 2 },
+      { anchor: "§1.2", title: "b", level: 1, line: 3 },
+    ];
+    expect(outlineOf({ lines: 3, toc: only, figures: [] }).chapters).toEqual([2, 3]);
     expect(gist("```gen-report\n{}\n```\n\nI wrote **2 tests**:\n- one")).toBe("I wrote 2 tests: - one");
     expect(gist("x".repeat(300))).toHaveLength(218);
     expect(gist("| a | b |")).toBe("");
@@ -420,7 +426,7 @@ describe("what the index and the check add", () => {
   });
 
   it("draws the sections opened from the index on the document, groups the lookups, and shows the verdicts", async () => {
-    api.routes["docs.show"] = () => ({ md: MD });
+    api.routes["docs.show"] = () => ({ ...SHAPE, md: "" });
     sec = 0;
     const events: JobEvent[] = [
       tool("Skill", { skill: "generate-tests" }),

@@ -87,6 +87,7 @@ export function ContextSection() {
                 selected={current?.id ?? null}
                 onSelect={setPicked}
                 loading={!q.data}
+                reading="claude.prompts"
                 empty={<EmptyState icon="filter" compact title={`Nothing matches “${filter.trim()}”.`} />}
                 renderItem={(p) => ({
                   title: p.name,

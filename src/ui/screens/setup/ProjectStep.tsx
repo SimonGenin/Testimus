@@ -4,6 +4,7 @@ import { OpenByKey } from "../../components/shell/OpenByKey.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -69,7 +70,10 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
       }
     >
       {!p.known ? (
-        <Skeleton kind="row" />
+        <>
+          <Skeleton kind="row" />
+          <Loading read="project.list" />
+        </>
       ) : (
         p.known.length > 0 && (
           <section aria-labelledby="known-h" {...stylex.props(styles.known)}>

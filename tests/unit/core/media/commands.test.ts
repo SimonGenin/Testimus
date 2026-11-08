@@ -158,11 +158,16 @@ describe("a batch in the document", () => {
     expect(on.citedBy.map((t) => t.id)).toContain("LFRPS12-1420");
     type Toc = { toc: { anchor: string; level: number }[]; figures: { anchor: string }[] };
     const shown = await call<Toc>("docs.show", { id: D3, brief: true }, P);
+    const at = (a: string) =>
+      read("doc.md")
+        .split("\n")
+        .findIndex((l) => l.includes(`<!-- § ${a} -->`)) + 1;
     expect(shown.toc.slice(-3)).toEqual([
-      { anchor: `§lot-${LOT}`, title: "Annexe — Recette TCO 12/10", level: 0 },
-      { anchor: `§lot-${LOT}.img-0042`, title: "IMG_0042", level: 1 },
-      { anchor: `§lot-${LOT}.img-0043`, title: "IMG_0043", level: 1 },
+      { anchor: `§lot-${LOT}`, title: "Annexe — Recette TCO 12/10", level: 0, line: at(`lot-${LOT}`) },
+      { anchor: `§lot-${LOT}.img-0042`, title: "IMG_0042", level: 1, line: at(`lot-${LOT}.img-0042`) },
+      { anchor: `§lot-${LOT}.img-0043`, title: "IMG_0043", level: 1, line: at(`lot-${LOT}.img-0043`) },
     ]);
+    expect(at(`lot-${LOT}`)).toBeGreaterThan(0);
     expect(shown.figures.map((f) => f.anchor)).toContain(`fig:lot-${LOT}.img-0042`);
     const off = await call<Job>("media.include", { doc: D3, lot: LOT, included: false, index: false }, P);
     expect(off.changed).toBe(true);

@@ -52,7 +52,8 @@ src/ui/
   screens/<screen>/   one folder per screen (documents, generate, tests, review, run, jobs, settings, setup, doctor);
                       screens/kit/ is the catalogue (#/kit under --mock)
   lib/data/           the data layer: client (call, the HTTP seam), query (useRead, useCommand, execute, keys),
-                      events (one SSE stream → cache), autosave, provider
+                      events (one SSE stream → cache), autosave, provider, loading (what a skeleton waits on, in
+                      words: the one vocabulary of the kit's Loading line, and its Try again)
   lib/prefs.ts        presentation preferences (typed, localStorage); lib/theme.ts; lib/desktop.ts (the bridge)
   styles/             tokens.stylex.ts (generated) and fonts.css
 models/catalog.json   the model catalog (entries, packs, measured figures)
@@ -100,6 +101,8 @@ tests/fixtures/       the LFRPS12 sample project, docx, evidence, rag, snowball-
 - Styles: `stylex.create` in the component's own file, values from `tokens.stylex.ts`, text through `type.ts`. No
   literal colour, no px size, no constant inline style, no `.css`, no `dangerouslySetInnerHTML`. A framed box is a
   `Card`. Markdown and Claude's answers render to React elements, never an HTML string.
+- A skeleton that stands for a read says so: `<Loading read="…" />` under it (or List `reading`), the words
+  added once to `lib/data/loading.ts` — never a « Loading… » text of the screen's own.
 - A new kit component or state appears in `#/kit` (`src/ui/screens/kit/`) and in `tests/e2e/kit.spec.ts`. Each kit
   component has a component test covering all its options, queried by role and label (StyleX class names are not
   stable; `data-testid` only when there is neither). Pick a select's option in tests with
@@ -148,6 +151,7 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_ADVICE` | `upgrade` (default), `downgrade`, `offload`, `none` |
 | `TESTIMUS_MOCK_INDEX` | `bm25`: start without vectors |
 | `TESTIMUS_MOCK_INDEX_MS` | ms the fake embedder takes per batch of passages once the sandbox is indexed: keeps an index run going |
+| `TESTIMUS_MOCK_READ_MS` | `tests.list=12000,docs.list=3000`: those reads answer that many ms late, every time (the loading line under a skeleton, « answering slowly », Try again) |
 | `TESTIMUS_MOCK_DOWNLOAD_MS`, `TESTIMUS_MOCK_UPDATES`, `TESTIMUS_MOCK_UPDATE_MS` | fake downloads and updates |
 
 Other variables: `TESTIMUS_MODELS` (dev models folder, `D:/Projects/Testimus/.models`), `TESTIMUS_MACHINE` (impose a

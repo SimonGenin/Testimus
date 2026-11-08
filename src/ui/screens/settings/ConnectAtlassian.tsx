@@ -7,6 +7,7 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -240,7 +241,13 @@ export function ConnectAtlassian({
         {creds.error.message}
       </Banner>
     );
-  if (!status || secrets.isPending) return <Skeleton lines={5} />;
+  if (!status || secrets.isPending)
+    return (
+      <>
+        <Skeleton lines={5} />
+        <Loading read="system.secrets" />
+      </>
+    );
 
   const dir = dirOf(status.jira.file);
   const unsaved =

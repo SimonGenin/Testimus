@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
 import { Facts } from "../../../components/ui/Facts.tsx";
+import { Loading } from "../../../components/ui/Loading.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
 import { invalidate, key, read, useRead } from "../../../lib/data/query.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
@@ -65,7 +66,10 @@ export function MachineCard() {
         ) : hw.isError ? (
           <Hint>This machine could not be read: {hw.error.message}</Hint>
         ) : (
-          <Skeleton kind="block" />
+          <>
+            <Skeleton kind="block" />
+            <Loading read="models.hardware" />
+          </>
         )}
         <Hint>
           Every pack below is judged against these figures. Analyse again after changing a GPU or its driver, or closing

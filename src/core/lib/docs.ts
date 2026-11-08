@@ -2,9 +2,11 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs
 import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { parseAnchor } from "../rag/anchors.ts";
+import { type DocFigure, docFigures } from "../rag/chunk.ts";
 import { docContent, readState } from "../rag/indexer.ts";
 import type { DocJson, DocRef, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
+import { fileMemo } from "./file-memo.ts";
 import { readJson, writeJson } from "./project.ts";
 
 export type TocEntry = { anchor: string; title: string; level: number };
@@ -47,7 +49,7 @@ export function listDocs(project: string): DocRef[] {
   return docIds(project).map((id) => {
     const doc = readDoc(project, id);
     const at = state[id];
-    const content = docContent(docDir(project, id), doc);
+    const content = contentOf(project, doc);
     return { ...doc, indexed: at === undefined ? "missing" : at === content ? "fresh" : "stale" };
   });
 }
@@ -95,6 +97,11 @@ export function tocOf(md: string): TocEntry[] {
 }
 
 export function sectionOf(md: string, anchor: string): string | null {
+  return partOf(md, anchor)?.text ?? null;
+}
+
+// ponytail: a part of doc.md and the lines it spans (from 1, both ends in)
+export function partOf(md: string, anchor: string): { text: string; first: number; last: number } | null {
   const { kind, id } = parseAnchor(anchor);
   const lines = md.split("\n");
   const marker = `<!-- ${kind} ${id} -->`;
@@ -110,7 +117,49 @@ export function sectionOf(md: string, anchor: string): string | null {
       else if (kind === "page" && (lines[i].startsWith("<!-- page ") || h === 1)) end = i;
       if (end !== lines.length) break;
     }
-  return lines.slice(start, end).join("\n").trim();
+  return { text: lines.slice(start, end).join("\n").trim(), first: start + 1, last: end };
+}
+
+export type DocShape = {
+  toc: (TocEntry & { line: number })[];
+  figures: (DocFigure & { line?: number })[];
+  lines: number;
+  chars: number;
+};
+
+const shapes = fileMemo<DocShape>(200);
+const MARK = /<!--\s*(§|fig)\s+(\S+?)\s*-->/g;
+
+// ponytail: a document's outline — its headings and figures with the line each starts on, its size — worked out once
+// per version of doc.md and figures.json; docs.show parsed all of a 1.1 MB doc.md at each call, a section's included
+export function docShape(project: string, id: string): DocShape {
+  const dir = docDir(project, id);
+  return shapes(dir, [join(dir, "doc.md"), join(dir, "figures.json")], () => {
+    const md = readDocMd(project, id);
+    const lineOf = new Map<string, number>();
+    md.split("\n").forEach((l, i) => {
+      for (const m of l.matchAll(MARK)) {
+        const anchor = m[1] === "§" ? `§${m[2]}` : `fig:${m[2]}`;
+        if (!lineOf.has(anchor)) lineOf.set(anchor, i + 1);
+      }
+    });
+    return {
+      toc: tocOf(md).map((t) => ({ ...t, line: lineOf.get(t.anchor) ?? 0 })),
+      figures: docFigures(md, readFigures(project, id)).map((f) => ({ ...f, line: lineOf.get(f.anchor) })),
+      lines: md ? md.split("\n").length : 0,
+      chars: md.length,
+    };
+  });
+}
+
+const contents = fileMemo<string>(500);
+
+// ponytail: what the index last read of a document is compared with all of doc.md hashed — once per version of the
+// files it hashes, not at every docs.list and rag.status (4 MB read and hashed per call on 20 documents)
+function contentOf(project: string, doc: DocJson): string {
+  const dir = docDir(project, doc.id);
+  const files = [join(dir, "doc.md"), join(dir, "figures.json"), join(dir, "doc.json")];
+  return contents(dir, files, () => docContent(dir, doc));
 }
 
 export function headingAt(md: string, anchor: string): string | null {

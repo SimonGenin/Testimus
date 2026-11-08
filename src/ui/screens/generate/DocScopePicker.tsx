@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
@@ -87,6 +88,7 @@ export function DocScopePicker({
         <div aria-busy="true" {...stylex.props(styles.loading)}>
           <Skeleton kind="row" />
           <Skeleton kind="row" />
+          <Loading read="docs.list" />
         </div>
       </Card>
     );

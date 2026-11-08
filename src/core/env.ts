@@ -33,6 +33,8 @@ export type Env = {
   localDir(): string;
   spawnClaude(run: ClaudeSpawn): Promise<ClaudeOut>;
   now(): Date;
+  // ponytail: how long a read waits before it answers — 0 but in --mock, where TESTIMUS_MOCK_READ_MS slows one on purpose
+  readMs(name: string): number;
 };
 
 async function nodeHttp(req: HttpReq): Promise<HttpRes> {
@@ -81,4 +83,5 @@ export const env: Env = {
   localDir: () => join(process.env.LOCALAPPDATA || join(homedir(), ".local", "share"), "Testimus"),
   spawnClaude: nodeSpawnClaude,
   now: () => new Date(),
+  readMs: () => 0,
 };

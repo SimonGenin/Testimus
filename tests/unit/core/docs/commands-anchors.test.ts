@@ -183,7 +183,7 @@ describe("docs commands", () => {
   it("shows a document, a section and a figure; ids in the text are plain text", async () => {
     await run(project, "docs.add", { file: original });
     type Show = {
-      toc: { anchor: string; title: string; level: number }[];
+      toc: { anchor: string; title: string; level: number; line: number }[];
       md: string;
       context: string;
     };
@@ -192,7 +192,9 @@ describe("docs commands", () => {
       anchor: "§5.6.6",
       title: "Sectionneur (S)",
       level: 3,
+      line: all.md.split("\n").findIndex((l) => l.includes("<!-- § 5.6.6 -->")) + 1,
     });
+    expect(all.md.split("\n")[all.toc[0].line - 1]).toMatch(/^#+ .*<!-- § /);
     expect(all).not.toHaveProperty("requirements");
     expect(all.md).toContain("EXI_MOP_SPF_511_A_1670");
     expect(all.md).not.toContain("<!-- req ");

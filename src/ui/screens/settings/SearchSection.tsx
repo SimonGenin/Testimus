@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
@@ -302,6 +303,7 @@ export function SearchSection() {
               },
             ]}
           />
+          {!spaces.data && !spaces.isError && <Loading read="rag.spaces" />}
           <span {...stylex.props(styles.lock)}>
             <Icon name="lock" size="sm" />
             <Hint>

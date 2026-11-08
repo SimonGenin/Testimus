@@ -175,6 +175,7 @@ export function JiraTab({
             label="Jira folders"
             tree
             loading={!tree ? 5 : false}
+            reading="xray.folders"
             items={rows}
             selected={query ? null : folder}
             getKey={(r) => r.folder.path}

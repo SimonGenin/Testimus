@@ -102,6 +102,47 @@ describe("docs.show, docs.set and docs.remove through the registry", () => {
     await expect(call("docs.show", { id: D3, anchor: "§99.99" }, P)).rejects.toThrow(/No anchor/);
   });
 
+  it("gives a long doc.md a page at a time, a part with its own sections, and an outline that follows the file", async () => {
+    const P = fixtureCopy("docs-pages");
+    const heads = Array.from({ length: 900 }, (_, i) => [
+      `## ${i + 1} Chapitre ${i + 1} <!-- § ${i + 1} -->`,
+      "",
+      `### ${i + 1}.1 Détail <!-- § ${i + 1}.1 -->`,
+      "",
+      "Le poste affiche l'état de l'équipement et son menu contextuel propose Propriétés.".repeat(2),
+      "",
+    ]);
+    const md = ["# Long", "", ...heads.flat()].join("\n");
+    writeFileSync(join(P, "docs", D4, "doc.md"), md);
+    type Page = {
+      md: string;
+      next?: number;
+      chars: number;
+      lines: number;
+      toc: { anchor: string; line: number }[];
+      section?: string;
+    };
+    const pages: Page[] = [await call<Page>("docs.show", { id: D4 }, P)];
+    while (pages[pages.length - 1].next !== undefined)
+      pages.push(await call<Page>("docs.show", { id: D4, from: pages[pages.length - 1].next }, P));
+    expect(pages.length).toBeGreaterThan(2);
+    expect(pages.every((p) => p.md.length <= 60_000)).toBe(true);
+    expect(pages.slice(0, -1).every((p) => p.md.endsWith("\n"))).toBe(true);
+    expect(pages.map((p) => p.md).join("")).toBe(md);
+    expect(pages[0]).toMatchObject({ chars: md.length, lines: md.split("\n").length });
+    expect(pages[0].toc).toHaveLength(1800);
+    expect(md.split("\n")[pages[0].toc[1799].line - 1]).toContain("<!-- § 900.1 -->");
+    const part = await call<Page>("docs.show", { id: D4, anchor: "§450" }, P);
+    expect(part.section).toBe("§450");
+    expect(part.toc.map((t) => t.anchor)).toEqual(["§450", "§450.1"]);
+    const brief = await call<Page>("docs.show", { id: D4, brief: true }, P);
+    expect(brief).toMatchObject({ md: "", lines: md.split("\n").length });
+    expect(brief.toc).toEqual(pages[0].toc);
+    writeFileSync(join(P, "docs", D4, "doc.md"), `# Short\n\n## 1 Seul <!-- § 1 -->\n`);
+    const after = await call<Page>("docs.show", { id: D4, brief: true }, P);
+    expect(after).toMatchObject({ lines: 4, toc: [{ anchor: "§1", line: 3 }] });
+  });
+
   it("sets the team's fields and context; the output passes the schema", async () => {
     const P = fixtureCopy("docs-set");
     const doc = await call<Doc & { amends?: string[] }>(

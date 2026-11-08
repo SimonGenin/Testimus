@@ -103,5 +103,18 @@ export async function setupMock(): Promise<string | null> {
     await indexProject(p, quietCtx(p), models.index === "bm25" ? { model: null } : {}).catch(() => {});
   }
   mockPace.embedMs = Math.max(0, Number(process.env.TESTIMUS_MOCK_INDEX_MS) || 0);
+  const slow = readPace(process.env.TESTIMUS_MOCK_READ_MS ?? "");
+  env.readMs = (name) => slow.get(name) ?? 0;
   return project;
+}
+
+// ponytail: TESTIMUS_MOCK_READ_MS="tests.list=12000,docs.show=3000" — those reads answer that late, every time (the
+// page's loading line, its « answering slowly » and Try again)
+export function readPace(spec: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const part of spec.split(",")) {
+    const [name, ms] = part.split("=").map((x) => x.trim());
+    if (name && Number(ms) > 0) out.set(name, Number(ms));
+  }
+  return out;
 }

@@ -11,6 +11,7 @@ import { Card } from "../../../components/ui/Card.tsx";
 import { Chip } from "../../../components/ui/Chip.tsx";
 import { ClaudeBlock } from "../../../components/ui/ClaudeBlock.tsx";
 import { List, optionId } from "../../../components/ui/List.tsx";
+import { Loading } from "../../../components/ui/Loading.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { Popover } from "../../../components/ui/Popover.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
@@ -123,7 +124,10 @@ export function CommentsCard({
             {message(q.error)}
           </Banner>
         ) : !q.data ? (
-          <Skeleton lines={3} />
+          <>
+            <Skeleton lines={3} />
+            <Loading read="issue.comments" />
+          </>
         ) : (
           list.length > 0 && (
             <ol {...stylex.props(styles.list)}>
