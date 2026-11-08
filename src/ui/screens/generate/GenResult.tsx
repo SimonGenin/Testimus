@@ -33,6 +33,8 @@ export type GenOutput = {
   diagnosis?: { kind: string; title: string; detail: string };
   generation?: string;
   remaining?: number;
+  /** gen.revise in mode change: the tests of the generation it changed */
+  revised?: string[];
 };
 
 const styles = stylex.create({
@@ -63,7 +65,7 @@ export function landedIds(events: JobEvent[], result?: GenOutput | null): string
           : undefined;
     if (id && !ids.includes(id)) ids.push(id);
   }
-  for (const id of result?.tests ?? []) if (!ids.includes(id)) ids.push(id);
+  for (const id of [...(result?.tests ?? []), ...(result?.revised ?? [])]) if (!ids.includes(id)) ids.push(id);
   return ids;
 }
 
@@ -199,7 +201,7 @@ export function RunHead({
     return (
       <Head
         badge={<Badge tone="success" icon="check-circle" label="Done" />}
-        title={`${plural(count, "test")} written`}
+        title={`${plural(count, "test")} ${result?.revised?.length && !result.tests.length ? "changed" : "written"}`}
         meta={`in ${duration(job, now)} · ${plural(read, "passage")} read`}
         actions={
           <>

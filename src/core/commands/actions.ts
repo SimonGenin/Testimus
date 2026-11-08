@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { runAction, triageFailed, triageRun } from "../claude/actions.ts";
+import { readLedger } from "../claude/ledger.ts";
 import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE } from "../claude/schemas.ts";
 import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
@@ -33,7 +34,7 @@ const ACTION = z.object({
   id: z.string().describe("Action id"),
   title: z.string().describe("What the button says, a verb first"),
   scope: SCOPE.describe("What the action works on: a step, a test, a document or the project"),
-  where: z.string().describe("Where the problem is: doc:<id>, test:<id>, job:<id> or project"),
+  where: z.string().describe("Where the problem is: doc:<id>, test:<id>, job:<id>, gen:<generation> or project"),
   problem: z.string().describe("The problem, as Testimus or Claude stated it"),
   why: z.string().describe("Why Claude judged it can fix it"),
   plan: z.array(z.string()).describe("The steps Claude proposed"),
@@ -87,12 +88,19 @@ export const commands = [
       docId: z.string().optional().describe("Only the actions about this document"),
       testId: z.string().optional().describe("Only the actions about this test (and its steps)"),
       jobId: z.string().optional().describe("Only the actions about this job"),
+      generation: z
+        .string()
+        .optional()
+        .describe("Only the actions about this generation (gen.tests' generation) and the tests it wrote"),
       all: z.boolean().optional().describe("Also the done, dismissed and stale ones"),
     }),
     output: z.array(LISTED),
     mutates: false,
     async run(ctx, input) {
-      return listActions(projectOf(ctx), input);
+      const project = projectOf(ctx);
+      const { generation, ...rest } = input;
+      const tests = generation ? (readLedger(project, generation)?.tests ?? []) : [];
+      return listActions(project, { ...rest, ...(generation ? { generation: { id: generation, tests } } : {}) });
     },
   }),
   command({
@@ -118,9 +126,11 @@ export const commands = [
         .describe("The runId your prompt gave you — it records which run, model and effort proposed the action"),
       where: z
         .string()
-        .regex(WHERE, "doc:<id>, test:<id>, job:<id> or project")
+        .regex(WHERE, "doc:<id>, test:<id>, job:<id>, gen:<generation> or project")
         .optional()
-        .describe("Where the problem is: doc:<id>, test:<id>, job:<id> or project (default: from the scope)"),
+        .describe(
+          "Where the problem is: doc:<id>, test:<id>, job:<id>, gen:<generation> or project (default: from the scope)",
+        ),
       problem: z.string().min(1).max(2000).describe("The problem, verbatim as Testimus stated it, or in one sentence"),
       title: z.string().min(3).max(80).describe("The button text: a verb first, at most 60 characters, in English"),
       why: z.string().min(1).max(2000).describe("One sentence: why you can fix it"),

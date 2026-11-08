@@ -1,5 +1,7 @@
+import { join } from "node:path";
 import type { ClaudeScope } from "../types.ts";
 import { findDoc } from "./docs.ts";
+import { readJson } from "./project.ts";
 import { localTestRef } from "./store.ts";
 
 export const UNTITLED_TEST = "Untitled test";
@@ -30,6 +32,22 @@ export function scopeName(project: string | null, s: ClaudeScope): string {
   if (s.kind === "test") return testName(project, s.testId);
   if (s.kind === "tests") return `${s.testIds.length} tests`;
   return "the project";
+}
+
+export const UNTITLED_GENERATION = "A generation";
+
+// ponytail: a generation is known by what it was asked — its request in words, else the documents it read whole, else
+// its sections; never its job id
+export function generationName(project: string | null, id: string): string {
+  type Asked = { input?: { request?: string; docs?: string[]; sections?: string[] } };
+  const input = project ? readJson<Asked | null>(join(project, ".testimus", "gen", `${id}.json`), null)?.input : null;
+  const request = input?.request?.replace(/\s+/g, " ").trim() ?? "";
+  if (request) return request.length > 60 ? `${request.slice(0, 59)}…` : request;
+  const docs = (input?.docs ?? []).map((d) => docName(project, d));
+  if (docs.length) return docs.join(", ");
+  const sections = input?.sections ?? [];
+  if (sections.length) return sections.length === 1 ? sections[0] : `${sections.length} sections`;
+  return UNTITLED_GENERATION;
 }
 
 export function batchName(project: string | null, docId: string, lot: string): string {

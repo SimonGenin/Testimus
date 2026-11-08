@@ -113,7 +113,7 @@ const KINDS: Rule[] = [
   [/^update$/, () => [["system.updates"]]],
   [/^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/, () => [["docs.list"], ["docs.show"], ["rag.status"]]],
   [/^media$/, () => [["media.list"], ["media.show"], ["docs.list"], ["docs.show"], ["rag.status"], ["gen.preview"]]],
-  [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"]]],
+  [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"], ["gen.show"], ["actions.list"]]],
   [/^chat$/, () => [["chat.list"], ["chat.show"]]],
   [
     /^models-/,

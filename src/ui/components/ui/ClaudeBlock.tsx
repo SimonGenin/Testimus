@@ -48,6 +48,7 @@ const styles = stylex.create({
     paddingTop: space.s3,
     paddingInline: space.s3,
   },
+  fieldset: { marginInline: 0, marginBlock: 0, paddingBottom: 0, borderWidth: 0, minWidth: 0 },
   rowLabel: {
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
@@ -113,6 +114,10 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   addContext?: ReactNode;
   /** inside the frame, under the text and above the foot (an additional note, a custom model's name) */
   children?: ReactNode;
+  /** what the run works on, one chip pressed among them (« All 3 tests · Add tests · Pick tests… »), above the text */
+  scopes?: { value: string; label: string }[];
+  scopeValue?: string;
+  onScope?: (value: string) => void;
   /** chips that put their prompt in the box; typing clears the pressed one */
   quickAsks?: { label: string; prompt: string }[];
   model?: Choice;
@@ -148,6 +153,9 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
     onAddContext,
     addContext,
     children,
+    scopes,
+    scopeValue,
+    onScope,
     quickAsks,
     model,
     effort,
@@ -247,6 +255,21 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               />
             ))}
         </div>
+      )}
+      {scopes && scopes.length > 0 && (
+        <fieldset aria-label="Scope" {...stylex.props(styles.row, styles.fieldset)}>
+          <span {...stylex.props(styles.rowLabel)}>Scope</span>
+          {scopes.map((s) => (
+            <Chip
+              key={s.value}
+              label={s.label}
+              tone="claude"
+              pressed={s.value === scopeValue}
+              disabled={busy}
+              onToggle={() => s.value !== scopeValue && onScope?.(s.value)}
+            />
+          ))}
+        </fieldset>
       )}
       {quickAsks && quickAsks.length > 0 && !off && (
         <div {...stylex.props(styles.row)}>

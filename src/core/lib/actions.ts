@@ -16,7 +16,7 @@ export type Listed = ClaudeAction & { stale: boolean };
 const dir = (project: string) => join(project, ".testimus", "actions");
 const file = (project: string, id: string) => join(dir(project), `${id}.json`);
 
-export const WHERE = /^(doc|test|job):[A-Za-z0-9][\w.-]*$|^project$/;
+export const WHERE = /^(doc|test|job|gen):[A-Za-z0-9][\w.-]*$|^project$/;
 
 export function whereOf(scope: ClaudeScope): string {
   if (scope.kind === "doc") return `doc:${scope.docId}`;
@@ -25,8 +25,9 @@ export function whereOf(scope: ClaudeScope): string {
 }
 
 // ponytail: an action is about the state it was proposed on — the document as converted, the test as written (its
-// content: a review, a key or a folder that moves leaves the problem as it was), the job as it ended; when that state
-// changes the problem may be gone or different, so the button goes (stale)
+// content: a review, a key or a folder that moves leaves the problem as it was), the job as it ended, the generation
+// with its tests not written and the tests it still has (a new generation that replaced them takes it away); when that
+// state changes the problem may be gone or different, so the button goes (stale)
 export function stampOf(project: string, where: string): string {
   const [kind, id] = where.split(":");
   if (kind === "doc") {
@@ -39,6 +40,18 @@ export function stampOf(project: string, where: string): string {
     return existsSync(f) ? contentPrint(parseTest(readFileSync(f, "utf8")).test).slice(0, 16) : "gone";
   }
   if (kind === "job") return existsSync(join(project, ".testimus", "jobs", `${id}.jsonl`)) ? "job" : "gone";
+  if (kind === "gen") {
+    const ledger = readJson<{ skipped?: unknown; tests?: unknown } | null>(
+      join(project, ".testimus", "gen", `${id}.json`),
+      null,
+    );
+    const tests = Array.isArray(ledger?.tests)
+      ? ledger.tests.filter(
+          (t): t is string => typeof t === "string" && existsSync(join(testDir(project, t), "test.md")),
+        )
+      : [];
+    return ledger && tests.length ? sha256(JSON.stringify([ledger.skipped ?? [], tests])).slice(0, 16) : "gone";
+  }
   return "project";
 }
 
@@ -92,7 +105,7 @@ export type Proposal = Pick<ClaudeAction, "title" | "scope" | "problem" | "why" 
 export function proposeAction(project: string, p: Proposal): ClaudeAction & { ignored?: boolean } {
   const where = p.where ?? whereOf(p.scope);
   if (!WHERE.test(where))
-    throw new UserError(`Not a problem place: ${where}.`, "Use doc:<id>, test:<id>, job:<id> or project.");
+    throw new UserError(`Not a problem place: ${where}.`, "Use doc:<id>, test:<id>, job:<id>, gen:<id> or project.");
   const stamp = stampOf(project, where);
   if (stamp === "gone") throw new UserError(`${where} does not exist in this project.`);
   const same = allActions(project).filter((a) => a.where === where && a.problem === p.problem && a.stamp === stamp);
@@ -116,7 +129,14 @@ export function proposeAction(project: string, p: Proposal): ClaudeAction & { ig
   });
 }
 
-export type ActionFilter = { docId?: string; testId?: string; jobId?: string; all?: boolean };
+// ponytail: a generation's actions are its own (gen:<id>) and those of the tests it wrote — the command reads which
+export type ActionFilter = {
+  docId?: string;
+  testId?: string;
+  jobId?: string;
+  generation?: { id: string; tests: string[] };
+  all?: boolean;
+};
 
 export function listActions(project: string, f: ActionFilter = {}): Listed[] {
   return allActions(project).filter((a) => {
@@ -125,6 +145,8 @@ export function listActions(project: string, f: ActionFilter = {}): Listed[] {
     if (f.docId && a.where !== `doc:${f.docId}` && !(s.kind === "doc" && s.docId === f.docId)) return false;
     if (f.testId && a.where !== `test:${f.testId}` && !("testId" in s && s.testId === f.testId)) return false;
     if (f.jobId && a.where !== `job:${f.jobId}`) return false;
+    const g = f.generation;
+    if (g && a.where !== `gen:${g.id}` && !g.tests.some((t) => a.where === `test:${t}`)) return false;
     return true;
   });
 }

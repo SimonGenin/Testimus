@@ -3,7 +3,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { DocRef, Job, StepColumn } from "../../../core/types.ts";
 import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
+import { useNow } from "../../components/claude/useNow.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { discardAutosave } from "../../lib/data/autosave.ts";
@@ -14,6 +16,7 @@ import { errorToast } from "../../lib/toast.ts";
 import { useReindex } from "../../lib/uploads.ts";
 import { border, breakpoint, color } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
+import { AskChanges, type AskInput } from "./AskChanges.tsx";
 import { ReplaceTests } from "./ReplaceTests.tsx";
 import { RequestForm } from "./RequestForm.tsx";
 import { ResultPane } from "./ResultPane.tsx";
@@ -81,6 +84,19 @@ export function GenerateScreen() {
   const cancel = useCancel();
   const [replacing, setReplacing] = useState<string[] | null>(null);
   const [fresh, setFresh] = useState(0);
+  const revise = useCommand("gen.revise", { invalidates: [["jobs.list"]] });
+  // ponytail: once a generation is done its column asks for changes (« New request » brings the form back); a run
+  // started from one column keeps that column while it runs
+  const [mode, setMode] = useState<"form" | "ask">("ask");
+  const [from, setFrom] = useState<"form" | "ask" | null>(null);
+  const [lastGen, setLastGen] = useState<string | null>(null);
+  const done = gen.result?.generation ?? null;
+  useEffect(() => {
+    if (done) setLastGen(done);
+  }, [done]);
+  const generation = done ?? lastGen;
+  const asking = gen.running ? from === "ask" && !!generation : mode === "ask" && !!generation;
+  const now = useNow(asking && gen.running, 1000);
 
   const status = known ?? null;
   const offline = !!status && (!status.installed || status.signedIn === false);
@@ -126,10 +142,26 @@ export function GenerateScreen() {
       if (r?.jobId) {
         setFresh((n) => n + 1);
         startedHere.current = r.jobId;
+        setMode("ask");
+        setFrom("form");
         gen.follow(r.jobId);
       }
     } catch (e) {
       errorToast(e, input.resume ? "Could not resume the generation" : "Could not start the generation");
+    }
+  };
+
+  const askChanges = async (input: AskInput) => {
+    try {
+      const r = await revise.mutateAsync(input);
+      if (r?.jobId) {
+        setFresh((n) => n + 1);
+        startedHere.current = r.jobId;
+        setFrom("ask");
+        gen.follow(r.jobId);
+      }
+    } catch (e) {
+      errorToast(e, "Could not ask Claude for the changes");
     }
   };
 
@@ -164,34 +196,49 @@ export function GenerateScreen() {
   const columns = (info.data?.columns ?? []) as StepColumn[];
   return (
     <div {...stylex.props(styles.screen)}>
-      <ScreenHeader title="Generate" />
+      <ScreenHeader title="Generate">
+        {asking && !gen.running && (
+          <Button size="sm" variant="quiet" icon="generate" label="New request" onClick={() => setMode("form")} />
+        )}
+      </ScreenHeader>
       <div {...stylex.props(styles.panes)}>
         <div {...stylex.props(styles.form(`${formPane.width}px`))}>
-          <RequestForm
-            form={form}
-            docs={docs}
-            columns={columns}
-            folders={info.data?.project.folders ?? []}
-            gate={{
-              missing,
-              leftOut,
-              stale,
-              work,
-              docWork,
-              progress: indexJob?.progress,
-              onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
-              onReindex: reindex.reindex,
-              failure: reindex.failure,
-            }}
-            hasJob={!!gen.job}
-            running={gen.running}
-            starting={start.isPending}
-            blocked={blocked}
-            unavailable={offline ? "Claude is not connected" : undefined}
-            onGenerate={() => void generate()}
-            onColumns={() => app.navigate("settings", "columns")}
-            onAddDocuments={() => app.navigate("documents")}
-          />
+          {asking && generation ? (
+            <AskChanges
+              key={generation}
+              generation={generation}
+              running={gen.running && gen.job ? Math.round((now - Date.parse(gen.job.startedAt)) / 1000) : null}
+              unavailable={offline ? "Claude is not connected" : undefined}
+              defaults={{ model: form.runModel, effort: form.runEffort }}
+              onAsk={(input) => void askChanges(input)}
+            />
+          ) : (
+            <RequestForm
+              form={form}
+              docs={docs}
+              columns={columns}
+              folders={info.data?.project.folders ?? []}
+              gate={{
+                missing,
+                leftOut,
+                stale,
+                work,
+                docWork,
+                progress: indexJob?.progress,
+                onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
+                onReindex: reindex.reindex,
+                failure: reindex.failure,
+              }}
+              hasJob={!!gen.job}
+              running={gen.running}
+              starting={start.isPending}
+              blocked={blocked}
+              unavailable={offline ? "Claude is not connected" : undefined}
+              onGenerate={() => void generate()}
+              onColumns={() => app.navigate("settings", "columns")}
+              onAddDocuments={() => app.navigate("documents")}
+            />
+          )}
         </div>
         <span {...stylex.props(styles.handle)}>
           <ResizeHandle label="Resize the request panel" {...formPane.handle} />

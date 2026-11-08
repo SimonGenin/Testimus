@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { useState } from "react";
 import { ClaudeBlock } from "../../../components/ui/ClaudeBlock.tsx";
 import { size, space } from "../../../styles/tokens.stylex.ts";
 import { Cell, type KitSection, States } from "../kit.tsx";
@@ -35,6 +36,29 @@ const quickAsks = [
   { label: "Negative path", prompt: "Add the negative path." },
 ];
 
+function Scopes() {
+  const [scope, setScope] = useState("all");
+  return (
+    <ClaudeBlock
+      ariaLabel="What should change?"
+      value=""
+      placeholder="What should change?"
+      scopes={[
+        { value: "all", label: "All 3 tests" },
+        { value: "add", label: "Add tests" },
+        { value: "pick", label: "Pick tests…" },
+      ]}
+      scopeValue={scope}
+      onScope={setScope}
+      quickAsks={quickAsks}
+      model={model}
+      effort={effort}
+      submitLabel="Ask Claude"
+      onSubmit={() => {}}
+    />
+  );
+}
+
 export const section: KitSection = {
   name: "ClaudeBlock",
   family: "Claude",
@@ -45,7 +69,7 @@ export const section: KitSection = {
   guidelines: [
     {
       head: "Anatomy",
-      text: "Optional *Context* row (toggle chips: the effective contexts of this run, each switchable off for this run only, + Add context) · optional *Quick asks* row (chips that put their prompt in the box; typing clears the pressed one) · the text · footer: scope (« Step 2 », « Whole test », « Whole project »), model, effort, then the submit area. No attachment: no Claude run takes a file today.",
+      text: "Optional *Context* row (toggle chips: the effective contexts of this run, each switchable off for this run only, + Add context) · optional *Scope* row (one chip pressed among a few: what the run works on) · optional *Quick asks* row (chips that put their prompt in the box; typing clears the pressed one) · the text · footer: scope (« Step 2 », « Whole test », « Whole project »), model, effort, then the submit area. No attachment: no Claude run takes a file today.",
     },
     {
       head: "Options and where each combination is used",
@@ -55,6 +79,7 @@ export const section: KitSection = {
         "Dock, ask the documents — yes — no — yes — no — Ctrl+Enter → Ask",
         "« Ask Claude » popover on a test or a step — no (inherits) — yes — yes — no — Ctrl+Enter → Send",
         "« To fix » note (Review) — no — no — no — no — autosave; the dialog's « Mark To fix » / « Ask Claude to fix it »",
+        "Generate, after a generation (« Ask for changes ») — no — yes — yes — scopes: All N tests · Add tests · Pick tests… — Ctrl+Enter → Ask Claude",
         "A context's notes (Contexts dialog) — no — no — no — no — autosave",
         "A quick ask's prompt (Settings › Claude) — no — no — no — no — autosave",
       ],
@@ -155,6 +180,9 @@ export const section: KitSection = {
           effort={effort}
           onSubmit={() => {}}
         />
+      </Cell>
+      <Cell label="scopes — Generate › Ask for changes" wide column>
+        <Scopes />
       </Cell>
       <Cell label="To fix note (autosave)" column>
         <ClaudeBlock

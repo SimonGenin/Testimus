@@ -439,6 +439,22 @@ after the frontmatter, so a review decision never makes findings stale.
   (`WritingTests`, `WritingCard`): the page reads it with `tests.show`, read again whenever the watcher says its
   `test.md` changed — no other stream. The test Claude is on opens, folds when done; one opened or folded by hand stays
   so; « Fold all ». Only on Generate: Review and Tests show a generation's tests once it has ended.
+- **Asking again after a generation** (2026-11-08): `gen.revise { generation, request, mode: change | add, tests? }`
+  is a `generate` job under the same generation (`claude/gen-revise.ts`). *change* runs `edit-test` on the
+  generation's tests (all, or the ones picked), checks the ones it changed (`revised` in the result) and keeps the
+  generation's skipped items; *add* is a generation under the same id (`generateTests(…, into)`), told the tests it
+  already has, whose new tests are stamped with it and added to its ledger (the first request and date stay). Both
+  are snapshotted like any generation. `gen.show` reads a generation: its name, request, date, tests still there and
+  skipped items. On Generate, once a generation is done, the left column is « Ask for changes » (`AskChanges`: the
+  kit's `ClaudeBlock` with scope chips All N tests · Add tests · Pick tests…, quick asks, model · effort); « New
+  request » in the top bar brings the request form back, and a run keeps the column it was started from. Under it,
+  « Suggested by the results »: the generation's Claude actions (below and §11).
+- **The core proposes actions after a generation** (`claude/gen-actions.ts`, at the end of `gen.tests` and
+  `gen.revise`): one per test of the generation with errors or warnings (« Fix the 2 errors in « summary » », where
+  `test:<id>`, stale once the test changes) and one per category of tests not written (« Write the 2 tests skipped for
+  « category » », where `gen:<generation>`, stale once the generation's skipped items or its remaining tests change —
+  a new generation that replaced its tests takes it away); « Stopped before it was written » is resumed, never acted on.
+  They are ordinary `actions.*`: deduplicated per problem, dismissed for good, run in the dock, snapshotted.
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
   of `doc.md` mapped to sections, figure images) and what it searched. Review shows it (`review.evidence`); `gen.bench`
@@ -561,9 +577,11 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   `rag_related`.
 - **Contexts**: a run on a test attaches its own list (`local.json`) else the project's `claude.contexts`; ids whose
   folder is gone drop out.
-- **Claude actions** (`actions.*`, `.testimus/actions/`): proposals from the check, the generation and triage, shown
-  beside the problem they fix; stale when the problem's place changes; one open action per problem; dismissed stays
-  dismissed. Triage of a failed job is decided by the core (`actions.triageFailed`), once per job, only when Claude is
+- **Claude actions** (`actions.*`, `.testimus/actions/`): proposals from the check, the generation and triage, and from
+  the core itself after a generation (§8), shown beside the problem they fix; stale when the problem's place (`where`:
+  `doc:`, `test:`, `job:`, `gen:<generation>` or `project`) changes; one open action per problem; dismissed stays
+  dismissed. `actions.list { generation }` gives a generation's own and its tests'. A Claude action never starts
+  `gen.revise`. Triage of a failed job is decided by the core (`actions.triageFailed`), once per job, only when Claude is
   there. Action runs are snapshotted.
 - **What Claude is given is visible** (Settings › Context; `claude.prompts`, read only, readable by every run kind):
   the project's skills (`.claude/skills/*/SKILL.md`, the team's own too), every prompt Testimus builds, `CLAUDE.md`

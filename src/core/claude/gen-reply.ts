@@ -8,6 +8,7 @@ export type Skipped = { item: string; category: string; why: string; sources?: s
 // ponytail: a report written before skipped items had a category (or a model that left it out) still reads — its
 // items fall under one word the page groups like any other
 export const OTHER = "Other";
+export const STOPPED = "Stopped before it was written";
 export type GenReport = {
   found: boolean;
   tests: string[];
@@ -22,7 +23,7 @@ function asStrings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim()) : [];
 }
 
-function asSkipped(v: unknown): Skipped[] {
+export function asSkipped(v: unknown): Skipped[] {
   if (!Array.isArray(v)) return [];
   const out: Skipped[] = [];
   for (const u of v) {

@@ -132,6 +132,10 @@ describe("Button", () => {
   it("is a submit button when asked, full width when block, and shows forced states for the catalogue", () => {
     render(<Button label="Save" type="submit" block />);
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("type", "submit");
+    render(<Button label="Fix the 2 errors" block="start" />);
+    expect(cls(screen.getByRole("button", { name: "Fix the 2 errors" }))).not.toBe(
+      cls(screen.getByRole("button", { name: "Save" })),
+    );
     const states = new Set<string>();
     for (const d of [undefined, "hover", "pressed", "focus"] as const) {
       render(<Button label={`state ${d}`} variant="primary" debugState={d} />);

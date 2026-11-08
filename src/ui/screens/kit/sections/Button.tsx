@@ -106,6 +106,20 @@ export const section: KitSection = {
       <Cell label="block" wide>
         <Button variant="primary" size="lg" label="Open the project" block />
       </Cell>
+      <Cell label="block start (a list of Claude actions)" wide column>
+        <Button
+          variant="claude-quiet"
+          icon="claude"
+          label="Fix the 2 errors in « Sectionneur avec TK »"
+          block="start"
+        />
+        <Button
+          variant="claude-quiet"
+          icon="claude"
+          label="Write the 2 tests skipped for « Pas de source »"
+          block="start"
+        />
+      </Cell>
     </States>
   ),
 };

@@ -11,8 +11,8 @@ import {
   plannedInput,
   REPORT_TAG,
 } from "../../../../src/core/claude/gen-prompt.ts";
-import { parseGenReport, parsePlan, type Skipped } from "../../../../src/core/claude/gen-reply.ts";
-import { STOPPED, toolStep } from "../../../../src/core/claude/generate.ts";
+import { parseGenReport, parsePlan, type Skipped, STOPPED } from "../../../../src/core/claude/gen-reply.ts";
+import { toolStep } from "../../../../src/core/claude/generate.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { subscribe } from "../../../../src/core/jobs.ts";

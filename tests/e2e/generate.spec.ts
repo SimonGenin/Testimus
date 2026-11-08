@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 const server = mockServer(4348);
@@ -70,8 +71,16 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   );
 });
 
+// ponytail: after a generation Generate opens on « Ask for changes »; « New request » brings the form back
+async function newRequest(page: Page) {
+  const ask = page.getByRole("region", { name: "Ask for changes" });
+  await expect(ask.or(page.getByRole("region", { name: "Request" }))).toBeVisible();
+  if (await ask.isVisible()) await page.getByRole("button", { name: "New request" }).click();
+}
+
 test("a landed test opens for review with its findings", async ({ page }) => {
   await boot(page, "#/generate");
+  await newRequest(page);
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
@@ -87,4 +96,43 @@ test("a landed test opens for review with its findings", async ({ page }) => {
   const under = page.getByRole("region", { name: "Test under review" });
   await expect(under.getByRole("heading", { level: 2 })).toHaveText(/^Sectionneur avec TK/);
   await expect(under.getByRole("note").first()).toBeVisible();
+});
+
+test("after a generation, Claude is asked for changes on its tests, and its results suggest Claude actions", async ({
+  page,
+}) => {
+  await boot(page, "#/generate");
+  await newRequest(page);
+  const result = page.getByRole("region", { name: "Result" });
+  await page.getByRole("textbox", { name: "What should be tested?" }).fill("Le menu contextuel du sectionneur");
+  await page
+    .getByRole("region", { name: "Request" })
+    .getByRole("button", { name: /^Generate/ })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /^Delete and generate/ })
+    .click();
+  await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 30_000 });
+
+  const ask = page.getByRole("region", { name: "Ask for changes" });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByRole("button", { name: "All 2 tests" })).toHaveAttribute("aria-pressed", "true");
+  const suggested = ask.getByRole("region", { name: "Suggested by the results" });
+  await expect(
+    suggested.getByRole("button", { name: "Write the 2 tests skipped for « Pas de source pour le résultat attendu »" }),
+  ).toBeVisible();
+  await expect(
+    suggested.getByRole("button", { name: /^Fix the \d+ (error|warning)s? in « Sectionneur/ }).first(),
+  ).toBeVisible();
+  await shoot(page, "generate-ask");
+
+  await ask
+    .getByRole("textbox", { name: "What should change?" })
+    .fill("Précise ce qu'il faut vérifier avant chaque action.");
+  await ask.getByRole("button", { name: /^Ask Claude/ }).click();
+  await expect(result.getByRole("heading", { name: /^\d+ tests? changed$/ })).toBeVisible({ timeout: 30_000 });
+  await expect(ask).toBeVisible();
+  await page.getByRole("button", { name: "New request" }).click();
+  await expect(page.getByRole("region", { name: "Request" })).toBeVisible();
 });

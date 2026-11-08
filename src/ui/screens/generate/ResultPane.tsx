@@ -153,7 +153,7 @@ export function ResultPane({
         {result && (
           <GenSummary
             result={result}
-            checked={checkLine(result.tests, result.checks)}
+            checked={checkLine([...result.tests, ...(result.revised ?? [])], result.checks)}
             onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
             open={isOpen(SKIPPED)}
             onOpenChange={(o) => o !== isOpen(SKIPPED) && toggle(SKIPPED)}

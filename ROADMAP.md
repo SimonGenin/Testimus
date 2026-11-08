@@ -15,7 +15,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 - [x] **Mieux expliquer les tests non écrits (skipped).** Dire un peu mieux pourquoi un test n'a pas été écrit, et
       ranger les refus par catégorie. Les catégories viennent de Claude, elles sont dynamiques (pas de liste en dur) :
       elles font donc partie des prompts et des outils (le bloc `gen-report`, ses `skipped`).
-- [ ] **Redemander des changements après une génération.** Une fois les tests générés, pouvoir demander des
+- [x] **Redemander des changements après une génération.** Une fois les tests générés, pouvoir demander des
       changements sur tous les tests et des ajouts. C'est déjà possible avec Claude, mais sur la page Génération la
       barre de gauche devient un Claude block avec des options pertinentes pour ces changements, et quelques Claude
       action buttons liés aux findings et aux skipped.

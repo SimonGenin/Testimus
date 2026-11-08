@@ -130,6 +130,12 @@ async function openGenerated(page: Page): Promise<void> {
 
 // ponytail: Generate asks first to replace the tests not validated yet, when there are some
 async function generate(page: Page): Promise<void> {
+  const again = page.getByRole("button", { name: "New request" });
+  await again
+    .or(page.getByRole("textbox", { name: "What should be tested?" }))
+    .first()
+    .waitFor({ timeout: T });
+  if (await again.isVisible()) await again.click();
   await page.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await tap(page.getByRole("region", { name: "Request" }), /^Generate/);
   const replace = modal(page).first();

@@ -116,6 +116,31 @@ describe("ClaudeBlock", () => {
     expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveValue("");
   });
 
+  it("offers its scopes as chips, one pressed; another one is chosen, the pressed one is not chosen again", () => {
+    const onScope = vi.fn();
+    render(
+      <ClaudeBlock
+        ariaLabel="Prompt"
+        value=""
+        scopes={[
+          { value: "all", label: "All 3 tests" },
+          { value: "add", label: "Add tests" },
+        ]}
+        scopeValue="all"
+        onScope={onScope}
+        onSubmit={() => {}}
+      />,
+    );
+    const group = screen.getByRole("group", { name: "Scope" });
+    expect(group).toHaveTextContent("Scope");
+    expect(screen.getByRole("button", { name: "All 3 tests" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Add tests" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "All 3 tests" }));
+    expect(onScope).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Add tests" }));
+    expect(onScope).toHaveBeenCalledWith("add");
+  });
+
   it("sends on Enter when asked, and may start with an empty box", () => {
     const onSubmit = vi.fn();
     render(

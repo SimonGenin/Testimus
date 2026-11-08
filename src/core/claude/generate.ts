@@ -17,9 +17,10 @@ import {
 } from "../lib/store.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Tokens } from "../types.ts";
 import { checkTests } from "./check.ts";
+import { proposeGenActions } from "./gen-actions.ts";
 import { genBoard, type Lane } from "./gen-board.ts";
 import { checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
-import { type GenReport, parseGenReport, parsePlan, type Skipped, type TestPlan } from "./gen-reply.ts";
+import { type GenReport, parseGenReport, parsePlan, type Skipped, STOPPED, type TestPlan } from "./gen-reply.ts";
 import { ledgerOf, readLedger, type Searched, writeLedger } from "./ledger.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { absorbRun, markLeft, readRun } from "./snapshot.ts";
@@ -47,8 +48,6 @@ export type GenResult = {
   durationMs: number;
   diagnosis?: Diagnosis;
 };
-
-export const STOPPED = "Stopped before it was written";
 
 export type ToolStep = { kind: "read" } | { kind: "write"; testId: string } | null;
 
@@ -178,16 +177,18 @@ function readPrior(project: string, generation: string): Prior {
   };
 }
 
-export async function generateTests(project: string, asked: GenInput, ctx: Ctx): Promise<GenResult> {
+// ponytail: into = an earlier generation this run adds to (gen.revise): its tests are stamped with that generation,
+// its ledger keeps what the generation asked first and gains the new tests
+export async function generateTests(project: string, asked: GenInput, ctx: Ctx, into?: string): Promise<GenResult> {
   const release = holdNewTests(project);
   try {
-    return await generate(project, asked, ctx);
+    return await generate(project, asked, ctx, into);
   } finally {
     release();
   }
 }
 
-async function generate(project: string, asked: GenInput, outer: Ctx): Promise<GenResult> {
+async function generate(project: string, asked: GenInput, outer: Ctx, into?: string): Promise<GenResult> {
   let said = "";
   const board = genBoard((gen) => outer.progress({ message: said, gen }));
   const ctx: Ctx = {
@@ -199,6 +200,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx): Promise<G
     },
   };
   const prior = asked.resume?.trim() ? readPrior(project, asked.resume.trim()) : null;
+  const base = into ? readLedger(project, into) : null;
   const input = prior
     ? { ...prior.input, model: asked.model || prior.input.model, effort: asked.effort || prior.input.effort }
     : asked;
@@ -223,7 +225,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx): Promise<G
   if (!prior) ctx.step?.("read");
   ctx.progress({ message: "Reading passages" });
   const runId = prior?.runId ?? newRunId();
-  const by = asked.resume?.trim() || ctx.jobId || runId;
+  const by = into || asked.resume?.trim() || ctx.jobId || runId;
   const first = prior
     ? null
     : await genRun(ctx, project, input, {
@@ -294,15 +296,17 @@ async function generate(project: string, asked: GenInput, outer: Ctx): Promise<G
     project,
     runs.flatMap((r) => r.run.calls),
   );
-  const consulted = union([prior?.consulted ?? [], ledger.consulted]);
-  const searched = [...(prior?.searched ?? []), ...ledger.searched];
+  const consulted = union([prior?.consulted ?? [], base?.consulted ?? [], ledger.consulted]);
+  const searched = [...(prior?.searched ?? []), ...(base?.searched ?? []), ...ledger.searched];
+  const asked0 = base?.input ?? input;
+  const at = base?.at ?? env.now().toISOString();
   const kept = {
-    tests: union([prior?.tests ?? [], tests]),
+    tests: union([prior?.tests ?? [], base?.tests ?? [], tests]),
     consulted,
     searched,
     ...(plan?.found ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
   };
-  writeLedger(project, by, { at: env.now().toISOString(), input, runId, ...kept });
+  writeLedger(project, by, { at, input: asked0, runId, ...kept });
   for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
   const checks: GenCheck[] = [];
   if (tests.length && input.check !== false && !ctx.signal.aborted) {
@@ -367,11 +371,16 @@ async function generate(project: string, asked: GenInput, outer: Ctx): Promise<G
     ...(diagnosis ? { diagnosis } : {}),
   };
   writeLedger(project, by, {
-    at: env.now().toISOString(),
-    input,
+    at,
+    input: asked0,
     ...result,
     ...kept,
     reportedConsulted: union(reports.map((r) => r.consulted)),
+  });
+  proposeGenActions(project, by, {
+    tests,
+    skipped: result.skipped,
+    by: { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
   });
   ctx.progress({ message: `${tests.length} test(s) written`, done: tests.length, total: tests.length });
   return result;

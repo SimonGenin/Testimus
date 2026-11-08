@@ -123,6 +123,14 @@ const styles = stylex.create({
   squareMd: { width: size.controlMd },
   squareLg: { width: size.controlLg },
   block: { width: "100%" },
+  blockStart: {
+    justifyContent: "flex-start",
+    textAlign: "start",
+    whiteSpace: "normal",
+    height: "auto",
+    minHeight: size.controlMd,
+    paddingBlock: space.s1,
+  },
   disabled: {
     backgroundColor: color.surfaceSunken,
     borderColor: "transparent",
@@ -184,8 +192,8 @@ export type ButtonProps = {
   loading?: boolean;
   /** true, or the reason (« Claude is working — wait for it to finish »), shown as a tooltip */
   disabled?: boolean | string;
-  /** full width of its container */
-  block?: boolean;
+  /** full width of its container; start: the label at the start, wrapping when long, as in a list of Claude actions */
+  block?: boolean | "start";
   /** a toggle's state (aria-pressed), drawn pressed while on */
   pressed?: boolean;
   /** a toggle that answers (OK / NOK of a step): pressed, it takes the answer's colour instead of the plain pressed one */
@@ -304,6 +312,7 @@ export function Button({
         iconOnly && styles.square,
         iconOnly && SQUARE[s],
         block && styles.block,
+        block === "start" && styles.blockStart,
         loading && styles.loading,
         !off && (pressed || popup?.open) && FORCED.pressed[variant],
         !off && pressed && tone && TONE_PRESSED[tone],

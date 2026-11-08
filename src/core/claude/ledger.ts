@@ -5,7 +5,7 @@ import { readJson, writeJson } from "../lib/project.ts";
 import { normalizeRef } from "../rag/anchors.ts";
 import { docFigures, parseSections, type Section } from "../rag/chunk.ts";
 import type { GenInput } from "./gen-prompt.ts";
-import type { TestPlan } from "./gen-reply.ts";
+import { asSkipped, type Skipped, type TestPlan } from "./gen-reply.ts";
 import type { ToolCall } from "./stream.ts";
 
 export type Searched = { tool: string; query: string };
@@ -22,6 +22,7 @@ export type GenLedger = Ledger & {
   plan?: TestPlan;
   done?: number[];
   reportedConsulted?: string[];
+  skipped?: Skipped[];
 };
 
 const genLedgerFile = (project: string, generation: string) => join(project, ".testimus", "gen", `${generation}.json`);
@@ -134,6 +135,7 @@ export function readLedger(project: string, jobId: string | undefined): (GenLedg
     ...(l.plan && typeof l.plan === "object" ? { plan: l.plan as TestPlan } : {}),
     ...(Array.isArray(l.done) ? { done: l.done.filter((n): n is number => typeof n === "number") } : {}),
     ...(Array.isArray(l.reportedConsulted) ? { reportedConsulted: strings(l.reportedConsulted) } : {}),
+    ...(Array.isArray(l.skipped) ? { skipped: asSkipped(l.skipped) } : {}),
   };
 }
 
