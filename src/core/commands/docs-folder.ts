@@ -119,6 +119,9 @@ export const commands = [
           }),
         )
         .describe("Each conversion, once ended (empty with convert false)"),
+      truncated: z
+        .boolean()
+        .describe(`True when the folder holds more than ${FOLDER_MAX_FILES} files: only the first ones were read`),
     }),
     mutates: true,
     job: "docs.add",
@@ -128,6 +131,12 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const scan = scanFolder(project, input.dir, input.recursive);
+      const { truncated } = scan;
+      if (truncated)
+        ctx.log(
+          "warn",
+          `The folder holds more than ${FOLDER_MAX_FILES} files: only the first ${FOLDER_MAX_FILES} were read — import its subfolders one by one for the rest.`,
+        );
       const asked = input.files ? new Set(input.files.map((f) => f.replace(/\\/g, "/"))) : null;
       const chosen = scan.files.filter((f) => f.importable && (!asked || asked.has(f.rel)));
       const rejected = [...(asked ?? [])]
@@ -173,7 +182,7 @@ export const commands = [
           rejected.push({ name: f.rel, why: message(e), code: "failed" });
         }
       }
-      if (!input.convert || !added.length || !ctx.invoke) return { added, rejected, converted: [] };
+      if (!input.convert || !added.length || !ctx.invoke) return { added, rejected, converted: [], truncated };
       ctx.step?.("convert");
       const invoke = ctx.invoke;
       const total = added.length;
@@ -207,7 +216,7 @@ export const commands = [
           return { id: d.id, jobId, status, ...(error && status === "failed" ? { error } : {}) } as const;
         }),
       );
-      return { added, rejected, converted };
+      return { added, rejected, converted, truncated };
     },
   }),
 ];

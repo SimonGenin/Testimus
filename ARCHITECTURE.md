@@ -272,7 +272,9 @@ docs/<docId>/
   video is a document; the rest is left aside with a reason — not a document (Thumbs.db, desktop.ini, hidden or
   temporary files), Word's lock file (`~$…`), a kind not converted yet (`.doc`, HEIC, sound, spreadsheets…), empty,
   already in the project (same id or same file name), or the same id as another file found. The id is the code read
-  from the name, accents and ligatures dropped (œ → oe), made a valid folder name. `docs.addFolder` copies the
+  from the name, accents and ligatures dropped (œ → oe), made a valid folder name. The project's own folder, or one inside it, is refused (paths compared without case on Windows
+  and macOS); a file that goes while the folder is read is left out; past 2 000 files `truncated` says so, in the
+  scan and in `docs.addFolder`'s result, with a warning in its log. `docs.addFolder` copies the
   documents asked for (the same `addDoc` as `docs.add`), then starts one `docs.convert` job per document, children of
   the import job, and waits for them (they share the slots and the one index run below). A network path
   (`\\server\share`) is refused (§13). Decided: a document already in the project is shown, unticked, never replaced —

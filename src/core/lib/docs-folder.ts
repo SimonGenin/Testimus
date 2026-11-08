@@ -81,6 +81,14 @@ function asideOf(name: string, size: number): { reason: FolderReason; why: strin
   return null;
 }
 
+// ponytail: Windows and macOS compare paths without case (D:\Specs is d:\specs), Linux with it
+const samePath = (p: string) => (process.platform === "win32" || process.platform === "darwin" ? p.toLowerCase() : p);
+const within = (dir: string, root: string) => {
+  const d = samePath(resolve(dir));
+  const r = samePath(resolve(root));
+  return d === r || d.startsWith(r.endsWith(sep) ? r : `${r}${sep}`);
+};
+
 function walk(root: string, recursive: boolean, skip: string | null): { paths: string[]; truncated: boolean } {
   const paths: string[] = [];
   const dirs = [root];
@@ -98,13 +106,14 @@ function walk(root: string, recursive: boolean, skip: string | null): { paths: s
       if (e.isFile()) {
         if (paths.length >= FOLDER_MAX_FILES) return { paths, truncated: true };
         paths.push(path);
-      } else if (recursive && e.isDirectory() && !e.name.startsWith(".") && resolve(path) !== skip) dirs.push(path);
+      } else if (recursive && e.isDirectory() && !e.name.startsWith(".") && !(skip && within(path, skip)))
+        dirs.push(path);
     }
   }
   return { paths, truncated: false };
 }
 
-function checkDir(dir: string): string {
+function checkDir(dir: string, project: string | null): string {
   if (!dir.trim()) throw new UserError("No folder given.", "Give the folder's full path, e.g. D:\\Specs\\J5.");
   if (uncPath(dir))
     throw new UserError(
@@ -116,6 +125,11 @@ function checkDir(dir: string): string {
   const full = resolve(dir.trim());
   if (!existsSync(full) || !statSync(full).isDirectory())
     throw new UserError(`No folder ${full}.`, "Check the path: it must be a folder of this PC.");
+  if (project && within(full, project))
+    throw new UserError(
+      `${full} is ${samePath(resolve(full)) === samePath(resolve(project)) ? "the project's own folder" : "inside the project's folder"}: its documents are already the project's.`,
+      "Choose the folder where the specifications are kept, outside the project.",
+    );
   return full;
 }
 
@@ -133,14 +147,21 @@ function projectNames(project: string | null): { ids: Set<string>; names: Set<st
 // ponytail: what an import of a folder would add, file by file — each .docx, .pdf or .txt is a document (a .pdf beside
 // a .docx of the same name is its rendering, added with it), each video is one, and the images of one folder are one
 // images document named after that folder (group = the folder's rel, « . » for the folder itself); everything else is
-// left aside with the reason; the project's own folder is never read, and a document already in the project (same id
-// or same file name) is not added twice
+// left aside with the reason; the project's own folder (or one inside it) is refused, and never read when it is under
+// the folder; a document already in the project (same id or same file name) is not added twice; a file gone while the
+// folder is read is left out
 export function scanFolder(project: string | null, dir: string, recursive: boolean): FolderScan {
-  const root = checkDir(dir);
-  const { paths, truncated } = walk(root, recursive, project ? resolve(project) : null);
+  const root = checkDir(dir, project);
+  const walked = walk(root, recursive, project ? resolve(project) : null);
+  const truncated = walked.truncated;
   const known = projectNames(project);
   const rel = (p: string) => relative(root, p).split(sep).join("/");
-  const sizes = new Map(paths.map((p) => [p, statSync(p).size]));
+  const sizes = new Map<string, number>();
+  for (const p of walked.paths)
+    try {
+      sizes.set(p, statSync(p).size);
+    } catch {}
+  const paths = walked.paths.filter((p) => sizes.has(p));
   const fine = paths.filter((p) => !asideOf(basename(p), sizes.get(p) ?? 0));
   const words = new Map(fine.filter((p) => isExt(p, ".docx")).map((p) => [keyOf(p), p]));
   const renderings = new Map(fine.filter((p) => isExt(p, ".pdf")).map((p) => [keyOf(p), p]));

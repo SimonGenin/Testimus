@@ -1,11 +1,11 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { env } from "../../../../src/core/env.ts";
 import { listJobs } from "../../../../src/core/jobs.ts";
-import { idOf } from "../../../../src/core/lib/docs-folder.ts";
+import { FOLDER_MAX_FILES, idOf } from "../../../../src/core/lib/docs-folder.ts";
 import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 import { taggedPdf } from "../../../fixtures/pdf/tagged.ts";
 import { call, fixtureCopy } from "../registry.ts";
@@ -116,6 +116,31 @@ describe("docs.scanFolder", () => {
     expect(s.files.map((x) => x.rel)).toEqual(["SPEC_A_01_00.docx"]);
   });
 
+  it("refuses the project's own folder and any folder inside it, whatever the case on Windows and macOS", async () => {
+    const P = fixtureCopy("scan-self");
+    await expect(call("docs.scanFolder", { dir: P }, P)).rejects.toThrow(/the project's own folder/);
+    await expect(call("docs.scanFolder", { dir: join(P, "docs") }, P)).rejects.toThrow(/inside the project's folder/);
+    await expect(call("docs.addFolder", { dir: join(P, "docs"), convert: false }, P)).rejects.toThrow(
+      /inside the project's folder/,
+    );
+    if (process.platform === "darwin" || process.platform === "win32")
+      await expect(call("docs.scanFolder", { dir: join(P, "DOCS") }, P)).rejects.toThrow(/inside the project's folder/);
+  });
+
+  it.skipIf(process.platform === "win32")("leaves out a file it cannot read the size of, and goes on", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "testimus-gone-"));
+    writeFileSync(join(dir, "SPEC_A_01_00.docx"), "x");
+    mkdirSync(join(dir, "locked"));
+    writeFileSync(join(dir, "locked", "SPEC_B_01_00.docx"), "x");
+    chmodSync(join(dir, "locked"), 0o600);
+    try {
+      const s = await call<Scan>("docs.scanFolder", { dir, recursive: true }, fixtureCopy("scan-gone"));
+      expect(s.files.map((x) => x.rel)).toEqual(["SPEC_A_01_00.docx"]);
+    } finally {
+      chmodSync(join(dir, "locked"), 0o700);
+    }
+  });
+
   it("refuses a network path, a relative path and a folder that is not there", async () => {
     const P = fixtureCopy("scan-refuse");
     await expect(call("docs.scanFolder", { dir: "\\\\server\\share\\specs" }, P)).rejects.toThrow(/network path/);
@@ -144,12 +169,14 @@ describe("docs.addFolder", () => {
       added: { id: string; twin?: { file: string }; converted?: unknown }[];
       rejected: { name: string; why: string; code: string }[];
       converted: unknown[];
+      truncated: boolean;
     }>("docs.addFolder", { dir, convert: false, files: ["SPEC_F_01_00.docx", "Thumbs.db"] }, P);
     expect(r.added.map((d) => [d.id, d.twin?.file ?? null, d.converted ?? null])).toEqual([
       ["SPEC_F", "source.pdf", null],
     ]);
     expect(r.rejected).toEqual([{ name: "Thumbs.db", why: "not a document", code: "left-aside" }]);
     expect(r.converted).toEqual([]);
+    expect(r.truncated).toBe(false);
     expect(existsSync(join(P, "docs", "SPEC_G"))).toBe(false);
   });
 
@@ -183,6 +210,17 @@ describe("docs.addFolder", () => {
       ],
       ["Visite_PCC", "Visite PCC", "images", 2],
     ]);
+  });
+
+  it("says when the folder held more files than it reads", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "testimus-many-"));
+    for (let i = 0; i <= FOLDER_MAX_FILES; i++) writeFileSync(join(dir, `note-${i}.xyz`), "x");
+    const r = await call<{ added: unknown[]; truncated: boolean }>(
+      "docs.addFolder",
+      { dir, convert: false },
+      fixtureCopy("addfolder-many"),
+    );
+    expect(r).toMatchObject({ added: [], truncated: true });
   });
 
   it("converts and indexes each document in its own job", async () => {
