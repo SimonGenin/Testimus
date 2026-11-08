@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { api, boot, expect, mockServer, test, waitForJob } from "./helpers.ts";
 
-const { url } = mockServer(4430);
+const server = mockServer(4430);
 
 const LOCAL_ID = /\blocal-[0-9a-f]{6,}\b/;
 const LOCAL = "local-3f9a12c0";
@@ -27,8 +27,8 @@ test("no internal id on the main screens, once Claude has checked, fixed, edited
     ["claude.run", { scope: { kind: "test", testId: LOCAL }, prompt: "Rends le step 2 plus clair" }],
     ["gen.tests", { request: "Tests du sectionneur", docs: [DOC] }],
   ] as const) {
-    const { jobId } = await api<{ jobId: string }>(url, name, input);
-    await waitForJob(url, jobId);
+    const { jobId } = await api<{ jobId: string }>(server.url, name, input);
+    await waitForJob(server.url, jobId);
     jobs.push(jobId);
   }
 
