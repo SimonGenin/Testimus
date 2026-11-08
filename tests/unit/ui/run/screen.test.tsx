@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -136,6 +136,44 @@ describe("running a test", () => {
     fireEvent.click(within(side).getByRole("button", { name: "Send the answer" }));
     expect(await within(side).findByText("Answered")).toBeInTheDocument();
     expect(callsOf("runs.comment").at(-1)?.input).toMatchObject({ answers: "q0a1b2c3", text: "Oui." });
+  });
+});
+
+describe("the run as pages", () => {
+  it("exports the run to a new folder, with the results entered so far", async () => {
+    const dir = join(project, "..", `${project.split(/[\\/]/).pop()}-pages`);
+    withApp(<RunScreen />, at(RUN));
+    const run = await screen.findByRole("region", { name: /^Run Recette J5/ });
+    fireEvent.click(within(run).getByRole("button", { name: "Export as pages…" }));
+    const dialog = screen.getByRole("dialog", { name: "Export « Recette J5 — Sectionneurs » as pages" });
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Include the results already entered (2 tests)" }),
+    ).toBeChecked();
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Folder" }), { target: { value: dir } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Export" }));
+    expect(await within(dialog).findByText(/The run is in/)).toBeInTheDocument();
+    expect(callsOf("runs.export")[0].input).toEqual({ run: RUN, dir, results: true });
+    expect(existsSync(join(dir, "index.html"))).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("imports the results of the pages: the plan first, then the writing", async () => {
+    const dir = join(project, "..", `${project.split(/[\\/]/).pop()}-back`);
+    await net.routes["runs.export"]({ run: RUN, dir });
+    const file = join(dir, "results", "LFRPS12-1398.json");
+    writeFileSync(file, JSON.stringify({ status: "passed", steps: [{ ok: true }], updatedAt: "2099-01-01T00:00:00Z" }));
+    const { state } = withApp(<RunScreen />, at(RUN));
+    fireEvent.click(await screen.findByRole("button", { name: "Import results…" }));
+    const dialog = screen.getByRole("dialog", { name: "Import the results" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Folder or run.json" }), { target: { value: dir } });
+    expect(
+      await within(dialog).findByText(/Into « Recette J5 — Sectionneurs »: 1 test with a new result/),
+    ).toBeInTheDocument();
+    expect(callsOf("runs.import").every((c) => c.input.dryRun === true)).toBe(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Import 1 result" }));
+    await waitFor(() => expect(state.navigate).toHaveBeenLastCalledWith("run", RUN));
+    expect(callsOf("runs.import").at(-1)?.input).toEqual({ dir });
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 

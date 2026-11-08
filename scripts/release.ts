@@ -68,6 +68,7 @@ export const LAYOUT = [
   "app/package.json",
   "app/ui/index.html",
   "app/templates/project",
+  "app/templates/run-pages/index.html",
   "app/templates/reference/syntec/eval/behaviors.jsonl",
   "models",
   "testimus.cmd",

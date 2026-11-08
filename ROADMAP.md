@@ -80,7 +80,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 - [x] **Un onglet « Run » pour les testeurs.** Les testeurs y font leurs tests. À imaginer avec /design : ce qui compte
       pour eux. A priori : créer un run avec une série de tests, puis annoter chaque test (« passe », « problème »),
       ajouter des commentaires, des questions, etc.
-- [ ] **Un run en pages HTML, hors de l'app.** Générer, un peu comme des artifacts, un dossier pour un run : une page
+- [x] **Un run en pages HTML, hors de l'app.** Générer, un peu comme des artifacts, un dossier pour un run : une page
       `index.html` qui lance le run dans le navigateur en localhost. Le dossier peut aller sur une autre machine que
       l'app, on y fait le run, puis on le réimporte dans l'application avec ses résultats. Un modèle existe sur ce PC :
       la fiche de test interactive de `D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\skills\testing\` (HTML +

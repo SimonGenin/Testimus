@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { command, projectOf } from "../command.ts";
+import { createRun, pickTests } from "../lib/run-create.ts";
 import { addComment, attachCapture, setResult } from "../lib/run-results.ts";
-import { createRun, listRuns, pickTests, readRunFile, removeRun, runSummary, runView } from "../lib/runs.ts";
+import { listRuns, readRunFile, removeRun, runSummary, runView } from "../lib/runs.ts";
 import { localTestRef } from "../lib/store.ts";
 import { REVIEW } from "../schemas.ts";
+import { commands as pages } from "./runs-pages.ts";
 import {
   ATTACHMENT,
   COMMENT,
@@ -183,4 +185,5 @@ export const commands = [
       return { run: input.run, name };
     },
   }),
+  ...pages,
 ];

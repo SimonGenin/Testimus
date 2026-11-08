@@ -199,7 +199,7 @@ describe("runs.remove and Claude's access", () => {
     for (const kind of ["chat", "check", "generate", "fix", "run", "action"] as const) {
       const { allow, deny } = mcpAccess(kind);
       expect(allow).toEqual(expect.arrayContaining(["mcp__testimus__runs_list", "mcp__testimus__runs_show"]));
-      for (const w of ["setResult", "comment", "attach", "create", "remove"])
+      for (const w of ["setResult", "comment", "attach", "create", "remove", "export", "import"])
         expect(deny, `${kind} ${w}`).toContain(`mcp__testimus__runs_${w}`);
     }
   });

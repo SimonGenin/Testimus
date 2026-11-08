@@ -8,6 +8,8 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
+import { ExportRun } from "./ExportRun.tsx";
+import { ImportRun } from "./ImportRun.tsx";
 import { NewRun } from "./NewRun.tsx";
 import { RunDetail } from "./RunDetail.tsx";
 import { RunExec } from "./RunExec.tsx";
@@ -61,6 +63,7 @@ export function RunScreen() {
   const app = useApp();
   const { run: slug, test } = routeOf(app.route.screen === "run" ? app.route.arg : undefined);
   const [creating, setCreating] = useState(false);
+  const [pages, setPages] = useState<"export" | "import" | null>(null);
   const runs = useRead("runs.list", {});
   const list = runs.data?.runs;
   const shown = slug || list?.find((r) => !r.finished)?.slug || list?.[0]?.slug || "";
@@ -69,14 +72,29 @@ export function RunScreen() {
   const playing = test && run.data?.slug === shown ? run.data.tests.find((t) => t.id === test) : undefined;
 
   const newRun = <Button variant="primary" size="sm" label="New run…" onClick={() => setCreating(true)} />;
-  const dialog = creating && (
-    <NewRun
-      onClose={() => setCreating(false)}
-      onMade={(s) => {
-        setCreating(false);
-        open(s);
-      }}
-    />
+  const importRun = <Button size="sm" label="Import results…" onClick={() => setPages("import")} />;
+  const dialog = (
+    <>
+      {creating && (
+        <NewRun
+          onClose={() => setCreating(false)}
+          onMade={(s) => {
+            setCreating(false);
+            open(s);
+          }}
+        />
+      )}
+      {pages === "export" && run.data && <ExportRun run={run.data} onClose={() => setPages(null)} />}
+      {pages === "import" && (
+        <ImportRun
+          onClose={() => setPages(null)}
+          onDone={(s) => {
+            setPages(null);
+            open(s);
+          }}
+        />
+      )}
+    </>
   );
 
   if (playing && run.data)
@@ -114,14 +132,28 @@ export function RunScreen() {
             </Banner>
           </div>
         ) : run.data && run.data.slug === shown ? (
-          <RunDetail run={run.data} onOpenTest={(t) => open(shown, t)} />
+          <RunDetail
+            run={run.data}
+            onOpenTest={(t) => open(shown, t)}
+            actions={
+              <>
+                <Button size="sm" label="Export as pages…" onClick={() => setPages("export")} />
+                {importRun}
+              </>
+            }
+          />
         ) : list && !list.length ? (
           <div {...stylex.props(styles.none)}>
             <EmptyState
               icon="play"
               title="No run yet"
               text="Make a run from a folder, a review state, labels or test keys: the tests are frozen as they are, then played one by one."
-              actions={newRun}
+              actions={
+                <>
+                  {newRun}
+                  {importRun}
+                </>
+              }
             />
           </div>
         ) : (

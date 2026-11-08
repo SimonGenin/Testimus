@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Locator, Page } from "@playwright/test";
@@ -869,6 +870,27 @@ function fixtureShots(): Shot[] {
       note: "Run › a test set Blocked, its reason asked",
       hash: `#/run/${RUN}%2F${T1398}`,
       prep: (p) => tap(p, /^Blocked/),
+    },
+    {
+      id: "run-export",
+      note: "Run › Export as pages…",
+      hash: `#/run/${RUN}`,
+      prep: async (p) => {
+        await tap(p, "Export as pages…");
+        await p.getByRole("textbox", { name: "Folder" }).fill(join(tmpdir(), "testimus-screens", RUN));
+      },
+    },
+    {
+      id: "run-import",
+      note: "Run › Import results… with its plan (the pages of the run, exported just before)",
+      hash: `#/run/${RUN}`,
+      prep: async (p, s) => {
+        const dir = mkdtempSync(join(tmpdir(), "testimus-screens-pages-"));
+        await s.api("runs.export", { run: RUN, dir: join(dir, RUN) });
+        await tap(p, "Import results…");
+        await p.getByRole("textbox", { name: "Folder or run.json" }).fill(join(dir, RUN));
+        await see(p, /^Into «/);
+      },
     },
     {
       id: "run-new",

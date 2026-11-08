@@ -17,7 +17,8 @@ src/core/lib/         the domain modules:
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
                         agents, atomic (every owned write), changed, file-memo (reads per file version), natural (the
                         one collator), creds, project (+ project-info, project-init), doctor (+ doctor-row,
-                        doctor-models), hash, zip, updates; runs (+ run-results: test runs, test-runs/<run>/);
+                        doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
+                        exported as pages and imported back);
                         docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index);
                         media (+ media-pipeline: batches of photos, body.md + part.md → doc.md);
                         jira/ (http, read, steps, labels, push) and sync/ (connect, pull, push), ported from Xray Editor;
@@ -59,6 +60,7 @@ templates/project/    copied into every project by `project init`: CLAUDE.md, .m
                       study-document, draft-comment) — product code; every Claude run refreshes the skills first
                       (lib/shipped.ts)
 templates/reference/  the Syntec reference document (pack quality on every PC)
+templates/run-pages/  a test run as pages (index.html, serve.mjs, start.cmd / start.sh, README) — runs.export copies it
 scripts/              release.ts, publish.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico, tokens.ts, icons.ts,
                       refdoc.ts, screens.ts + screens-catalog.ts (+ SCREENS.md)
 tests/unit/           vitest by area (core/<zone>/, ui/<zone>/, shared/, desktop/, scripts/), helpers/, guards/

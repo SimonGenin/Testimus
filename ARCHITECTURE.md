@@ -422,6 +422,20 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   the tests' table, Continue = the next test not run), `#/run/<run>/<test>` runs one test (keys O / N / J / K,
   Ctrl+Enter = save and next). Status words: Passed · Problem · Blocked · Not run (`RUN_STATUS`, success / danger /
   warning / neutral). The rail item sits after Tests rather than straight after Review: the rail's order is the work's.
+- **A run as pages, out of the app** (`lib/run-pages.ts`, template `templates/run-pages/`): `runs.export { run, dir }`
+  writes a new or empty folder — `index.html` (one page: HTML, one inline script, inline CSS, no network, no React; the
+  run and its results embedded so it opens even from `file://`), `run.json` (`format: testimus-run-pages/1`, `slug`,
+  `exportedAt`, `exportedBy` + the frozen run), `results/` (unless `results: false`), `images/`, `serve.mjs` (Node
+  only, no dependency), `start.cmd` (Node from the PATH, else the installed Testimus' own, else it opens the page
+  alone) / `start.sh`, a README. Served, the page writes each change back to `results/<testId>.json` (and screenshots
+  to `results/<testId>/`); without a server it keeps the results in the browser (localStorage) and offers **Save
+  run.json** — the run with a `results` map, screenshots inline as data URLs.
+- `runs.import { dir | file, run?, dryRun }` reads `run.json` (its inline results) and `results/*.json` (the newer of
+  the two per test), plans first (new results, comments, questions, answers, screenshots, conflicts), then writes. A
+  result touched on both sides with a different outcome is a conflict: **the newer `updatedAt` wins, the older goes to
+  the result's `history`**; comments merge by id (an answer given in the pages is kept), screenshots by name. A run the
+  project does not have is made from the pages' frozen tests and pictures; `run.json.importedAt` is stamped. The
+  pages' server is shipped code, not `src/`: the « processes only in `src/shared/run/` » rule is about `src/`.
 
 ## 10. Jira and Xray
 
@@ -548,6 +562,15 @@ sandboxing CSP. The page's CSP: `default-src 'self'; img-src 'self' data: https:
 `https://<tenant>.atlassian.net` and `*.getxray.app` unless `otherHost`. Scripts call the API by loading `/` first for
 the cookie (`tests/e2e/helpers.ts`).
 
+**The server of a run exported as pages** (`serve.mjs`, §9b) is another, smaller face, on a PC that may have no
+Testimus: it listens on **127.0.0.1 only**; answers only a local `Host` (`127.0.0.1:<port>` or `localhost:<port>`: no
+DNS rebinding) and refuses an `Origin` that is not its own; serves only files of its own folder (a path that climbs out,
+a hidden file → 404); writes only with `PUT`, which a foreign page cannot send without a preflight it never gets, and
+only `results/<testId>.json` (a JSON object, 2 MB at most) or a picture `results/<testId>/<name>.<png|jpg|gif|webp|bmp>`
+(20 MB at most) for a test **of its run.json** — `run.json`, the page, the server itself and any other path are refused
+(403), each write to `.tmp` then renamed. The page builds its DOM from text nodes (no `innerHTML`); the run embedded in
+it has every `<` escaped. `runs.import` copies a screenshot only under a plain picture name, never a path.
+
 ## 14. Desktop shell
 
 The shell is a **window around the HTTP face, not a fourth face**: `src/desktop/` never imports `src/core/` (it may
@@ -609,3 +632,9 @@ first-class: every screen works without the bridge.
   `issue` reads on the Windows PC; whether a custom field is cleared with `""` or `null`; the benchmark's gold set
   (bootstrap by Claude, to be validated by the testers — every figure above is provisional); measuring Performance,
   Balanced and Quality on the reference document (`node scripts/refdoc.ts`); the `observed` colour token for annexes.
+- Test runs as pages (§9b) were designed from the description of the team's interactive test sheet
+  (`D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\skills\testing\`: HTML + `data.json`, OK / NOK per line) and the
+  design, on a Mac where that sheet is not: **the port was not compared with the original**. Not proven either:
+  `start.cmd` on a colleague's Windows PC (Node from the installed Testimus, `start ""` opening the browser), a browser
+  that blocks `localStorage` on `file://`. Answering a tester's question happens in the Run screen only, not in Review
+  yet, and Claude does not draft answers there.

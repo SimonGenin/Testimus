@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test run</title>
+<style>
+:root {
+  --canvas: #f7f7f8; --surface: #ffffff; --sunken: #f1f1f3; --border: #ececee; --field: #d9d9de;
+  --text: #18181b; --muted: #52525b; --subtle: #71717a; --accent: #3e63dd; --on-accent: #ffffff;
+  --success: #16774a; --success-bg: #e9f7ef; --success-edge: #3e9a69;
+  --danger: #c42b2b; --danger-bg: #fdeeee; --danger-edge: #e0716d;
+  --warning: #8f5300; --warning-bg: #fdf4e2; --neutral: #52525b; --neutral-bg: #f1f1f3;
+  --radius: 8px; --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", Consolas, "SF Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0e0e10; --surface: #151517; --sunken: #1d1d21; --border: #26262b; --field: #3a3a42;
+    --text: #ededf0; --muted: #a8a8b2; --subtle: #8b8b95; --accent: #8da4ff; --on-accent: #0e0e10;
+    --success: #5fd08f; --success-bg: #122a1d; --success-edge: #2f7a51;
+    --danger: #ff8f87; --danger-bg: #33181a; --danger-edge: #a8453f;
+    --warning: #f0b44c; --warning-bg: #2d2210; --neutral: #a8a8b2; --neutral-bg: #24242a;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--canvas); color: var(--text); font: 14px/22px var(--font); }
+button, input, textarea, select { font: inherit; color: inherit; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+header h1 { flex: 1 1 20rem; margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; line-height: 18px; }
+.mono { font-family: var(--mono); }
+.layout { display: flex; min-height: calc(100vh - 70px); }
+nav { flex: none; width: 300px; padding: 12px; border-right: 1px solid var(--border); background: var(--surface); }
+nav ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+nav button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; border: 0; border-radius: var(--radius); background: transparent; text-align: left; cursor: pointer; }
+nav button:hover { background: var(--sunken); }
+nav button[aria-current="true"] { background: var(--sunken); box-shadow: inset 0 0 0 1px var(--accent); }
+main { flex: 1; min-width: 0; padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+th, td { padding: 8px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+th { font-size: 12px; color: var(--muted); font-weight: 500; background: var(--surface); }
+tr:last-child td { border-bottom: 0; }
+tr.nok td { background: var(--danger-bg); }
+td img { display: block; max-width: 320px; margin-top: 6px; border-radius: 6px; border: 1px solid var(--border); }
+.cell { white-space: pre-wrap; overflow-wrap: anywhere; }
+.btn { height: 28px; padding: 0 10px; border: 1px solid var(--field); border-radius: var(--radius); background: var(--surface); cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--sunken); }
+.btn:focus-visible, nav button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn[aria-pressed="true"].ok { background: var(--success-bg); border-color: var(--success-edge); color: var(--success); }
+.btn[aria-pressed="true"].nok { background: var(--danger-bg); border-color: var(--danger-edge); color: var(--danger); }
+.btn[aria-pressed="true"].status { background: var(--sunken); border-color: var(--accent); }
+.marks { display: flex; gap: 6px; }
+input[type="text"], textarea { width: 100%; padding: 4px 8px; border: 1px solid var(--field); border-radius: var(--radius); background: var(--surface); }
+textarea { min-height: 56px; resize: vertical; }
+.badge { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+.passed { color: var(--success); background: var(--success-bg); }
+.problem { color: var(--danger); background: var(--danger-bg); }
+.blocked { color: var(--warning); background: var(--warning-bg); }
+.not-run { color: var(--neutral); background: var(--neutral-bg); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.grow { flex: 1; }
+.card { padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
+.banner { padding: 8px 12px; border-radius: var(--radius); background: var(--warning-bg); color: var(--warning); }
+@media (max-width: 760px) { .layout { flex-direction: column; } nav { width: auto; border-right: 0; border-bottom: 1px solid var(--border); } main { padding: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Test run</h1>
+  <span id="saved" class="small muted" role="status"></span>
+  <button type="button" id="download" class="btn">Save run.json</button>
+  <label class="small muted">Tester <input type="text" id="tester" style="width: 12rem" placeholder="Your name"></label>
+  <span id="version" class="small muted"></span>
+</header>
+<div id="notice"></div>
+<div class="layout">
+  <nav aria-label="Tests"><ol id="tests"></ol></nav>
+  <main id="test" aria-label="Test"></main>
+</div>
+<script type="application/json" id="run-data">{"run":null,"results":{}}</script>
+<script>
+"use strict";
+const STATUS = { passed: "Passed", problem: "Problem", blocked: "Blocked", "not-run": "Not run" };
+const ICON = { passed: "✓", problem: "✕", blocked: "!", "not-run": "○" };
+const embedded = JSON.parse(document.getElementById("run-data").textContent);
+let run = embedded.run;
+let results = embedded.results || {};
+let mode = "browser";
+let current = 0;
+const chosen = {};
+const storeKey = () => `testimus-run:${run.slug}:${run.exportedAt}`;
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
+    else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? "" : String(v));
+  }
+  for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) e.append(k);
+  return e;
+};
+const hex = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, "0")).join("");
+const tester = () => document.getElementById("tester").value.trim() || "tester";
+const resultOf = (t) => {
+  const r = results[t.id] || {};
+  const steps = t.steps.map((_, i) => {
+    const m = (r.steps || [])[i];
+    return m && typeof m.ok === "boolean" ? { ok: m.ok, ...(m.note ? { note: m.note } : {}) } : { ok: null, ...(m && m.note ? { note: m.note } : {}) };
+  });
+  const out = { status: STATUS[r.status] ? r.status : "not-run", steps, comments: r.comments || [], attachments: r.attachments || [] };
+  if (r.blockedReason) out.blockedReason = r.blockedReason;
+  if (r.updatedAt) out.updatedAt = r.updatedAt;
+  if (r.updatedBy) out.updatedBy = r.updatedBy;
+  if (r.history) out.history = r.history;
+  return out;
+};
+const proposed = (steps) =>
+  steps.some((s) => s.ok === false) ? "problem" : steps.length && steps.every((s) => s.ok === true) ? "passed" : null;
+
+// a field's text as the app writes it: lines, **bold**, and its pictures (images/<file>, the run's copy)
+function field(text, testId) {
+  const box = el("div", { class: "cell" });
+  const re = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+  let at = 0;
+  for (const m of text.matchAll(re)) {
+    box.append(...bold(text.slice(at, m.index)));
+    const file = m[1].replace(/^images\//, "");
+    if (/^[\w.-]+$/.test(file)) box.append(el("img", { src: `images/${encodeURIComponent(testId)}/${encodeURIComponent(file)}`, alt: file }));
+    at = m.index + m[0].length;
+  }
+  box.append(...bold(text.slice(at)));
+  return box;
+}
+function bold(s) {
+  return s.split(/(\*\*[^*]+\*\*)/).map((p) => (/^\*\*[^*]+\*\*$/.test(p) ? el("strong", {}, p.slice(2, -2)) : document.createTextNode(p)));
+}
+
+function badge(status) {
+  return el("span", { class: `badge ${status}` }, `${ICON[status]} ${STATUS[status]}`);
+}
+
+function stamp() {
+  const s = document.getElementById("saved");
+  const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  s.textContent = mode === "server" ? `Saved in this folder · ${t}` : `Kept in this browser · ${t} — press « Save run.json » when you are done`;
+}
+
+async function save(t, r) {
+  r.updatedAt = new Date().toISOString();
+  r.updatedBy = tester();
+  results[t.id] = r;
+  if (mode === "server") {
+    const res = await fetch(`results/${encodeURIComponent(t.id)}.json`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(r),
+    });
+    if (!res.ok) {
+      document.getElementById("saved").textContent = `Not saved: ${(await res.json().catch(() => ({}))).error || res.status}`;
+      return;
+    }
+  } else {
+    try {
+      localStorage.setItem(storeKey(), JSON.stringify(results));
+    } catch {}
+  }
+  stamp();
+  renderList();
+}
+
+async function attach(t, r, step, file) {
+  const ext = (file.name.match(/\.(png|jpe?g|gif|webp|bmp)$/i) || [".png"])[0].toLowerCase().replace("jpeg", "jpg");
+  const name = `capture-${hex()}${ext}`;
+  const a = { file: name, ...(step ? { step } : {}) };
+  if (mode === "server") {
+    const res = await fetch(`results/${encodeURIComponent(t.id)}/${name}`, { method: "PUT", body: file });
+    if (!res.ok) return;
+  } else {
+    a.data = await new Promise((ok) => {
+      const fr = new FileReader();
+      fr.onload = () => ok(String(fr.result));
+      fr.readAsDataURL(file);
+    });
+  }
+  r.attachments.push(a);
+  await save(t, r);
+  renderTest();
+}
+
+function renderList() {
+  const ol = document.getElementById("tests");
+  ol.replaceChildren(
+    ...run.tests.map((t, i) => {
+      const r = resultOf(t);
+      return el(
+        "li",
+        {},
+        el(
+          "button",
+          { type: "button", "aria-current": i === current ? "true" : "false", on: { click: () => go(i) } },
+          el("span", {}, `${i + 1}. ${t.summary}`),
+          el("span", { class: "row small muted" }, badge(r.status), t.key ? el("span", { class: "mono" }, t.key) : null),
+        ),
+      );
+    }),
+  );
+}
+
+function go(i) {
+  current = Math.max(0, Math.min(run.tests.length - 1, i));
+  renderList();
+  renderTest();
+}
+
+function renderTest() {
+  const t = run.tests[current];
+  const r = resultOf(t);
+  const columns = [...new Set(t.steps.flatMap((s) => Object.keys(s.fields)))];
+  const main = document.getElementById("test");
+  const setStatus = (s) => {
+    chosen[t.id] = true;
+    r.status = s;
+    if (s !== "blocked") delete r.blockedReason;
+    save(t, r).then(renderTest);
+  };
+  const mark = (i, ok) => {
+    r.steps[i] = { ok: r.steps[i].ok === ok ? null : ok, ...(r.steps[i].note ? { note: r.steps[i].note } : {}) };
+    if (!chosen[t.id]) r.status = proposed(r.steps) || r.status;
+    save(t, r).then(renderTest);
+  };
+  const rows = t.steps.map((s, i) =>
+    el(
+      "tr",
+      { class: r.steps[i].ok === false ? "nok" : "" },
+      el("td", {}, String(i + 1)),
+      ...columns.map((c) => el("td", {}, field(s.fields[c] || "", t.id))),
+      el(
+        "td",
+        {},
+        el(
+          "div",
+          { class: "marks", role: "group", "aria-label": `Step ${i + 1}` },
+          el("button", { type: "button", class: "btn ok", "aria-pressed": String(r.steps[i].ok === true), on: { click: () => mark(i, true) } }, "OK"),
+          el("button", { type: "button", class: "btn nok", "aria-pressed": String(r.steps[i].ok === false), on: { click: () => mark(i, false) } }, "NOK"),
+        ),
+      ),
+      el(
+        "td",
+        {},
+        el("textarea", {
+          "aria-label": `Comment on step ${i + 1}`,
+          on: {
+            change: (e) => {
+              const note = e.target.value.trim();
+              r.steps[i] = { ok: r.steps[i].ok, ...(note ? { note } : {}) };
+              save(t, r);
+            },
+          },
+        }, r.steps[i].note || ""),
+        el(
+          "label",
+          { class: "small muted" },
+          "Screenshot ",
+          el("input", { type: "file", accept: "image/*", "aria-label": `Screenshot of step ${i + 1}`, on: { change: (e) => e.target.files[0] && attach(t, r, i + 1, e.target.files[0]) } }),
+        ),
+        ...r.attachments.filter((a) => a.step === i + 1).map((a) => el("div", { class: "small mono" }, a.file)),
+      ),
+    ),
+  );
+  const comment = el("textarea", { "aria-label": "Add a comment or a question", placeholder: "Add a comment or a question…" });
+  const addComment = (kind) => {
+    const text = comment.value.trim();
+    if (!text) return;
+    r.comments.push({ id: hex(), kind, text, by: tester(), at: new Date().toISOString() });
+    save(t, r).then(renderTest);
+  };
+  main.replaceChildren(...[
+    el("div", {}, el("h2", {}, t.summary), el("div", { class: "small muted" }, [t.key || "Local test", `${t.steps.length} step(s)`, t.preconditions.length ? `Precondition: ${t.preconditions.join(", ")}` : ""].filter(Boolean).join(" · "))),
+    t.description ? el("p", { class: "muted", style: "margin: 0" }, t.description) : null,
+    el(
+      "table",
+      { "aria-label": "Steps" },
+      el("thead", {}, el("tr", {}, el("th", {}, "#"), ...columns.map((c) => el("th", {}, c)), el("th", {}, "OK / NOK"), el("th", {}, "Comment"))),
+      el("tbody", {}, ...rows),
+    ),
+    el(
+      "div",
+      { class: "row", role: "radiogroup", "aria-label": "Result of the test" },
+      el("h2", { class: "grow" }, "Result of the test"),
+      ...Object.keys(STATUS).map((s) =>
+        el("button", { type: "button", role: "radio", class: "btn status", "aria-checked": String(r.status === s), "aria-pressed": String(r.status === s), on: { click: () => setStatus(s) } }, `${ICON[s]} ${STATUS[s]}`),
+      ),
+    ),
+    r.status === "blocked"
+      ? el("label", {}, "Why is it blocked? ", el("input", { type: "text", "aria-label": "Why is it blocked?", value: r.blockedReason || "", on: { change: (e) => { r.blockedReason = e.target.value.trim(); save(t, r); } } }))
+      : null,
+    el("h2", {}, "Comments and questions"),
+    ...r.comments.map((c) =>
+      el("div", { class: "card" }, el("span", { class: "small muted" }, [c.kind === "question" ? "Question" : "Comment", c.step ? `step ${c.step}` : "", c.by].filter(Boolean).join(" · ")), el("span", {}, c.text), c.answer ? el("span", { class: "muted" }, `— ${c.answer}`) : null),
+    ),
+    comment,
+    el("div", { class: "row" }, el("button", { type: "button", class: "btn", on: { click: () => addComment("comment") } }, "Add a comment"), el("button", { type: "button", class: "btn", on: { click: () => addComment("question") } }, "Ask a question"), el("span", { class: "grow" }), el("button", { type: "button", class: "btn", on: { click: () => go(current - 1) } }, "Previous"), el("button", { type: "button", class: "btn primary", on: { click: () => go(current + 1) } }, "Next test")),
+  ].filter(Boolean));
+}
+
+function download() {
+  const blob = new Blob([`${JSON.stringify({ ...run, results }, null, 2)}\n`], { type: "application/json" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: "run.json" });
+  document.body.append(a);
+  a.click();
+  a.remove();
+}
+
+async function start() {
+  if (location.protocol.startsWith("http")) {
+    try {
+      const res = await fetch("api/state", { cache: "no-store" });
+      if (res.ok) {
+        const s = await res.json();
+        run = s.run;
+        results = { ...(s.run.results || {}), ...s.results };
+        mode = "server";
+      }
+    } catch {}
+  }
+  if (mode === "browser") {
+    try {
+      const kept = JSON.parse(localStorage.getItem(storeKey()) || "null");
+      if (kept) results = { ...results, ...kept };
+    } catch {}
+    document.getElementById("notice").replaceChildren(
+      el("div", { class: "banner", role: "note" }, "No local server: the results stay in this browser. When you are done, press « Save run.json » and put the file in this folder."),
+    );
+  }
+  document.title = `${run.name} — test run`;
+  document.getElementById("title").textContent = run.name;
+  document.getElementById("version").textContent = [run.version && `Version ${run.version}`, run.environment].filter(Boolean).join(" · ");
+  try {
+    document.getElementById("tester").value = localStorage.getItem("testimus-run:tester") || "";
+  } catch {}
+  document.getElementById("tester").addEventListener("change", (e) => {
+    try {
+      localStorage.setItem("testimus-run:tester", e.target.value.trim());
+    } catch {}
+  });
+  document.getElementById("download").addEventListener("click", download);
+  document.getElementById("saved").textContent = mode === "server" ? "Each change is saved in this folder" : "";
+  go(0);
+}
+start();
+</script>
+</body>
+</html>

@@ -1,14 +1,7 @@
-import { existsSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
-import { basename, join } from "node:path";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { UserError } from "../command.ts";
-import { env } from "../env.ts";
-import type { Review } from "../types.ts";
-import { writeAtomic } from "./atomic.ts";
-import { fieldOrder } from "./columns.ts";
 import { readJson, writeJson } from "./project.ts";
-import { osUser } from "./review.ts";
-import { inFolder, listLocalTests, readTest, testDir } from "./store.ts";
-import { insideTest, mapRefs } from "./test-blocks.ts";
 
 // ponytail: a run is a folder of the project (test-runs/<slug>/) — the team's shared state, like tests/: run.json
 // holds a frozen copy of each test as it was when the run was made, results/<testId>.json what the tester found
@@ -114,15 +107,6 @@ export function normalRun(raw: Partial<RunFile>, fallbackName: string): RunFile 
   };
 }
 
-export function emptyResult(steps: number): RunResult {
-  return {
-    status: "not-run",
-    steps: Array.from({ length: steps }, () => ({ ok: null })),
-    comments: [],
-    attachments: [],
-  };
-}
-
 // ponytail: a result file is read tolerantly (a hand edit, a page of another version): what is not understood is
 // dropped, the steps always match the frozen test's
 export function normalResult(raw: Partial<RunResult> | null | undefined, steps: number): RunResult {
@@ -201,127 +185,6 @@ export function listRuns(project: string) {
     .filter((e) => e.isDirectory() && /^[a-z0-9][a-z0-9-]*$/.test(e.name) && existsSync(join(dir, e.name, "run.json")))
     .map((e) => runSummary(project, e.name))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.name.localeCompare(b.name));
-}
-
-export function slugOf(name: string): string {
-  return (
-    name
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 48)
-      .replace(/-+$/, "") || "run"
-  );
-}
-
-export function freeSlug(project: string, name: string): string {
-  const base = slugOf(name);
-  let slug = base;
-  for (let n = 2; existsSync(join(runsDir(project), slug)); n++) slug = `${base}-${n}`;
-  return slug;
-}
-
-export type Pick = { tests?: string[]; folder?: string; labels?: string[]; review?: Review[] };
-
-// ponytail: the tests of a new run — the ids named, in their order, then every test of the folder, holding one of the
-// labels, or in one of the review states, in the order of the tests list; each once
-export function pickTests(project: string, p: Pick): string[] {
-  const refs = listLocalTests(project);
-  const named = (p.tests ?? []).map((n) => n.trim()).filter(Boolean);
-  const missing = named.filter((n) => !refs.some((r) => r.id === n || r.key === n));
-  if (missing.length)
-    throw new UserError(`No test ${missing.join(", ")} in this project.`, "testimus tests list shows the tests.");
-  const out = new Set(named.map((n) => refs.find((r) => r.id === n || r.key === n)?.id as string));
-  const labels = (p.labels ?? []).map((l) => l.trim()).filter(Boolean);
-  if (p.folder === undefined && !labels.length && !p.review?.length) return [...out];
-  for (const ref of refs) {
-    if (out.has(ref.id)) continue;
-    if (p.folder !== undefined && !inFolder(ref.folder, p.folder)) continue;
-    if (p.review?.length && !p.review.includes(ref.review)) continue;
-    if (labels.length && !readTest(project, ref.id).test.labels.some((l) => labels.includes(l))) continue;
-    out.add(ref.id);
-  }
-  return [...out];
-}
-
-// ponytail: a picture a step shows (embedded in a field or attached) is a file of the test folder; the run keeps its
-// own copy under images/<testId>/, so a test edited or deleted later leaves the run whole
-function imagesOf(fields: Record<string, string>, attached: string[]): string[] {
-  const out = new Set<string>();
-  for (const text of Object.values(fields))
-    mapRefs(text, (file, _p, ref) => {
-      if (insideTest(file) && !/^https?:/i.test(file)) out.add(file);
-      return ref;
-    });
-  for (const f of attached) if (insideTest(f)) out.add(f);
-  return [...out];
-}
-
-export function freezeTest(project: string, id: string, order: readonly string[]): RunTest {
-  const { test } = readTest(project, id);
-  const rank = (k: string) => (order.indexOf(k) < 0 ? order.length : order.indexOf(k));
-  return {
-    id,
-    ...(test.key ? { key: test.key } : {}),
-    summary: test.summary,
-    ...(test.description.trim() ? { description: test.description.trim() } : {}),
-    preconditions: [...test.preconditions],
-    steps: test.steps.map((s) => {
-      const fields = Object.fromEntries(
-        Object.entries(s.fields)
-          .filter(([, v]) => v.trim() !== "")
-          .sort(([a], [b]) => rank(a) - rank(b)),
-      );
-      return {
-        fields,
-        images: imagesOf(
-          fields,
-          s.images.map((i) => i.file),
-        ),
-      };
-    }),
-  };
-}
-
-export type NewRun = { name: string; version?: string; environment?: string; ids: string[] };
-
-export function createRun(project: string, n: NewRun): string {
-  const name = n.name.trim();
-  if (!name) throw new UserError("A run needs a name.", 'Name it, e.g. --name "Recette J5 — Sectionneurs".');
-  if (!n.ids.length)
-    throw new UserError(
-      "No test for this run.",
-      "Name tests, or pick a folder, labels or a review state that has some.",
-    );
-  const order = fieldOrder(project);
-  const tests = n.ids.map((id) => freezeTest(project, id, order));
-  const slug = freeSlug(project, name);
-  const final = runDir(project, slug);
-  const tmp = `${final}.tmp`;
-  rmSync(tmp, { recursive: true, force: true });
-  try {
-    for (const t of tests)
-      for (const file of new Set(t.steps.flatMap((s) => s.images))) {
-        const from = join(testDir(project, t.id), file);
-        if (existsSync(from)) writeAtomic(join(tmp, "images", t.id, basename(file)), readFileSync(from));
-      }
-    const run: RunFile = {
-      name,
-      ...(n.version?.trim() ? { version: n.version.trim() } : {}),
-      ...(n.environment?.trim() ? { environment: n.environment.trim() } : {}),
-      createdAt: env.now().toISOString(),
-      createdBy: osUser(),
-      tests,
-    };
-    writeJson(join(tmp, "run.json"), run);
-    renameSync(tmp, final);
-  } catch (e) {
-    rmSync(tmp, { recursive: true, force: true });
-    throw e;
-  }
-  return slug;
 }
 
 export function removeRun(project: string, slug: string): void {
