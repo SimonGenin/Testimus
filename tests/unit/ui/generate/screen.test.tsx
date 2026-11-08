@@ -592,11 +592,14 @@ describe("Generate while an index runs (audit M-G1)", () => {
   const indexJob = (status: Job["status"]) =>
     job({ id: "ix", kind: "rag-index", status, endedAt: status === "running" ? undefined : at });
 
-  it("is disabled while the index it started runs, says Indexing…, and comes back with the documents read again", async () => {
+  it("is disabled while the index it started runs, says Indexing · N %, and comes back with the documents read again", async () => {
     base();
     let built = false;
     let running = false;
-    const docs = () => [docOf("D1", "Traction", built ? "fresh" : "stale")];
+    const reading = { state: "running", percent: 0, done: 0, total: 3 } as const;
+    const docs = () => [
+      { ...docOf("D1", "Traction", built ? "fresh" : "stale"), ...(running && !built ? { indexing: reading } : {}) },
+    ];
     api.routes["docs.list"] = docs;
     api.routes["gen.preview"] = preview(docs);
     api.routes["jobs.list"] = () => (running ? [indexJob("running")] : []);
@@ -610,7 +613,8 @@ describe("Generate while an index runs (audit M-G1)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reindex" }));
     await waitFor(() => expect(go()).toBeDisabled());
     expect(go()).toHaveAccessibleDescription("Wait for the index to finish");
-    expect(screen.getAllByText(/Indexing…/).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Indexing · 0 %")).toBeInTheDocument();
+    expect(screen.queryByText("Index not up to date")).toBeNull();
     expect(named("rag.index")).toHaveLength(1);
     const listed = named("docs.list").length;
     built = true;

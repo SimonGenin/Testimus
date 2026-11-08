@@ -44,7 +44,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 
 ## 3. Index, modèles et recherche
 
-- [ ] **Pas de warnings pendant l'indexation.** Pendant qu'elle tourne, l'indexation affiche des avertissements de
+- [x] **Pas de warnings pendant l'indexation.** Pendant qu'elle tourne, l'indexation affiche des avertissements de
       problèmes d'indexation : c'est normal puisqu'elle travaille, ça n'a pas de sens pour l'utilisateur et ça le
       perturbe. Ils doivent disparaître.
 - [ ] **Rendre clair qui utilise quoi : embedding, reranker, recherche.** Aujourd'hui on comprend mal quelle recherche

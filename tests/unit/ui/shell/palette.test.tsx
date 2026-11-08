@@ -319,6 +319,22 @@ describe("search palette", () => {
     expect(screen.getByRole("button", { name: "Choose a search pack" })).toBeInTheDocument();
   });
 
+  it("says nothing of words only while an index run builds the vectors: it is indexing", async () => {
+    net.routes["rag.status"] = () => ({
+      degraded: "The vectors of bge-m3-q8 are incomplete",
+      activation: "light",
+      chunks: 4,
+      indexing: { state: "running", doc: 1, docs: 2, done: 0, total: 4 },
+    });
+    net.routes["search.all"] = () => result([hit({})]);
+    withData(<Palette commands={[]} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={() => {}} />);
+    expect(await screen.findByText("Indexing…")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "frein" } });
+    expect(await screen.findByRole("option", { name: /Sectionneur sans TK/ })).toBeInTheDocument();
+    expect(screen.queryByText("Words only")).toBeNull();
+    expect(screen.queryByText("Search on words only")).toBeNull();
+  });
+
   it("shows « Words + meaning » with nothing typed when the vectors are there", async () => {
     net.routes["rag.status"] = () => ({ degraded: null, activation: "machine", chunks: 4 });
     withData(<Palette commands={[]} actions={[]} onCommand={() => {}} onHit={() => {}} onClose={() => {}} />);

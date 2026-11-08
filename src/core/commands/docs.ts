@@ -645,6 +645,19 @@ export const commands = [
           .describe(
             "Index state: missing until an index run read it; stale when its text changed since, or the active model's vectors are incomplete; fresh otherwise (the rule of rag.status)",
           ),
+        indexing: z
+          .object({
+            state: z
+              .enum(["running", "waiting"])
+              .describe("running: the index run under way is reading it; waiting: it will, once its turn comes"),
+            percent: z.number().describe("How far the run got with this document, 0 to 100"),
+            done: z.number().describe("Passages of this document embedded by the run so far"),
+            total: z.number().describe("Passages of this document the run embeds (0 until it starts embedding)"),
+          })
+          .optional()
+          .describe(
+            "Set while an index run is under way or waiting and this document is not fresh: the run reads it, so its stale or missing state is the run's own work in progress, not a problem",
+          ),
       }),
     ),
     mutates: false,

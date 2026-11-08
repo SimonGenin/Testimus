@@ -143,6 +143,7 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_MODELS_DIR` | `set` (default), `unset` |
 | `TESTIMUS_MOCK_ADVICE` | `upgrade` (default), `downgrade`, `offload`, `none` |
 | `TESTIMUS_MOCK_INDEX` | `bm25`: start without vectors |
+| `TESTIMUS_MOCK_INDEX_MS` | ms the fake embedder takes per batch of passages once the sandbox is indexed: keeps an index run going |
 | `TESTIMUS_MOCK_DOWNLOAD_MS`, `TESTIMUS_MOCK_UPDATES`, `TESTIMUS_MOCK_UPDATE_MS` | fake downloads and updates |
 
 Other variables: `TESTIMUS_MODELS` (dev models folder, `D:/Projects/Testimus/.models`), `TESTIMUS_MACHINE` (impose a

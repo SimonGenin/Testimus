@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../../command.ts";
 import { docDir, readDocMd, readFigures } from "../../lib/docs.ts";
+import { indexRunState } from "../../lib/docs-index.ts";
 import { loadMsSoFar, recordPerf } from "../../lib/models-perf.ts";
 import { readProject } from "../../lib/project.ts";
 import type { RetrievalSettings, SearchHit } from "../../types.ts";
@@ -105,7 +106,7 @@ function figureFile(project: string, c: ChunkRow): string | undefined {
 export type Ranked = { chunk: ChunkRow; score: number; degraded?: string; lexical?: true };
 
 export type Expand = RetrievalSettings["expand"];
-type SearchLog = (level: "warn", message: string) => void;
+type SearchLog = (level: "info" | "warn", message: string) => void;
 type SearchInput = SearchOpts & { expand?: Expand; log?: SearchLog };
 
 export async function searchChunks(
@@ -153,6 +154,9 @@ async function ranked(
       lists.push(v.ids);
       degraded = v.degraded;
     }
+    // ponytail: vectors an index run is still embedding are its work in progress — said as such, not as a problem
+    const building = !!degraded && !opts.dbFile && !!indexRunState(project);
+    if (building) degraded = "An index run is under way: search matches words until it ends.";
     let ranked = rrf(lists, settings.rrfK);
     const byId = chunksByRowid(
       db,
@@ -178,7 +182,7 @@ async function ranked(
         rerankFailed = `The reranker failed (${messageOf(e)}): fused ranking without reranking.`;
       }
     const reasons = [degraded, rerankFailed].filter((r): r is string => !!r);
-    for (const r of reasons) opts.log?.("warn", r);
+    for (const r of reasons) opts.log?.(building && r === degraded ? "info" : "warn", r);
     const why = reasons.join(" ");
     let cut = k;
     if (reranked) {

@@ -4,7 +4,8 @@ import { scope } from "../../shared/run/work.ts";
 import { activeModels } from "../rag/activation.ts";
 import { indexFile, openDb } from "../rag/db.ts";
 import { spaceOf } from "../rag/fingerprint.ts";
-import type { DocRef } from "../types.ts";
+import { type LiveIndex, liveIndex } from "../rag/indexer.ts";
+import type { DocIndexing, DocRef, IndexRun } from "../types.ts";
 import { listDocs } from "./docs.ts";
 
 type Queue = { converting: Set<Promise<unknown>>; running: Promise<unknown> | null; waiting: Promise<unknown> | null };
@@ -74,11 +75,49 @@ async function vectorsComplete(project: string): Promise<boolean> {
   });
 }
 
+// ponytail: whether an index run is going on for the project (running) or asked for and waiting its turn
+export function indexRunState(project: string): IndexRun["state"] | null {
+  const q = queues.get(resolve(project).toLowerCase());
+  return q?.running ? "running" : q?.waiting ? "waiting" : null;
+}
+
+const WAITING: DocIndexing = { state: "waiting", percent: 0, done: 0, total: 0 };
+
+// ponytail: the document the run reads now, and those it has started embedding, are running; one with nothing to
+// embed is done (100 %); the others wait their turn
+function indexingOf(id: string, live: LiveIndex | null): DocIndexing {
+  if (!live) return WAITING;
+  const n = live.docs.get(id) ?? { done: 0, total: 0 };
+  const embedding = live.docs.has(id);
+  if (live.current !== id && n.done === 0 && !(embedding && n.total === 0)) return WAITING;
+  return { state: "running", percent: n.total ? Math.floor((n.done / n.total) * 100) : embedding ? 100 : 0, ...n };
+}
+
 // ponytail: the one rule of index freshness (docs.list, rag.status): missing until a run read the document; fresh when
-// its current text was read and the active model's vectors are complete (or no model is installed); stale otherwise
+// its current text was read and the active model's vectors are complete (or no model is installed); stale otherwise.
+// While an index run is under way (or waiting), a document that is not fresh is one it reads: it says so instead
 export async function docsFreshness(project: string): Promise<DocRef[]> {
-  const docs = listDocs(project);
-  if (!docs.some((d) => d.indexed === "fresh")) return docs;
-  const complete = await vectorsComplete(project);
-  return complete ? docs : docs.map((d) => (d.indexed === "fresh" ? { ...d, indexed: "stale" } : d));
+  const listed = listDocs(project);
+  const complete = !listed.some((d) => d.indexed === "fresh") || (await vectorsComplete(project));
+  const docs = complete ? listed : listed.map((d) => (d.indexed === "fresh" ? { ...d, indexed: "stale" as const } : d));
+  const run = indexRunState(project);
+  if (!run) return docs;
+  const live = run === "running" ? liveIndex(project) : null;
+  return docs.map((d) => (d.indexed === "fresh" ? d : { ...d, indexing: indexingOf(d.id, live) }));
+}
+
+// ponytail: the run under way in a few numbers — which document of how many, and the passages embedded so far
+export function indexRunOf(project: string, docs: DocRef[]): IndexRun | null {
+  const state = indexRunState(project);
+  if (!state) return null;
+  const read = docs.filter((d) => d.indexing);
+  const sum = (k: "done" | "total") => read.reduce((n, d) => n + (d.indexing?.[k] ?? 0), 0);
+  const doc = read.filter((d) => d.indexing?.state === "running").length;
+  return {
+    state,
+    doc: Math.min(Math.max(doc, state === "running" ? 1 : 0), read.length),
+    docs: read.length,
+    done: sum("done"),
+    total: sum("total"),
+  };
 }

@@ -108,6 +108,33 @@ describe("Settings › Search", () => {
     expect(screen.getByText(/no vectors for the active model/)).toBeInTheDocument();
   });
 
+  it("while an index run builds the vectors: its progress, no words-only warning, the space being built", async () => {
+    net.routes["rag.status"] = () =>
+      status({
+        activation: "light",
+        profileMatches: false,
+        space: { id: "ccc333ddd444", vectors: 0, complete: false },
+        degraded: "The vectors of bge-m3-q8 are incomplete: run rag index.",
+        indexing: { state: "running", doc: 1, docs: 2, done: 16, total: 40 },
+        docs: [
+          { docId: "D1", indexed: "stale" },
+          { docId: "D2", indexed: "missing" },
+        ],
+      });
+    net.routes["rag.spaces"] = () => [space({ id: "ccc333ddd444", model: "bge-m3-q8", complete: false })];
+    mountSettings(<SearchSection />);
+    const bar = await screen.findByRole("progressbar", { name: "Index" });
+    expect(bar).toHaveAttribute("aria-valuenow", "40");
+    expect(screen.getByText("Indexing 1 of 2 documents · 16 of 40 passages")).toBeInTheDocument();
+    expect(screen.queryByText("Search on words only")).toBeNull();
+    for (const w of ["Words only", "To reindex", "No index yet"]) expect(screen.queryByText(w)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Reindex" })).toBeDisabled();
+    const built = await row("ccc333ddd444");
+    expect(within(built).getByText("Building")).toBeInTheDocument();
+    expect(within(built).queryByText("Incomplete")).toBeNull();
+  });
+
   it("says how many documents are behind, with no reranker and no origin", async () => {
     net.routes["rag.status"] = () =>
       status({

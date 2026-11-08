@@ -75,6 +75,13 @@ const dialog = (page: Page, name?: string | RegExp) => modal(page, name).first()
 
 const see = (page: Page, text: string | RegExp) => page.getByText(text).first().waitFor({ timeout: T });
 
+// ponytail: one index run for the whole scenario (TESTIMUS_MOCK_INDEX_MS keeps it going), started by the first shot
+async function indexing(page: Page, s: Server): Promise<void> {
+  const running = (await s.api<{ kind: string }[]>("jobs.list", { running: true })) ?? [];
+  if (!running.some((j) => j.kind === "rag-index")) await s.api("rag.index", {});
+  await see(page, /Indexing · \d+ %|Indexing \d+ of \d+ documents|Indexing the documents/);
+}
+
 async function palette(page: Page, query?: string): Promise<void> {
   await page.keyboard.press("Control+k");
   await dialog(page, "Search everything");
@@ -1291,6 +1298,31 @@ export function SCENARIOS(essai: string): Scenario[] {
           note: "Search everywhere, words only",
           hash: "#/tests",
           prep: (p) => palette(p, "sectionneur"),
+        },
+      ],
+    },
+    {
+      id: "indexing",
+      note: "An index run under way on an index without vectors (no index warning while it goes)",
+      env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_INDEX: "bm25", TESTIMUS_MOCK_INDEX_MS: "600000" },
+      shots: [
+        {
+          id: "documents",
+          note: "Documents while indexing: Indexing · n %, Waiting to index, the run's bar",
+          hash: "#/documents",
+          prep: (p, s) => indexing(p, s),
+        },
+        {
+          id: "settings-search",
+          note: "Settings › Search while indexing",
+          hash: "#/settings/search",
+          prep: (p, s) => indexing(p, s),
+        },
+        {
+          id: "generate",
+          note: "Generate waits for the index run",
+          hash: "#/generate",
+          prep: (p, s) => indexing(p, s),
         },
       ],
     },

@@ -61,17 +61,17 @@ const WHY: Record<Unready, { what: string; reason: string }> = {
   "not-indexed": { what: "not indexed · reindex to use it", reason: "Not indexed: reindex to use it" },
 };
 
-// ponytail: the same words as the Documents list (badges.tsx), « Converting… » or « Indexing… » while that work runs
+// ponytail: the same words as the Documents list (badges.tsx, « Indexing · 40 % » while an index run reads it), or
+// « Converting… » while a conversion runs
 function IndexBadge({ doc, why }: { doc: DocRef; why: Unready | null }) {
   if (why === "converting") return <Badge tone="info" busy size="sm" label="Converting…" />;
-  if (why === "indexing") return <Badge tone="info" busy size="sm" label="Indexing…" />;
   return <Badge size="sm" {...indexWord(doc)} />;
 }
 
 export function DocScopePicker({
   docs,
   scopes,
-  work = { converting: [], indexing: false },
+  work = { converting: [] },
   onChange,
   onAddDocuments,
 }: {

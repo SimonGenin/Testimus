@@ -46,7 +46,7 @@ describe("Generate › scope helpers", () => {
 function ScopeHost({
   initial = {} as Record<string, DocScope>,
   docs = [] as DocRef[] | null,
-  work = { converting: [], indexing: false } as DocWork,
+  work = { converting: [] } as DocWork,
   onAdd = undefined as (() => void) | undefined,
 }) {
   const [v, setV] = useState(initial);
@@ -143,27 +143,39 @@ describe("Generate › documents", () => {
     expect(box("Stale")).toBeEnabled();
     expect(screen.getByText("2 of 4 documents")).toBeInTheDocument();
     cleanup();
-    renderData(<ScopeHost docs={docs} work={{ converting: ["D1"], indexing: true }} initial={{ D1: ["§5"] }} />);
+    const run = (indexing: DocRef["indexing"]) => (d: DocRef) => (d.indexed === "fresh" ? d : { ...d, indexing });
+    const indexing = docs.map((d) =>
+      d.id === "D2"
+        ? run({ state: "running", percent: 40, done: 2, total: 5 })(d)
+        : d.id === "D3"
+          ? run({ state: "waiting", percent: 0, done: 0, total: 0 })(d)
+          : d,
+    );
+    renderData(<ScopeHost docs={indexing} work={{ converting: ["D1"] }} initial={{ D1: ["§5"] }} />);
     expect(within(row("Fresh")).getByText("Converting…")).toBeInTheDocument();
     expect(within(row("Fresh")).getByText(/being converted · available once indexed/)).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Sections" })).toBeNull();
-    expect(screen.getAllByText("Indexing…")).toHaveLength(2);
+    expect(within(row("Missing")).getByText("Indexing · 40 %")).toBeInTheDocument();
+    expect(within(row("Stale")).getByText("Waiting to index")).toBeInTheDocument();
+    expect(within(row("Missing")).getByText(/being indexed/)).toBeInTheDocument();
     expect(within(row("Stale")).getByText(/being indexed/)).toBeInTheDocument();
+    expect(screen.queryByText("Not up to date")).toBeNull();
+    expect(screen.queryByText("Not indexed")).toBeNull();
     for (const t of ["Fresh", "Missing", "Stale"]) expect(box(t)).toBeDisabled();
     expect(screen.getByText("0 of 4 documents")).toBeInTheDocument();
   });
 
-  it("unready: converting first, then not converted, then the index state while an index runs or not", () => {
-    const d = (indexed: DocRef["indexed"], at?: string) =>
-      ({ id: "A", indexed, converted: at ? { at } : undefined }) as DocRef;
-    const idle = { converting: [], indexing: false };
-    const busy = { converting: [], indexing: true };
-    expect(unready(d("fresh", "x"), { converting: ["A"], indexing: false })).toBe("converting");
-    expect(unready(d("missing"), busy)).toBe("not-converted");
-    expect(unready(d("fresh", "x"), busy)).toBeNull();
+  it("unready: converting first, then not converted, then the index state while an index run reads it (docs.list) or not", () => {
+    const run = { state: "waiting", percent: 0, done: 0, total: 0 } as const;
+    const d = (indexed: DocRef["indexed"], at?: string, indexing?: DocRef["indexing"]) =>
+      ({ id: "A", indexed, converted: at ? { at } : undefined, indexing }) as DocRef;
+    const idle = { converting: [] };
+    expect(unready(d("fresh", "x"), { converting: ["A"] })).toBe("converting");
+    expect(unready(d("missing", undefined, run), idle)).toBe("not-converted");
+    expect(unready(d("fresh", "x"), idle)).toBeNull();
     expect(unready(d("stale", "x"), idle)).toBeNull();
-    expect(unready(d("stale", "x"), busy)).toBe("indexing");
-    expect(unready(d("missing", "x"), busy)).toBe("indexing");
+    expect(unready(d("stale", "x", run), idle)).toBe("indexing");
+    expect(unready(d("missing", "x", { ...run, state: "running" }), idle)).toBe("indexing");
     expect(unready(d("missing", "x"), idle)).toBe("not-indexed");
   });
 });

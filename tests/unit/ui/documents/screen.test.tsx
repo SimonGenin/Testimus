@@ -96,6 +96,34 @@ describe("Documents screen", () => {
     expect(within(listOf()).getByText("Indexed").closest("span")?.querySelector("svg")).not.toBeNull();
   });
 
+  it("while an index run reads them: how far it got for each, its bar, and no index warning", async () => {
+    api.routes["docs.list"] = () => [
+      doc("D1", { indexed: "stale", indexing: { state: "running", percent: 42, done: 5, total: 12 } }),
+      doc("D2", { indexed: "missing", indexing: { state: "waiting", percent: 0, done: 0, total: 9 } }),
+      doc("D3"),
+    ];
+    api.routes["rag.status"] = status({
+      degraded: "No vectors yet",
+      indexing: { state: "running", doc: 1, docs: 2, done: 5, total: 21 },
+    });
+    api.routes["jobs.list"] = () => [
+      { id: "ix", kind: "rag-index", subject: "index", status: "running", startedAt: at, message: "Embedding D1" },
+    ];
+    detail();
+    mountDocs(<DocumentsScreen />, { route: { screen: "documents" } });
+    const reading = await within(listOf()).findByText("Indexing · 42 %");
+    expect(reading.closest("[aria-busy]")).not.toBeNull();
+    expect(within(row("Title D1")).getByText("Indexing · 42 %")).toBeInTheDocument();
+    expect(within(row("Title D2")).getByText("Waiting to index")).toBeInTheDocument();
+    expect(within(row("Title D3")).getByText("Indexed")).toBeInTheDocument();
+    const bar = within(listOf()).getByRole("progressbar", { name: "Index" });
+    expect(bar).toHaveAttribute("aria-valuenow", "24");
+    expect(within(listOf()).getByText("Indexing 1 of 2 documents · 5 of 21 passages")).toBeInTheDocument();
+    for (const w of ["Not up to date", "Not indexed", "Search on words only", "All documents"])
+      expect(screen.queryByText(w)).toBeNull();
+    expect(rows()).toHaveLength(3);
+  });
+
   it("shows a document whose doc.json names no source file, by the file it keeps", async () => {
     const bare = doc("D1", { converted: undefined, source: { file: "source.pdf", sha256: "" } as DocRef["source"] });
     api.routes["docs.list"] = () => [bare];
@@ -328,25 +356,29 @@ describe("Documents screen", () => {
     expect(screen.queryByRole("button", { name: /from a path/ })).toBeNull();
   });
 
-  it("reloads when the index job ends, not for others", async () => {
+  it("reads the documents again when an index run starts, moves and ends, not for other jobs", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
     detail();
     mountDocs(<DocumentsScreen />);
     await screen.findByText("Title D1");
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     const before = named("docs.list").length;
-    const ended = (kind: string, s: string): JobEvent => ({
-      jobId: "j",
+    const status = (id: string, kind: string, s: string): JobEvent => ({
+      jobId: id,
       at,
       type: "status",
-      job: { id: "j", kind, subject: "", status: s as "done", startedAt: at },
+      job: { id, kind, subject: "", status: s as "done", startedAt: at },
     });
-    emit(ended("rag-index", "running"));
-    emit(ended("check", "done"));
-    emit({ jobId: "j", at, type: "progress", message: "x" });
+    emit(status("k", "check", "running"));
+    emit({ jobId: "k", at, type: "progress", message: "x" });
+    emit(status("k", "check", "done"));
     expect(named("docs.list")).toHaveLength(before);
-    emit(ended("rag-index", "done"));
+    emit(status("j", "rag-index", "running"));
     await waitFor(() => expect(named("docs.list")).toHaveLength(before + 1));
+    emit({ jobId: "j", at, type: "progress", message: "Embedding D1", done: 16, total: 40 });
+    await waitFor(() => expect(named("docs.list")).toHaveLength(before + 2));
+    emit(status("j", "rag-index", "done"));
+    await waitFor(() => expect(named("docs.list")).toHaveLength(before + 3));
   });
 
   it("reloads when a job changed a document's files, whatever the job", async () => {

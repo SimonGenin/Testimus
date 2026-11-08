@@ -134,7 +134,9 @@ export function DocumentsScreen() {
   const [dropped, setDropped] = useState<PickedFile[] | null>(null);
 
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
-  const wordsOnly = rag.data?.exists && rag.data.degraded ? wordsOnlyWhy(rag.data) : null;
+  const run = rag.data?.indexing ?? null;
+  // ponytail: while an index run builds the vectors, words only is its work in progress, not a warning
+  const wordsOnly = rag.data?.exists && rag.data.degraded && !run ? wordsOnlyWhy(rag.data) : null;
   const { routeId, anchor, quote, from } = target(app.route.screen === "documents" ? (app.route.arg ?? "") : "");
   // ponytail: a source may name a document by its code — the route opens it by its id
   const named = routeId ? (docs?.find((d) => d.id === routeId) ?? docs?.find((d) => d.code === routeId)) : undefined;
@@ -188,7 +190,7 @@ export function DocumentsScreen() {
     app.navigate("documents", id);
   };
   const listPane = (head: boolean) => (
-    <DocList docs={docs} uploads={uploads} activeId={activeId} head={head} onOpen={open} />
+    <DocList docs={docs} uploads={uploads} activeId={activeId} head={head} run={run} onOpen={open} />
   );
   const onDragOver = (e: DragEvent) => {
     if (!e.dataTransfer.types.includes("Files")) return;

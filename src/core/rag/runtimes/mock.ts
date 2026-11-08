@@ -1,3 +1,4 @@
+import { sleep } from "../../../shared/run/work.ts";
 import { dimsOf } from "../fingerprint.ts";
 import { words } from "../search/lexical.ts";
 import type { Runtime } from "./types.ts";
@@ -24,8 +25,15 @@ function fakeRerank(query: string, texts: string[]): number[] {
   });
 }
 
+// ponytail: --mock paces the embedding of documents (TESTIMUS_MOCK_INDEX_MS, set once the sandbox is indexed) so an
+// index run lasts long enough to be seen
+export const mockPace = { embedMs: 0 };
+
 export const mockRuntime: Runtime = {
   probe: async (m) => ({ dims: dimsOf(m), maxTokens: m.entry.maxInputTokens }),
-  embed: async (m, texts) => texts.map((t) => fakeVector(t, dimsOf(m))),
+  embed: async (m, texts, mode) => {
+    if (mode === "doc" && mockPace.embedMs) await sleep(mockPace.embedMs);
+    return texts.map((t) => fakeVector(t, dimsOf(m)));
+  },
   rerank: async (_m, query, texts) => fakeRerank(query, texts),
 };

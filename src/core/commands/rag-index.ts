@@ -3,7 +3,7 @@ import { z } from "zod";
 import { claudeHeaders } from "../claude/headers.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { docsFreshness, indexAfterConversions } from "../lib/docs-index.ts";
+import { docsFreshness, indexAfterConversions, indexRunOf } from "../lib/docs-index.ts";
 import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, listSpaces, vectorCount, withIndex } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
@@ -104,6 +104,20 @@ export const commands = [
         .nullable()
         .describe("The active vector space, null when it does not exist yet"),
       degraded: z.string().nullable().describe("Why hybrid search falls back to BM25 on this PC, or null"),
+      indexing: z
+        .object({
+          state: z
+            .enum(["running", "waiting"])
+            .describe("running: an index run is under way; waiting: one is asked for and waits its turn"),
+          doc: z.number().describe("Documents the run has started on (the one it reads now included)"),
+          docs: z.number().describe("Documents the run reads: those not fresh"),
+          done: z.number().describe("Passages embedded by the run so far"),
+          total: z.number().describe("Passages the run embeds (0 until it starts embedding)"),
+        })
+        .nullable()
+        .describe(
+          "The index run under way or waiting, null when none: until it ends, degraded and the documents' stale or missing states are its work in progress, not problems",
+        ),
       chunks: z.number().describe("Passages in the index"),
       builtAt: z.string().nullable().describe("Last rag.index run"),
       docs: z
@@ -138,6 +152,7 @@ export const commands = [
             ? `The vectors of ${m.entry.id} are incomplete: run rag index.`
             : null;
       const state = readState(project);
+      const docs = await docsFreshness(project);
       return {
         embedding: m?.entry.id ?? "none",
         reranker: active.reranker?.entry.id ?? null,
@@ -149,9 +164,10 @@ export const commands = [
         profileMatches,
         space,
         degraded,
+        indexing: indexRunOf(project, docs),
         chunks: found?.chunks ?? 0,
         builtAt: state?.builtAt ?? null,
-        docs: (await docsFreshness(project)).map((d) => ({ docId: d.id, indexed: d.indexed })),
+        docs: docs.map((d) => ({ docId: d.id, indexed: d.indexed })),
       };
     },
   }),

@@ -214,6 +214,28 @@ const cancelled = () => new CancelledError("Indexing cancelled.");
 
 const lanes = new Map<string, Semaphore>();
 
+// ponytail: what the run on a project's own rag.db is doing now — the document it reads, then the passages each
+// has left to embed; docs.list and rag.status tell from it which documents are being indexed (lib/docs-index.ts)
+export type LiveIndex = {
+  current: string | null;
+  docs: Map<string, { done: number; total: number }>;
+};
+const runs = new Map<string, LiveIndex>();
+
+export function liveIndex(project: string): LiveIndex | null {
+  return runs.get(indexFile(project)) ?? null;
+}
+
+async function tracked(file: string, own: boolean, work: (now: LiveIndex) => Promise<IndexReport>) {
+  const now: LiveIndex = { current: null, docs: new Map() };
+  if (own) runs.set(file, now);
+  try {
+    return await work(now);
+  } finally {
+    if (runs.get(file) === now) runs.delete(file);
+  }
+}
+
 // ponytail: one index run at a time per rag.db — a second rag.index (or a conversion's index step) waits for the first
 // instead of writing the same database beside it
 export function indexProject(project: string, ctx: Ctx, opts: IndexOpts = {}): Promise<IndexReport> {
@@ -223,12 +245,19 @@ export function indexProject(project: string, ctx: Ctx, opts: IndexOpts = {}): P
     lane = semaphore(1);
     lanes.set(file, lane);
   }
-  return lane(() => runIndex(project, ctx, opts, file), ctx.signal).catch((e) => {
+  const run = () => tracked(file, !opts.dbFile, (now) => runIndex(project, ctx, opts, file, now));
+  return lane(run, ctx.signal).catch((e) => {
     throw isCancelled(e) ? cancelled() : e;
   });
 }
 
-async function runIndex(project: string, ctx: Ctx, opts: IndexOpts, file: string): Promise<IndexReport> {
+async function runIndex(
+  project: string,
+  ctx: Ctx,
+  opts: IndexOpts,
+  file: string,
+  tally: LiveIndex,
+): Promise<IndexReport> {
   const t0 = Date.now();
   ctx.steps?.([
     { id: "model", label: "Find the search model" },
@@ -249,6 +278,7 @@ async function runIndex(project: string, ctx: Ctx, opts: IndexOpts, file: string
     ctx.step?.("chunk");
     for (const [i, d] of docs.entries()) {
       if (ctx.signal.aborted) throw cancelled();
+      tally.current = d.doc.id;
       ctx.progress({ message: `Chunking ${d.doc.id}`, done: i, total: docs.length });
       const status = await indexDoc(db, d, ctx, project, !!opts.force, h);
       report.push({ docId: d.doc.id, status, chunks: chunksOf(db, d.doc.id).length });
@@ -275,11 +305,17 @@ async function runIndex(project: string, ctx: Ctx, opts: IndexOpts, file: string
       setMeta(db, "embedding", model.entry.id);
       setMeta(db, "dims", String(space.dims));
       const todo = missingVectors(db, space.id);
+      for (const d of docs) tally.docs.set(d.doc.id, { done: 0, total: 0 });
+      for (const c of todo) {
+        const n = tally.docs.get(c.docId);
+        if (n) n.total++;
+      }
       const id = space.id;
       await withPerfScope({ fingerprint: id, project, jobId: ctx.jobId }, async () => {
         for (let i = 0; i < todo.length; i += BATCH) {
           if (ctx.signal.aborted) throw cancelled();
           const batch = todo.slice(i, i + BATCH);
+          tally.current = batch[0].docId;
           ctx.progress({ message: `Embedding ${batch[0].docId} (${model.entry.id})`, done: i, total: todo.length });
           const vectors = await embedWith(
             model,
@@ -291,6 +327,10 @@ async function runIndex(project: string, ctx: Ctx, opts: IndexOpts, file: string
               putVector(db, id, c.rowid, vectors[j]);
             });
           });
+          for (const c of batch) {
+            const n = tally.docs.get(c.docId);
+            if (n) n.done++;
+          }
         }
       });
       embedded = todo.length;

@@ -7,6 +7,7 @@ import { agentProbe } from "../commands/system.ts";
 import { env } from "../env.ts";
 import { DEFAULT_PROJECT, writeJson, writeProject } from "../lib/project.ts";
 import { templateDir } from "../lib/shipped.ts";
+import { mockPace } from "../rag/runtimes/mock.ts";
 import { mockProbeDeps } from "./agents.ts";
 import { mockSpawnClaude } from "./claude.ts";
 import "./claude-actions.ts";
@@ -101,5 +102,6 @@ export async function setupMock(): Promise<string | null> {
     if (p !== project) seedChoice(p, models.advice);
     await indexProject(p, quietCtx(p), models.index === "bm25" ? { model: null } : {}).catch(() => {});
   }
+  mockPace.embedMs = Math.max(0, Number(process.env.TESTIMUS_MOCK_INDEX_MS) || 0);
   return project;
 }

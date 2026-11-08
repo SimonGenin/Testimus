@@ -9,12 +9,13 @@ import { Card } from "../../components/ui/Card.tsx";
 import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
+import { Progress } from "../../components/ui/Progress.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Table } from "../../components/ui/Table.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { execute, invalidate, useRead } from "../../lib/data/query.ts";
-import { plural, relTime } from "../../lib/format.ts";
+import { indexRunLine, indexRunPercent, plural, relTime } from "../../lib/format.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { importClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
@@ -92,7 +93,8 @@ export function SearchSection() {
     if (op.key === "index" && job.status !== "running") void invalidate(client, [["rag.status"], ["rag.spaces"]]);
   }, label);
   const run = ops.find((o) => o.key === "index");
-  const indexing = starting || !!run;
+  const building = st.data?.indexing ?? null;
+  const indexing = starting || !!run || !!building;
   const startIndex = async () => {
     setStarting(true);
     try {
@@ -105,6 +107,8 @@ export function SearchSection() {
     }
   };
   const s = st.data;
+  // ponytail: while an index run builds the index, words only and the documents behind are its work, not warnings
+  const degraded = building ? null : (s?.degraded ?? null);
   const reference = info.data?.project.rag?.reference;
   const fresh = !!s?.exists && s.profileMatches && s.docs.every((d) => d.indexed === "fresh");
   const behind = s?.docs.filter((d) => d.indexed !== "fresh").length ?? 0;
@@ -193,9 +197,9 @@ export function SearchSection() {
               ]}
             />
           )}
-          {s?.degraded && (
+          {degraded && (
             <Banner tone="warning" title="Search on words only" actions={reindex}>
-              {s.degraded}
+              {degraded}
             </Banner>
           )}
           <div {...stylex.props(styles.state)}>
@@ -204,6 +208,10 @@ export function SearchSection() {
             ) : run ? (
               <span {...stylex.props(styles.run)}>
                 <OpLine op={run} />
+              </span>
+            ) : building ? (
+              <span {...stylex.props(styles.run)}>
+                <Progress label="Index" value={indexRunPercent(building)} detail={indexRunLine(building)} />
               </span>
             ) : !s.docs.length ? (
               <>
@@ -230,8 +238,8 @@ export function SearchSection() {
                 <span {...stylex.props(styles.muted)}>{plural(behind, "document")} to reindex</span>
               </>
             )}
-            {!run && <span {...stylex.props(styles.spacer)} />}
-            {!s?.degraded && reindex}
+            {!run && !building && <span {...stylex.props(styles.spacer)} />}
+            {!degraded && reindex}
           </div>
         </Stack>
       </Card>
@@ -266,6 +274,8 @@ export function SearchSection() {
                   <span {...stylex.props(styles.badges)}>
                     {x.complete ? (
                       <Badge label="Complete" tone="success" icon="check" size="sm" />
+                    ) : x.active && building ? (
+                      <Badge label="Building" tone="info" busy size="sm" />
                     ) : (
                       <Badge label="Incomplete" tone="warning" icon="alert-triangle" size="sm" />
                     )}

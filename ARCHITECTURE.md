@@ -257,6 +257,15 @@ docs/<docId>/
 - `rag.index` updates chunks, FTS and edges once, then embeds only what the **active** space lacks; a changed chunk
   makes the other spaces incomplete, and re-activating one embeds only the missing chunks. The last index state is in
   `rag.db` (meta `index_state`) and drives `docs.list.indexed` (`missing` / `stale` / `fresh`).
+- **An index run's work in progress is not a problem.** While a run is under way or waiting its turn
+  (`lib/docs-index.ts` knows: one queue per project, in this process), every document that is not fresh carries
+  `docs.list.indexing` (`running` with its percent and passages embedded, or `waiting`) and `rag.status.indexing`
+  sums the run (document n of m, passages done of total); the indexer keeps that tally as it goes
+  (`rag/indexer.ts` `liveIndex`). Until the run ends, the page shows « Indexing · n % » / « Waiting to index » and the
+  run's bar instead of any index warning (Not up to date, Not indexed, Search on words only, Words only, the space
+  Incomplete), the system check skips the vectors row, and a search that falls back to words logs it as info. A
+  warning comes back only if it is still true once the run ended. The page reads `docs.list` and `rag.status` again
+  at each step of an index job (`lib/data/events.ts`, a read in flight is not restarted).
 - Activation (`rag/activation.ts`): this PC's choice (`settings.json.rag.byProject[<real path>]`) > the team reference
   (`project.json.rag.reference`, a pack or a pair) > the Light pack. Only installed models are taken; none → lexical
   index only, saying why.

@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
 import { events, onProjectChange, onStream, project } from "./client.ts";
-import { invalidate, invalidateProject, type Key, key, type Prefix, setReachable } from "./query.ts";
+import { invalidate, invalidateProject, type Key, key, matches, type Prefix, setReachable } from "./query.ts";
 
 type Rule = [pattern: RegExp, keys: (m: RegExpMatchArray) => Prefix[]];
 
@@ -104,6 +104,7 @@ const KINDS: Rule[] = [
       ["search.all"],
       ["models.advice"],
       ["gen.preview"],
+      ["system.doctor"],
     ],
   ],
   [/^search-index$/, () => [["search.all"]]],
@@ -131,6 +132,34 @@ const KINDS: Rule[] = [
   [/^push$/, () => [["xray.status"], ["xray.folders"], ["xray.search"]]],
   [/^pull$/, () => [["xray.search"]]],
 ];
+
+// ponytail: the reads a job changes while it runs — an index run says in docs.list and rag.status which documents it
+// reads and how far it got; they follow each step of it (a read in flight is not restarted, so a fast run cannot starve it)
+const LIVE = /^rag-index$|^rag\.index$/;
+const LIVE_KEYS: Prefix[] = [["docs.list"], ["rag.status"]];
+
+// ponytail: a progress event names its job only — the kind is the one its status said, or, for a job that started
+// before the page opened, the one the jobs read holds
+const kinds = new Map<string, string>();
+
+function kindOf(client: QueryClient, jobId: string, p: string | null): string | undefined {
+  const known = kinds.get(jobId);
+  if (known) return known;
+  for (const [, jobs] of client.getQueriesData<Job[]>({ queryKey: key("jobs.list", undefined, p) }))
+    if (Array.isArray(jobs)) {
+      const j = jobs.find((x) => x.id === jobId);
+      if (j) return j.kind;
+    }
+  return undefined;
+}
+
+function followLive(client: QueryClient, kind: string | undefined, p: string | null): void {
+  if (!kind || !LIVE.test(kind)) return;
+  void client.invalidateQueries(
+    { predicate: (q) => LIVE_KEYS.some((x) => matches(q.queryKey, x, p)) },
+    { cancelRefetch: false },
+  );
+}
 
 export function keysOfPaths(paths: string[]): Prefix[] {
   const out: Prefix[] = [];
@@ -204,7 +233,12 @@ export function apply(client: QueryClient, e: JobEvent, p: string | null = proje
     else void invalidate(client, keysOfPaths(e.paths), p);
   } else {
     follow(client, e, p);
+    if (e.type === "progress") followLive(client, kindOf(client, e.jobId, p), p);
     if (e.type !== "status") return;
+    if (e.job.status === "running") {
+      kinds.set(e.jobId, e.job.kind);
+      followLive(client, e.job.kind, p);
+    } else kinds.delete(e.jobId);
     const keys: Prefix[] = [["jobs.list"], ["jobs.show", { id: e.jobId }], ["project.info"]];
     // ponytail: a run's record (.testimus/runs, not watched) is finished after the test.md it wrote — any job may have
     // been a Claude run

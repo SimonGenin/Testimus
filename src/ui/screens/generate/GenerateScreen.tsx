@@ -64,13 +64,13 @@ export function GenerateScreen() {
   const docs = (docsRead.data ?? null) as DocRef[] | null;
   const jobs = useRead("jobs.list", {});
   const running = ((jobs.data ?? []) as Job[]).filter((j) => j.status === "running");
-  const indexJob = running.find((j) => WORK[j.kind]);
+  const docJob = running.find((j) => WORK[j.kind] && WORK[j.kind] !== "index");
+  const indexJob = docJob ?? running.find((j) => WORK[j.kind] === "index");
   const reindex = useReindex();
-  const work = indexJob ? WORK[indexJob.kind] : reindex.indexing ? "index" : null;
-  const docWork = {
-    converting: running.filter((j) => j.kind === "docs.convert").map((j) => j.subject),
-    indexing: work !== null,
-  };
+  // ponytail: whether an index run reads a document is docs.list's to say (its indexing), not the page's
+  const indexing = reindex.indexing || !!docs?.some((d) => d.indexing);
+  const work = docJob ? WORK[docJob.kind] : indexing ? "index" : null;
+  const docWork = { converting: running.filter((j) => j.kind === "docs.convert").map((j) => j.subject) };
   const form = useGenerateForm(info.data, docs ?? undefined, docWork);
   const gen = useGeneration();
   const scopeInput = { docs: form.scope.docs, sections: form.scope.sections };

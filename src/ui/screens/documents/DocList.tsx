@@ -1,12 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
-import type { DocRef } from "../../../core/types.ts";
+import type { DocRef, IndexRun } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
+import { Progress } from "../../components/ui/Progress.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
+import { indexRunLine, indexRunPercent } from "../../lib/format.ts";
 import { type Batch, batchLine } from "../../lib/media.ts";
 import { owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
@@ -47,6 +49,7 @@ const styles = stylex.create({
   batch: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, color: color.textMuted },
   batchName: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   out: { color: color.textSubtle },
+  run: { paddingBlock: space.s3, paddingInline: space.s6 },
 });
 
 // ponytail: a document's batches under its row — what each holds, and whether it is in the document
@@ -87,19 +90,22 @@ function docItem(d: DocRef, batches: Batch[]): ListItemProps {
   };
 }
 
-// ponytail: the documents and the files being added or converted, as one list; what failed is said under it — a
-// conversion is named by its document's file
+// ponytail: the documents and the files being added or converted, as one list; an index run is each document's badge
+// and the bar under the list; what failed is said under it — a conversion is named by its document's file
 export function DocList({
   docs,
   uploads: all,
   activeId,
   head = true,
+  run = null,
   onOpen,
 }: {
   docs: DocRef[] | undefined;
   uploads: Upload[];
   activeId: string;
   head?: boolean;
+  /** the index run under way (rag.status): its bar and its words under the list */
+  run?: IndexRun | null;
   onOpen: (id: string) => void;
 }) {
   const cancel = useCancel();
@@ -112,9 +118,7 @@ export function DocList({
   const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
   const items: Item[] = [
     ...(docs ?? []).map((d) => ({ key: d.id, doc: d, upload: uploads.find((u) => owns(u, d)) })),
-    ...uploads
-      .filter((u) => !listed(u) && u.phase !== "index-failed")
-      .map((u) => ({ key: `upload-${u.key}`, upload: u })),
+    ...uploads.filter((u) => !listed(u) && u.job !== "index").map((u) => ({ key: `upload-${u.key}`, upload: u })),
   ];
   const failures = uploads.filter((u) => u.phase === "failed" || u.phase === "index-failed");
   const pick = (key: string) => {
@@ -145,6 +149,11 @@ export function DocList({
           density="two-line"
           loading={docs ? false : 4}
         />
+        {run && (
+          <div {...stylex.props(styles.run)}>
+            <Progress label="Index" value={indexRunPercent(run)} detail={indexRunLine(run)} />
+          </div>
+        )}
         {failures.map((u) => (
           <UploadFailure key={u.key} u={u} />
         ))}

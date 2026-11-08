@@ -51,13 +51,20 @@ async function activeOf(project: string | null) {
 
 // ponytail: a project with no document has nothing to index — not a to-do on the system check
 export const NOTHING_YET = "no document in the project yet";
+// ponytail: vectors an index run is building are its work in progress, not a to-do
+export const BUILDING = "an index run is building them";
 
 export const modelDeps: ModelDeps = {
   machine: () => machineProfile(),
   active: activeOf,
   space: async (project) => {
     const { invoke } = await import("../commands/index.ts");
-    const st = (await invoke("rag.status", {}, { project })) as { degraded: string | null; chunks?: number };
+    const st = (await invoke("rag.status", {}, { project })) as {
+      degraded: string | null;
+      chunks?: number;
+      indexing?: unknown;
+    };
+    if (st.degraded && st.indexing) return BUILDING;
     return st.degraded && st.chunks === 0 ? NOTHING_YET : st.degraded;
   },
 };
@@ -235,8 +242,8 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
   if (project) {
     const degraded = await deps.space(project).catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
     rows.push(
-      degraded === NOTHING_YET
-        ? row("index.space", "Vectors of the active model", "skip", NOTHING_YET)
+      degraded === NOTHING_YET || degraded === BUILDING
+        ? row("index.space", "Vectors of the active model", "skip", degraded)
         : degraded
           ? row("index.space", "Vectors of the active model", "warn", degraded, "testimus rag index", {
               label: "Index now",

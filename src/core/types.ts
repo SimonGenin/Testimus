@@ -265,7 +265,10 @@ export type FigureEntry = {
   kind?: "screen" | "diagram" | "symbol" | "table-image" | "photo";
   table?: string;
 };
-export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing" };
+// ponytail: a document the index run under way reads (running, with how far it got) or will read (waiting)
+export type DocIndexing = { state: "running" | "waiting"; percent: number; done: number; total: number };
+export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing"; indexing?: DocIndexing };
+export type IndexRun = { state: "running" | "waiting"; doc: number; docs: number; done: number; total: number };
 
 // Index
 

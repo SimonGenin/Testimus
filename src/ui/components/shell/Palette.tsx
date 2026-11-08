@@ -237,9 +237,11 @@ export function Palette({
   };
 
   const status = rag.data;
+  // ponytail: while an index run builds the vectors, search answers on words and says nothing of it
+  const building = !!status?.indexing;
   const wordsOnly =
     result?.meaning === "unavailable" ||
-    (!!status && !!status.degraded && (status.activation === "none" || status.chunks > 0));
+    (!!status && !building && !!status.degraded && (status.activation === "none" || status.chunks > 0));
   const noPack = status?.activation === "none";
   const openSearchSettings = () => {
     onClose();
@@ -349,6 +351,8 @@ export function Palette({
           </span>
           {searching && q && s.loading ? (
             <Badge label="Searching…" tone="info" icon="sync" size="sm" tooltip="How passages are found" />
+          ) : building && !wordsOnly ? (
+            <Badge label="Indexing…" tone="info" busy size="sm" tooltip="How passages are found" />
           ) : wordsOnly ? (
             <Badge
               label="Words only"

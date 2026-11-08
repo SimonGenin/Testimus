@@ -1,3 +1,5 @@
+import type { IndexRun } from "../../core/types.ts";
+
 export const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export const cx = (...parts: Array<string | false | undefined | null>) => parts.filter(Boolean).join(" ");
@@ -14,6 +16,16 @@ export function relTime(ms: number): string {
 }
 
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+// ponytail: an index run in words — « Indexing 1 of 2 documents · 1280 of 3027 passages »
+export function indexRunLine(r: IndexRun): string {
+  if (r.state === "waiting") return r.docs ? `Waiting to index ${plural(r.docs, "document")}` : "Waiting to index";
+  if (!r.docs) return "Updating the index";
+  const docs = `Indexing ${r.doc} of ${plural(r.docs, "document")}`;
+  return r.total ? `${docs} · ${r.done} of ${plural(r.total, "passage")}` : docs;
+}
+
+export const indexRunPercent = (r: IndexRun): number | null => (r.total ? (r.done / r.total) * 100 : null);
 
 export const initials = (name: string) =>
   name

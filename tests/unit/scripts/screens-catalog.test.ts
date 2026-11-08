@@ -21,6 +21,7 @@ const MOCK_VALUES: Record<string, (v: string) => boolean> = {
   TESTIMUS_MOCK_CLAUDE_MS: (v) => Number(v) > 0,
   TESTIMUS_MOCK_JIRA_MS: (v) => Number(v) > 0,
   TESTIMUS_MOCK_DOWNLOAD_MS: (v) => Number(v) >= 0,
+  TESTIMUS_MOCK_INDEX_MS: (v) => Number(v) > 0,
   TESTIMUS_MOCK_MAX_ATTACHMENT: (v) => Number(v) > 0,
 };
 
