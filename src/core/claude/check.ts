@@ -204,6 +204,7 @@ export async function checkTests(ctx: Ctx, project: string, ids: string[], seman
           message: `${quoted(testName(project, id))}: ${n("error")} error(s), ${n("warning")} warning(s)${r.ok ? "" : " — semantic check failed"}`,
           done,
           total,
+          test: id,
         });
         return r;
       }),

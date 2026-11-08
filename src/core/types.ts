@@ -766,6 +766,7 @@ export type JobEvent = (
       done?: number;
       total?: number;
       pull?: PullInfo;
+      test?: string;
       step?: string;
     }
   | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string; step?: string }

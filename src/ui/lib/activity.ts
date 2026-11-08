@@ -189,8 +189,8 @@ function stepOfEvent(e: JobEvent): Step | (Act & { kind: "act" }) | { kind: "say
         kind: "check",
         text: e.message,
         verdict: {
-          id: v[1],
-          ...(NAMED.test(v[1]) ? { name: v[1].replace(NAMED, "$1") } : {}),
+          id: e.test ?? v[1],
+          ...(NAMED.test(v[1]) ? { name: v[1].replace(NAMED, "$1") } : e.test ? { name: v[1] } : {}),
           errors: Number(v[2]),
           warnings: Number(v[3]),
           failed: !!v[4],

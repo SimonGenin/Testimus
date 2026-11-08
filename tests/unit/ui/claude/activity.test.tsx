@@ -390,6 +390,35 @@ describe("what the index and the check add", () => {
     expect(p[2].verdicts).toEqual([{ id: "local-aaaaaaaa", errors: 1, warnings: 0, failed: true }]);
   });
 
+  it("keeps one verdict per test, by the test the check names, even when two tests share a name", () => {
+    sec = 0;
+    const verdict = (test: string, name: string, errors: number): JobEvent => ({
+      jobId: "c",
+      at: at(),
+      type: "progress",
+      message: `« ${name} »: ${errors} error(s), 0 warning(s)`,
+      test,
+    });
+    const events: JobEvent[] = [
+      { jobId: "c", at: at(), type: "progress", message: "Checking 3 tests" },
+      verdict("local-aaaaaaaa", "Untitled test", 0),
+      verdict("local-bbbbbbbb", "Untitled test", 1),
+      verdict("XX-12", "Retry a job", 0),
+      verdict("XX-13", "Retry a job", 2),
+      verdict("local-aaaaaaaa", "Untitled test", 3),
+    ];
+    expect(activityOf(events)[0].verdicts).toEqual([
+      { id: "local-bbbbbbbb", name: "Untitled test", errors: 1, warnings: 0, failed: false },
+      { id: "XX-12", name: "Retry a job", errors: 0, warnings: 0, failed: false },
+      { id: "XX-13", name: "Retry a job", errors: 2, warnings: 0, failed: false },
+      { id: "local-aaaaaaaa", name: "Untitled test", errors: 3, warnings: 0, failed: false },
+    ]);
+    render(<GenActivity events={events} running={false} now={Date.now()} />);
+    const list = screen.getByRole("list", { name: "Check verdicts" });
+    expect(within(list).getAllByText("Untitled test")).toHaveLength(2);
+    expect(within(list).getAllByText("Retry a job")).toHaveLength(2);
+  });
+
   it("draws the sections opened from the index on the document, groups the lookups, and shows the verdicts", async () => {
     api.routes["docs.show"] = () => ({ md: MD });
     sec = 0;

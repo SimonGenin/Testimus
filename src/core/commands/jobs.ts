@@ -106,6 +106,7 @@ const event = z.discriminatedUnion("type", [
       .looseObject({ key: z.string().describe("The test pulled") })
       .optional()
       .describe("Where a pull is"),
+    test: z.string().optional().describe("The test this line is about (a check's verdict)"),
     step: z.string().optional().describe("The step it belongs to"),
   }),
   z.object({

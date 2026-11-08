@@ -126,6 +126,12 @@ describe("check commands", () => {
     expect(progress.map((p) => p.message).join("\n")).toContain(
       "« Sectionneur sans TK — menu contextuel et propriétés »: 1 error(s), 1 warning(s)",
     );
+    expect(
+      progress
+        .filter((p) => p.test)
+        .map((p) => p.test)
+        .sort(),
+    ).toEqual(["LFRPS12-1420", "local-3f9a12c0"]);
   });
 
   it("the previous semantic findings are dropped by a new run; every test keeps its review state", async () => {

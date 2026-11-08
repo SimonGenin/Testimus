@@ -60,6 +60,7 @@ describe("jobs.show and jobs.cancel through the registry, each output against it
         ctx.steps?.([{ id: "read", label: "Read" }]);
         ctx.step?.("read");
         ctx.progress({ message: "half", done: 1, total: 2 });
+        ctx.progress({ message: "« A test »: 0 error(s), 0 warning(s)", done: 2, total: 2, test: "local-0000000a" });
         ctx.log("warn", "careful");
         ctx.claude({ type: "text", text: "hello" });
         ctx.claude({ type: "result", ok: true, text: "done", durationMs: 5 });
@@ -76,6 +77,10 @@ describe("jobs.show and jobs.cancel through the registry, each output against it
     );
     expect(shown.job).toMatchObject({ status: "done", result: { n: 1 } });
     expect(new Set(shown.events.map((e) => e.type))).toEqual(new Set(["status", "steps", "progress", "log", "claude"]));
+    expect(shown.events.filter((e) => e.type === "progress").map((e) => (e as { test?: string }).test)).toEqual([
+      undefined,
+      "local-0000000a",
+    ]);
     await expect(call("jobs.show", { id: "nope" }, p)).rejects.toMatchObject({
       fix: expect.stringMatching(/jobs list/),
     });
