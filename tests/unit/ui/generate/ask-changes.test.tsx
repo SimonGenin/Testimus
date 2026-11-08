@@ -77,6 +77,7 @@ function done() {
       state: "open",
       at,
       stale: false,
+      target: { kind: "test", id: B, name: "Avec TK" },
     },
   ];
   api.routes["gen.revise"] = () => ({ jobId: "g2" });
@@ -98,7 +99,8 @@ describe("Generate › Ask for changes", () => {
       label: "Fix the 2 errors in « Avec TK »",
       testId: "",
     });
-    expect(named("actions.list")[0].input).toEqual({ generation: "g1" });
+    expect(named("actions.list")[0].input).toEqual({ generation: "g1", view: { kind: "generation", id: "g1" } });
+    expect(within(suggested).getByRole("region", { name: "Test · Avec TK" })).toBeInTheDocument();
 
     const box = within(ask).getByRole("textbox", { name: "What should change?" });
     fireEvent.change(box, { target: { value: "Précise les actions" } });

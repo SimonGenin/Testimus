@@ -29,6 +29,7 @@ const action = (o: Partial<Action> = {}): Action => ({
   state: "open",
   at: "2026-11-03T10:00:00Z",
   stale: false,
+  target: { kind: "document", id: DOC, name: "Traction", code: DOC },
   ...o,
 });
 
@@ -95,7 +96,8 @@ describe("Ask Claude: the Actions tab", () => {
     expect(screen.queryByRole("region", { name: /Claude action/ })).toBeNull();
     fireEvent.click(actionsTab());
     const card = await screen.findByRole("region", { name: "Claude action: Recover 23 figures from the PDF" });
-    expect(card).toHaveTextContent(`${DOC} · whole document`);
+    expect(card).toHaveTextContent("Whole document");
+    expect(screen.getByRole("region", { name: "Document · Traction" })).toContainElement(card);
     expect(card).toHaveTextContent("caption without a picture");
     expect(card).not.toHaveTextContent("Find the PDF");
     fireEvent.click(within(card).getByRole("button", { name: "Show" }));
@@ -136,6 +138,55 @@ describe("Ask Claude: the Actions tab", () => {
     await waitFor(() => expect(callsOf("actions.dismiss")[0].input).toEqual({ id: "act-2" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: /Second/ })).toBeNull());
     expect(screen.getByText(/Every action is put aside/)).toBeInTheDocument();
+  });
+
+  it("groups the cards under what they work on, in the core's order, and asks first for the target on screen", async () => {
+    const test = { kind: "test" as const, id: "local-0000000a", name: "Sectionneur avec TK" };
+    open = [
+      action({
+        id: "act-t1",
+        title: "Fix « quote not found » in step 2",
+        target: test,
+        scope: { kind: "test", testId: test.id },
+      }),
+      action({
+        id: "act-t2",
+        title: "Add the missing negative path",
+        target: test,
+        scope: { kind: "test", testId: test.id },
+      }),
+      action({
+        id: "act-p",
+        title: "Define the step columns",
+        target: { kind: "project", id: "", name: "RATP Sosie" },
+      }),
+      action({
+        id: "act-g",
+        title: "Write the 2 skipped tests",
+        target: {
+          kind: "generation",
+          id: "job-1",
+          name: "Le sectionneur avec et sans TK",
+          at: new Date().toISOString(),
+        },
+      }),
+    ];
+    dock(null, {
+      route: { screen: "tests", arg: test.id },
+      focus: { testId: test.id, summary: test.name, step: null },
+    });
+    await waitFor(() => expect(actionsTab()).toHaveTextContent("4"));
+    expect(callsOf("actions.list").at(-1)?.input).toEqual({ view: { kind: "test", id: test.id } });
+    fireEvent.click(actionsTab());
+    const groups = await screen.findAllByRole("region", { name: / · / });
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual([
+      "Test · Sectionneur avec TK",
+      "Project · RATP Sosie",
+      "Generation · Le sectionneur avec et sans TK",
+    ]);
+    expect(within(groups[0]).getByRole("heading", { level: 3 })).toHaveTextContent(/^TestSectionneur avec TK$/);
+    expect(within(groups[0]).getAllByRole("button", { name: "Run" })).toHaveLength(2);
+    expect(groups[0].textContent).not.toMatch(/local-/);
   });
 
   it("says when there is none, and stays open while the focus moves", async () => {

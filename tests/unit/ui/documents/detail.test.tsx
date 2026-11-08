@@ -550,6 +550,7 @@ describe("DocDetail", () => {
       state: "open",
       at,
       stale: false,
+      target: { kind: "document", id: "D1", name: "Traction" },
       ...over,
     });
     api.routes["actions.list"] = (i) => {
@@ -567,6 +568,7 @@ describe("DocDetail", () => {
     const list = await screen.findByRole("list", { name: "Conversion warnings" });
     const run = await within(list).findByRole("button", { name: "Fix a4" });
     expect(within(list).getAllByRole("button")).toHaveLength(1);
+    expect(within(list).getByText("on document « Traction »")).toBeInTheDocument();
     fireEvent.click(run);
     expect(runInDock).toHaveBeenCalledWith({ name: "actions.run", input: { id: "a4" }, label: "Fix a4", testId: "" });
   });

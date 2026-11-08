@@ -642,6 +642,12 @@ export type ClaudeScope =
   | { kind: "doc"; docId: string }
   | { kind: "project" };
 export type ActionState = "open" | "running" | "done" | "dismissed";
+// ponytail: what an action works on, the way a person groups them — a step's action is its test's, a generation's
+// category its generation's; the name is worked out when the actions are listed (a summary changes), never stored
+export const TARGET_KINDS = ["project", "document", "test", "generation", "job"] as const;
+export type TargetKind = (typeof TARGET_KINDS)[number];
+export type ActionTarget = { kind: TargetKind; id: string };
+export type NamedTarget = ActionTarget & { name: string; code?: string; at?: string };
 export const ACTION_MODELS = ["haiku", "sonnet", "opus"] as const;
 export const ACTION_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
 export type ActionModel = (typeof ACTION_MODELS)[number];
@@ -660,6 +666,8 @@ export type ClaudeAction = {
   state: ActionState;
   at: string;
   last?: { runId: string; ok: boolean; summary: string; at: string; model: string; effort: Effort };
+  /** absent in an action written before 2026-11-08: read from where and scope */
+  target?: ActionTarget;
 };
 export type ClaudeEvent =
   | { type: "text"; text: string }

@@ -304,6 +304,7 @@ describe("Claude actions on documents", () => {
     state: "open",
     at,
     stale: false,
+    target: { kind: "document", id: "D1", name: "Traction" },
     ...o,
   });
 

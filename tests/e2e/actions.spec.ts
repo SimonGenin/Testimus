@@ -22,6 +22,7 @@ test("a problem Claude can fix becomes a card in the Actions tab and a button be
   const warnings = page.getByRole("list", { name: "Conversion warnings" });
   await expect(warnings.getByRole("button", { name: "Recover the figure from the PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Recover the figure from the PDF" })).toHaveCount(1);
+  await expect(warnings.getByText("on document « Traction »")).toBeVisible();
 
   const dock = page.getByRole("complementary", { name: "Claude" });
   const rail = dock.getByRole("button", { name: "Open Claude" });
@@ -33,9 +34,12 @@ test("a problem Claude can fix becomes a card in the Actions tab and a button be
   const tab = dock.getByRole("tab", { name: /^Actions/ });
   await expect(tab).toContainText("1");
   await tab.click();
-  const card = dock.getByRole("region", { name: "Claude action: Recover the figure from the PDF" });
+  const group = dock.getByRole("region", { name: "Document · Traction" });
+  await expect(group.getByRole("heading", { level: 3 })).toContainText("Traction");
+  await expect(group.getByRole("heading", { level: 3 })).toContainText(DOC);
+  const card = group.getByRole("region", { name: "Claude action: Recover the figure from the PDF" });
   await expect(card).toBeVisible();
-  await expect(card).toContainText(`${DOC} · whole document`);
+  await expect(card).toContainText("Whole document");
   await card.getByRole("button", { name: "Show" }).click();
   await expect(card).toContainText("Find the PDF next to the .docx");
   await expect(card).toContainText("Every Testimus command");

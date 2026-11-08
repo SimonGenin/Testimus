@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { type } from "../../components/ui/type.ts";
+import { onTarget } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
@@ -36,7 +37,8 @@ const styles = stylex.create({
   ok: { display: "flex", alignItems: "center", gap: space.s2 },
   warnIcon: { display: "inline-flex", color: color.warning, marginTop: space.s1 },
   warnBody: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s2, minWidth: 0 },
-  fix: { display: "flex" },
+  fix: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
+  target: { color: color.textMuted },
 });
 
 const STATUSES: DocJson["status"][] = ["draft", "submitted", "validated"];
@@ -146,6 +148,7 @@ export function DocSide({
                               })
                             }
                           />
+                          <span {...stylex.props(type.small, styles.target)}>{onTarget(fix.target)}</span>
                         </span>
                       )}
                     </span>

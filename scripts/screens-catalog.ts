@@ -851,6 +851,21 @@ function fixtureShots(): Shot[] {
       },
     },
     {
+      id: "dock-actions-by-target",
+      note: "Claude dock › Actions grouped by what they work on (after a generation: its tests, the generation)",
+      hash: "#/generate",
+      prep: async (p) => {
+        const dock = p.getByRole("complementary", { name: "Claude" });
+        const rail = dock.getByRole("button", { name: "Open Claude" });
+        if (await rail.isVisible()) await rail.click();
+        await tap(dock, /^Actions/);
+        await dock
+          .getByRole("region", { name: /^Generation · / })
+          .first()
+          .waitFor({ timeout: T });
+      },
+    },
+    {
       id: "review-sources-read",
       note: "Source panel › Sources read unfolded (a freshly generated test)",
       hash: "#/review",

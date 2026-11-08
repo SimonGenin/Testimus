@@ -20,7 +20,7 @@ import {
 import { readDoc } from "../lib/docs.ts";
 import { docName, scopeName } from "../lib/names.ts";
 import { testDir } from "../lib/store.ts";
-import { ACTION_EFFORTS, ACTION_MODELS, type ClaudeScope } from "../types.ts";
+import { ACTION_EFFORTS, ACTION_MODELS, type ClaudeScope, TARGET_KINDS } from "../types.ts";
 
 const id = z
   .string()
@@ -29,6 +29,16 @@ const id = z
 
 const SUGGEST_MODEL = z.enum(ACTION_MODELS).describe("haiku, sonnet or opus");
 const SUGGEST_EFFORT = z.enum(ACTION_EFFORTS).describe("low, medium, high or xhigh");
+
+const TARGET_KIND = z
+  .enum(TARGET_KINDS)
+  .describe("What kind of thing the action works on: project, document, test, generation or job");
+const TARGET = z
+  .object({
+    kind: TARGET_KIND,
+    id: z.string().describe("Its id: the document, the test, the generation, the job ('' for the project)"),
+  })
+  .describe("What the action works on");
 
 const ACTION = z.object({
   id: z.string().describe("Action id"),
@@ -65,9 +75,17 @@ const ACTION = z.object({
     })
     .optional()
     .describe("The last run of the action"),
+  target: TARGET.optional().describe("What the action works on (an older action has none: read from where and scope)"),
 });
 const LISTED = ACTION.extend({
   stale: z.boolean().describe("The problem place changed since: the problem may be gone, the button is not shown"),
+  target: TARGET.extend({
+    name: z
+      .string()
+      .describe("How a person knows it: the test's summary, the document's title, the generation's request…"),
+    code: z.string().optional().describe("A document's code, beside its title"),
+    at: z.string().optional().describe("When a generation started"),
+  }).describe("What the action works on, named — the lists group by it"),
 });
 
 function checkScope(project: string, s: ClaudeScope): void {
@@ -93,6 +111,9 @@ export const commands = [
         .optional()
         .describe("Only the actions about this generation (gen.tests' generation) and the tests it wrote"),
       all: z.boolean().optional().describe("Also the done, dismissed and stale ones"),
+      view: TARGET.optional().describe(
+        "The target on screen: its actions come first. The list is always by target: the one in view, then project, documents, tests, generations, jobs; by name within a kind; by date proposed within a target",
+      ),
     }),
     output: z.array(LISTED),
     mutates: false,

@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import type { ClaudeAction, ClaudeScope, Effort } from "../../../core/types.ts";
-import { originLine, scopeWords } from "../../lib/actions.ts";
+import { originLine, scopeInTarget, scopeWords } from "../../lib/actions.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
@@ -112,6 +112,7 @@ export function ActionCard({
   onLater,
   onDismiss,
   children,
+  grouped = false,
 }: {
   action: ClaudeAction;
   ready: boolean;
@@ -126,6 +127,8 @@ export function ActionCard({
   onLater: () => void;
   onDismiss: () => void;
   children?: ReactNode;
+  /** under its target's head: the scope badge says only what of the target it touches */
+  grouped?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const names = useTestNames();
@@ -160,7 +163,11 @@ export function ActionCard({
         }
       >
         <span>
-          <Badge tone="claude" size="sm" label={scopeWords(action.scope, names)} />
+          <Badge
+            tone="claude"
+            size="sm"
+            label={grouped ? scopeInTarget(action.scope) : scopeWords(action.scope, names)}
+          />
         </span>
         {ready ? (
           <>

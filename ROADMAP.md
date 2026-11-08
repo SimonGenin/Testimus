@@ -61,7 +61,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 ## 4. Claude
 
 - [x] **Onglet de Settings « Context ».** Toutes les prompts utilisées par le système y sont visibles.
-- [ ] **Claude actions triées par cible.** Les Claude actions sont triées par target (ce sur quoi porte l'action), et
+- [x] **Claude actions triées par cible.** Les Claude actions sont triées par target (ce sur quoi porte l'action), et
       cette target est clairement visible.
 
 ## 5. Chargement et performance

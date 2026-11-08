@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setProject } from "../../../../src/ui/api.ts";
 import { docOfRoute } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
-import { type Action, originLine, scopeWords } from "../../../../src/ui/lib/actions.ts";
+import { type Action, groupByTarget, onTarget, originLine, scopeWords } from "../../../../src/ui/lib/actions.ts";
 import { fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 
 const DOC = "SOSIE_211_D401-1_3";
@@ -23,6 +23,7 @@ const action = (o: Partial<Action> = {}): Action => ({
   state: "open",
   at: "2026-11-03T10:00:00Z",
   stale: false,
+  target: { kind: "document", id: DOC, name: "Traction", code: DOC },
   ...o,
 });
 
@@ -40,6 +41,24 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   setProject(null);
+});
+
+describe("actions by target", () => {
+  it("cut the core's list where the target changes, never sorting it again; a lone action says its target", () => {
+    const test = { kind: "test" as const, id: "local-0000000a", name: "Sectionneur avec TK" };
+    const list = [
+      action({ id: "a" }),
+      action({ id: "b", target: test }),
+      action({ id: "c", target: test }),
+      action({ id: "d" }),
+    ];
+    expect(groupByTarget(list).map((g) => [g.target.name, g.actions.map((a) => a.id)])).toEqual([
+      ["Traction", ["a"]],
+      ["Sectionneur avec TK", ["b", "c"]],
+      ["Traction", ["d"]],
+    ]);
+    expect(onTarget(test)).toBe("on test « Sectionneur avec TK »");
+  });
 });
 
 describe("action words", () => {

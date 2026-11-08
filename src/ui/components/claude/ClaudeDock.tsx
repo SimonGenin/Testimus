@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { ChatProblem, Effort } from "../../../core/types.ts";
+import type { ActionTarget, ChatProblem, Effort } from "../../../core/types.ts";
 import type { Action } from "../../lib/actions.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
@@ -120,7 +120,12 @@ export function ClaudeDock({
 
   const ctx = useRunContexts({ tab, sub, focus, docId, projectDir, defaults: cfg?.contexts });
 
-  const actionsRead = useRead("actions.list", {}, { enabled: !!projectDir });
+  const view: ActionTarget | undefined = focus
+    ? { kind: "test", id: focus.testId }
+    : docId
+      ? { kind: "document", id: docId }
+      : undefined;
+  const actionsRead = useRead("actions.list", view ? { view } : {}, { enabled: !!projectDir });
   const inRun = new Set(runs.turns.filter((t) => t.action && t.running).map((t) => t.action?.id));
   const actions = ((actionsRead.data as unknown as Action[] | undefined) ?? []).filter(
     (a) => a.state === "open" && !inRun.has(a.id),
@@ -269,6 +274,7 @@ export function ClaudeDock({
         actionsList={
           <DockActions
             actions={actions}
+            view={view}
             busy={busy}
             choices={choices}
             contexts={cfg?.contexts}

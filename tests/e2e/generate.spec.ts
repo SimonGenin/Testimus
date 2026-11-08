@@ -125,6 +125,11 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
   await expect(
     suggested.getByRole("button", { name: /^Fix the \d+ (error|warning)s? in « Sectionneur/ }).first(),
   ).toBeVisible();
+  await expect(
+    suggested.getByRole("region", { name: /^Generation · Le menu contextuel du sectionneur$/ }),
+  ).toBeVisible();
+  await expect(suggested.getByRole("region", { name: /^Test · Sectionneur/ }).first()).toBeVisible();
+  await expect(suggested.getByRole("heading", { level: 3 }).nth(1)).toContainText("Generation");
   await shoot(page, "generate-ask");
 
   await ask

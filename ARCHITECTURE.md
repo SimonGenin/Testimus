@@ -581,7 +581,22 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   the core itself after a generation (§8), shown beside the problem they fix; stale when the problem's place (`where`:
   `doc:`, `test:`, `job:`, `gen:<generation>` or `project`) changes; one open action per problem; dismissed stays
   dismissed. `actions.list { generation }` gives a generation's own and its tests'. A Claude action never starts
-  `gen.revise`. Triage of a failed job is decided by the core (`actions.triageFailed`), once per job, only when Claude is
+  `gen.revise`.
+- **The action file** `.testimus/actions/<act-id>.json`: `{ id, title, scope, where, problem, why, plan, stamp,
+  proposedBy: { run, model, effort, at, runId? }, suggest?: { model, effort }, state: open | running | done |
+  dismissed, at, last?: { runId, ok, summary, at, model, effort }, target?: { kind: project | document | test |
+  generation | job, id } }`. **`target` is what the action works on** (2026-11-08), filled by the core when the action
+  is proposed (`lib/actions.ts targetOf`: a `gen:` problem is its generation's, else the test or document of its scope,
+  else the place of its problem, else the project); a file written before has none and is read the same way. Its name
+  is never stored: `actions.list` adds `target.name` (`lib/names.ts`: the test's summary, the document's title — its
+  code beside it —, the generation's request — its date beside it —, the job's label, the project's name), so a
+  renamed test renames its group and no id reaches the page.
+- **One order for every list of actions**, from the core (`sortActions`, the order `actions.list` returns): the
+  target on screen first (`view: { kind, id }`: the dock passes the test in focus or the document open, Generate its
+  generation), then project, documents, tests, generations, jobs; by name inside a kind; by date proposed inside a
+  target. The page only cuts that list where the target changes (`lib/actions.ts groupByTarget`) under a head « Kind ·
+  name » (`ActionTargetHead`: badge + name) — the dock's Actions tab, Generate's suggestions. An action shown alone
+  beside its problem (a conversion warning) says its target (« on document « Traction » »). Triage of a failed job is decided by the core (`actions.triageFailed`), once per job, only when Claude is
   there. Action runs are snapshotted.
 - **What Claude is given is visible** (Settings › Context; `claude.prompts`, read only, readable by every run kind):
   the project's skills (`.claude/skills/*/SKILL.md`, the team's own too), every prompt Testimus builds, `CLAUDE.md`
