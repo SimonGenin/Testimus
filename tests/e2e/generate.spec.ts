@@ -78,14 +78,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
 // ponytail: after a generation Generate opens on « Ask for changes »; « New request » brings the form back
 async function newRequest(page: Page) {
   const ask = page.getByRole("region", { name: "Ask for changes" });
-  const result = page.getByRole("region", { name: "Result" });
-  // ponytail: the last generation's result and its « Ask for changes » column come together, once its job is read —
-  // deciding before that saw the form, then the column replaced it
-  await expect(
-    result
-      .getByRole("heading", { name: /tests? written/ })
-      .or(result.getByText("Tests appear here as Claude writes them")),
-  ).toBeVisible();
+  // ponytail: the column shows neither until the last generation is known (GenerateScreen), so the first one seen stays
   await expect(ask.or(page.getByRole("region", { name: "Request" }))).toBeVisible();
   if (await ask.isVisible()) await page.getByRole("button", { name: "New request" }).click();
 }
