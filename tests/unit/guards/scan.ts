@@ -80,6 +80,36 @@ export function n1dUnknownRoutes(): Violation[] {
   );
 }
 
+// ponytail: a face reaches the domain through the registry only — what else it takes from the core is plumbing: the
+// command shape, jobs and their events, the env seam, the shell's lifecycle, the project folder it is pointed at, the
+// file watch, the mock, and what a one-shot command waits for or stops before it exits (the overview update, model
+// servers). A domain module imported here is a capability one face has and the others do not
+const FACE_PLUMBING = [
+  "command.ts",
+  "commands/index.ts",
+  "env.ts",
+  "jobs.ts",
+  "shell.ts",
+  "types.ts",
+  "watch.ts",
+  "lib/project.ts",
+  "lib/overview-after.ts",
+  "mock/index.ts",
+  "rag/runtimes/llamacpp.ts",
+];
+
+export function n1eFacesPastTheRegistry(): Violation[] {
+  return grep(
+    files("src/faces"),
+    /\b(?:from|import)\s*\(?\s*"\.\.\/core\/([^"]+)"/,
+    (m) => !FACE_PLUMBING.includes(m[1]),
+  );
+}
+
+export function n1fDesktopImportsCore(): Violation[] {
+  return grep(files("src/desktop"), /\b(?:from|import)\s*\(?\s*["'](?:\.\.\/)+core\/[^"']*["']/);
+}
+
 export function n2BareControls(): Violation[] {
   const list = files("src/ui", /\.tsx$/).filter((f) => !KIT(f));
   return grep(list, /<(button|input|textarea|select)[\s>/]|contentEditable/);
@@ -200,6 +230,8 @@ export const GUARDS = {
   "N1b value imports from src/core or src/shared/run in src/ui": n1bValueImportsFromCore,
   "N1c fetch, EventSource or browser storage outside lib/data and lib/prefs": n1cBrowserIoOutsideDataLayer,
   "N1d routes served by faces/http.ts outside the known list": n1dUnknownRoutes,
+  "N1e src/core modules a face imports beyond the registry and its plumbing": n1eFacesPastTheRegistry,
+  "N1f src/desktop importing src/core": n1fDesktopImportsCore,
   "N2 bare button, input, textarea, select or contentEditable outside components/ui": n2BareControls,
   "N2 old kit files left in components/legacy": n2LegacyKit,
   "N4a literal colours or px sizes outside tokens.stylex.ts": n4LiteralValues,

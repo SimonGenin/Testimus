@@ -76,7 +76,12 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
 - **One registry, three faces.** A command is `{ name: "<group>.<verb>", input: zod, output: zod, mutates, run(ctx,
   input) }` in `src/core/commands/<group>.ts`. The registry derives the CLI verb (`testimus <group> <verb>`, `--json`
   everywhere), the MCP tool (`<group>_<verb>`) and the HTTP route (`POST /api/<group>/<verb>`). The faces hold no domain
-  logic. **A feature that exists only in the UI is a bug**: Claude loses the ability to do it.
+  logic. **A feature that exists only in the UI is a bug**: Claude loses the ability to do it. Held by tests:
+  `tests/unit/guards/actionable.test.ts` drives every command through each face (every input field as a CLI flag, the
+  MCP tool and the HTTP route reach the command; only `system.secrets` stays off MCP; the desktop bridge's calls are a
+  fixed presentation list), and the scan guards keep the page and the shell from going around the registry (N1a–N1d:
+  the page calls commands by literal name, through `lib/data` only, and the HTTP face serves no route of its own; N1e:
+  a face imports from `src/core` the registry and its plumbing only; N1f: `src/desktop` never imports `src/core`).
 - `ctx` carries the project folder, settings, an `AbortSignal`, progress (CLI prints, HTTP streams, MCP notifies), the
   activity tracker, `invoke` (another command of the same project; no command imports the registry), and `llm` (the
   call comes through the MCP face, from an LLM's run: what such a run takes from search is its declared line, below

@@ -48,7 +48,8 @@ src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (cl
                       video (ffmpeg and Whisper made up)
 src/shared/           Node only, used by the core and the desktop shell: run/work.ts, run/process.ts, loopback, table,
                       tests (which test a file path touches), unc (a network path is never opened)
-src/faces/            cli.ts, mcp.ts, http.ts — thin adapters over the registry, no domain logic
+src/faces/            cli.ts (+ cli-args: argv → a command and its input), mcp.ts, http.ts — thin adapters over the
+                      registry, no domain logic
 src/desktop/          Electron shell: main, preload, bridge (+ bridge-types), core spawn, window, log, pages/
 src/ui/
   app/                routes, shell, project boot, dock, palette actions
@@ -98,7 +99,9 @@ tests/fixtures/       the LFRPS12 sample project (two Word documents, an images,
    granted per run kind in `claude/access.ts`. Never grant Jira writes or `system.*` to a Claude run.
 8. Tests: a unit test that goes through the registry (`invoke` / `call` of its name in `tests/unit/core/`), Claude,
    Jira and the network faked through `env`. `tests/unit/guards/commands-tested.test.ts` counts the commands without
-   one: a ratchet that may only go down.
+   one: a ratchet that may only go down. `tests/unit/guards/actionable.test.ts` proves the new command answers on all
+   three faces with every field of its input; it fails on an input field the CLI keeps for itself (`project`, `json`),
+   on a command kept off MCP without a decision, and on a desktop bridge call added beside the commands.
 9. If the page needs it: `useRead("group.verb", input)` or `useCommand` / `execute`; the invalidation follows from the
    `changed` paths and job events (`lib/data/refresh.ts` maps paths and job kinds to the reads they touch).
 

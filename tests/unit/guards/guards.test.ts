@@ -7,6 +7,8 @@ const LIMITS: Record<GuardName, number> = {
   "N1b value imports from src/core or src/shared/run in src/ui": 0,
   "N1c fetch, EventSource or browser storage outside lib/data and lib/prefs": 0,
   "N1d routes served by faces/http.ts outside the known list": 0,
+  "N1e src/core modules a face imports beyond the registry and its plumbing": 0,
+  "N1f src/desktop importing src/core": 0,
   "N2 bare button, input, textarea, select or contentEditable outside components/ui": 0,
   "N2 old kit files left in components/legacy": 0,
   "N4a literal colours or px sizes outside tokens.stylex.ts": 0,
