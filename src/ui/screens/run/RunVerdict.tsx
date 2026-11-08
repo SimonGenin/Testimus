@@ -14,8 +14,8 @@ const styles = stylex.create({
   explain: { margin: 0, color: color.textSubtle },
 });
 
-// ponytail: the test's result — proposed by the marks (a NOK proposes Problem, all OK Passed), the tester's to choose;
-// Blocked needs its reason
+// ponytail: the test's result — while it is not run, proposed by the marks (a NOK proposes Problem, all OK Passed);
+// the tester's to choose, a recorded result is never replaced by a proposal; Blocked needs its reason
 export function RunVerdict({
   status,
   reason,
@@ -63,8 +63,8 @@ export function RunVerdict({
         />
       )}
       <p {...stylex.props(type.small, styles.explain)}>
-        A NOK step proposes Problem; every step OK proposes Passed. Blocked, with its reason, needs no step run. Keys: O
-        = OK, N = NOK, J / K = next / previous step, Ctrl+Enter = save and next test.
+        On a test not run yet, a NOK step proposes Problem and every step OK proposes Passed. Blocked, with its reason,
+        needs no step run. Keys: O = OK, N = NOK, J / K = next / previous step, Ctrl+Enter = save and next test.
       </p>
     </div>
   );

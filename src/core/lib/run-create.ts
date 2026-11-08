@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, renameSync, rmSync } from "node:fs";
-import { basename, join } from "node:path";
+import { join } from "node:path";
+import { runImage } from "../../shared/run-image.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type { Review } from "../types.ts";
@@ -116,7 +117,7 @@ export function createRun(project: string, n: NewRun): string {
     for (const t of tests)
       for (const file of new Set(t.steps.flatMap((s) => s.images))) {
         const from = join(testDir(project, t.id), file);
-        if (existsSync(from)) writeAtomic(join(tmp, "images", t.id, basename(file)), readFileSync(from));
+        if (existsSync(from)) writeAtomic(join(tmp, runImage(t.id, file)), readFileSync(from));
       }
     const run: RunFile = {
       name,

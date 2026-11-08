@@ -16,13 +16,6 @@ export function routeOf(arg: string | undefined): { run: string; test: string } 
   return { run, test: rest.join("/") };
 }
 
-// ponytail: what the marks say of the test — any NOK proposes Problem, all OK Passed, else nothing yet
-export function proposed(steps: RunResult["steps"]): RunStatus | null {
-  if (steps.some((s) => s.ok === false)) return "problem";
-  if (steps.length && steps.every((s) => s.ok === true)) return "passed";
-  return null;
-}
-
 export function stepsLine(r: RunResult): string {
   const ok = r.steps.filter((s) => s.ok === true).length;
   const nok = r.steps.filter((s) => s.ok === false).length;
@@ -37,8 +30,6 @@ export function notesLine(r: RunResult): string {
   const parts = [comments && plural(comments, "comment"), questions && plural(questions, "question")].filter(Boolean);
   return parts.length ? parts.join(" · ") : "—";
 }
-
-export const hasOpenQuestion = (r: RunResult) => r.comments.some((c) => c.kind === "question" && !c.answer);
 
 export function clock(iso: string | undefined): string {
   if (!iso) return "";

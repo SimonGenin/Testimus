@@ -986,14 +986,38 @@ function fixtureShots(): Shot[] {
     },
     {
       id: "run-import",
-      note: "Run › Import results… with its plan (the pages of the run, exported just before)",
+      note: "Run › Import results… with its plan (the pages of the run, a test played in them)",
+      hash: `#/run/${RUN}`,
+      prep: async (p, s) => {
+        const dir = mkdtempSync(join(tmpdir(), "testimus-screens-pages-"));
+        await s.api("runs.export", { run: RUN, dir: join(dir, RUN) });
+        writeFileSync(
+          join(dir, RUN, "results", `${T1398}.json`),
+          JSON.stringify({
+            status: "problem",
+            steps: [{ ok: false, note: "Le disjoncteur reste fermé." }],
+            comments: [
+              { id: "q1", kind: "question", text: "Second essai ?", by: "Paul Martin", at: "2026-11-09T10:00:00Z" },
+            ],
+            updatedAt: "2026-11-09T10:01:00.000Z",
+            updatedBy: "Paul Martin",
+          }),
+        );
+        await tap(p, "Import results…");
+        await p.getByRole("textbox", { name: "Folder or run.json" }).fill(join(dir, RUN));
+        await see(p, /^Into «/);
+      },
+    },
+    {
+      id: "run-import-nothing",
+      note: "Run › Import results… from pages that hold nothing new (exported just before)",
       hash: `#/run/${RUN}`,
       prep: async (p, s) => {
         const dir = mkdtempSync(join(tmpdir(), "testimus-screens-pages-"));
         await s.api("runs.export", { run: RUN, dir: join(dir, RUN) });
         await tap(p, "Import results…");
         await p.getByRole("textbox", { name: "Folder or run.json" }).fill(join(dir, RUN));
-        await see(p, /^Into «/);
+        await see(p, /^Nothing new to import/);
       },
     },
     {

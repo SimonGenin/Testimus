@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { commands } from "../../../../src/core/commands/runs.ts";
+import { runImage } from "../../../../src/shared/run-image.ts";
 import { lossOf } from "../../../../src/ui/components/shell/CommandForm.tsx";
 import { RunScreen } from "../../../../src/ui/screens/run/RunScreen.tsx";
 import { callsOf, Fail, fakeNet, net, withApp } from "../../helpers/ui-data.tsx";
@@ -56,6 +57,35 @@ describe("the Run screen", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(2);
   });
 
+  it("counts the open questions as the core does: every question not answered, not the tests that have one", async () => {
+    const file = join(project, "test-runs", RUN, "results", "local-3f9a12c0.json");
+    const r = JSON.parse(readFileSync(file, "utf8"));
+    r.comments.push({ id: "q2", kind: "question", text: "Et le poste 4 ?", by: "tester", at: "2026-11-06T11:00:00Z" });
+    writeFileSync(file, JSON.stringify(r));
+    withApp(<RunScreen />, at(RUN));
+    const run = await screen.findByRole("region", { name: /^Run Recette J5/ });
+    expect(within(run).getByText("2 open questions")).toBeInTheDocument();
+    expect(within(run).getByRole("radio", { name: /^With questions/ })).toHaveTextContent("1");
+  });
+
+  it("shows a step's picture from the run's copy, where the run was made to keep it", async () => {
+    const file = join(project, "test-runs", RUN, "run.json");
+    const run = JSON.parse(readFileSync(file, "utf8"));
+    const step = run.tests[0].steps[0];
+    step.fields["Expected Result"] = step.fields["Expected Result"].replace(
+      "images/fig-40.png",
+      "images/sub/fig-40.png",
+    );
+    step.images = ["images/sub/fig-40.png"];
+    writeFileSync(file, JSON.stringify(run));
+    withApp(<RunScreen />, at(`${RUN}/LFRPS12-1420`));
+    await screen.findByRole("region", { name: /^Test Sectionneur sans TK/ });
+    const srcs = [...document.querySelectorAll("img")].map((i) => decodeURIComponent(i.getAttribute("src") ?? ""));
+    expect(srcs.length).toBeGreaterThan(0);
+    for (const s of srcs)
+      expect(s).toContain(`/files/test-runs/${RUN}/${runImage("LFRPS12-1420", "images/sub/fig-40.png")}`);
+  });
+
   it("opens a test from its row, and Continue opens the next one not run", async () => {
     const { state } = withApp(<RunScreen />, at(RUN));
     const run = await screen.findByRole("region", { name: /^Run Recette J5/ });
@@ -75,31 +105,59 @@ describe("the Run screen", () => {
     await waitFor(() => expect(state.navigate).toHaveBeenLastCalledWith("run", "recette-j6"));
     expect(callsOf("runs.create").at(-1)?.input).toEqual({ name: "Recette J6", folder: "/" });
   });
+
+  it("does not read the tests again while the name is typed", async () => {
+    withApp(<RunScreen />, at());
+    fireEvent.click(await screen.findByRole("button", { name: "New run…" }));
+    const dialog = screen.getByRole("dialog", { name: "New run" });
+    expect(await within(dialog).findByText(/^3 tests:/)).toBeInTheDocument();
+    const before = callsOf("runs.create").length;
+    for (const name of ["R", "Re", "Rec", "Recette"])
+      fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: name } });
+    await new Promise((ok) => setTimeout(ok, 50));
+    expect(callsOf("runs.create")).toHaveLength(before);
+  });
 });
 
 describe("running a test", () => {
-  it("marks steps with the keys, proposes Problem on a NOK, and saves then opens the next test not run", async () => {
-    const { state } = withApp(<RunScreen />, at(`${RUN}/LFRPS12-1420`));
-    const test = await screen.findByRole("region", { name: /^Test Sectionneur sans TK/ });
+  it("marks a step with the keys, proposes Problem on a NOK of a test not run, and saves", async () => {
+    const { state } = withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
+    const test = await screen.findByRole("region", { name: /^Test / });
     const verdict = screen.getByRole("radiogroup", { name: "Result of the test" });
+    expect(within(verdict).getByRole("radio", { name: /Not run/ })).toBeChecked();
+    fireEvent.keyDown(window, { key: "n" });
+    await waitFor(() =>
+      expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({ steps: [{ step: 1, ok: false }] }),
+    );
+    await waitFor(() => expect(within(verdict).getByRole("radio", { name: /Problem/ })).toBeChecked());
+    const step1 = within(test).getByRole("group", { name: "Step 1" });
+    expect(within(step1).getByRole("button", { name: "NOK" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.change(within(test).getByRole("textbox", { name: "What happened" }), {
+      target: { value: "Le disjoncteur reste fermé." },
+    });
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    await waitFor(() => expect(state.navigate).toHaveBeenLastCalledWith("run", RUN));
+    expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({
+      status: "problem",
+      steps: [{ step: 1, ok: false, note: "Le disjoncteur reste fermé." }],
+    });
+  });
+
+  it("never replaces a recorded result by the one the marks propose", async () => {
+    withApp(<RunScreen />, at(`${RUN}/LFRPS12-1420`));
+    const verdict = await screen.findByRole("radiogroup", { name: "Result of the test" });
     expect(within(verdict).getByRole("radio", { name: /Passed/ })).toBeChecked();
     fireEvent.keyDown(window, { key: "j" });
     fireEvent.keyDown(window, { key: "n" });
     await waitFor(() =>
       expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({ steps: [{ step: 2, ok: false }] }),
     );
-    await waitFor(() => expect(within(verdict).getByRole("radio", { name: /Problem/ })).toBeChecked());
-    const step2 = within(test).getByRole("group", { name: "Step 2" });
-    expect(within(step2).getByRole("button", { name: "NOK" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.change(within(test).getByRole("textbox", { name: "What happened" }), {
-      target: { value: "Le menu ne propose que Propriétés." },
-    });
-    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
-    await waitFor(() => expect(state.navigate).toHaveBeenLastCalledWith("run", `${RUN}/LFRPS12-1398`));
-    expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({
-      status: "problem",
-      steps: [{ step: 2, ok: false, note: "Le menu ne propose que Propriétés." }],
-    });
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("group", { name: "Step 2" })).getByRole("button", { name: "NOK" }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    expect(within(verdict).getByRole("radio", { name: /Passed/ })).toBeChecked();
   });
 
   it("asks why before saving a blocked test", async () => {
@@ -173,6 +231,18 @@ describe("the run as pages", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Import 1 result" }));
     await waitFor(() => expect(state.navigate).toHaveBeenLastCalledWith("run", RUN));
     expect(callsOf("runs.import").at(-1)?.input).toEqual({ dir });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("says when the pages hold nothing new", async () => {
+    const dir = join(project, "..", `${project.split(/[\\/]/).pop()}-same`);
+    await net.routes["runs.export"]({ run: RUN, dir });
+    withApp(<RunScreen />, at(RUN));
+    fireEvent.click(await screen.findByRole("button", { name: "Import results…" }));
+    const dialog = screen.getByRole("dialog", { name: "Import the results" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Folder or run.json" }), { target: { value: dir } });
+    expect(await within(dialog).findByText(/^Nothing new to import/, { selector: "p" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Import" })).toBeDisabled();
     rmSync(dir, { recursive: true, force: true });
   });
 });

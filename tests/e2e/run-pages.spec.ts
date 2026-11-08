@@ -107,6 +107,18 @@ test("without Node the page keeps the results in the browser and saves a run.jso
   await expect(sheet.getByText("null", { exact: true })).toHaveCount(0);
   await sheet.getByRole("group", { name: "Step 1" }).getByRole("button", { name: "OK", exact: true }).click();
   await expect(sheet.getByRole("status")).toContainText("Kept in this browser");
+  await sheet.getByLabel("Screenshot of step 1").setInputFiles({
+    name: "ecran.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
+  await expect(sheet.getByRole("status")).toContainText("1 screenshot only in this page");
+  const kept = await sheet.evaluate(() => Object.values({ ...localStorage }).join("\n"));
+  expect(kept).toContain('"ok":true');
+  expect(kept).not.toContain("data:");
   const download = sheet.waitForEvent("download");
   await sheet.getByRole("button", { name: "Save run.json" }).click();
   const saved = join(base, "saved-run.json");
@@ -117,7 +129,7 @@ test("without Node the page keeps the results in the browser and saves a run.jso
   await page.getByRole("button", { name: "Import results…" }).click();
   const imp = page.getByRole("dialog", { name: "Import the results" });
   await imp.getByRole("textbox", { name: "Folder or run.json" }).fill(saved);
-  await expect(imp).toContainText("1 test with a new result");
+  await expect(imp).toContainText("1 test with a new result · 1 screenshot");
   await imp.getByRole("button", { name: /^Import/ }).click();
   await expect(imp).toBeHidden();
   const shown = await api<{ tests: { id: string; result: { steps: { ok: boolean | null }[] } }[] }>(

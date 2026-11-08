@@ -11,7 +11,8 @@ This folder is a test run exported from Testimus. It works on any PC, without Te
   of the test (Passed, Problem, Blocked with its reason, Not run), comments and questions. Your name goes in
   « Tester ».
 
-Without Node on the PC, `start.cmd` opens `index.html` directly: the page keeps the results in the browser. When you
+Without Node on the PC, `start.cmd` opens `index.html` directly: the page keeps the results in the browser, and the
+screenshots only in the page until it is saved. When you
 are done, press **Save run.json** and put the downloaded `run.json` back in this folder (replace the old one).
 
 ## Bring the results back
@@ -22,7 +23,7 @@ the newer one wins and the older one is kept in its history.
 
 ## What is here
 
-- `index.html` — the run, in one page (no network but this PC).
+- `index.html`, `run.js` — the run, one page and its script (no network but this PC).
 - `run.json` — the tests as they were when the run was made.
 - `results/<test>.json` — the result of each test; `results/<test>/` its screenshots.
 - `images/<test>/` — the pictures of the tests' steps.

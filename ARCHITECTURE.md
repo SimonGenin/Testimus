@@ -713,9 +713,19 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
 - **Frozen**: `runs.create` copies each test as it is (its filled columns in `columns.json` order, its preconditions,
   copies of its pictures); a test edited or deleted later does not change what is run. A test is picked by its ids,
   a folder, labels or a review state (`dryRun` lists them first).
-- **No result file = not run.** A result is read tolerantly (one mark per frozen step, whatever the file says) and
-  written whole by `runs.setResult` / `runs.comment` / `runs.attach`, stamped with the OS user and the time. The page
-  proposes the result from the marks (a NOK → Problem, all OK → Passed); the tester decides; Blocked needs its reason.
+- **No result file = not run.** A result is read tolerantly (`normalResult`: one mark per frozen step whatever the
+  file says, every field kept only with its type — a comment's `at` / `by` / `answer` strings, `kind` in its two
+  values, `step` an integer within the test's steps, `history` normalized the same way) and written whole by
+  `runs.setResult` / `runs.comment` / `runs.attach`, stamped with the OS user and the time. A picture a step shows is
+  the run's copy at `images/<testId>/<the file's own name>` (`src/shared/run-image.ts`, for the creation and the
+  screen alike).
+- **The proposed result** is one rule of the core (`proposedStatus`): only while the test is **not run** — a NOK
+  proposes Problem, every step OK Passed; a recorded result is never replaced by a proposal. `runs.show` and the
+  writes give each result its `proposed` and `openQuestions` (computed, never written), so the screen counts and
+  proposes nothing itself. The exported page keeps a copy of the rule in `run.js`, tested equal to the core's
+  (`tests/unit/core/runs/page-script.test.ts`); saving every change at once, it records the proposal as the result
+  of a test not run and follows the marks while that result is still its own proposal in this page; a result chosen,
+  or recorded before the page was opened, stays. The tester decides; Blocked needs its reason.
 - Commands: group `runs` (`list`, `show`, `create`, `setResult`, `comment`, `attach`, `remove` — asked first in the
   palette). The watcher reads `test-runs/` like the rest; `lib/data/events.ts` maps a path there to `runs.list` and
   that run's `runs.show`.
@@ -726,19 +736,28 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   Ctrl+Enter = save and next). Status words: Passed · Problem · Blocked · Not run (`RUN_STATUS`, success / danger /
   warning / neutral). The rail item sits after Tests rather than straight after Review: the rail's order is the work's.
 - **A run as pages, out of the app** (`lib/run-pages.ts`, template `templates/run-pages/`): `runs.export { run, dir }`
-  writes a new or empty folder — `index.html` (one page: HTML, one inline script, inline CSS, no network, no React; the
-  run and its results embedded so it opens even from `file://`), `run.json` (`format: testimus-run-pages/1`, `slug`,
-  `exportedAt`, `exportedBy` + the frozen run), `results/` (unless `results: false`), `images/`, `serve.mjs` (Node
-  only, no dependency), `start.cmd` (Node from the PATH, else the installed Testimus' own, else it opens the page
-  alone) / `start.sh`, a README. Served, the page writes each change back to `results/<testId>.json` (and screenshots
-  to `results/<testId>/`); without a server it keeps the results in the browser (localStorage) and offers **Save
-  run.json** — the run with a `results` map, screenshots inline as data URLs.
-- `runs.import { dir | file, run?, dryRun }` reads `run.json` (its inline results) and `results/*.json` (the newer of
-  the two per test), plans first (new results, comments, questions, answers, screenshots, conflicts), then writes. A
-  result touched on both sides with a different outcome is a conflict: **the newer `updatedAt` wins, the older goes to
-  the result's `history`**; comments merge by id (an answer given in the pages is kept), screenshots by name. A run the
-  project does not have is made from the pages' frozen tests and pictures; `run.json.importedAt` is stamped. The
-  pages' server is shipped code, not `src/`: the « processes only in `src/shared/run/` » rule is about `src/`.
+  writes a new or empty folder — `index.html` (one page: HTML, inline CSS, the run and its results embedded so it
+  opens even from `file://`) and its classic script `run.js` (no network, no React), `run.json` (`format:
+  testimus-run-pages/1`, `slug`, `exportedAt`, `exportedBy` + the frozen run), `results/` (unless `results: false`),
+  `images/`, `serve.mjs` (Node only, no dependency), `start.cmd` (Node from the PATH, else the installed Testimus' own,
+  else it opens the page alone) / `start.sh`, a README. Served, the page writes each change back to
+  `results/<testId>.json` (and screenshots to `results/<testId>/`); without a server it keeps the results in the
+  browser (localStorage) **but the screenshots only in the page's memory** (too big for it; the page says so, and asks
+  before it is closed), and offers **Save run.json** — the run with a `results` map, screenshots inline as data URLs.
+  When the browser refuses to keep them, the page says « Not kept — press Save run.json now ».
+- `runs.import { dir | file, run?, dryRun }` (`lib/run-import.ts`) reads `run.json` (its inline results) and
+  `results/*.json` (the newer of the two per test), plans first (new results, comments, questions, answers,
+  screenshots, conflicts, tests whose number of steps changed), then writes. It refuses a `run.json` without the format
+  `testimus-run-pages/1`, and pages whose `createdAt` is not the project's run of that name (another run with the same
+  name: import them under a new name with `run`). A result touched on both sides with a different outcome is a
+  conflict: **the newer `updatedAt` wins, the older goes to the result's `history`**; a version already in the history
+  is settled and never comes back as a conflict. Comments merge by id (an answer given in the pages is kept),
+  screenshots by name. A test with another number of steps in the pages keeps its marks here (a step's number no longer
+  says which step it is; its comments lose their step), and the plan says so. What the pages hold came from another
+  PC: results go through `normalResult`, and only plain files are read — never through a link, on the file or a
+  folder above it. A run the project does not have is made from the pages' frozen tests and pictures;
+  `run.json.importedAt` is stamped. The pages' server is shipped code, not `src/`: the « processes only in
+  `src/shared/run/` » rule is about `src/`.
 
 ## 10. Jira and Xray
 
@@ -944,7 +963,8 @@ a hidden file → 404); writes only with `PUT`, which a foreign page cannot send
 only `results/<testId>.json` (a JSON object, 2 MB at most) or a picture `results/<testId>/<name>.<png|jpg|gif|webp|bmp>`
 (20 MB at most) for a test **of its run.json** — `run.json`, the page, the server itself and any other path are refused
 (403), each write to `.tmp` then renamed. The page builds its DOM from text nodes (no `innerHTML`); the run embedded in
-it has every `<` escaped. `runs.import` copies a screenshot only under a plain picture name, never a path.
+it has every `<` escaped. `runs.import` copies a screenshot only under a plain picture name, never a path, and only
+from a plain file of the folder (`lstat`, real path checked): a link the pages carry is never followed.
 
 ## 14. Desktop shell
 

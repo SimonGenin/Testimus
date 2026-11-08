@@ -107,35 +107,91 @@ export function normalRun(raw: Partial<RunFile>, fallbackName: string): RunFile 
   };
 }
 
-// ponytail: a result file is read tolerantly (a hand edit, a page of another version): what is not understood is
-// dropped, the steps always match the frozen test's
-export function normalResult(raw: Partial<RunResult> | null | undefined, steps: number): RunResult {
-  const r = raw ?? {};
-  const status = RUN_STATUSES.includes(r.status as RunStatus) ? (r.status as RunStatus) : "not-run";
-  const marks = Array.isArray(r.steps) ? r.steps : [];
+// ponytail: a result file is read tolerantly (a hand edit, a page of another version, another PC): what is not
+// understood is dropped, every field kept has its type, the steps always match the frozen test's
+const text = (v: unknown) => (typeof v === "string" ? v : undefined);
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const statusOf = (v: unknown): RunStatus => (RUN_STATUSES.includes(v as RunStatus) ? (v as RunStatus) : "not-run");
+const stepIn = (v: unknown, steps: number) =>
+  typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= steps ? { step: v } : {};
+const stamped = (r: Record<string, unknown>) => ({
+  ...(text(r.updatedAt) ? { updatedAt: r.updatedAt as string } : {}),
+  ...(text(r.updatedBy) ? { updatedBy: r.updatedBy as string } : {}),
+});
+
+function marksOf(raw: unknown, steps: number): StepMark[] {
+  const marks = Array.isArray(raw) ? raw : [];
+  return Array.from({ length: steps }, (_, i) => {
+    const m = isObject(marks[i]) ? marks[i] : {};
+    const note = text(m.note);
+    return { ok: typeof m.ok === "boolean" ? m.ok : null, ...(note ? { note } : {}) };
+  });
+}
+
+function commentOf(c: Record<string, unknown>, steps: number): RunComment {
+  const answer = text(c.answer);
   return {
-    status,
-    steps: Array.from({ length: steps }, (_, i) => {
-      const m = marks[i];
-      const ok = m && typeof m.ok === "boolean" ? m.ok : null;
-      return { ok, ...(m && typeof m.note === "string" && m.note ? { note: m.note } : {}) };
-    }),
-    ...(typeof r.blockedReason === "string" && r.blockedReason ? { blockedReason: r.blockedReason } : {}),
-    comments: (Array.isArray(r.comments) ? r.comments : []).filter(
-      (c) => c && typeof c.id === "string" && typeof c.text === "string",
-    ),
-    attachments: (Array.isArray(r.attachments) ? r.attachments : []).filter(
-      (a) => a && typeof a.file === "string" && /^[\w.-]+$/.test(a.file) && !a.file.startsWith("."),
-    ),
-    ...(typeof r.updatedAt === "string" ? { updatedAt: r.updatedAt } : {}),
-    ...(typeof r.updatedBy === "string" ? { updatedBy: r.updatedBy } : {}),
-    ...(Array.isArray(r.history) && r.history.length ? { history: r.history } : {}),
+    id: c.id as string,
+    kind: c.kind === "question" ? "question" : "comment",
+    ...stepIn(c.step, steps),
+    text: c.text as string,
+    by: text(c.by) ?? "",
+    at: text(c.at) ?? "",
+    ...(answer ? { answer } : {}),
+    ...(answer && text(c.answeredBy) ? { answeredBy: c.answeredBy as string } : {}),
+    ...(answer && text(c.answeredAt) ? { answeredAt: c.answeredAt as string } : {}),
   };
 }
 
+function versionOf(h: Record<string, unknown>, steps: number): ResultVersion {
+  const reason = text(h.blockedReason);
+  return {
+    status: statusOf(h.status),
+    steps: marksOf(h.steps, steps),
+    ...(reason ? { blockedReason: reason } : {}),
+    ...stamped(h),
+    replacedAt: text(h.replacedAt) ?? "",
+  };
+}
+
+export function normalResult(raw: unknown, steps: number): RunResult {
+  const r = isObject(raw) ? raw : {};
+  const reason = text(r.blockedReason);
+  const history = (Array.isArray(r.history) ? r.history : []).filter(isObject).map((h) => versionOf(h, steps));
+  return {
+    status: statusOf(r.status),
+    steps: marksOf(r.steps, steps),
+    ...(reason ? { blockedReason: reason } : {}),
+    comments: (Array.isArray(r.comments) ? r.comments : [])
+      .filter((c) => isObject(c) && typeof c.id === "string" && typeof c.text === "string")
+      .map((c) => commentOf(c, steps)),
+    attachments: (Array.isArray(r.attachments) ? r.attachments : [])
+      .filter((a) => isObject(a) && typeof a.file === "string" && /^[\w.-]+$/.test(a.file) && !a.file.startsWith("."))
+      .map((a) => ({ file: a.file as string, ...stepIn(a.step, steps) })),
+    ...stamped(r),
+    ...(history.length ? { history } : {}),
+  };
+}
+
+// ponytail: the one rule of the result the marks propose — only while the test is not run (a recorded result is the
+// tester's, never replaced): any NOK proposes Problem, every step OK Passed, else nothing yet. The exported page keeps
+// a copy (templates/run-pages/run.js), tested equal to this one
+export function proposedStatus(r: Pick<RunResult, "status" | "steps">): RunStatus | null {
+  if (r.status !== "not-run") return null;
+  if (r.steps.some((s) => s.ok === false)) return "problem";
+  if (r.steps.length && r.steps.every((s) => s.ok === true)) return "passed";
+  return null;
+}
+
+export const openQuestionsOf = (r: RunResult) => r.comments.filter((c) => c.kind === "question" && !c.answer).length;
+
+// ponytail: a result as the commands show it — the file, plus what the core reads in it (the result the marks
+// propose, the open questions), so no face works it out again
+export const resultView = (r: RunResult) => ({ ...r, proposed: proposedStatus(r), openQuestions: openQuestionsOf(r) });
+
 export function readResult(project: string, slug: string, test: RunTest): RunResult {
   const file = resultFile(runDir(project, slug), test.id);
-  return normalResult(existsSync(file) ? readJson<Partial<RunResult>>(file, {}) : null, test.steps.length);
+  return normalResult(existsSync(file) ? readJson<unknown>(file, {}) : null, test.steps.length);
 }
 
 export function writeResult(project: string, slug: string, testId: string, r: RunResult): void {
@@ -147,8 +203,7 @@ export function countsOf(results: RunResult[]): RunCounts {
   return { passed: n("passed"), problem: n("problem"), blocked: n("blocked"), notRun: n("not-run") };
 }
 
-export const openQuestions = (results: RunResult[]) =>
-  results.reduce((sum, r) => sum + r.comments.filter((c) => c.kind === "question" && !c.answer).length, 0);
+export const openQuestions = (results: RunResult[]) => results.reduce((sum, r) => sum + openQuestionsOf(r), 0);
 
 export function runView(project: string, slug: string) {
   const run = readRunFile(project, slug);

@@ -56,9 +56,14 @@ test("the keyboard marks the steps: J / K move, O and N mark, Ctrl+Enter saves",
     t.getByRole("group", { name: "Step 2" }).getByRole("button", { name: "OK", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("n");
-  await expect(
-    page.getByRole("radiogroup", { name: "Result of the test" }).getByRole("radio", { name: /Problem/ }),
-  ).toHaveAttribute("aria-checked", "true");
+  await expect(t.getByRole("group", { name: "Step 2" }).getByRole("button", { name: "NOK" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const verdict = page.getByRole("radiogroup", { name: "Result of the test" });
+  await expect(verdict.getByRole("radio", { name: /Passed/ })).toHaveAttribute("aria-checked", "true");
+  await verdict.getByRole("radio", { name: /Problem/ }).click();
+  await expect(verdict.getByRole("radio", { name: /Problem/ })).toHaveAttribute("aria-checked", "true");
   await page.keyboard.press("Control+Enter");
   await expect(page).not.toHaveURL(/LFRPS12-1420$/);
   await boot(page, `#/run/${RUN}`);

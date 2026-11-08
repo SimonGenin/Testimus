@@ -2,7 +2,7 @@ import { z } from "zod";
 import { command, projectOf } from "../command.ts";
 import { createRun, pickTests } from "../lib/run-create.ts";
 import { addComment, attachCapture, setResult } from "../lib/run-results.ts";
-import { listRuns, readRunFile, removeRun, runSummary, runView } from "../lib/runs.ts";
+import { countsOf, listRuns, type RunResult, readRunFile, removeRun, resultView, runView } from "../lib/runs.ts";
 import { localTestRef } from "../lib/store.ts";
 import { REVIEW } from "../schemas.ts";
 import { commands as pages } from "./runs-pages.ts";
@@ -11,7 +11,7 @@ import {
   COMMENT,
   COUNTS,
   FROZEN_TEST,
-  RESULT,
+  RESULT_VIEW,
   RUN,
   RUN_HEAD,
   RUN_TEST,
@@ -21,8 +21,9 @@ import {
 
 const changed = z.object({
   test: z.string().describe("The test of the run that changed (its id)"),
-  result: RESULT.describe("Its result as now written"),
+  result: RESULT_VIEW.describe("Its result as now written"),
 });
+const viewed = <T extends { result: RunResult }>(o: T) => ({ ...o, result: resultView(o.result) });
 
 export const commands = [
   command({
@@ -43,14 +44,19 @@ export const commands = [
     output: z.object({
       ...RUN_HEAD,
       counts: COUNTS,
-      tests: z.array(FROZEN_TEST.extend({ result: RESULT })).describe("The tests in run order, each with its result"),
+      tests: z
+        .array(FROZEN_TEST.extend({ result: RESULT_VIEW }))
+        .describe("The tests in run order, each with its result"),
     }),
     mutates: false,
     positional: ["run"],
     run: async (ctx, input) => {
-      const project = projectOf(ctx);
-      const view = runView(project, input.run);
-      return { ...view, counts: runSummary(project, input.run).counts };
+      const view = runView(projectOf(ctx), input.run);
+      return {
+        ...view,
+        counts: countsOf(view.tests.map((t) => t.result)),
+        tests: view.tests.map((t) => ({ ...t, result: resultView(t.result) })),
+      };
     },
   }),
 
@@ -59,7 +65,11 @@ export const commands = [
     summary:
       "Make a test run: a frozen copy of the tests named, or of every test of a folder, holding one of the labels, or in a review state, written to test-runs/<run>/run.json (with copies of their pictures). A test edited later does not change the run. With dryRun, only says which tests it would hold.",
     input: z.object({
-      name: z.string().describe("The run's name (« Recette J5 — Sectionneurs »); its folder name comes from it"),
+      name: z
+        .string()
+        .describe(
+          "The run's name (« Recette J5 — Sectionneurs »); its folder name comes from it (a dry run ignores it)",
+        ),
       version: z.string().optional().describe("The version under test (« SOSIE 2.4.0-rc2 »)"),
       environment: z.string().optional().describe("Where it is run (« Simulator room B »)"),
       tests: z.array(z.string()).optional().describe("Test ids or Jira keys to put in the run"),
@@ -125,7 +135,7 @@ export const commands = [
     mutates: true,
     positional: ["run", "test"],
     subject: (i) => `${i.run} ${i.test}`,
-    run: async (ctx, input) => setResult(projectOf(ctx), input.run, input.test, input),
+    run: async (ctx, input) => viewed(setResult(projectOf(ctx), input.run, input.test, input)),
   }),
 
   command({
@@ -144,7 +154,7 @@ export const commands = [
     mutates: true,
     positional: ["run", "test", "text"],
     subject: (i) => `${i.run} ${i.test}`,
-    run: async (ctx, input) => addComment(projectOf(ctx), input.run, input.test, input),
+    run: async (ctx, input) => viewed(addComment(projectOf(ctx), input.run, input.test, input)),
   }),
 
   command({
@@ -163,7 +173,7 @@ export const commands = [
     mutates: true,
     positional: ["run", "test"],
     subject: (i) => `${i.run} ${i.test}`,
-    run: async (ctx, input) => attachCapture(projectOf(ctx), input.run, input.test, input),
+    run: async (ctx, input) => viewed(attachCapture(projectOf(ctx), input.run, input.test, input)),
   }),
 
   command({

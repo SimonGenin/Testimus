@@ -1,6 +1,5 @@
-// The small server of a Testimus run exported as pages: it serves this folder on 127.0.0.1 only, and writes back
-// only the results of the run's tests (results/<testId>.json and the screenshots in results/<testId>/). Node only,
-// no dependency. Usage: node serve.mjs [--port 8765] [--no-open]
+// ponytail: the server of a run exported as pages (node serve.mjs [--port 8765] [--no-open]) — this folder on
+// 127.0.0.1 only, writing back only the results of the run's tests; Node only, no dependency
 import { spawn } from "node:child_process";
 import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -19,6 +18,7 @@ const MAX_JSON = 2 * 1024 * 1024;
 const MAX_PICTURE = 20 * 1024 * 1024;
 const TYPES = {
   ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".md": "text/plain; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
@@ -42,7 +42,7 @@ const testIds = () => {
   }
 };
 
-// a path asked for is a file of this folder, or nothing — never above it, never a hidden file
+// ponytail: a path asked for is a file of this folder, or nothing — never above it, never a hidden file
 function inside(urlPath) {
   let rel;
   try {
@@ -104,7 +104,6 @@ function state() {
   return { run, results };
 }
 
-// a write goes to results/<a test of the run>.json (a JSON object) or results/<a test of the run>/<picture>, nothing else
 async function put(req, res, path) {
   const m = /^\/results\/([^/]+?)(?:\.json|\/([^/]+))$/.exec(path);
   const id = m?.[1];

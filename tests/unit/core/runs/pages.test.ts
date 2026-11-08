@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -185,5 +185,125 @@ describe("runs.import", () => {
     expect(plan).toMatchObject({ results: 1, attachments: 0 });
     writeFileSync(join(out, "run.json"), "not json");
     await expect(call("runs.import", { dir: out }, project)).rejects.toThrow(/not JSON/);
+  });
+});
+
+describe("runs.import reads what came from another PC as untrusted", () => {
+  it("never follows a link: a screenshot that points elsewhere on this PC, or sits in a linked folder, is left out", async () => {
+    await call("runs.export", { run: RUN, dir: out }, project);
+    const secret = join(out, "..", "id_rsa");
+    writeFileSync(secret, "SECRET-KEY-MATERIAL");
+    mkdirSync(join(out, "results", "LFRPS12-1398"), { recursive: true });
+    symlinkSync(secret, join(out, "results", "LFRPS12-1398", "capture-1.png"));
+    writeJson(join(out, "results", "LFRPS12-1398.json"), {
+      status: "passed",
+      steps: [{ ok: true }],
+      attachments: [{ file: "capture-1.png" }],
+      updatedAt: "2026-11-09T10:00:00Z",
+    });
+    const plan = await call<any>("runs.import", { dir: out, dryRun: true }, project);
+    expect(plan).toMatchObject({ results: 1, attachments: 0 });
+    await call("runs.import", { dir: out }, project);
+    expect(existsSync(join(project, "test-runs", RUN, "results", "LFRPS12-1398", "capture-1.png"))).toBe(false);
+
+    const elsewhere = join(out, "..", "elsewhere");
+    mkdirSync(elsewhere, { recursive: true });
+    writeFileSync(join(elsewhere, "capture-2.png"), "SECRET");
+    symlinkSync(elsewhere, join(out, "results", "LFRPS12-1420"));
+    writeJson(join(out, "results", "LFRPS12-1420.json"), {
+      ...json(join(out, "results", "LFRPS12-1420.json")),
+      attachments: [{ file: "capture-2.png" }],
+    });
+    expect(await call<any>("runs.import", { dir: out, dryRun: true }, project)).toMatchObject({ attachments: 0 });
+  });
+
+  it("keeps only fields of the right type: a comment without its time, a bad kind, step or answer cannot break the import or the Run screen", async () => {
+    await call("runs.export", { run: RUN, dir: out }, project);
+    writeJson(join(out, "results", "LFRPS12-1398.json"), {
+      status: "passed",
+      steps: [{ ok: true }],
+      updatedAt: "2026-11-09T10:00:00Z",
+      comments: [
+        { id: "x2", text: "other", at: "2026-01-01" },
+        { id: "x1", text: "no at" },
+        { id: "x3", text: "odd", kind: "nope", step: "9", by: 42, answer: { evil: 1 }, at: "2026-02-01" },
+        { id: "x4", text: "too far", kind: "question", step: 7, at: "2026-03-01" },
+      ],
+      attachments: [{ file: "capture-0a0b0c0d.png", step: "x", data: "data:image/png;base64,iVBORw0KGgo=" }],
+      history: [{ foo: 1 }, "nope"],
+    });
+    const plan = await call<any>("runs.import", { dir: out, dryRun: true }, project);
+    expect(plan).toMatchObject({ results: 1, comments: 3, questions: 1, attachments: 1 });
+    await call("runs.import", { dir: out }, project);
+    const r = (await show()).tests.find((t: any) => t.id === "LFRPS12-1398").result;
+    expect(r.comments).toEqual([
+      { id: "x1", kind: "comment", text: "no at", by: "", at: "" },
+      { id: "x2", kind: "comment", text: "other", by: "", at: "2026-01-01" },
+      { id: "x3", kind: "comment", text: "odd", by: "", at: "2026-02-01" },
+      { id: "x4", kind: "question", text: "too far", by: "", at: "2026-03-01" },
+    ]);
+    expect(r.attachments).toEqual([{ file: "capture-0a0b0c0d.png" }]);
+    expect(r.openQuestions).toBe(1);
+    const hand = join(project, "test-runs", RUN, "results", "LFRPS12-1398.json");
+    writeJson(hand, { ...json(hand), history: [{ status: "passed", steps: "x" }, 3] });
+    expect((await show()).tests[2].result.history).toEqual([
+      { status: "passed", steps: [{ ok: null }], replacedAt: "" },
+    ]);
+  });
+});
+
+describe("runs.import only into the run the pages came from", () => {
+  it("refuses a run.json that is not pages of this format", async () => {
+    await call("runs.export", { run: RUN, dir: out }, project);
+    const run = json(join(out, "run.json"));
+    writeJson(join(out, "run.json"), { ...run, format: undefined });
+    await expect(call("runs.import", { dir: out, dryRun: true }, project)).rejects.toThrow(
+      /not a run exported as pages/,
+    );
+    writeJson(join(out, "run.json"), { ...run, format: "testimus-run-pages/2" });
+    await expect(call("runs.import", { dir: out, dryRun: true }, project)).rejects.toThrow(
+      /another version of Testimus/,
+    );
+  });
+
+  it("refuses pages of another run of the same name, and says how to import them on their own", async () => {
+    await call("runs.export", { run: RUN, dir: out }, project);
+    const file = join(project, "test-runs", RUN, "run.json");
+    writeJson(file, { ...json(file), createdAt: "2026-12-01T08:00:00.000Z" });
+    const refused = call("runs.import", { dir: out, dryRun: true }, project);
+    await expect(refused).rejects.toThrow(/another run than « Recette J5 — Sectionneurs »/);
+    await expect(refused).rejects.toMatchObject({ fix: expect.stringMatching(/--run <new-run>/) });
+    const plan = await call<any>("runs.import", { dir: out, run: "recette-j5-bis", dryRun: true }, project);
+    expect(plan).toMatchObject({ run: "recette-j5-bis", creates: true });
+  });
+
+  it("does not put marks back on steps by their number when a test has another number of steps, and says so", async () => {
+    await call("runs.export", { run: RUN, dir: out }, project);
+    const run = json(join(out, "run.json"));
+    run.tests[2].steps.push({ fields: { Action: "Encore." }, images: [] });
+    writeJson(join(out, "run.json"), run);
+    writeJson(join(out, "results", "LFRPS12-1398.json"), {
+      status: "problem",
+      steps: [{ ok: true }, { ok: false, note: "Le second pas." }],
+      comments: [{ id: "c9", kind: "comment", step: 2, text: "Au pas 2.", by: "Paul", at: "2026-11-09T10:00:00Z" }],
+      updatedAt: "2026-11-09T10:00:00Z",
+    });
+    const plan = await call<any>("runs.import", { dir: out, dryRun: true }, project);
+    expect(plan.stepsChanged).toEqual([{ test: "LFRPS12-1398", summary: expect.any(String), here: 1, pages: 2 }]);
+    await call("runs.import", { dir: out }, project);
+    const r = (await show()).tests[2].result;
+    expect(r).toMatchObject({ status: "problem", steps: [{ ok: null }] });
+    expect(r.comments[0]).not.toHaveProperty("step");
+  });
+
+  it("a conflict decided « kept: here » does not come back on the next import: there is nothing to import", async () => {
+    await call("runs.export", { run: RUN, dir: out }, project);
+    const file = join(out, "results", "local-3f9a12c0.json");
+    writeJson(file, { ...json(file), status: "blocked", blockedReason: "x", updatedAt: "2000-01-01T00:00:00.000Z" });
+    const first = await call<any>("runs.import", { dir: out, dryRun: true }, project);
+    expect(first.conflicts).toEqual([expect.objectContaining({ kept: "here" })]);
+    await call("runs.import", { dir: out }, project);
+    const again = await call<any>("runs.import", { dir: out, dryRun: true }, project);
+    expect(again).toMatchObject({ results: 0, comments: 0, questions: 0, answers: 0, attachments: 0, conflicts: [] });
   });
 });

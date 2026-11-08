@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
+import { runImage } from "../../../shared/run-image.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -9,7 +10,7 @@ import { border, breakpoint, color, size, space } from "../../styles/tokens.styl
 import { RunComments } from "./RunComments.tsx";
 import { RunStep } from "./RunStep.tsx";
 import { RunVerdict } from "./RunVerdict.tsx";
-import { nextNotRun, proposed, type RunStatus, type RunTestView, type RunView } from "./runs.ts";
+import { nextNotRun, type RunStatus, type RunTestView, type RunView } from "./runs.ts";
 import { useRunKeys } from "./useRunKeys.ts";
 import { useRunTest } from "./useRunTest.ts";
 
@@ -48,7 +49,7 @@ const styles = stylex.create({
 });
 
 // ponytail: running one test of a run — its steps as frozen, OK / NOK each (written at once), the result the marks
-// propose, Save and next; what the testers said beside it
+// propose while the test is not run (runs.show says which), Save and next; what the testers said beside it
 export function RunExec({
   run,
   test,
@@ -67,7 +68,7 @@ export function RunExec({
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [chosen, setChosen] = useState<RunStatus | null>(null);
   const [reason, setReason] = useState(r.blockedReason ?? "");
-  const status: RunStatus = chosen ?? proposed(r.steps) ?? r.status;
+  const status: RunStatus = chosen ?? r.proposed ?? r.status;
   const noteOf = (i: number) => notes[i] ?? r.steps[i]?.note ?? "";
   const prev = run.tests[at - 1];
   const next = run.tests[at + 1];
@@ -108,7 +109,7 @@ export function RunExec({
   ]
     .filter(Boolean)
     .join(" · ");
-  const url = (file: string) => fileUrl(`test-runs/${run.slug}/images/${test.id}/${file.replace(/^images\//, "")}`);
+  const url = (file: string) => fileUrl(`test-runs/${run.slug}/${runImage(test.id, file)}`);
   return (
     <>
       <ScreenHeader title="Run" crumbs={[run.name, `Test ${at + 1} of ${run.tests.length}`]}>

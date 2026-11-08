@@ -56,7 +56,7 @@ export function NewRun({ onClose, onMade }: { onClose: () => void; onMade: (slug
         ? { labels: words(labels) }
         : { tests: words(ids) };
   const empty = (from === "labels" && !words(labels).length) || (from === "tests" && !words(ids).length);
-  const plan = useRead("runs.create", { name: name || "run", ...pick, dryRun: true }, { enabled: !empty });
+  const plan = useRead("runs.create", { name: "", ...pick, dryRun: true }, { enabled: !empty });
   const count = empty ? 0 : (plan.data?.tests.length ?? 0);
   const folders = ["/", ...(app.info?.project.folders ?? [])];
 

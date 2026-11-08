@@ -42,7 +42,15 @@ describe("runs.list and runs.show", () => {
     expect(t.preconditions).toEqual(["LFRPS12-77"]);
     expect(Object.keys(t.steps[0].fields)).toEqual(["Action", "Expected Result", "Exigence"]);
     expect(t.steps[0].images).toEqual(["images/fig-40.png"]);
-    expect(run.tests[2].result).toEqual({ status: "not-run", steps: [{ ok: null }], comments: [], attachments: [] });
+    expect(run.tests[2].result).toEqual({
+      status: "not-run",
+      steps: [{ ok: null }],
+      comments: [],
+      attachments: [],
+      proposed: null,
+      openQuestions: 0,
+    });
+    expect(run.tests[1].result.openQuestions).toBe(1);
   });
 
   it("refuses a run that does not exist, and a name that is not a run folder", async () => {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { command, projectOf } from "../command.ts";
-import { exportRun, importRun } from "../lib/run-pages.ts";
+import { importRun } from "../lib/run-import.ts";
+import { exportRun } from "../lib/run-pages.ts";
 import { RUN } from "./runs-schemas.ts";
 
 const SIDE = z.object({
@@ -35,7 +36,7 @@ export const commands = [
   command({
     name: "runs.import",
     summary:
-      "Bring back the results of a run played as pages (the exported folder, or the run.json the page saved): the plan first with dryRun (how many results, comments, questions, screenshots; the conflicts), then the writing. When a test has a result here and another in the pages, the newer wins and the older is kept in its history. A run the project does not have is created from the pages.",
+      "Bring back the results of a run played as pages (the exported folder, or the run.json the page saved): the plan first with dryRun (how many results, comments, questions, screenshots; the conflicts), then the writing. When a test has a result here and another in the pages, the newer wins and the older is kept in its history. A run the project does not have is created from the pages; pages of another run of the same name (made at another time) are refused.",
     input: z.object({
       dir: z.string().optional().describe("The folder of the pages (absolute path)"),
       file: z.string().optional().describe("Or the run.json the page saved (absolute path)"),
@@ -64,7 +65,19 @@ export const commands = [
             pages: SIDE.describe("The result in the pages"),
           }),
         )
-        .describe("Tests with a different result on both sides"),
+        .describe("Tests with a different result on both sides (a version already in a result's history is settled)"),
+      stepsChanged: z
+        .array(
+          z.object({
+            test: z.string().describe("The test"),
+            summary: z.string().describe("Its summary"),
+            here: z.number().describe("Its steps in the project's run"),
+            pages: z.number().describe("Its steps in the pages"),
+          }),
+        )
+        .describe(
+          "Tests whose number of steps differs between the pages and the project: their marks are not imported (a step's number no longer says which step it is), their result and comments are",
+        ),
     }),
     mutates: true,
     subject: (i) => i.dir ?? i.file ?? "",

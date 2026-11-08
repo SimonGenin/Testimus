@@ -117,9 +117,19 @@ export function ImportRun({
         ) : d ? (
           <>
             <p {...stylex.props(type.small, styles.line)}>
-              {d.creates ? `A new run « ${d.name} » (${plural(d.tests, "test")}): ` : `Into « ${d.name} »: `}
-              {news}
+              {nothing
+                ? `Nothing new to import: « ${d.name} » already holds everything these pages recorded.`
+                : `${d.creates ? `A new run « ${d.name} » (${plural(d.tests, "test")}): ` : `Into « ${d.name} »: `}${news}`}
             </p>
+            {d.stepsChanged.length > 0 && (
+              <Banner tone="warning" compact>
+                {d.stepsChanged.length === 1
+                  ? "1 test has another number of steps here than in the pages"
+                  : `${d.stepsChanged.length} tests have another number of steps here than in the pages`}
+                : their OK / NOK marks are not imported, their result and comments are (
+                {d.stepsChanged.map((c) => `${c.summary} — ${c.here} here, ${c.pages} there`).join("; ")}).
+              </Banner>
+            )}
             {d.conflicts.length > 0 && (
               <Banner tone="warning" compact>
                 {d.conflicts.length === 1

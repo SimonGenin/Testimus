@@ -68,6 +68,13 @@ export const RESULT = z.object({
   history: z.array(VERSION).optional().describe("Older results an import replaced (the newer one won)"),
 });
 
+export const RESULT_VIEW = RESULT.extend({
+  proposed: STATUS.nullable().describe(
+    "The result the marks propose while the test is not run (a NOK → problem, every step OK → passed); null once a result is recorded or before any mark decides — computed, never written",
+  ),
+  openQuestions: z.number().describe("Its questions not answered yet"),
+});
+
 export const FROZEN_TEST = z.object({
   id: z.string().describe("The test's id when the run was made (its folder under tests/)"),
   key: z.string().optional().describe("Its Jira key, if it had one"),

@@ -9,16 +9,7 @@ import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { RunProgress } from "./RunProgress.tsx";
-import {
-  byLine,
-  day,
-  hasOpenQuestion,
-  nextNotRun,
-  notesLine,
-  type RunTestView,
-  type RunView,
-  stepsLine,
-} from "./runs.ts";
+import { byLine, day, nextNotRun, notesLine, type RunTestView, type RunView, stepsLine } from "./runs.ts";
 
 const styles = stylex.create({
   detail: {
@@ -52,7 +43,7 @@ const keep: Record<Filter, (t: RunTestView) => boolean> = {
   all: () => true,
   "not-run": (t) => t.result.status === "not-run",
   problems: (t) => t.result.status === "problem",
-  questions: (t) => hasOpenQuestion(t.result),
+  questions: (t) => t.result.openQuestions > 0,
 };
 
 // ponytail: one run — who made it and for what version, how far it is, and its tests with their results; a row opens
@@ -97,7 +88,7 @@ export function RunDetail({
           onClick={() => next && onOpenTest(next.id)}
         />
       </div>
-      <RunProgress run={run} questions={count("questions")} />
+      <RunProgress run={run} questions={run.tests.reduce((n, t) => n + t.result.openQuestions, 0)} />
       <div {...stylex.props(styles.filters)}>
         <Segmented
           size="sm"
