@@ -7,7 +7,8 @@ import { commands } from "../../../../src/core/commands/project.ts";
 import { startJob } from "../../../../src/core/jobs.ts";
 import { readProject, readSettings, writeSettings } from "../../../../src/core/lib/project.ts";
 import { projectOverview } from "../../../../src/core/lib/project-info.ts";
-import { initProject, templateDir } from "../../../../src/core/lib/project-init.ts";
+import { initProject } from "../../../../src/core/lib/project-init.ts";
+import { shipSkills, templateDir } from "../../../../src/core/lib/shipped.ts";
 import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 
 let project = "";
@@ -70,6 +71,43 @@ describe("initProject", () => {
     expect(r.created).toEqual(expect.arrayContaining(["project.json", "xray.json", "docs/", "tests/"]));
     const again = initProject(dir, {});
     expect(again.kept).toEqual(expect.arrayContaining(["project.json", "xray.json", "CLAUDE.md"]));
+  });
+});
+
+describe("shipSkills", () => {
+  const GEN = ".claude/skills/generate-tests/SKILL.md";
+  const OLD = "an older generate-tests: a test that grows past 15 steps is split.";
+  const shippedFile = () => join(project, ".testimus", "shipped.json");
+  const olderShipped = () => {
+    initProject(project, {});
+    const shipped = JSON.parse(readFileSync(shippedFile(), "utf8")) as Record<string, string[]>;
+    shipped[GEN] = [createHash("sha256").update(OLD).digest("hex")];
+    writeFileSync(shippedFile(), JSON.stringify(shipped));
+    writeFileSync(join(project, GEN), OLD);
+  };
+
+  it("brings a skill an older Testimus shipped up to this version, and touches nothing outside .claude/skills", () => {
+    olderShipped();
+    writeFileSync(join(project, "CLAUDE.md"), "the team's");
+    const r = shipSkills(project);
+    expect(r).toEqual({ created: [], kept: [], beside: [] });
+    expect(readFileSync(join(project, GEN))).toEqual(readFileSync(join(templateDir(), GEN)));
+    expect(readFileSync(join(project, "CLAUDE.md"), "utf8")).toBe("the team's");
+    expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
+  });
+
+  it("keeps a skill the team edited and writes this version beside it; adds a skill the project lacks", () => {
+    olderShipped();
+    writeFileSync(join(project, GEN), "the team's own generate-tests");
+    rmSync(join(project, ".claude", "skills", "draft-comment"), { recursive: true });
+    const r = shipSkills(project);
+    expect(r.kept).toEqual([GEN]);
+    expect(r.beside).toEqual([".claude/skills/generate-tests/SKILL.new.md"]);
+    expect(r.created).toEqual([".claude/skills/draft-comment/SKILL.md"]);
+    expect(readFileSync(join(project, GEN), "utf8")).toBe("the team's own generate-tests");
+    expect(readFileSync(join(project, ".claude/skills/generate-tests/SKILL.new.md"))).toEqual(
+      readFileSync(join(templateDir(), GEN)),
+    );
   });
 });
 

@@ -114,7 +114,10 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
 ## 4. The project folder — files are the state
 
 A project is **a folder that is also a Claude Code project**: open it in a terminal, run `claude`, and the same skills,
-contexts and MCP tools are there. `project init` copies `templates/project/`. The folder can live anywhere and is
+contexts and MCP tools are there. `project init` copies `templates/project/`; every Claude run first brings the
+shipped skills up to the app's version (`lib/shipped.ts` `shipSkills`: a skill the team left as shipped — its hash is
+in `.testimus/shipped.json` — is replaced, one they edited stays and the new one lands beside it as `SKILL.new.md`, a
+missing one is added), so a skill change reaches existing projects without a new `project init`. The folder can live anywhere and is
 shared by sharing the folder. Every file is plain text a person can read and edit, owned by one module of the core.
 JSON uses camelCase; `test.md` keeps Xray Editor's snake_case frontmatter. *Derived* files can be deleted and are
 rebuilt; they are never hand-edited.
@@ -336,6 +339,12 @@ after the frontmatter, so a review decision never makes findings stale.
   with what a source supports; **every expected result has a source, else the step is not written and the gap is
   reported**; « not simulated » only when a source says so; no reference inside Action/Expected (they live in
   `### Sources`); document figures embedded where the step needs them; an expected result is observable on screen.
+- **The length of a test is a preference, never a limit**: aim for 3 to 15 steps, but the user's request decides — a
+  longer test is written, never refused, split against the request or reported `skipped` for its length. No skill and
+  no prompt may say a hard step limit (`generate-tests`, `plan-tests`, the generation prompt's `STEPS_LINE`, which
+  holds over a skill the team edited); the mechanical check has no length rule and `check-test` never reports one.
+  `tests/unit/core/gen/step-length.test.ts` fails on a hard-limit wording in any shipped skill, the code's prompts or
+  the mock.
 - The skill ends with a fenced `gen-report` block `{ tests, skipped: [{ item, why }], consulted }`
   (`claude/gen-reply.ts`). Every new test is stamped `review: draft` + `generated_by`, and checked at once. The run is
   snapshotted (revertable).

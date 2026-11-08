@@ -1,6 +1,6 @@
 ---
 name: plan-tests
-description: Plan the Xray manual tests a large scope needs — a whole document, a chapter — before any is written — which behaviors a tester can observe on the screen, how they group into scenarios of 3 to 15 steps, which sections each test reads. Use when a generation prompt says to use the plan-tests skill, or when asked to plan or split the tests of a document.
+description: Plan the Xray manual tests a large scope needs — a whole document, a chapter — before any is written — which behaviors a tester can observe on the screen, how they group into scenarios (about 3 to 15 steps each, longer when the request asks), which sections each test reads. Use when a generation prompt says to use the plan-tests skill, or when asked to plan or split the tests of a document.
 ---
 
 # Plan the tests of a large scope
@@ -23,10 +23,11 @@ what makes those tests short, observable and complete.
      no screen shows, a design or delivery obligation;
    - **not implemented** (or not simulated, out of scope): a passage or a context says so (cite it in the why).
 3. **Group** the observable behaviors into scenarios: one object or screen, one technique (state
-   transitions, decision table, boundaries, user procedure), 3 to 15 steps — a chapter is not a
-   scenario. Each behavior lands in exactly one test. A behavior with a negative path the documents
-   describe (an entry absent for another type, a command refused in a state) stays in the test of its
-   positive path.
+   transitions, decision table, boundaries, user procedure), aiming for 3 to 15 steps — a chapter is
+   not a scenario. The request decides the length: a scenario it wants whole, or one that does not cut
+   cleanly, stays one longer test — never left out because of its length. Each behavior lands in
+   exactly one test. A behavior with a negative path the documents describe (an entry absent for
+   another type, a command refused in a state) stays in the test of its positive path.
 4. **Check the plan**: every behavior of the inventory is either in one test or in `skipped` — count
    both sides. `tests_list`: a scenario an existing test already tests is left out and named in
    `skipped` (« tested by <test> »).

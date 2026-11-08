@@ -8,6 +8,7 @@ import { env } from "../env.ts";
 import { withProcess } from "../jobs.ts";
 import { perfScope, recordPerf } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
+import { shipSkills } from "../lib/shipped.ts";
 import type { ClaudeEvent, ClaudeResult, ClaudeScope, Effort } from "../types.ts";
 import { mcpAccess, protectedRules, type RunKind, TOOLS } from "./access.ts";
 import { diagnose } from "./diagnose.ts";
@@ -171,6 +172,10 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
   const inside = (d: string) => `${d.toLowerCase()}${sep}`.startsWith(`${project.toLowerCase()}${sep}`);
   const external = addDirs.filter((d) => !inside(d));
   const mcp = mcpAccess(o.kind);
+  // ponytail: a skill file another program holds open (Windows) never stops a run: this run reads the old one
+  try {
+    shipSkills(project);
+  } catch {}
   const args = claudeArgs({
     model,
     effort,

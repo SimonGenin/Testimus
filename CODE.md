@@ -55,7 +55,8 @@ src/ui/
 models/catalog.json   the model catalog (entries, packs, measured figures)
 templates/project/    copied into every project by `project init`: CLAUDE.md, .mcp.json, the runtime skills
                       (generate-tests, plan-tests, check-test, fix-test, edit-test, ask-docs, define-columns,
-                      study-document, draft-comment) — product code
+                      study-document, draft-comment) — product code; every Claude run refreshes the skills first
+                      (lib/shipped.ts)
 templates/reference/  the Syntec reference document (pack quality on every PC)
 scripts/              release.ts, publish.ts, desktop.ts, install.ps1, testimus.cmd, testimus.ico, tokens.ts, icons.ts,
                       refdoc.ts, screens.ts + screens-catalog.ts (+ SCREENS.md)

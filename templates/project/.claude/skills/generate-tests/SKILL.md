@@ -87,9 +87,13 @@ skill once per planned test.
 - **Additional context.** The request may end with saved contexts to read and a note from the user
   for this run: read them before you design; they say what the documents do not (what is implemented,
   the house vocabulary, the users' roles).
-- One test per coherent scenario; 3–15 steps is the norm. A chapter is not a scenario: a test that
-  grows past 15 steps is split. Do not duplicate an existing test: `tests_list` / `tests_show`
-  first, and say in your report when an existing test already tests something.
+- One test per coherent scenario; aim for 3 to 15 steps. A chapter is not a scenario: a test that
+  would grow past 15 steps is better cut into scenarios when it cuts cleanly. That is a preference,
+  never a limit: the request decides — when it asks for a longer test, or the scenario does not cut
+  without losing its thread, write the test as long as it needs. A test is never refused, and a
+  behavior never skipped, because of its number of steps. Do not duplicate an existing test:
+  `tests_list` / `tests_show` first, and say in your report when an existing test already tests
+  something.
 
 ## 3. Write
 
@@ -207,10 +211,11 @@ that step:
 
 - `tests`: the folders (`local-…`) of the tests you wrote.
 - `skipped`: every behavior of the request you wrote no step for, with `why` in one sentence (no
-  source, documents disagree, not implemented, already tested by an existing test…). An empty list
-  when nothing was left out. `item` names the behavior in a few words; `sources` are the passages that
-  ask for it, written as a step source (`docId#anchor "quote"`, the quote verbatim), so the reviewer
-  opens them — requirement codes and document names belong in the quote, not in `item`.
+  source, documents disagree, not implemented, already tested by an existing test… — never the length
+  of a test). An empty list when nothing was left out. `item` names the behavior in a few words;
+  `sources` are the passages that ask for it, written as a step source (`docId#anchor "quote"`, the
+  quote verbatim), so the reviewer opens them — requirement codes and document names belong in the
+  quote, not in `item`.
 - `consulted`: the `docId#anchor` of every section and figure you read. Testimus keeps its own
   record of what you opened (from your tool calls); this list is compared with it.
 

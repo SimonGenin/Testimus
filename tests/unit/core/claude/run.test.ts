@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,6 +13,7 @@ import { eventsOf, streamParser } from "../../../../src/core/claude/stream.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, readJson, writeSettings } from "../../../../src/core/lib/project.ts";
+import { templateDir } from "../../../../src/core/lib/shipped.ts";
 import type { ClaudeEvent } from "../../../../src/core/types.ts";
 import { writeContextMd } from "../../helpers/context.ts";
 
@@ -313,6 +315,26 @@ describe("runClaude", () => {
     expect(denied).toContain(`Edit(${absRule(ext)}/**)`);
     expect(denied).toContain(`Write(${absRule(specs)}/**)`);
     expect(denied).not.toContain(`Edit(${absRule(ctx)}/**)`);
+  });
+});
+
+describe("runClaude ships the skills first", () => {
+  it("a project made by an older Testimus runs with this version's skills", async () => {
+    const dir = copyFixture();
+    const gen = join(dir, ".claude", "skills", "generate-tests", "SKILL.md");
+    mkdirSync(join(gen, ".."), { recursive: true });
+    writeFileSync(gen, "old");
+    mkdirSync(join(dir, ".testimus"), { recursive: true });
+    writeFileSync(
+      join(dir, ".testimus", "shipped.json"),
+      JSON.stringify({ ".claude/skills/generate-tests/SKILL.md": [createHash("sha256").update("old").digest("hex")] }),
+    );
+    let during = "";
+    fake([result("ok")], {}, () => {
+      during = readFileSync(gen, "utf8");
+    });
+    await runClaude({ kind: "run", project: dir, prompt: "p", model: "m", effort: "low" });
+    expect(during).toBe(readFileSync(join(templateDir(), ".claude", "skills", "generate-tests", "SKILL.md"), "utf8"));
   });
 });
 

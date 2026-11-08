@@ -18,6 +18,10 @@ export const GEN_MARKER = "Use the generate-tests skill";
 export const REPORT_TAG = "gen-report";
 export const PLAN_TAG = "test-plan";
 export const PLAN_MARKER = "use the plan-tests skill";
+// ponytail: the length of a test is a preference, never a limit — said in the prompt too, so it holds over a
+// generate-tests skill the team edited before this rule shipped
+export const STEPS_LINE =
+  "Length: aim for 3 to 15 steps per test, but the request decides — when it asks for a longer test, or a scenario does not cut cleanly, write it as long as it needs. Never refuse a test, nor skip a behavior, because of its number of steps.";
 // ponytail: every request that takes more than one test is planned, then written one run per test, as many at a time
 // as the agents setting and the PC's load allow (lib/agents.ts) — the same total, a fraction of the wait
 
@@ -145,6 +149,7 @@ export function genPrompt(
     "",
     "Search the index thoroughly before you design (skill section 1, step 3): list the scope's terms, one rag_mentions per term with every page read, rag_search in several wordings including the negative side, rag_related on every section you cite, then each section in full in doc.md. The reviewer sees every search and every passage of this run; a test written from a handful of passages misses the exceptions, the amendments and the negative paths.",
     "Write only new tests: one folder tests/local-<8 hex>/test.md per test (tests_create allocates it), with review: draft.",
+    STEPS_LINE,
     "Pictures matter as much as sources: a step that acts on or looks at a screen, a menu, a symbol or a colour gets the document's picture of it with tests_addImage (skill section 3, Figures) — when the document has one.",
     "Never modify, rename or delete an existing test. Never call a tool that writes to Jira.",
   );

@@ -27,6 +27,7 @@ Record a finding only when all three hold:
 Not findings — leave them out:
 
 - wording, style, phrasing, step order, a step that could say more than the documents say;
+- the length of a test: its number of steps is the request's and the team's choice, never a finding;
 - a faithful paraphrase of the passage, or a reformulation in what the tester sees (« the button is
   greyed out » for « the command is unavailable ») — the passage supports it;
 - a source that supports the claim but another passage would support it « better »;
