@@ -218,6 +218,18 @@ describe("running a test like a test of the editor", () => {
     await waitFor(() => expect(callsOf("runs.detach").at(-1)?.input).toMatchObject({ file: name }));
   });
 
+  it("shows a step's sources as in the editor: a chip opens its passage, cited from the test and the step", async () => {
+    const { state } = withApp(<RunScreen />, at(`${RUN}/LFRPS12-1420`));
+    const test = await screen.findByRole("region", { name: /^Test / });
+    const step1 = within(test).getByRole("article", { name: "Step 1" });
+    fireEvent.click(within(step1).getAllByRole("button", { name: /§5\.6\.6/ })[0]);
+    expect(state.openSource).toHaveBeenLastCalledWith(
+      expect.objectContaining({ docId: "SOSIE_211_D401-1_3", anchor: "§5.6.6" }),
+      expect.objectContaining({ test: "LFRPS12-1420", step: 1 }),
+    );
+    expect(within(step1).getByTestId("step-sources")).toBeInTheDocument();
+  });
+
   it("pastes a screenshot to the step being played", async () => {
     withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
     await screen.findByRole("region", { name: /^Test / });

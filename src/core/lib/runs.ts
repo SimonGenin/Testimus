@@ -9,7 +9,9 @@ import { readJson, writeJson } from "./project.ts";
 export type RunStatus = "not-run" | "passed" | "problem" | "blocked";
 export const RUN_STATUSES: readonly RunStatus[] = ["not-run", "passed", "problem", "blocked"];
 
-export type RunStep = { fields: Record<string, string>; images: string[] };
+// ponytail: sources — the step's claims and where they come from, frozen with it so the run opens the same passages
+export type RunSource = { docId: string; anchor: string; quote: string; column?: string; item?: string };
+export type RunStep = { fields: Record<string, string>; images: string[]; sources?: RunSource[] };
 export type RunTest = {
   id: string;
   key?: string;
@@ -104,9 +106,25 @@ export function normalRun(raw: Partial<RunFile>, fallbackName: string): RunFile 
         steps: (Array.isArray(t.steps) ? t.steps : []).map((s) => ({
           fields: Object.fromEntries(Object.entries(s?.fields ?? {}).map(([k, v]) => [k, String(v)])),
           images: Array.isArray(s?.images) ? s.images.map(String) : [],
+          ...(Array.isArray(s?.sources) ? { sources: s.sources.flatMap(sourceOf) } : {}),
         })),
       })),
   };
+}
+
+function sourceOf(v: unknown): RunSource[] {
+  if (!v || typeof v !== "object") return [];
+  const s = v as Record<string, unknown>;
+  if (typeof s.docId !== "string" || typeof s.anchor !== "string") return [];
+  return [
+    {
+      docId: s.docId,
+      anchor: s.anchor,
+      quote: typeof s.quote === "string" ? s.quote : "",
+      ...(typeof s.column === "string" ? { column: s.column } : {}),
+      ...(typeof s.item === "string" ? { item: s.item } : {}),
+    },
+  ];
 }
 
 // ponytail: a result file is read tolerantly (a hand edit, a page of another version, another PC): what is not

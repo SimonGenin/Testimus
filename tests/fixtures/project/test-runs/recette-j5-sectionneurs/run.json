@@ -22,6 +22,18 @@
           },
           "images": [
             "images/fig-40.png"
+          ],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.6",
+              "quote": "Le sectionneur est représenté sur la schématique de traction par le symbole de la Figure 40"
+            },
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "fig:40",
+              "quote": "Figure 40 – Représentation graphique sectionneur"
+            }
           ]
         },
         {
@@ -30,7 +42,19 @@
             "Expected Result": "Le menu propose : Propriétés, Autoriser l'ouverture, Annuler l'autorisation d'ouverture, Confirmer l'ouverture, Autoriser la fermeture, Annuler l'autorisation de fermeture, Confirmer la fermeture.",
             "Exigence": "EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20"
           },
-          "images": []
+          "images": [],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.6",
+              "quote": "Selon le type de sectionneur, le menu contextuel diffère"
+            },
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.6",
+              "quote": "Le menu contextuel d'un sectionneur sans TK propose"
+            }
+          ]
         },
         {
           "fields": {
@@ -39,7 +63,14 @@
             "Expected Result": "Une fenêtre affiche l'état de la position, les heures de la dernière autorisation et confirmation d'ouverture et de fermeture, et les points kilométriques voie 1 et voie 2.\n\n||Champ||Valeur attendue||\n|Position|Fermé|\n|PK voie 1|12,480|",
             "Exigence": "EXI_MOP_SPF_511_A_1680"
           },
-          "images": []
+          "images": [],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.6",
+              "quote": "La fenêtre Propriétés affiche l'état de la position"
+            }
+          ]
         },
         {
           "fields": {
@@ -47,7 +78,14 @@
             "Expected Result": "Le symbole du sectionneur S 12 passe à l'état ouvert sans ouvrir de fenêtre.",
             "Exigence": "EXI_MOP_SPF_511_A_1660"
           },
-          "images": []
+          "images": [],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.6",
+              "quote": "L'état ouvert ou fermé du sectionneur est visible sans ouvrir de fenêtre"
+            }
+          ]
         },
         {
           "fields": {
@@ -71,7 +109,14 @@
             "Expected Result": "Le sectionneur est affiché avec le symbole du sectionneur.",
             "Exigence": "EXI_MOP_SPF_511_A_1650"
           },
-          "images": []
+          "images": [],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.6",
+              "quote": "Le sectionneur est représenté sur la schématique de traction"
+            }
+          ]
         },
         {
           "fields": {
@@ -79,7 +124,14 @@
             "Expected Result": "Le menu contextuel s'ouvre.",
             "Exigence": "EXI_MOP_SPF_511_A_1670"
           },
-          "images": []
+          "images": [],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.6",
+              "quote": "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"
+            }
+          ]
         }
       ]
     },
@@ -95,7 +147,14 @@
             "Action": "Clic droit sur le disjoncteur D 4 de la vue de traction.",
             "Expected Result": "Le menu propose Ouvrir, Fermer et Propriétés."
           },
-          "images": []
+          "images": [],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.7",
+              "quote": "Son menu contextuel propose Ouvrir, Fermer et Propriétés"
+            }
+          ]
         }
       ]
     }

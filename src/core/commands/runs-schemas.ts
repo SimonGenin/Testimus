@@ -94,6 +94,18 @@ export const FROZEN_TEST = z.object({
           .describe(
             "Pictures the step shows (images/<file>); the run's copy is test-runs/<run>/images/<testId>/<file>",
           ),
+        sources: z
+          .array(
+            z.object({
+              docId: z.string().describe("The document"),
+              anchor: z.string().describe("Where in it (a section, a figure)"),
+              quote: z.string().describe("The words the claim rests on, verbatim from doc.md"),
+              column: z.string().optional().describe("The column whose item it backs"),
+              item: z.string().optional().describe("The item of that column it backs (a requirement code)"),
+            }),
+          )
+          .optional()
+          .describe("Where the step's claims come from, as frozen (absent in runs made before they were kept)"),
       }),
     )
     .describe("Its steps as they were"),

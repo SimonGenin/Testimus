@@ -223,6 +223,7 @@ export function RunExec({
                     setCur(i);
                     askClaude("step");
                   }}
+                  onOpenSource={(src) => app.openSource(src, { test: test.id, step: i + 1, sources: s.sources ?? [] })}
                 />
               ))}
             </div>

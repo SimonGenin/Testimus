@@ -16,7 +16,14 @@
             "Action": "Clic droit sur le disjoncteur D 4 de la vue de traction.",
             "Expected Result": "Le menu propose Ouvrir, Fermer et Propriétés."
           },
-          "images": []
+          "images": [],
+          "sources": [
+            {
+              "docId": "SOSIE_211_D401-1_3",
+              "anchor": "§5.6.7",
+              "quote": "Son menu contextuel propose Ouvrir, Fermer et Propriétés"
+            }
+          ]
         }
       ]
     }

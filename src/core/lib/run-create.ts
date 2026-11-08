@@ -93,6 +93,7 @@ export function freezeTest(project: string, id: string, order: readonly string[]
           fields,
           s.images.map((i) => i.file),
         ),
+        ...(s.sources.length ? { sources: s.sources.map((src) => ({ ...src })) } : {}),
       };
     }),
   };

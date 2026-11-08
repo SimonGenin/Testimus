@@ -742,7 +742,8 @@ result, comments and questions. It is a folder of the project — files are the 
 test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionneurs », -2 on a clash)
   run.json                  { name, version?, environment?, createdAt, createdBy, importedAt?, tests: [{ id, key?,
                               folder?, summary, description?, preconditions, steps: [{ fields: { <column>: text },
-                              images }] }]   (folder: its Xray folder then; a run made before 2026-11-08 has none)
+                              images, sources? }] }]   (folder and the steps' sources — docId, anchor, quote,
+                              column?, item? — as the test had them; a run made before 2026-11-08 has neither)
   images/<testId>/<file>    the run's copy of each picture a step shows (a field's ![](images/<file>) points here)
   results/<testId>.json     { status: not-run|passed|problem|blocked, steps: [{ ok: true|false|null, note? }],
                               blockedReason?, comments: [{ id, kind: comment|question, step?, text, by, at, answer?,
@@ -785,7 +786,9 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   found** (each NOK step with its note and screenshots, blocked tests, open questions — Claude drafts a bug, answers,
   summarizes). **`#/run/<run>/<test>` runs one test laid out like the Tests editor**: the run's tests on the left
   (the same filters and sort as the table: one view kept while the tester moves), the frozen test in the middle in the
-  editor's step cards (`StepFrame`, stacked or Action | Expected — the editor's `stepLayout` pref), OK / NOK in each
+  editor's step cards (`StepFrame`, stacked or Action | Expected — the editor's `stepLayout` pref; the frozen sources
+  as the editor's chips — a requirement item under its column, the rest in a Sources row — each opening its passage),
+  OK / NOK in each
   step's head, « Mark the n left OK », « Fold OK steps » (`runFoldOk` pref); on the right a testing panel: the test's
   screenshots, comments and questions, the same test in other runs (`runs.history`), and at its foot the result
   (proposed by the marks) with Save and next. A picture dropped on a step is that step's (a step not marked becomes

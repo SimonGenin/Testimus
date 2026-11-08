@@ -54,6 +54,17 @@ describe("runs.list and runs.show", () => {
     expect(run.tests[1].result.openQuestions).toBe(1);
   });
 
+  it("reads a step's frozen sources tolerantly: what is not a source is dropped, a run without them has none", async () => {
+    const file = join(project, "test-runs", RUN, "run.json");
+    const raw = JSON.parse(readFileSync(file, "utf8"));
+    raw.tests[0].steps[0].sources = [{ docId: "D", anchor: "§1", quote: 3 }, { anchor: "§2" }, "x"];
+    delete raw.tests[0].steps[1].sources;
+    writeFileSync(file, JSON.stringify(raw));
+    const t = (await show()).tests[0];
+    expect(t.steps[0].sources).toEqual([{ docId: "D", anchor: "§1", quote: "" }]);
+    expect(t.steps[1].sources).toBeUndefined();
+  });
+
   it("refuses a run that does not exist, and a name that is not a run folder", async () => {
     await expect(show("nope")).rejects.toThrow(/No run nope/);
     await expect(call("runs.show", { run: "../tests" }, project)).rejects.toThrow(/Invalid input/);
@@ -75,6 +86,11 @@ describe("runs.create", () => {
     expect(run).toMatchObject({ name: "Recette J6 — Sectionneurs", version: "2.5", createdBy: osUser() });
     expect(run.tests.map((t: any) => t.folder)).toEqual(["/Traction/Sectionneurs", "/Traction/Sectionneurs"]);
     expect((await show(out.slug)).tests[0].folder).toBe("/Traction/Sectionneurs");
+    const step1 = run.tests[1].steps[0];
+    expect(step1.sources).toEqual([
+      expect.objectContaining({ docId: "SOSIE_211_D401-1_3", anchor: "§5.6.6" }),
+      expect.objectContaining({ docId: "SOSIE_211_D401-1_3", anchor: "fig:40" }),
+    ]);
     expect(existsSync(`${dir}.tmp`)).toBe(false);
   });
 
