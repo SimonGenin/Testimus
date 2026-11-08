@@ -72,14 +72,16 @@ export function WritingCard({
   const id = entry.id ?? "";
   const shown = useRead("tests.show", { id }, { enabled: !!id });
   const data = shown.data as { test?: Test; check?: CheckFile | null } | undefined;
-  const test = id ? data?.test : undefined;
+  const gone = !!id && shown.isError && shown.error.code === "test-gone";
+  const test = id && !gone ? data?.test : undefined;
   const [lb, setLb] = useState<{ images: StepImage[]; index: number; step: number } | null>(null);
   const writing = entry.state === "writing";
   const sources = test ? sourcesOf(test) : [];
   const steps = test?.steps.length ?? 0;
   const title = test ? testLabel(test) : (entry.summary ?? (writing ? "A new test" : "Untitled test"));
-  const meta =
-    entry.state === "waiting"
+  const meta = gone
+    ? "Deleted since Claude wrote it"
+    : entry.state === "waiting"
       ? "Planned"
       : entry.state === "missed"
         ? "Its run wrote no test"
@@ -136,7 +138,8 @@ export function WritingCard({
             </div>
           </Card>
         ))}
-        {(writing || (!test && !!id)) && <Skeleton lines={2} />}
+        {!gone && (writing || (!test && !!id)) && <Skeleton lines={2} />}
+        {gone && <p {...stylex.props(type.small, styles.caption)}>This test was deleted.</p>}
         {!id && entry.state !== "missed" && (
           <p {...stylex.props(type.small, styles.caption)}>
             {entry.state === "waiting" ? "Not started yet." : "Claude is reading first."}

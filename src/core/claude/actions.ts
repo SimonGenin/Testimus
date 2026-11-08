@@ -1,9 +1,10 @@
 import { type Ctx, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { listJobs, showJob, startJob } from "../jobs.ts";
-import { allActions, type Listed, readAction, suggestFor, writeAction } from "../lib/actions.ts";
-import { readDoc } from "../lib/docs.ts";
+import { allActions, type Listed, readAction, stampOf, suggestFor, writeAction } from "../lib/actions.ts";
+import { findDoc, readDoc } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
+import { testExists } from "../lib/store.ts";
 import type { ClaudeAction, ClaudeRun, Effort } from "../types.ts";
 import {
   CONTEXT_SLOT,
@@ -141,14 +142,41 @@ export const prompts: PromptTemplate[] = [
   },
   {
     id: "triage",
-    name: "Look at problems Testimus found",
+    name: "Look at a failed job",
     group: "Claude actions",
-    usedBy: ["Documents: the conversion warnings", "Jobs: a failed job", "actions.triage"],
-    text: () => triagePrompt("{runId}", [{ where: "{where}", text: "{problem}" }], "{what}", "{language}", DOC_SLOT),
+    usedBy: ["Jobs: a failed job", "actions.triage (job)", "actions.triageFailed"],
+    text: () => triagePrompt("{runId}", [{ where: "job:{job}", text: "{problem}" }], "the job {job}", "{language}"),
+  },
+  {
+    id: "triage-doc",
+    name: "Look at a document's conversion problems",
+    group: "Claude actions",
+    usedBy: ["Documents: the conversion warnings", "actions.triage (docId)"],
+    text: () =>
+      triagePrompt(
+        "{runId}",
+        [{ where: "doc:{document}", text: "{problem}" }],
+        "the document {document}",
+        "{language}",
+        DOC_SLOT,
+      ),
   },
 ];
 
 export type ActionRun = Omit<RunResult, "calls"> & { action: ClaudeAction; changedFiles: string[] };
+
+// ponytail: an action whose test, document, generation or job is gone has nothing left to work on — it is refused, never
+// run on a place that no longer exists
+function goneOf(project: string, a: ClaudeAction): string | null {
+  const s = a.scope;
+  if ((s.kind === "test" || s.kind === "step") && !testExists(project, s.testId)) return `the test ${s.testId}`;
+  if (s.kind === "tests") {
+    const lost = s.testIds.filter((id) => !testExists(project, id));
+    if (lost.length === s.testIds.length) return `the tests ${lost.join(", ")}`;
+  }
+  if (s.kind === "doc" && !findDoc(project, s.docId)) return `the document ${s.docId}`;
+  return stampOf(project, a.where) === "gone" ? a.where : null;
+}
 
 export async function runAction(
   ctx: Ctx,
@@ -157,6 +185,13 @@ export async function runAction(
   o: { model?: string; effort?: Effort; note?: string; contexts?: string[]; conversation?: string },
 ): Promise<ActionRun> {
   const a = readAction(project, id);
+  const gone = goneOf(project, a);
+  if (gone)
+    throw new UserError(
+      `« ${a.title} » cannot run: ${gone} is no longer in this project.`,
+      `Dismiss it (testimus actions dismiss ${a.id}): its problem went with it.`,
+      "action-gone",
+    );
   const s = a.suggest ?? suggestFor(a);
   const model = o.model || s.model;
   const effort = o.effort || s.effort;

@@ -24,7 +24,12 @@ export function fakeFetch(): void {
       api.calls.push({ name, input });
       const h = api.routes[name];
       if (!h) return new Response(JSON.stringify({ error: `Unknown command ${name}` }), { status: 404 });
-      return new Response(JSON.stringify((await h(input)) ?? null), { status: 200 });
+      try {
+        return new Response(JSON.stringify((await h(input)) ?? null), { status: 200 });
+      } catch (e) {
+        if (!(e instanceof Error && "code" in e)) throw e;
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), { status: 400 });
+      }
     }),
   );
 }

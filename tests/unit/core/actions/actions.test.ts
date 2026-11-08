@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -275,6 +275,21 @@ describe("actions.propose, actions.run and the revert", () => {
     );
     await invoke("claude.revert", { runId: r.runId, force: true }, { project: dir });
     expect(readFileSync(pj, "utf8")).toBe(before);
+  });
+
+  it("refuses an action whose test is gone, and says to dismiss it", async () => {
+    const a = proposeAction(
+      dir,
+      proposal({ scope: { kind: "test", testId: "LFRPS12-1420" }, where: "test:LFRPS12-1420" }),
+    );
+    rmSync(join(dir, "tests", "LFRPS12-1420"), { recursive: true, force: true });
+    fake("never", () => {
+      throw new Error("Claude must not run");
+    });
+    const run = invoke("actions.run", { id: a.id }, { project: dir });
+    await expect(run).rejects.toThrow(/cannot run: the test LFRPS12-1420 is no longer in this project/);
+    await expect(run).rejects.toMatchObject({ fix: expect.stringContaining(`actions dismiss ${a.id}`) });
+    expect(seen).toHaveLength(0);
   });
 
   it("keeps the action open when the run fails", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ggufNeedMB, LLAMA_COMPUTE_MB, needOf } from "../../../../src/core/lib/fit/need.ts";
 import { deviceFor, deviceOf, gpuPool, onIntegratedGpu } from "../../../../src/core/lib/fit/placement.ts";
-import { fitOf } from "../../../../src/core/lib/fit/verdict.ts";
+import { fitOf, releaseOurs } from "../../../../src/core/lib/fit/verdict.ts";
 import { catalogEntry } from "../../../../src/core/lib/models-catalog.ts";
 import { suggestPack } from "../../../../src/core/lib/models-packs.ts";
 import { lighterPack } from "../../../../src/core/lib/models-use.ts";
@@ -38,6 +38,19 @@ describe("a model on an integrated GPU takes the PC's memory", () => {
       freeMeasured: true,
     });
     expect(gpuPool(pc([]))).toBeNull();
+  });
+
+  it("the models Testimus holds on it come back to the free RAM once let go, never past the PC's memory", () => {
+    const held = { name: "qwen3-embedding-4b-q4", sizeMB: 2500, vramMB: 3000, runtime: "llamacpp" as const };
+    const other = { name: "someone-else", sizeMB: 900, vramMB: 1000, runtime: "llamacpp" as const };
+    const on = { ...apu({ total: 32000, free: 5000 }), loaded: [held, other] };
+    expect(releaseOurs(on)).toMatchObject({ ramFreeMB: 8000, loaded: [other] });
+    expect(releaseOurs({ ...on, ramFreeMB: 31000 }).ramFreeMB).toBe(32000);
+    const discrete = {
+      ...pc([gpu("NVIDIA GeForce RTX 3050", 4096, 3500)], { total: 32000, free: 5000 }),
+      loaded: [held],
+    };
+    expect(releaseOurs(discrete)).toMatchObject({ ramFreeMB: 5000, gpus: [{ vramUsedMB: 500 }] });
   });
 
   it("fits when the models on the GPU and on the processor fit the free RAM together", () => {

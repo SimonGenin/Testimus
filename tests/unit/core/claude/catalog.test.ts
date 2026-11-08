@@ -142,6 +142,9 @@ describe("claude.prompts lists everything Claude is given", () => {
       /^Use the edit-test skill for the request below\.\nScope: step \{step\} of test \{test\}\./,
     );
     expect(by("contexts").text).toContain("Additional context from the user for this run:\n{note}");
+    expect(by("triage").text).toContain("[job:{job}] {problem}");
+    expect(by("triage").text).not.toContain("{what the team knows about the document}");
+    expect(by("triage-doc").text).toContain("{what the team knows about the document}");
   });
 
   it("is in the groups' order, the skills first in a group", async () => {

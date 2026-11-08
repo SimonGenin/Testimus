@@ -124,6 +124,14 @@ describe("a folder import", () => {
       ["c2", "convert", "B", "converting"],
     ]);
   });
+
+  it("a single add that converts in its own job keeps its row while it converts", () => {
+    const step = (id: string, s: "running" | "done" | "waiting") => ({ id, label: id, status: s });
+    const add = job({ id: "one", kind: "docs.add", subject: "SPEC_A.docx", steps: [step("convert", "running")] });
+    expect(uploadsOf([add], [], view()).map((r) => [r.key, r.name, r.phase])).toEqual([
+      ["one", "SPEC_A.docx", "adding"],
+    ]);
+  });
 });
 
 describe("several conversions at once", () => {

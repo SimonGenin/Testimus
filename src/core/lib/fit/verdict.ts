@@ -19,15 +19,19 @@ function isOurs(l: LoadedModel, entries: CatalogEntry[]): boolean {
 }
 
 // ponytail: this PC as it would be once Testimus lets go of the models it holds in llama.cpp — what any choice of models
-// is judged on, since using one unloads the others
+// is judged on, since using one unloads the others. On an integrated GPU what they hold is the PC's memory: it comes
+// back to the free RAM
 export function releaseOurs(machine: MachineProfile): MachineProfile {
   const ours = machine.loaded.filter((l) => isOurs(l, catalog().entries));
   if (!ours.length) return machine;
   const held = ours.reduce((a, l) => a + l.vramMB, 0);
   const main = mainGpu(machine);
+  const loaded = machine.loaded.filter((l) => !ours.includes(l));
+  if (gpuPool(machine)?.shared)
+    return { ...machine, loaded, ramFreeMB: Math.min(machine.ramTotalMB, machine.ramFreeMB + held) };
   return {
     ...machine,
-    loaded: machine.loaded.filter((l) => !ours.includes(l)),
+    loaded,
     gpus: machine.gpus.map((g) =>
       g === main && g.vramUsedMB !== null ? { ...g, vramUsedMB: Math.max(0, g.vramUsedMB - held) } : g,
     ),

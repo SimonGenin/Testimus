@@ -751,7 +751,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   the core itself after a generation (§8), shown beside the problem they fix; stale when the problem's place (`where`:
   `doc:`, `test:`, `job:`, `gen:<generation>` or `project`) changes; one open action per problem; dismissed stays
   dismissed. `actions.list { generation }` gives a generation's own and its tests'. A Claude action never starts
-  `gen.revise`.
+  `gen.revise`. `actions.run` refuses an action whose test, document, generation or job is gone (code `action-gone`,
+  the fix says to dismiss it). Triage has two templates: a failed job's (`triage`) and a document's conversion
+  problems' (`triage-doc`, with what the team knows about the document).
 - **The action file** `.testimus/actions/<act-id>.json`: `{ id, title, scope, where, problem, why, plan, stamp,
   proposedBy: { run, model, effort, at, runId? }, suggest?: { model, effort }, state: open | running | done |
   dismissed, at, last?: { runId, ok, summary, at, model, effort }, target?: { kind: project | document | test |

@@ -244,7 +244,8 @@ export function readTest(
   id: string,
 ): { test: Test; warnings: string[]; md: string; remoteMd?: string } {
   const md = read(join(testDir(project, id), "test.md"));
-  if (md === null) throw new UserError(`No test ${id} in this project.`, "testimus tests list shows the tests.");
+  if (md === null)
+    throw new UserError(`No test ${id} in this project.`, "testimus tests list shows the tests.", "test-gone");
   const { test, warnings } = parseTest(
     md,
     readXray(project).fields.map((f) => f.name),

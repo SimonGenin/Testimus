@@ -80,7 +80,7 @@ type Added = { added: { id: string }[]; rejected: { name: string; why: string; c
 
 const percent = (j: Job) => (j.progress?.total ? Math.round(((j.progress.done ?? 0) / j.progress.total) * 100) : null);
 
-function rowsOf(j: Job, now: number): Upload[] {
+function rowsOf(j: Job, now: number, converts: Set<string>): Upload[] {
   const kind = KIND[j.kind];
   const base = { key: j.id, jobId: j.id, job: kind, pct: percent(j), message: j.message ?? NOW[kind] };
   const docId = kind === "convert" ? j.subject : undefined;
@@ -88,7 +88,8 @@ function rowsOf(j: Job, now: number): Upload[] {
   const row = { ...base, name, ...(docId ? { docId } : {}) };
   const recent = !!j.endedAt && now - Date.parse(j.endedAt) < SHOWN_DONE_MS;
   if (j.status === "running") {
-    if (kind === "add" && j.steps?.some((s) => s.id === "convert" && s.status === "running")) return [];
+    if (kind === "add" && converts.has(j.id) && j.steps?.some((s) => s.id === "convert" && s.status === "running"))
+      return [];
     const now = j.steps?.find((s) => s.status === "running")?.id;
     if (kind === "convert" && now === "queue")
       return [
@@ -124,18 +125,22 @@ function rowsOf(j: Job, now: number): Upload[] {
 
 // ponytail: the rows of the jobs, oldest first, then what has no job yet; a row ended before `since` or dismissed is not
 // shown, a done conversion or index run says so for a few seconds. A conversion started by a folder import is its own
-// row (the import's row goes once its documents are copied); an index run under a conversion is the list's bar
+// row (the import's row goes once its documents are copied and their conversions started — a single add that converts
+// in its own job keeps its row); an index run under a conversion is the list's bar
 export function uploadsOf(
   jobs: Job[],
   local: Local[],
   o: { since: number; dismissed: Set<string>; now: number; project: string | null },
 ): Upload[] {
   const known = new Set(jobs.map((j) => j.id));
+  const converts = new Set(
+    jobs.filter((j) => KIND[j.kind] === "convert" && j.parentId).map((j) => j.parentId as string),
+  );
   const fromJobs = [...jobs]
     .filter((j) => KIND[j.kind] && (!j.parentId || KIND[j.kind] === "convert"))
     .filter((j) => !(j.endedAt && Date.parse(j.endedAt) < o.since))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-    .flatMap((j) => rowsOf(j, o.now));
+    .flatMap((j) => rowsOf(j, o.now, converts));
   const waiting = local.filter((u) => u.project === o.project && !(u.jobId && known.has(u.jobId)));
   return [...fromJobs, ...waiting.map(({ project: _p, jobId: _j, ...u }) => u)].filter((u) => !o.dismissed.has(u.key));
 }
