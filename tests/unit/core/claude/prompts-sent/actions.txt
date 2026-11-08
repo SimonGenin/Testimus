@@ -1,0 +1,93 @@
+Testimus Claude action <actionId>: Add the missing source
+Scope: step 2 of test LFRPS12-1420.
+Files: tests/LFRPS12-1420/test.md
+
+Problem (test:LFRPS12-1420): Step 2 has no source.
+Why it was judged fixable: The passage is in §5.6.6.
+Plan proposed when the problem was seen (adjust it to what you find):
+- Find the passage
+- Add the source line
+
+You may use every mcp__testimus__ tool: they are the app's own commands, the same as its CLI and its buttons.
+Change documents, settings and smart columns through them (docs_convert, docs_set, project_set, columns_save…);
+files under docs/, index/, .testimus/ and project.json are refused to Edit and Write.
+Tests follow the test.md format of CLAUDE.md; every claim keeps or gets its source line
+`<docId>#<anchor> "<exact quote from doc.md>"`, found with rag_search and rag_passage.
+Never write to Jira: if the fix needs a push, prepare it with xray_plan and say what to push; the user pushes.
+Everything you change is snapshotted and can be reverted by the user.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Q: which test?
+A: LFRPS12-1420.
+
+When finished, reply in 2-5 lines: what you did, what is left, and whether the problem is gone.
+
+=====
+Testimus triage of the document SOSIE_211_D401-1_3: Testimus found the problems below.
+For each one, decide whether you could fix it yourself in a later run, with the app's own commands
+(mcp__testimus__ tools: docs_*, tests_*, columns_*, contexts_*, check_run, rag_index…).
+Look first (read only: the project files, the documents, the tests, rag_search); do not change anything now.
+
+Problems:
+- [doc:SOSIE_211_D401-1_3] 2 Word comments were dropped
+- [doc:SOSIE_211_D401-1_3] Figure 41 is a shape drawn in Word: only its labels survive
+
+What the team knows about this document:
+Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+For a problem you can really fix, call actions_propose once:
+{ runId: "<runId>", where: "<the [place] of the problem>", problem: "<the problem text, verbatim>",
+  title: "<a verb first, at most 60 characters, in English>", why: "<one sentence>", plan: ["<2 to 5 short steps>"],
+  scope: { kind: "doc", docId } | { kind: "test", testId } | { kind: "step", testId, step } | { kind: "project" },
+  model: "haiku" | "sonnet" | "opus", effort: "low" | "medium" | "high" | "xhigh" }
+model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus
+(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).
+A figure the conversion found no picture for is fixable when a page of the document's PDF copy draws it: docs_page
+shows the page; the fix keeps the region with docs_convert { id, conversion: { ...its current options, figures:
+[{ key, page, region }] } }. Check the page before proposing it.
+Skip a problem nobody can fix from the files (a drawing drawn nowhere, not even in the PDF; a choice only the team
+can make).
+Write why and plan in English; quote the problem as given (project language: fr).
+Reply in one line: how many actions you proposed.
+
+=====
+Testimus triage of the document SOSIE_211_D401-1_3: Testimus found the problems below.
+For each one, decide whether you could fix it yourself in a later run, with the app's own commands
+(mcp__testimus__ tools: docs_*, tests_*, columns_*, contexts_*, check_run, rag_index…).
+Look first (read only: the project files, the documents, the tests, rag_search); do not change anything now.
+
+Problems:
+- [doc:SOSIE_211_D401-1_3] Figure 41 has no picture.
+
+What the team knows about this document:
+Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+For a problem you can really fix, call actions_propose once:
+{ runId: "<runId>", where: "<the [place] of the problem>", problem: "<the problem text, verbatim>",
+  title: "<a verb first, at most 60 characters, in English>", why: "<one sentence>", plan: ["<2 to 5 short steps>"],
+  scope: { kind: "doc", docId } | { kind: "test", testId } | { kind: "step", testId, step } | { kind: "project" },
+  model: "haiku" | "sonnet" | "opus", effort: "low" | "medium" | "high" | "xhigh" }
+model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus
+(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).
+A figure the conversion found no picture for is fixable when a page of the document's PDF copy draws it: docs_page
+shows the page; the fix keeps the region with docs_convert { id, conversion: { ...its current options, figures:
+[{ key, page, region }] } }. Check the page before proposing it.
+Skip a problem nobody can fix from the files (a drawing drawn nowhere, not even in the PDF; a choice only the team
+can make).
+Write why and plan in English; quote the problem as given (project language: fr).
+Reply in one line: how many actions you proposed.

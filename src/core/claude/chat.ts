@@ -6,7 +6,7 @@ import { env } from "../env.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import type { ChatProblem, ChatSession, ClaudeEvent, Diagnosis, Effort, Source, Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
-import { chatPrompt, contextLines, problemPrompt, readContexts } from "./prompt.ts";
+import { CONTEXT_SLOT, chatPrompt, contextLines, type PromptTemplate, problemPrompt, readContexts } from "./prompt.ts";
 import { newRunId, runClaude } from "./run.ts";
 
 const chatsDir = (project: string) => join(project, ".testimus", "chats");
@@ -47,6 +47,30 @@ export function listChats(project: string): { id: string; title: string; updated
 
 const PROBLEM_EXAMPLES =
   "« Index the documents again » when the index is missing or stale, « Convert the document again » when a conversion failed";
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "chat",
+    name: "Ask about the documents",
+    group: "Chat",
+    usedBy: ["Claude dock: Ask", "chat.ask"],
+    text: () => chatPrompt("{question}", "{language}", CONTEXT_SLOT),
+  },
+  {
+    id: "chat-problem",
+    name: "Ask about a problem the app met",
+    group: "Chat",
+    usedBy: ["Ask Claude about a problem: a failed job, a warning", "chat.ask"],
+    text: () =>
+      problemPrompt(
+        "{question}",
+        { where: "{where}", text: "{problem}" },
+        "{language}",
+        proposeLines("{runId}", PROBLEM_EXAMPLES),
+        CONTEXT_SLOT,
+      ),
+  },
+];
 
 export type AskOpts = {
   project: string;

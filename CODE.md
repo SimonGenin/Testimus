@@ -34,7 +34,8 @@ src/core/search/      search.all (Ctrl K and the tests list): query, match (acce
                       codes), tests corpus, vectors (index/tests-vectors.json)
 src/core/claude/      run (claude -p), access (tool access per run kind), stream, snapshot/revert, diagnose, status,
                       chat, generate (+ gen-prompt, gen-reply), check, fix, review, columns, actions, figures, headers,
-                      prompt, limits, ledger, schemas, media, study, comment
+                      prompt, limits, ledger, schemas, media, study, comment, scoped (claude.run), catalog (everything
+                      Claude is given: each module that runs claude -p exports its `prompts` templates)
 src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates
 src/shared/           Node only, used by the core and the desktop shell: run/work.ts, run/process.ts, loopback, table,
                       tests (which test a file path touches)
@@ -125,8 +126,9 @@ tests/fixtures/       the LFRPS12 sample project, docx, evidence, rag, snowball-
 
 ## Mock and fixtures
 
-`serve --mock` copies `tests/fixtures/project/` to a temp sandbox and fakes Jira, Claude, the machine, the models and
-the updates. Knobs:
+`serve --mock` copies `tests/fixtures/project/` to a temp sandbox (with the template's skills and `CLAUDE.md`, as
+`project init` leaves a project, beside the fixture's own team skill) and fakes Jira, Claude, the machine, the models
+and the updates. Knobs:
 
 | Variable | Values |
 |---|---|

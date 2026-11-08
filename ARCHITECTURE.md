@@ -88,7 +88,7 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
 - **Events name their project.** One `/api/events` SSE stream; every event carries `project` (null = the machine's own
   work). A recursive watcher per open project (`src/core/watch.ts`) emits one `changed` event per burst of writes (200 ms
   after the last, at most 1 s apart while writes go on), the project's `CLAUDE.md` included, `index/` and `.testimus/`
-  left out (but proposed actions). Whoever wrote the file — the app, Claude Code in a terminal, a sync — the page reads
+  left out (but proposed actions), `.claude/` left out (but its skills, which Settings › Context shows). Whoever wrote the file — the app, Claude Code in a terminal, a sync — the page reads
   again what changed.
 - **Errors**: a `UserError` carries a `fix` (what the user can do) and may carry a stable `code` a page branches on
   (`conflict` = the file moved since it was read → HTTP 409; `edited-after-run`, `doc-gone`, `models-dir-unset`,
@@ -408,7 +408,7 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   mcp`; development: `node <checkout>/src/faces/cli.ts mcp`), which sets `TESTIMUS_IN_CLAUDE=1`.
 - **Tool access per run kind** (`claude/access.ts`, from the command list the registry hands over — the Claude layer
   never imports the registry): chat, figures, headers, triage → read-only commands only (`mutates: false`, no job, no
-  `system`/`project`/`jobs`/`claude`); check adds `check_record`; generation adds `tests_create/edit/save/addImage`,
+  `system`/`project`/`jobs`/`claude` but `claude.prompts`); check adds `check_record`; generation adds `tests_create/edit/save/addImage`,
   `check_run`; fix and `claude.run` add `tests_edit/save/addImage`; `action` gets the whole set minus another Claude
   run, Jira writes and the machine. Everything else goes to `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
@@ -426,6 +426,18 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   beside the problem they fix; stale when the problem's place changes; one open action per problem; dismissed stays
   dismissed. Triage of a failed job is decided by the core (`actions.triageFailed`), once per job, only when Claude is
   there. Action runs are snapshotted.
+- **What Claude is given is visible** (Settings › Context; `claude.prompts`, read only, readable by every run kind):
+  the project's skills (`.claude/skills/*/SKILL.md`, the team's own too), every prompt Testimus builds, `CLAUDE.md`
+  and the contexts attached by default, grouped by use, each with what sends it (screens and commands). **A built
+  prompt is shown as its template, from the builder the run itself calls**: every module that runs `claude -p` exports
+  `prompts` — its builder given the parts filled per run as `{placeholders}` (`{request}`, `{contexts}`…; the context
+  lines, a document's team note and the smart columns are pure functions for that) — and `claude/catalog.ts` lists
+  them, so the screen never shows a copy of the text. A module that runs Claude without its entry fails
+  `tests/unit/core/claude/catalog.test.ts`; `prompts-sent.test.ts` keeps the exact text each run sends for one input
+  (`prompts-sent/*.txt`, updated with `vitest -u` when a prompt changes on purpose). Decided: a skill takes the group
+  and the « used by » of the built prompts that name it (« Use the X skill »); one no prompt names is a Team skill;
+  each default context is its own entry (its `context.md`); the two sign-in probes (`claude.status`, the doctor) are
+  listed too; `claude.run`'s run moved from its command to `claude/scoped.ts`.
 - « Is Claude there » is `claude --version` (10 s cap, shared by callers); failure diagnosis (connect / login / credit /
   limit / network) is ported from Xray Editor.
 - Claude acts on the app only through MCP tools and by editing files in the project folder; it never calls the HTTP

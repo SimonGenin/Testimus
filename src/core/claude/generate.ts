@@ -22,6 +22,8 @@ import { ledgerOf, readLedger, type Searched, writeLedger } from "./ledger.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { absorbRun, markLeft, readRun } from "./snapshot.ts";
 
+export { prompts } from "./gen-prompt.ts";
+
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
 
 export type GenResult = {

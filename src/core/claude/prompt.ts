@@ -131,7 +131,10 @@ const slash = (p: string) => p.replace(/\\/g, "/");
 
 export const EDIT_MARKER = "Use the edit-test skill for the request below.";
 
-export function scopeLines(scope: ClaudeScope): string[] {
+// ponytail: a template names its step {step}
+type ShownScope = ClaudeScope | { kind: "step"; testId: string; step: string };
+
+export function scopeLines(scope: ShownScope): string[] {
   if (scope.kind === "project")
     return [
       "Scope: the whole project — every test and every document.",
@@ -159,6 +162,10 @@ export function buildPrompt(
   note = "",
   conversation = "",
 ): string {
+  return scopedPrompt(scope, request, contextLines(project, contexts, note, conversation));
+}
+
+export function scopedPrompt(scope: ShownScope, request: string, context: string[]): string {
   const lines = [...scopeLines(scope), "Only modify what the scope allows."];
   if (scope.kind === "step")
     lines.push(
@@ -174,7 +181,7 @@ export function buildPrompt(
       '`<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.',
     "The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.",
   );
-  lines.push(...contextLines(project, contexts, note, conversation));
+  lines.push(...context);
   const req = request.trim();
   if (req) lines.push("", req);
   lines.push(
@@ -186,16 +193,28 @@ export function buildPrompt(
   return `${lines.join("\n")}\n`;
 }
 
+export type ContextItem = { name: string; dir: string; notes: boolean; files: string[]; paths: string[] };
+
 // ponytail: the saved contexts are pointed at (Claude reads their files), the note of this run is said in full
 export function contextLines(project: string, contexts: Context[], note = "", conversation = ""): string[] {
+  const items = contexts.map((c) => ({
+    name: c.name,
+    dir: slash(contextDir(project, c.id)),
+    notes: !!c.text.trim(),
+    files: c.files,
+    paths: c.paths,
+  }));
+  return contextText(items, note, conversation);
+}
+
+export function contextText(contexts: ContextItem[], note = "", conversation = ""): string[] {
   const lines: string[] = [];
   if (contexts.length) {
     lines.push("", "Context to read before you start (reference material, do not edit it):");
     for (const c of contexts) {
-      const dir = slash(contextDir(project, c.id));
       const parts: string[] = [];
-      if (c.text.trim()) parts.push(`notes: ${dir}/context.md`);
-      if (c.files.length) parts.push(`files: ${c.files.map((f) => `${dir}/files/${f}`).join(", ")}`);
+      if (c.notes) parts.push(`notes: ${c.dir}/context.md`);
+      if (c.files.length) parts.push(`files: ${c.files.map((f) => `${c.dir}/files/${f}`).join(", ")}`);
       if (c.paths.length) parts.push(`also look at: ${c.paths.join(", ")}`);
       lines.push(`- ${c.name}${parts.length ? ` — ${parts.join("; ")}` : ""}`);
     }
@@ -213,12 +232,32 @@ export function contextLines(project: string, contexts: Context[], note = "", co
 // ponytail: a document's own Claude runs (figures, headers, triage) hear what the team knows about it — its note and
 // its contexts — then what the user added for this run
 export function docRunLines(project: string, docId: string, run: JobRun = {}): string[] {
-  const team = readContext(project, docId).trim();
-  return [
-    ...(team ? ["", "What the team knows about this document:", team] : []),
-    ...contextLines(project, readContexts(project, docContexts(project, docId, run)), run.note),
-  ];
+  return docLines(
+    readContext(project, docId).trim(),
+    contextLines(project, readContexts(project, docContexts(project, docId, run)), run.note),
+  );
 }
+
+export const docLines = (team: string, context: string[]): string[] => [
+  ...(team ? ["", "What the team knows about this document:", team] : []),
+  ...context,
+];
+
+// ponytail: a prompt Testimus builds, as Settings › Context shows it — the very builder a run calls, given the parts
+// filled per run as {placeholders}; every module that runs claude -p exports its own (tests/unit/core/claude/catalog)
+export type PromptTemplate = { id: string; name: string; group: string; usedBy: string[]; text: () => string };
+
+export const CONTEXT_SLOT = ["", "{contexts}"];
+export const DOC_SLOT = docLines("{what the team knows about the document}", CONTEXT_SLOT);
+
+export const contextsTemplate = (): string =>
+  contextText(
+    [{ name: "{context name}", dir: "{context folder}", notes: true, files: ["{file}"], paths: ["{outside path}"] }],
+    "{note}",
+    "{conversation}",
+  )
+    .join("\n")
+    .trim();
 
 // ponytail: a problem the app met is about the app, the machine or the network, not the specification — Claude may
 // use what it knows, looks without changing anything, and leaves a button behind only when the app's commands can fix it

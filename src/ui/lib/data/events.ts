@@ -79,11 +79,16 @@ const PATHS: Rule[] = [
       ["models.advice"],
       ["rag.status"],
       ["system.doctor"],
+      ["claude.prompts"],
     ],
   ],
   [/^(xray|columns)\.json$/, () => [["project.info"], ["columns.list"]]],
-  [/^CLAUDE\.md$/, () => [["project.notes"]]],
-  [/^contexts\//, () => [["contexts.list"], ["contexts.show"], ["contexts.ofTest"], ["contexts.ofProject"]]],
+  [/^CLAUDE\.md$/, () => [["project.notes"], ["claude.prompts"]]],
+  [/^\.claude\/skills\//, () => [["claude.prompts"]]],
+  [
+    /^contexts\//,
+    () => [["contexts.list"], ["contexts.show"], ["contexts.ofTest"], ["contexts.ofProject"], ["claude.prompts"]],
+  ],
   [/^\.testimus\/actions\//, () => [["actions.list"], ["actions.show"]]],
 ];
 

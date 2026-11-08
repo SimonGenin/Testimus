@@ -17,6 +17,7 @@ import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { ClaudeSection } from "./ClaudeSection.tsx";
 import { ColumnsSection } from "./ColumnsSection.tsx";
+import { ContextSection } from "./ContextSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
@@ -55,6 +56,7 @@ const SECTIONS: Page[] = [
   { id: "project", label: "Project", icon: "folder", page: ProjectSection, needsProject: true },
   { id: "columns", label: "Smart columns", icon: "columns", page: ColumnsSection, needsProject: true },
   { id: "claude", label: "Claude", icon: "claude", page: ClaudeSection, needsProject: false },
+  { id: "context", label: "Context", icon: "context", page: ContextSection, needsProject: true },
   { id: "search", label: "Search", icon: "search", page: SearchSection, needsProject: true },
   { id: "models", label: "Models", icon: "cpu", page: ModelsSection, needsProject: false },
   { id: "access", label: "Access", icon: "key", page: AccessSection, needsProject: false },

@@ -1,0 +1,87 @@
+Use the edit-test skill for the request below.
+Scope: step 2 of test LFRPS12-1420.
+Files: tests/LFRPS12-1420/test.md
+Only modify what the scope allows.
+Only edit "## Step 2" of that file (its fields and its ### Sources); do not touch other steps.
+Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
+The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Q: which test?
+A: LFRPS12-1420.
+
+Rephrase in house style
+
+When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.
+
+=====
+Use the edit-test skill for the request below.
+Scope: the whole test LFRPS12-1420.
+Files: tests/LFRPS12-1420/test.md
+Only modify what the scope allows.
+Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
+The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Q: which test?
+A: LFRPS12-1420.
+
+Rephrase in house style
+
+When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.
+
+=====
+Use the edit-test skill for the request below.
+Scope: the tests LFRPS12-1420, LFRPS12-1398.
+Files: tests/LFRPS12-1420/test.md, tests/LFRPS12-1398/test.md
+Only modify what the scope allows.
+Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
+The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Q: which test?
+A: LFRPS12-1420.
+
+Rephrase in house style
+
+When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.
+
+=====
+Scope: the whole project — every test and every document.
+Files: all tests/*/test.md; the documents through rag_search, rag_passage and docs/*/doc.md (read only)
+Only modify what the scope allows.
+When the request is a question, answer it from the documents and the tests and change nothing; put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].
+Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
+The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Q: which test?
+A: LFRPS12-1420.
+
+Rephrase in house style
+
+When finished, give the answer, or reply in 2-4 lines: what you changed (which tests and steps) and anything you could not do.

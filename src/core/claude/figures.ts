@@ -7,7 +7,7 @@ import { readProject } from "../lib/project.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "../rag/chunk.ts";
 import type { DocJson, FigureEntry } from "../types.ts";
 import { languageName } from "./gen-prompt.ts";
-import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
+import { DOC_SLOT, docContexts, docRunLines, type JobRun, type PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const FIGURES_MARKER = "Testimus describe-figures run";
@@ -69,6 +69,22 @@ export function figuresPrompt(
     "",
   ].join("\n");
 }
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "figures",
+    name: "Describe the figures of a document",
+    group: "Documents",
+    usedBy: ["Documents: import and conversion", "Documents › Figures: Describe", "docs.describeFigures"],
+    text: () =>
+      figuresPrompt(
+        { id: "{docId}", code: "{document}", title: "{title}" },
+        [{ anchor: "{anchor}", file: "{picture file}", caption: "{caption}", section: "{section}" }],
+        "{language}",
+        DOC_SLOT,
+      ),
+  },
+];
 
 const figKey = (k: string) => `fig:${k.trim().replace(/^fig[:\s]*/i, "")}`;
 

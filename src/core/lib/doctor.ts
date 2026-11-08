@@ -1,5 +1,6 @@
 import { tmpdir } from "node:os";
 import { LOOPBACK } from "../../shared/loopback.ts";
+import type { PromptTemplate } from "../claude/prompt.ts";
 import { claudeExe } from "../claude/status.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -91,6 +92,18 @@ export async function claudeVersionCheck(timeoutMs: number): Promise<DoctorCheck
   }
 }
 
+const LOGIN_PROBE = "Reply with the single word ok.";
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "doctor-sign-in",
+    name: "System check: Claude signed in",
+    group: "System check",
+    usedBy: ["System check", "system.doctor"],
+    text: () => LOGIN_PROBE,
+  },
+];
+
 export async function claudeLoginCheck(timeoutMs: number): Promise<DoctorCheck> {
   const label = "Claude signed in";
   const fix = "Open a terminal, run claude once and sign in with your Claude subscription.";
@@ -99,7 +112,7 @@ export async function claudeLoginCheck(timeoutMs: number): Promise<DoctorCheck> 
       exe: claudeExe(),
       args: ["-p", "--output-format", "json"],
       cwd: tmpdir(),
-      stdin: "Reply with the single word ok.",
+      stdin: LOGIN_PROBE,
       signal: AbortSignal.timeout(timeoutMs),
     });
     let result: { is_error?: boolean; result?: string } = {};

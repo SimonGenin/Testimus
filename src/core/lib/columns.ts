@@ -228,9 +228,12 @@ export function storeXray(project: string, fields: XrayField[], fetchedAt: strin
 // ponytail: the smart columns are said in the request, so the generate-tests skill writes a column it has never
 // heard of, following its description
 export function columnGuidance(project: string): string[] {
+  return columnText(stepColumns(project));
+}
+
+export function columnText(columns: Pick<StepColumn, "name" | "description" | "referenceSource">[]): string[] {
   const lines = ["", "Smart columns — write each as ### <column> in every step, following its description:"];
   const empty: string[] = [];
-  const columns = stepColumns(project);
   for (const c of columns) {
     if (c.description) lines.push(`- ### ${c.name}: ${c.description}`);
     else empty.push(c.name);

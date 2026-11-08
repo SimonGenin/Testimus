@@ -6,7 +6,7 @@ import { readTestReview } from "../lib/review.ts";
 import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
 import { proposeLines } from "./actions.ts";
-import { effectiveContexts } from "./prompt.ts";
+import { effectiveContexts, type PromptTemplate } from "./prompt.ts";
 import { insideClaude, newRunId, runClaude } from "./run.ts";
 import { revert } from "./snapshot.ts";
 import { claudeVersion } from "./status.ts";
@@ -65,14 +65,16 @@ export async function semanticPlan(
 export const findingLine = (f: Finding) =>
   `- ${f.step ? `step ${f.step}` : "test"} — ${f.kind} (${f.severity}): ${f.message}${f.sources.length ? ` [${f.sources.join(", ")}]` : ""}`;
 
-export function checkPrompt(id: string, mechanical: Finding[], language: string, runId?: string): string {
+export const FINDING_SLOT = "- {step N or test} — {kind} ({severity}): {message} [{sources}]";
+
+export function checkPrompt(id: string, mechanical: string[], language: string, runId?: string): string {
   return [
     `Use the check-test skill on the test ${id}.`,
     `File: tests/${id}/test.md — read it (tests_show), never modify it or any other file.`,
     mechanical.length
       ? "Mechanical findings already recorded by Testimus (do not repeat them):"
       : "The mechanical check found nothing.",
-    ...mechanical.map(findingLine),
+    ...mechanical,
     "",
     "Report only what the passages prove and a reviewer would act on (the skill's bar): no wording, style or suggestion; a clean test is a normal result.",
     `Record your findings with check_record exactly once: { id: "${id}", findings: [...] } — findings: [] when there is none.`,
@@ -88,6 +90,16 @@ export function checkPrompt(id: string, mechanical: Finding[], language: string,
   ].join("\n");
 }
 
+export const prompts: PromptTemplate[] = [
+  {
+    id: "check",
+    name: "Check a test against the documents",
+    group: "Check and fix",
+    usedBy: ["Review and Tests: Check", "Generate: each new test", "check.run"],
+    text: () => checkPrompt("{test}", [FINDING_SLOT], "{language}", "{runId}"),
+  },
+];
+
 async function semanticPass(
   ctx: Ctx,
   project: string,
@@ -101,7 +113,7 @@ async function semanticPass(
     runId,
     label: "check",
     title: `check ${id}`,
-    prompt: checkPrompt(id, mechanical, p.language, runId),
+    prompt: checkPrompt(id, mechanical.map(findingLine), p.language, runId),
     model: p.claude.model,
     effort: p.claude.effort,
     scope: { kind: "test", testId: id },

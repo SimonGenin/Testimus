@@ -151,6 +151,7 @@ const SETTINGS = [
   "claude-dock",
   "claude-quickasks",
   "claude-contexts",
+  "context",
   "search",
   "models",
   "access",

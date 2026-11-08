@@ -8,6 +8,7 @@ import { env } from "../env.ts";
 import { readSettings } from "../lib/project.ts";
 import type { ClaudeEvent, Diagnosis } from "../types.ts";
 import { diagnose } from "./diagnose.ts";
+import type { PromptTemplate } from "./prompt.ts";
 import { eventsOf } from "./stream.ts";
 
 export function claudeExe(): string {
@@ -102,6 +103,18 @@ export function resetProbe(): void {
   probe = null;
 }
 
+const SIGN_IN = "reply ok";
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "sign-in",
+    name: "Is Claude signed in",
+    group: "System check",
+    usedBy: ["Settings › Claude: Check", "claude.status"],
+    text: () => SIGN_IN,
+  },
+];
+
 export type SignIn = { signedIn: boolean; text: string; diagnosis?: Diagnosis; costUsd?: number };
 
 export async function checkSignedIn(signal?: AbortSignal): Promise<SignIn> {
@@ -118,7 +131,7 @@ export async function checkSignedIn(signal?: AbortSignal): Promise<SignIn> {
           "--strict-mcp-config",
         ]),
         cwd: tmpdir(),
-        stdin: "reply ok",
+        stdin: SIGN_IN,
         signal,
       }),
     )

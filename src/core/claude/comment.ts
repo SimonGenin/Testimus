@@ -1,7 +1,7 @@
 import { MENTION } from "../lib/adf.ts";
 import { readProject } from "../lib/project.ts";
 import type { ClaudeEvent, Diagnosis, Effort, Tokens } from "../types.ts";
-import { contextLines, readContexts } from "./prompt.ts";
+import { CONTEXT_SLOT, contextLines, type PromptTemplate, readContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 // ponytail: Claude drafts a comment for a test's Jira issue and gives it back as text — it never posts one (issue.*
@@ -41,6 +41,16 @@ export function draftPrompt(key: string, ask: string, language: string, context:
     "",
   ].join("\n");
 }
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "comment",
+    name: "Draft a Jira comment",
+    group: "Jira",
+    usedBy: ["Tests › Jira comments: Draft with Claude", "claude.draftComment"],
+    text: () => draftPrompt("{issue key}", "{request}", "{language}", CONTEXT_SLOT),
+  },
+];
 
 export async function draftComment(o: DraftOpts): Promise<Draft> {
   const p = readProject(o.project);

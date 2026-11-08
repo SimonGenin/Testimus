@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
-import { columnGuidance } from "../lib/columns.ts";
+import { columnGuidance, columnText } from "../lib/columns.ts";
 import { isConverted, listDocs, readDocMd } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
 import { anchorsOf } from "../rag/convert.ts";
@@ -9,7 +9,7 @@ import { readState } from "../rag/indexer.ts";
 import type { Effort } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import type { PlannedTest } from "./gen-reply.ts";
-import { contextLines, readContexts } from "./prompt.ts";
+import { CONTEXT_SLOT, contextLines, type PromptTemplate, readContexts } from "./prompt.ts";
 
 // ponytail: what a generation is asked — its input checked, the index gate, the prompt of a run (the whole request or
 // one planned test)
@@ -118,6 +118,27 @@ export function genPrompt(
   part?: PlanPart,
 ): string {
   const p = readProject(project);
+  return genText(
+    i,
+    {
+      size: part ? 0 : scopeSections(project, i),
+      columns: columnGuidance(project),
+      folders: p.folders.join(", ") || "none",
+      language: p.language,
+      context: contextLines(project, readContexts(project, contextIds), i.note),
+    },
+    runId,
+    part,
+  );
+}
+
+// ponytail: what a generation run is told, from what the project says — the run and Settings › Context both call it
+export function genText(
+  i: Pick<GenInput, "request" | "sections" | "docs" | "folder">,
+  facts: { size: number | string; columns: string[]; folders: string; language: string; context: string[] },
+  runId?: string,
+  part?: { n: number | string; of: number | string; request: string },
+): string {
   const sections = clean(i.sections);
   const docs = clean(i.docs);
   const lines = [
@@ -129,7 +150,7 @@ export function genPrompt(
     lines.push(
       `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test; the other tests of the plan are written by other runs.`,
     );
-  const size = part ? 0 : scopeSections(project, i);
+  const size = facts.size;
   if (!part)
     lines.push(
       `The scope holds ${size} section${size === 1 ? "" : "s"}. When testing it takes more than one test, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block instead of the report block below.`,
@@ -140,12 +161,12 @@ export function genPrompt(
     );
   if (sections.length)
     lines.push(`Document sections in scope (read each with rag_passage and in doc.md): ${sections.join(", ")}`);
-  lines.push(...columnGuidance(project), "");
+  lines.push(...facts.columns, "");
   lines.push(
     i.folder?.trim()
       ? `Target Xray folder: ${i.folder.trim()}`
-      : `Target Xray folder: none given — pick the closest of project.json folders (${p.folders.join(", ") || "none"}), else /`,
-    `Language of the tests: ${languageName(p.language)} (project.json language "${p.language}").`,
+      : `Target Xray folder: none given — pick the closest of project.json folders (${facts.folders}), else /`,
+    `Language of the tests: ${languageName(facts.language)} (project.json language "${facts.language}").`,
     "",
     "Search the index thoroughly before you design (skill section 1, step 3): list the scope's terms, one rag_mentions per term with every page read, rag_search in several wordings including the negative side, rag_related on every section you cite, then each section in full in doc.md. The reviewer sees every search and every passage of this run; a test written from a handful of passages misses the exceptions, the amendments and the negative paths.",
     "Write only new tests: one folder tests/local-<8 hex>/test.md per test (tests_create allocates it), with review: draft.",
@@ -153,7 +174,7 @@ export function genPrompt(
     "Pictures matter as much as sources: a step that acts on or looks at a screen, a menu, a symbol or a colour gets the document's picture of it with tests_addImage (skill section 3, Figures) — when the document has one.",
     "Never modify, rename or delete an existing test. Never call a tool that writes to Jira.",
   );
-  lines.push(...contextLines(project, readContexts(project, contextIds), i.note));
+  lines.push(...facts.context);
   if (runId)
     lines.push(
       ...proposeLines(
@@ -171,6 +192,50 @@ export function genPrompt(
   );
   return lines.join("\n");
 }
+
+const FACTS = {
+  size: "{n}",
+  columns: columnText([
+    { name: "{column}", description: "{its description}" },
+    { name: "{column with Reference source}", description: "{its description}", referenceSource: true },
+    { name: "{column without description}", description: "" },
+  ]),
+  folders: "{project.json folders}",
+  language: "{language}",
+  context: CONTEXT_SLOT,
+};
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "generate",
+    name: "Generation request",
+    group: "Generation",
+    usedBy: ["Generate", "gen.tests"],
+    text: () =>
+      genText(
+        { request: "{request}", docs: ["{documents}"], sections: ["{sections}"], folder: "{folder}" },
+        FACTS,
+        "{runId}",
+      ),
+  },
+  {
+    id: "generate-planned",
+    name: "One test of a plan",
+    group: "Generation",
+    usedBy: ["Generate: one run per planned test", "gen.tests"],
+    text: () =>
+      genText(
+        { request: "{planned test} ({technique})", sections: ["{sections}"], folder: "{folder}" },
+        FACTS,
+        "{runId}",
+        {
+          n: "{k}",
+          of: "{n}",
+          request: "{request}",
+        },
+      ),
+  },
+];
 
 export function plannedInput(i: GenInput, t: PlannedTest): GenInput {
   return {

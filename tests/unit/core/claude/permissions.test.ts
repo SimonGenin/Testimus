@@ -16,9 +16,11 @@ describe("each run kind gets its own MCP allow-list", () => {
       const c = registry.find((x) => x.name === n);
       expect(c?.mutates, n).toBe(false);
       expect(c?.job, n).toBeUndefined();
-      expect(n).not.toMatch(/^(system|project|jobs|claude)\.|^chat\.ask$|^rag\.eval$/);
+      expect(n).not.toMatch(/^(system|project|jobs)\.|^claude\.(?!prompts$)|^chat\.ask$|^rag\.eval$/);
     }
-    expect(ro).toEqual(expect.arrayContaining(["rag.search", "rag.passage", "rag.figure", "tests.show", "tests.list"]));
+    expect(ro).toEqual(
+      expect.arrayContaining(["rag.search", "rag.passage", "rag.figure", "tests.show", "tests.list", "claude.prompts"]),
+    );
   });
 
   it("the lists: chat/figures/headers read-only, check + check_record, generate/fix/run + test writes, triage proposes", async () => {

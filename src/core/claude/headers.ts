@@ -3,7 +3,7 @@ import { findDoc } from "../lib/docs.ts";
 import { readProject, readSettings } from "../lib/project.ts";
 import type { Chunk, DocJson } from "../types.ts";
 import { languageName } from "./gen-prompt.ts";
-import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
+import { DOC_SLOT, docContexts, docRunLines, type JobRun, type PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const HEADERS_MARKER = "Testimus context-headers run";
@@ -32,7 +32,7 @@ export function projectOfDoc(doc: DocJson): string | null {
 
 export function headersPrompt(
   doc: Pick<DocJson, "id" | "code" | "title">,
-  chunks: Chunk[],
+  chunks: Pick<Chunk, "id" | "path" | "anchor" | "text">[],
   language: string,
   extra: string[] = [],
 ): string {
@@ -57,6 +57,22 @@ export function headersPrompt(
     "",
   ].join("\n");
 }
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "headers",
+    name: "Situate each passage of the index",
+    group: "Documents",
+    usedBy: ["The index, when project.json rag.claudeHeaders is true (off by default)", "rag.index"],
+    text: () =>
+      headersPrompt(
+        { id: "{docId}", code: "{document}", title: "{title}" },
+        [{ id: "{passage id}", path: "{section}", anchor: "", text: `{passage, up to ${EXCERPT} characters}` }],
+        "{language}",
+        DOC_SLOT,
+      ),
+  },
+];
 
 export function parseHeaders(text: string, chunks: Chunk[]): string[] {
   const blocks = [...text.matchAll(/```[ \t]*([\w-]*)[^\n]*\n([\s\S]*?)```/g)];

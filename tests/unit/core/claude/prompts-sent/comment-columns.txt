@@ -1,0 +1,60 @@
+Use the draft-comment skill to draft a comment for the Jira issue LFRPS12-1420, the test in tests/LFRPS12-1420/test.md.
+Read the test, its comments (issue_comments) and, when a claim needs it, the documents it relies on.
+To mention someone, find them with issue_people and write @[Their Name](accountId) — Jira notifies them.
+Reply with the comment's text only: no preamble, no quotes around it, no signature. Do not edit any file.
+Write in the language of the thread (project language: fr).
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+What the comment should say: Say step 2 is fixed
+
+=====
+Testimus smart columns: use the define-columns skill to propose the step columns of this project and what
+Claude writes in each. Nothing is saved by you: the user applies the proposals one by one.
+
+The user asks: « Add a requirement column »
+
+Project: RATP Sosie, Jira project LFRPS12.
+Language of the tests: French (project.json language "fr"). Write the descriptions in the language the current ones use.
+Xray's step fields were read on 2026-10-30T09:12:00.000Z.
+
+The smart columns today, in display order:
+- Action (Xray standard)
+  description: One user action per step, in the imperative, on an object named as the product names it.
+  in the tests: filled in 8 of 8 steps, in 3 tests
+    e.g. LFRPS12-1398: Clic droit sur le disjoncteur D 4 de la vue de traction.
+    e.g. LFRPS12-1420: Ouvrir la vue de traction de la ligne 92 et repérer le sectionneur S 12.
+    e.g. LFRPS12-1420: Clic droit sur le sectionneur S 12 de la vue de traction.
+- Data (Xray standard)
+  description: The values entered or the object aimed at (a code, a record, a file), only when the action needs them.
+  in the tests: filled in 1 of 8 steps, in 1 tests
+    e.g. LFRPS12-1420: Sectionneur S 12, position fermée.
+- Expected Result (Xray standard)
+  description: Everything the user observes after the action, checkable on the product, in the words of the document.
+  in the tests: filled in 8 of 8 steps, in 3 tests
+    e.g. LFRPS12-1398: Le menu propose Ouvrir, Fermer et Propriétés.
+    e.g. LFRPS12-1420: Le sectionneur S 12 est affiché sur la schématique de traction avec le symbole du sectionneur. [image]
+    e.g. LFRPS12-1420: Le menu propose : Propriétés, Autoriser l'ouverture, Annuler l'autorisation d'ouverture, Confirmer l'ouverture, Autoriser la fermeture, Ann…
+- Exigence (Xray custom field, new in Xray, never described)
+  description: (empty — Claude never fills it)
+  in the tests: filled in 7 of 8 steps, in 2 tests
+    e.g. LFRPS12-1420: EXI_MOP_SPF_511_A_1650
+    e.g. LFRPS12-1420: EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20
+    e.g. LFRPS12-1420: EXI_MOP_SPF_511_A_1680
+
+Testimus' defaults for Xray's standard columns (the team reuses them unless the documents need otherwise):
+- Action: One user action per step, in the imperative, on an object named as the product names it.
+- Data: The values entered or the object aimed at (a code, a record, a file), only when the action needs them.
+- Expected Result: Everything the user observes after the action, checkable on the product, in the words of the document.
+
+Documents (docs_show, rag_search, rag_passage, docs/<id>/doc.md): SOSIE_211_D401-1_3 « Traction » v01.01 validated; SOSIE_211_D401-1_4 « Signalisation » v01.01 submitted
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Reply in 2-4 lines in English: what you looked at and what you propose. End the reply with this block, valid
+JSON, nothing after it — only the columns you would change or add, each with its whole new description:
+```columns
+{"columns": [{"name": "Expected Result", "description": "…", "why": "…"}]}
+```

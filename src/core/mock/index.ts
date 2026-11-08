@@ -6,6 +6,7 @@ import { quietCtx } from "../command.ts";
 import { agentProbe } from "../commands/system.ts";
 import { env } from "../env.ts";
 import { DEFAULT_PROJECT, writeJson, writeProject } from "../lib/project.ts";
+import { templateDir } from "../lib/project-init.ts";
 import { mockProbeDeps } from "./agents.ts";
 import { mockSpawnClaude } from "./claude.ts";
 import "./claude-actions.ts";
@@ -49,6 +50,9 @@ function seedProjects(root: string, spec: string): string[] {
         mkdirSync(project, { recursive: true });
         writeProject(project, { ...DEFAULT_PROJECT, name: "RATP Sosie", jiraProject: "LFRPS12" });
       }
+      // ponytail: as project init leaves it — the shipped skills and CLAUDE.md beside the team's own skill
+      cpSync(join(templateDir(), ".claude"), join(project, ".claude"), { recursive: true });
+      cpSync(join(templateDir(), "CLAUDE.md"), join(project, "CLAUDE.md"));
       dirs.push(project);
     } else if (s === "empty") {
       const project = join(root, "Empty");

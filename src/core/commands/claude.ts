@@ -1,8 +1,7 @@
 import { z } from "zod";
+import { listPrompts } from "../claude/catalog.ts";
 import { draftComment } from "../claude/comment.ts";
 import { diagnose } from "../claude/diagnose.ts";
-import { buildPrompt, EDIT_MARKER, effectiveContexts, projectContexts, readContexts } from "../claude/prompt.ts";
-import { runClaude } from "../claude/run.ts";
 import {
   CONTEXT_IDS,
   CONVERSATION,
@@ -15,10 +14,11 @@ import {
   scopeLabel,
   TOKENS,
 } from "../claude/schemas.ts";
+import { runOnScope } from "../claude/scoped.ts";
 import { leftAsIs, readRun, revert, standingRun } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
 import { command, projectOf } from "../command.ts";
-import { readProject, readXray } from "../lib/project.ts";
+import { readXray } from "../lib/project.ts";
 import { parseTest } from "../lib/testfile.ts";
 import { TEST, TEST_ID } from "../schemas.ts";
 
@@ -61,34 +61,8 @@ export const commands = [
     job: "claude",
     subject: (i) => scopeLabel(i.scope),
     async run(ctx, input) {
-      const project = projectOf(ctx);
-      const p = readProject(project);
-      const ids =
-        input.contexts ??
-        (input.scope.kind === "project"
-          ? projectContexts(project)
-          : effectiveContexts(project, "testId" in input.scope ? input.scope.testId : undefined));
       ctx.progress({ message: `Claude on ${scopeLabel(input.scope)}` });
-      const prompt = buildPrompt(
-        input.scope,
-        input.prompt,
-        readContexts(project, ids),
-        project,
-        input.note,
-        input.conversation,
-      );
-      const { calls: _calls, ...r } = await runClaude({
-        kind: "run",
-        project,
-        prompt: input.scope.kind === "project" ? prompt : `${EDIT_MARKER}\n${prompt}`,
-        model: input.model || p.claude.model,
-        effort: input.effort || p.claude.effort,
-        scope: input.scope,
-        contexts: ids,
-        signal: ctx.signal,
-        onEvent: (e) => ctx.claude(e),
-      });
-      return r;
+      return await runOnScope(ctx, projectOf(ctx), input);
     },
   }),
   command({
@@ -189,6 +163,43 @@ export const commands = [
         signal: ctx.signal,
         onEvent: (e) => ctx.claude(e),
       });
+    },
+  }),
+  command({
+    name: "claude.prompts",
+    summary:
+      "Everything Claude is given in this project, run by run: the project's skills (the team's too), each prompt Testimus builds (as its template, the parts filled per run in {braces}), CLAUDE.md and the contexts attached by default — read only.",
+    input: z.object({}),
+    output: z.array(
+      z.object({
+        id: z
+          .string()
+          .describe("Stable id: skill:<name>, file:CLAUDE.md, context:<id>, or the id of a prompt Testimus builds"),
+        name: z.string().describe("What it is, in words (« Generate tests »)"),
+        group: z
+          .string()
+          .describe("What it is used for: Generation, Check and fix, Tests, Documents, Chat, Every run, Team skills…"),
+        origin: z
+          .enum(["skill", "built", "file", "context"])
+          .describe(
+            "skill: a .claude/skills/<name>/SKILL.md of the project · built: written by Testimus for each run · file: a project file every run reads (CLAUDE.md) · context: a context attached by default",
+          ),
+        path: z
+          .string()
+          .optional()
+          .describe(
+            "Where it is, relative to the project folder (absolute for a shared context); none for a prompt built per run",
+          ),
+        file: z.string().optional().describe("Its absolute path, for Show in Explorer"),
+        usedBy: z.array(z.string()).describe("The screens and commands that send it to Claude"),
+        text: z
+          .string()
+          .describe("The full text; a prompt Testimus builds shows its template, the parts filled per run in {braces}"),
+      }),
+    ),
+    mutates: false,
+    async run(ctx) {
+      return listPrompts(projectOf(ctx));
     },
   }),
   command({

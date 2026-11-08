@@ -5,7 +5,16 @@ import { allActions, type Listed, readAction, suggestFor, writeAction } from "..
 import { readDoc } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
 import type { ClaudeAction, ClaudeRun, Effort } from "../types.ts";
-import { contextLines, docRunLines, effectiveContexts, readContexts, scopeLines } from "./prompt.ts";
+import {
+  CONTEXT_SLOT,
+  contextLines,
+  DOC_SLOT,
+  docRunLines,
+  effectiveContexts,
+  type PromptTemplate,
+  readContexts,
+  scopeLines,
+} from "./prompt.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { readRun } from "./snapshot.ts";
 import { claudeVersion } from "./status.ts";
@@ -76,9 +85,17 @@ export function actionPrompt(
   note = "",
   conversation = "",
 ): string {
+  return actionText(a, scopeLines(a.scope), contextLines(project, readContexts(project, contexts), note, conversation));
+}
+
+function actionText(
+  a: Pick<ClaudeAction, "id" | "title" | "where" | "problem" | "why" | "plan">,
+  scope: string[],
+  context: string[],
+): string {
   const lines = [
     `${ACTION_MARKER} ${a.id}: ${a.title}`,
-    ...scopeLines(a.scope),
+    ...scope,
     "",
     `Problem (${a.where}): ${a.problem}`,
     `Why it was judged fixable: ${a.why}`,
@@ -94,13 +111,42 @@ export function actionPrompt(
     '`<docId>#<anchor> "<exact quote from doc.md>"`, found with rag_search and rag_passage.',
     "Never write to Jira: if the fix needs a push, prepare it with xray_plan and say what to push; the user pushes.",
     "Everything you change is snapshotted and can be reverted by the user.",
-    ...contextLines(project, readContexts(project, contexts), note, conversation),
+    ...context,
     "",
     "When finished, reply in 2-5 lines: what you did, what is left, and whether the problem is gone.",
     "",
   );
   return lines.join("\n");
 }
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "action",
+    name: "Run a Claude action",
+    group: "Claude actions",
+    usedBy: ["Claude dock › Actions: Run", "actions.run"],
+    text: () =>
+      actionText(
+        {
+          id: "{action}",
+          title: "{title}",
+          where: "{where}",
+          problem: "{problem}",
+          why: "{why}",
+          plan: ["{step of the plan}"],
+        },
+        ["Scope: {scope}", "Files: {files}"],
+        CONTEXT_SLOT,
+      ),
+  },
+  {
+    id: "triage",
+    name: "Look at problems Testimus found",
+    group: "Claude actions",
+    usedBy: ["Documents: the conversion warnings", "Jobs: a failed job", "actions.triage"],
+    text: () => triagePrompt("{runId}", [{ where: "{where}", text: "{problem}" }], "{what}", "{language}", DOC_SLOT),
+  },
+];
 
 export type ActionRun = Omit<RunResult, "calls"> & { action: ClaudeAction; changedFiles: string[] };
 

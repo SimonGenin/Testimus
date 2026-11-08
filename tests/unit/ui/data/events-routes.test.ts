@@ -42,10 +42,12 @@ describe("which reads a changed file refreshes", () => {
   it("several files add their reads in order, and a file nobody shows refreshes nothing", () => {
     expect(names(["CLAUDE.md", "contexts/a.md"])).toEqual([
       "project.notes",
+      "claude.prompts",
       "contexts.list",
       "contexts.show",
       "contexts.ofTest",
       "contexts.ofProject",
+      "claude.prompts",
     ]);
     expect(keysOfPaths(["README.txt", ".testimus/jobs/j1.jsonl"])).toEqual([]);
   });

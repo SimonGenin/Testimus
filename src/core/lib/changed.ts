@@ -7,9 +7,9 @@ const SKIP = new Set([".git", ".claude", ".mcp.json", "index", "node_modules"]);
 
 // ponytail: what a screen shows is read from the files, so a file's size and mtime say whether it moved;
 // Claude Code's own files, the derived index and the app's bookkeeping under .testimus are left out, but for the
-// proposed actions (the project's CLAUDE.md is the team's notes: it counts)
+// proposed actions (the project's CLAUDE.md is the team's notes: it counts) and the skills (Settings › Context shows them)
 export const skipped = (rel: string) =>
-  SKIP.has(rel.split("/")[0]) ||
+  (SKIP.has(rel.split("/")[0]) && !rel.startsWith(".claude/skills/")) ||
   (rel.startsWith(".testimus/") && rel !== ".testimus/actions" && !rel.startsWith(".testimus/actions/"));
 
 export function stampProject(project: string): Stamp {

@@ -4,7 +4,7 @@ import { readProject, readXray } from "../lib/project.ts";
 import { listLocalTests, readTest } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, StepColumn, XrayJson } from "../types.ts";
 import { languageName } from "./gen-prompt.ts";
-import { contextLines, readContexts } from "./prompt.ts";
+import { CONTEXT_SLOT, contextLines, type PromptTemplate, readContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const COLUMNS_MARKER = "Testimus smart columns";
@@ -106,8 +106,56 @@ export function columnsPrompt(project: string, ask: string, contexts: string[], 
     project,
     columns.map((c) => c.name),
   );
-  const docs = listDocs(project);
-  const glossary = Object.entries(p.glossary ?? {}).slice(0, 40);
+  return columnsText(ask, {
+    project: `${p.name || p.jiraProject || "(unnamed)"}${p.jiraProject ? `, Jira project ${p.jiraProject}` : ""}`,
+    language: p.language,
+    fetchedAt: x.fetchedAt ?? "",
+    columns: columnLines(columns, x, uses),
+    docs: listDocs(project)
+      .map((d) => `${d.id} « ${oneLine(d.title, 80)} » v${d.version || "?"} ${d.status}`)
+      .join("; "),
+    glossary: Object.entries(p.glossary ?? {})
+      .slice(0, 40)
+      .map(([k, v]) => `- ${k}: ${oneLine(v, 120)}`),
+    context: contextLines(project, readContexts(project, contexts), note),
+  });
+}
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "columns",
+    name: "Propose the smart columns",
+    group: "Smart columns",
+    usedBy: ["Settings › Smart columns: Ask Claude", "columns.suggest"],
+    text: () =>
+      columnsText("{request}", {
+        project: "{project name}, Jira project {key}",
+        language: "{language}",
+        fetchedAt: "{date}",
+        columns: [
+          "- {column} ({Xray standard, Xray custom field or local only; its type; required, hidden, new})",
+          "  description: {its description}",
+          "  in the tests: filled in {n} of {m} steps, in {t} tests",
+          "    e.g. {test}: {what a step holds}",
+        ],
+        docs: "{document} « {title} » v{version} {status}; …",
+        glossary: ["- {term}: {meaning}"],
+        context: CONTEXT_SLOT,
+      }),
+  },
+];
+
+type ColumnFacts = {
+  project: string;
+  language: string;
+  fetchedAt: string;
+  columns: string[];
+  docs: string;
+  glossary: string[];
+  context: string[];
+};
+
+function columnsText(ask: string, f: ColumnFacts): string {
   const lines = [
     `${COLUMNS_MARKER}: use the define-columns skill to propose the step columns of this project and what`,
     "Claude writes in each. Nothing is saved by you: the user applies the proposals one by one.",
@@ -116,25 +164,23 @@ export function columnsPrompt(project: string, ask: string, contexts: string[], 
       ? `The user asks: « ${ask.trim()} »`
       : "No request: review every column against the documents and the tests.",
     "",
-    `Project: ${p.name || p.jiraProject || "(unnamed)"}${p.jiraProject ? `, Jira project ${p.jiraProject}` : ""}.`,
-    `Language of the tests: ${languageName(p.language)} (project.json language "${p.language}"). Write the descriptions in the language the current ones use.`,
-    x.fetchedAt
-      ? `Xray's step fields were read on ${x.fetchedAt}.`
+    `Project: ${f.project}.`,
+    `Language of the tests: ${languageName(f.language)} (project.json language "${f.language}"). Write the descriptions in the language the current ones use.`,
+    f.fetchedAt
+      ? `Xray's step fields were read on ${f.fetchedAt}.`
       : "Xray's step fields were never read: the Xray columns below are the defaults, the project's Xray may hold more.",
     "",
     "The smart columns today, in display order:",
-    ...columnLines(columns, x, uses),
+    ...f.columns,
     "",
     "Testimus' defaults for Xray's standard columns (the team reuses them unless the documents need otherwise):",
     ...Object.entries(DEFAULT_DESCRIPTIONS).map(([k, v]) => `- ${k}: ${v}`),
     "",
-    docs.length
-      ? `Documents (docs_show, rag_search, rag_passage, docs/<id>/doc.md): ${docs
-          .map((d) => `${d.id} « ${oneLine(d.title, 80)} » v${d.version || "?"} ${d.status}`)
-          .join("; ")}`
+    f.docs
+      ? `Documents (docs_show, rag_search, rag_passage, docs/<id>/doc.md): ${f.docs}`
       : "The project has no document yet: work from the tests, the contexts and the request.",
-    ...(glossary.length ? ["", "Project glossary:", ...glossary.map(([k, v]) => `- ${k}: ${oneLine(v, 120)}`)] : []),
-    ...contextLines(project, readContexts(project, contexts), note),
+    ...(f.glossary.length ? ["", "Project glossary:", ...f.glossary] : []),
+    ...f.context,
     "",
     "Reply in 2-4 lines in English: what you looked at and what you propose. End the reply with this block, valid",
     "JSON, nothing after it — only the columns you would change or add, each with its whole new description:",

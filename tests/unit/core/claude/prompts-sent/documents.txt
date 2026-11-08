@@ -1,0 +1,174 @@
+Testimus study of the document SOSIE_211_D401-1_3 (Traction) before its conversion.
+Use the study-document skill, part « Before the conversion ».
+Testimus inspected its original (docs_inspect, below). Then look at the pages yourself — at least three, before
+you answer: docs_page { id, page } draws one as a PNG, Read it. The cover, a table of contents page, two body
+pages with headings, a page with a figure or a table, and a page without text if there is one.
+
+Then choose how it is converted (leave out what Testimus already does well):
+- from: "docx" or "pdf" — only when both copies are in the folder;
+- reader: "tagged" or "layout" — the PDF reader, only to override what Testimus chose;
+- numbers: [{ number, title }] — only when heading numbers are printed on the pages but missing from the PDF
+  text and neither bookmarks nor table of contents give them: every such heading, in reading order, number and
+  title as printed;
+- notes: one to three sentences in English for the check after the conversion: the caption and numbering
+  conventions you saw, the pages or parts to look at.
+Do not edit any file.
+
+What the team knows about this document:
+Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Inspection:
+```json
+{"pages":12,"headings":30}
+```
+
+Reply with only this block (titles as printed, notes in English):
+```conversion
+{"reader":"tagged","notes":"…"}
+```
+
+=====
+Testimus conversion check of the document SOSIE_211_D401-1_3 (Traction): compare docs/SOSIE_211_D401-1_3/doc.md
+with its original.
+Use the study-document skill, part « After the conversion ».
+Converted with fixture: 6 sections, 1 figures.
+Options: {"reader":"tagged"}
+Conversion warnings:
+- [doc:SOSIE_211_D401-1_3] 2 Word comments were dropped
+- [doc:SOSIE_211_D401-1_3] Figure 41 is a shape drawn in Word: only its labels survive
+
+docs_page { id, page } draws a page of the original as a PNG (Read it); docs_show { id, anchor } gives a part
+of doc.md (page:N, §n, fig:n); docs_inspect gives the counts of the original. Do not edit any file.
+Compare against the pages, not against the counts alone: draw and Read at least three pages — a table of contents
+page, a page with a table, a page with a figure — and anything doc.md makes you doubt, before you answer.
+
+If other options would convert it better (another copy, the other reader, heading numbers read on the pages,
+a figure without picture that a page draws: figures [{ key, page, region }], the region checked with docs_page),
+reply with a block holding all the options — it replaces the current ones and Testimus converts once more:
+```conversion
+{"reader":"tagged","numbers":[{"number":"5.2.1","title":"…"}],"notes":"…"}
+```
+
+If you see a problem you could fix yourself in a later run with the app's tools, propose it with actions_propose
+(the user sees it as a card in the Actions tab of Ask Claude): { runId: "<runId>", problem, title, why, plan, scope, model, effort }.
+For example: attach the .docx that sits beside the original, recover a figure the conversion lost, read a scanned page.
+title: a verb first, at most 60 characters, in English (« Recover 23 figures from the PDF »); problem: the problem
+as Testimus or you stated it; why: one sentence on why you can fix it; plan: 2 to 5 short steps.
+model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus
+(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).
+Propose only what you are confident about, at most 3, and never for a choice only the team can make.
+
+What the team knows about this document:
+Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+End with one line: what you compared and what differs.
+
+=====
+Testimus describe-figures run for the document SOSIE_211_D401-1_3 Traction.
+
+Open each picture below with Read, look at it, and give for a tester who will compare it with the screen of
+the simulator:
+- description: one or two sentences in French, saying what is drawn — symbols, colours,
+  layout, states. Only what the picture and its caption show; no interpretation, no expected behaviour.
+- labels: every text visible in the picture, copied verbatim (same spelling, accents, case, abbreviations;
+  never translated or corrected), one entry per title, button, menu item, field, legend or symbol name; at most 100; [] when the picture has no text.
+- kind: one of screen, diagram, symbol, table-image, photo (screen = a software window or screenshot, diagram = a drawing, plan or
+  flow, symbol = one pictogram or a legend of symbols, table-image = a table pasted as a picture, photo).
+Do not edit any file.
+
+What the team knows about this document:
+Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+- fig:40 — docs/SOSIE_211_D401-1_3/figures/fig-40.png — caption: "Figure 40 – Représentation graphique sectionneur" — section 5.6.6 Sectionneur (S)
+
+Reply with only this block, one entry per picture, keyed by its anchor:
+```figures
+{"fig:40": {"description": "…", "labels": ["…"], "kind": "screen"}}
+```
+
+=====
+Testimus context-headers run for the document SOSIE_211_D401-1_3 Traction.
+
+Each passage below is a part of this document, cut out for a search index. For each one, write one short
+sentence in French that situates it in the document so the passage can be found on its own:
+which document, which object or screen, what the passage specifies. Name the objects as the document does.
+Use only the text given here; read nothing else and do not edit any file.
+
+What the team knows about this document:
+Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+=== SOSIE_211_D401-1_3#§5.6.6 (5.6.6 Sectionneur)
+Le sectionneur s'ouvre.
+
+=== SOSIE_211_D401-1_3#§5.6.7 (5.6.6 Sectionneur)
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…
+
+Reply with only this block, one entry per passage, keyed by its id:
+```headers
+{"SOSIE_211_D401-1_3#§5.6.6": "…"}
+```
+
+=====
+Testimus media run for the batch « Recette TCO 12/10 » (lot-recette-tco-12-10) of the document SOSIE_211_D401-1_3 Traction.
+
+These are photos of the real system (screens of the simulator, a desk, a cabin), taken by the team. They show
+what the system does and how a tester gets there — never what it is required to do: say what you see, never
+what should happen.
+
+What the team says about this batch:
+Photos du TCO réel prises pendant la recette du 12/10, version 3.2 du simulateur.
+
+Open each photo below with Read, look at it, and give:
+- description: two to four sentences in French for a tester: which screen or object it is,
+  what state it shows, where things are and what the operator does or can do there.
+- labels: every text visible in the photo, copied verbatim (same spelling, accents, case, abbreviations; never
+  translated or corrected), one entry per title, button, menu item, field or message; [] when none is readable.
+- kind: one of screen, diagram, symbol, table-image, photo (screen = a software window, photo = anything else).
+- sections: the anchors of the document's sections this photo illustrates, from the outline below (you may
+  search the document with rag_search or read docs/SOSIE_211_D401-1_3/doc.md); [] when none.
+Do not edit any file.
+
+What the team knows about this document:
+Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Outline of the document:
+- §5 Schématique de traction
+- §5.6 Objets de traction
+- §5.6.6 Sectionneur (S)
+- §5.6.7 Disjoncteur (D)
+
+Photos:
+- fig:lot-recette-tco-12-10.img-0042 — docs/SOSIE_211_D401-1_3/figures/lot-recette-tco-12-10-img-0042.jpg — IMG_0042.jpg — taken 2026-10-12 14:03
+- fig:lot-recette-tco-12-10.img-0043 — docs/SOSIE_211_D401-1_3/figures/lot-recette-tco-12-10-img-0043.jpg — IMG_0043.jpg — taken 2026-10-12 14:05
+
+Reply with only this block, one entry per photo, keyed by its anchor:
+```media
+{"fig:lot-recette-tco-12-10.img-0042": {"description": "…", "labels": ["…"], "kind": "screen", "sections": ["§…"]}, "fig:lot-recette-tco-12-10.img-0043": {"description": "…", "labels": ["…"], "kind": "screen", "sections": ["§…"]}}
+```

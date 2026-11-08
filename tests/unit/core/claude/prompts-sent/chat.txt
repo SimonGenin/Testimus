@@ -1,0 +1,40 @@
+Use the ask-docs skill to answer this question about the project's documents.
+Answer only from the documents (rag_search, rag_passage, docs/*/doc.md), never from general knowledge.
+Put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].
+Say plainly when the documents do not answer. Do not edit any file.
+Answer in the language of the question (project language: fr).
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Q: which test?
+A: LFRPS12-1420.
+
+Question: Quand le sectionneur s'ouvre-t-il ?
+
+=====
+Testimus met the problem below. Explain plainly what most likely causes it and what the user can do about it.
+This is about the app, the machine, the network or an account, not the specification: you may use what you know.
+Look first when it helps (read only: the project files and the app's read-only mcp__testimus__ tools); do not change anything now.
+When only the user can fix it (a setting, a certificate, the network, an account), give the steps, the most likely first.
+
+Problem (Documents): The index is missing.
+
+If you see a problem you could fix yourself in a later run with the app's tools, propose it with actions_propose
+(the user sees it as a card in the Actions tab of Ask Claude): { runId: "<runId>", problem, title, why, plan, scope, model, effort }.
+For example: « Index the documents again » when the index is missing or stale, « Convert the document again » when a conversion failed.
+title: a verb first, at most 60 characters, in English (« Recover 23 figures from the PDF »); problem: the problem
+as Testimus or you stated it; why: one sentence on why you can fix it; plan: 2 to 5 short steps.
+model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus
+(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).
+Propose only what you are confident about, at most 3, and never for a choice only the team can make.
+Answer in the language of the question (project language: fr).
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Question: Why?

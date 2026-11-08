@@ -7,7 +7,7 @@ import { normalizeAnchor } from "../rag/anchors.ts";
 import type { DocJson, MediaLot } from "../types.ts";
 import { type Described, described, FIGURES_BATCH, parseEntries } from "./figures.ts";
 import { languageName } from "./gen-prompt.ts";
-import { docContexts, docRunLines, type JobRun } from "./prompt.ts";
+import { DOC_SLOT, docContexts, docRunLines, type JobRun, type PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const MEDIA_MARKER = "Testimus media run";
@@ -72,6 +72,25 @@ export function mediaPrompt(
     "",
   ].join("\n");
 }
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "media",
+    name: "Read the photos of a batch",
+    group: "Documents",
+    usedBy: ["Documents › a batch of photos: Analyse", "media.analyse"],
+    text: () =>
+      mediaPrompt(
+        { id: "{docId}", code: "{document}", title: "{title}" },
+        { id: "{batch}", title: "{batch title}" },
+        "{what the team says about the batch}",
+        [{ anchor: "{anchor}", title: "{section title}" }],
+        [{ anchor: "{anchor}", file: "{photo file}", name: "{photo name}", takenAt: "{date}" }],
+        "{language}",
+        DOC_SLOT,
+      ),
+  },
+];
 
 const photoKey = (k: string) => `fig:${k.trim().replace(/^fig[:\s]*/i, "")}`;
 

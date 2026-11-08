@@ -3,9 +3,16 @@ import { loadCorpus, mechanicalCheck, semanticOf } from "../lib/check.ts";
 import { readProject } from "../lib/project.ts";
 import { setReview } from "../lib/review.ts";
 import { readCheck, readTest } from "../lib/store.ts";
-import type { CheckFile, Diagnosis, Finding, Review } from "../types.ts";
-import { checkOne, findingLine } from "./check.ts";
-import { buildPrompt, effectiveContexts, readContexts } from "./prompt.ts";
+import type { CheckFile, Diagnosis, Review } from "../types.ts";
+import { checkOne, FINDING_SLOT, findingLine } from "./check.ts";
+import {
+  buildPrompt,
+  CONTEXT_SLOT,
+  effectiveContexts,
+  type PromptTemplate,
+  readContexts,
+  scopedPrompt,
+} from "./prompt.ts";
 import { runClaude } from "./run.ts";
 import { markLeft } from "./snapshot.ts";
 
@@ -20,16 +27,31 @@ export type FixResult = {
   diagnosis?: Diagnosis;
 };
 
-function fixRequest(id: string, note: string, findings: Finding[], language: string): string {
+function fixRequest(id: string, note: string, findings: string[], language: string): string {
   return [
     `Use the fix-test skill on the test ${id}.`,
     note ? `Reviewer's note (To fix): ${JSON.stringify(note)}` : "No reviewer's note: fix what the findings ask.",
     findings.length ? "Findings of the last check:" : "The last check has no finding.",
-    ...findings.map(findingLine),
+    ...findings,
     `Write in the project language (${language}).`,
     "Do not change review, review_note, reviewed_by or reviewed_at in the frontmatter: Testimus sets them after its re-check.",
   ].join("\n");
 }
+
+export const prompts: PromptTemplate[] = [
+  {
+    id: "fix",
+    name: "Fix a test from its To fix note",
+    group: "Check and fix",
+    usedBy: ["Review: To fix, Ask Claude to fix it", "review.fix"],
+    text: () =>
+      scopedPrompt(
+        { kind: "test", testId: "{test}" },
+        fixRequest("{test}", "{reviewer's note}", [FINDING_SLOT], "{language}"),
+        CONTEXT_SLOT,
+      ),
+  },
+];
 
 export async function fixTest(
   ctx: Ctx,
@@ -47,7 +69,7 @@ export async function fixTest(
     project,
     prompt: buildPrompt(
       scope,
-      fixRequest(id, note, findings, p.language),
+      fixRequest(id, note, findings.map(findingLine), p.language),
       readContexts(project, effectiveContexts(project, id)),
       project,
     ),

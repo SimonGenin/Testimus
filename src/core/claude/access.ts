@@ -66,8 +66,9 @@ function commandList(): readonly CommandInfo[] {
   return provided();
 }
 
-// ponytail: read-only = mutates:false and no job, minus what touches the app or the machine
-const NOT_READ_ONLY = /^(system|project|jobs|claude)\./;
+// ponytail: read-only = mutates:false and no job, minus what touches the app or the machine; what Claude is given
+// (claude.prompts) is a read like the others
+const NOT_READ_ONLY = /^(system|project|jobs)\.|^claude\.(?!prompts$)/;
 
 export const mcpName = (command: string) => `mcp__testimus__${command.replace(".", "_")}`;
 
