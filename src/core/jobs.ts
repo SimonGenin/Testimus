@@ -147,7 +147,7 @@ export function startJob(
   project: string | null,
   work: (ctx: Ctx) => Promise<unknown>,
   outer?: AbortSignal,
-  extra: { cause?: JobCause; rerun?: { name: string; input: unknown } } = {},
+  extra: { cause?: JobCause; rerun?: { name: string; input: unknown }; label?: string } = {},
 ): { job: Job; done: Promise<unknown> } {
   const id = `${kind.replace(/\W+/g, "-")}-${randomBytes(4).toString("hex")}`;
   const ctrl = new AbortController();
@@ -158,6 +158,7 @@ export function startJob(
     id,
     kind,
     subject,
+    ...(extra.label ? { label: extra.label } : {}),
     status: "running",
     startedAt: env.now().toISOString(),
     pid: process.pid,

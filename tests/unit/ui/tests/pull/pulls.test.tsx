@@ -404,7 +404,7 @@ describe("DeleteTest", () => {
       detail: "The Jira test is untouched.",
     });
     expect(await deleteTest(client, { ...target, key: undefined })).toBe(true);
-    expect(toasts[1]).toEqual({ tone: "neutral", title: "Local copy of t1 deleted", detail: undefined });
+    expect(toasts[1]).toEqual({ tone: "neutral", title: "Local copy of « One » deleted", detail: undefined });
   });
 
   it("reports a failed delete", async () => {
@@ -450,8 +450,8 @@ describe("DeleteTest", () => {
       </WithData>,
     );
     expect(screen.getByText(/This test was never pushed/)).toBeInTheDocument();
-    expect(screen.getByText(/Untitled/)).toBeInTheDocument();
-    expect(screen.getByText("t1")).toBeInTheDocument();
+    expect(screen.getByText(/Untitled test/)).toBeInTheDocument();
+    expect(screen.queryByText("t1")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(onDeleted).toHaveBeenCalledTimes(1);

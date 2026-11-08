@@ -162,7 +162,8 @@ describe("Generate › result helpers", () => {
     expect(screen.getByRole("heading", { name: "Reading the documents" })).toBeInTheDocument();
     expect(screen.getByText("1 passage read")).toBeInTheDocument();
     expect(screen.getByRole("timer", { name: "Time since it started" })).toHaveTextContent("1:05");
-    expect(screen.getByText("Claude is writing").parentElement).toHaveTextContent(`Claude is writing·${job().id}`);
+    expect(screen.getByText("Claude is writing").parentElement).toHaveTextContent(/^Claude is writing$/);
+    expect(screen.getByText("Claude is writing").parentElement).not.toHaveTextContent(job().id);
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     head(job(), 2);
     expect(screen.getByText("2 tests so far")).toBeInTheDocument();

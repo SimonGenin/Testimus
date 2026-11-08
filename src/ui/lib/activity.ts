@@ -1,12 +1,13 @@
 import type { ClaudeEvent, JobEvent } from "../../core/types.ts";
 import { FILE_WRITE_TOOLS, testInPath } from "../../shared/tests.ts";
 import { resultLine } from "./jobs.ts";
+import { nameTests, type TestNames } from "./labels.ts";
 
 export type PhaseKind = "prepare" | "read" | "plan" | "write" | "check" | "end";
 export type Act = { at: string; text: string; level: "info" | "warn" | "error" };
 export type Span = { from: number; to: number | null };
 export type Lookup = { kind: "search" | "open" | "follow" | "mention"; text: string; doc: string; anchor: string };
-export type Verdict = { id: string; errors: number; warnings: number; failed: boolean };
+export type Verdict = { id: string; name?: string; errors: number; warnings: number; failed: boolean };
 export type Phase = {
   kind: PhaseKind;
   from: string;
@@ -168,7 +169,8 @@ function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
   return { kind: "aside", text: `Used ${name.replace(/_/g, ".")}` };
 }
 
-const VERDICT = /^(\S+): (\d+) error\(s\), (\d+) warning\(s\)( — semantic check failed)?$/;
+const VERDICT = /^(.+?): (\d+) error\(s\), (\d+) warning\(s\)( — semantic check failed)?$/;
+const NAMED = /^« (.*) »$/;
 
 function stepOfEvent(e: JobEvent): Step | (Act & { kind: "act" }) | { kind: "say"; text: string } | null {
   if (e.type === "claude") {
@@ -186,7 +188,13 @@ function stepOfEvent(e: JobEvent): Step | (Act & { kind: "act" }) | { kind: "say
       return {
         kind: "check",
         text: e.message,
-        verdict: { id: v[1], errors: Number(v[2]), warnings: Number(v[3]), failed: !!v[4] },
+        verdict: {
+          id: v[1],
+          ...(NAMED.test(v[1]) ? { name: v[1].replace(NAMED, "$1") } : {}),
+          errors: Number(v[2]),
+          warnings: Number(v[3]),
+          failed: !!v[4],
+        },
       };
     return { kind: "act", at: e.at, level: "info", text: e.message };
   }
@@ -212,10 +220,12 @@ const open = (kind: PhaseKind, at: string): Phase => ({
 });
 
 // ponytail: a phase opens when Claude starts doing something else; a lookup in the middle of a phase (a test
-// opened, the documents listed) stays in the phase it interrupts
-export function activityOf(events: JobEvent[]): Phase[] {
+// opened, the documents listed) stays in the phase it interrupts. A local test is said by its summary — the one
+// Claude wrote in the run, else the project's (nameOf) — never by its id
+export function activityOf(events: JobEvent[], nameOf: TestNames = () => undefined): Phase[] {
   const out: Phase[] = [];
   const names = new Map<string, string>();
+  const named = (text: string) => nameTests(text, (id) => names.get(id) || nameOf(id));
   for (const e of events) {
     const s = stepOfEvent(e);
     if (!s) continue;
@@ -228,19 +238,19 @@ export function activityOf(events: JobEvent[]): Phase[] {
     cur.to = e.at;
     if (s.kind === "say") {
       const g = gist(s.text);
-      if (g) cur.said.push(g);
+      if (g) cur.said.push(named(g));
       continue;
     }
     if (s.kind !== "act" && s.write) {
       const { id, summary } = s.write;
       if (summary) names.set(id, summary);
-      else if (names.has(id)) {
-        s.write.summary = names.get(id) ?? "";
+      else if (names.has(id) || nameOf(id)) {
+        s.write.summary = names.get(id) || nameOf(id) || "";
         s.text = s.text.replace(id, `“${s.write.summary}”`);
       }
     }
     const level = s.kind === "act" ? s.level : s.kind === "end" && /^(Failed|Stopped)/.test(s.text) ? "error" : "info";
-    cur.acts.push({ at: e.at, text: s.text, level });
+    cur.acts.push({ at: e.at, text: named(s.text), level });
     if (level === "error") cur.failed = true;
     if (s.kind === "act" || s.kind === "end") continue;
     if (s.search) cur.searches++;

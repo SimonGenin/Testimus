@@ -35,6 +35,7 @@ export type Command<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.Zod
   mcp?: false;
   positional?: string[];
   subject?(input: z.output<I>): string;
+  label?(input: z.output<I>, project: string | null): string;
   cause?(input: z.output<I>): JobCause | undefined;
   run(ctx: Ctx, input: z.output<I>): Promise<z.input<O>>;
 };

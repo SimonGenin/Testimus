@@ -84,7 +84,11 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
 - **`src/core/env.ts` is the one seam**: `http`, home and data dirs, `spawnClaude`. Tests and `--mock` swap it.
 - **Long work is a job** (`src/core/jobs.ts`): id, progress, steps, cancel, rerun (`jobs.rerun`, the same input, the new
   job caused by the old), a log in `<project>/.testimus/jobs/<id>.jsonl`. Before it ends a job says which project files
-  it added, modified or removed (`changed`).
+  it added, modified or removed (`changed`). A job keeps two words for what it works on: `subject`, what the command
+  was given (a test id, a document id — the page and the code key on it), and `label` (optional, added 2026-11-08; an
+  older job has none), the name a person knows it by when it started — the test's summary, the document's title —
+  from the command's `label(input, project)` (`src/core/lib/names.ts`). Messages the core writes for a person (progress,
+  log, process titles) name a test by its summary the same way; a message the page parses (`Writing <id>`) keeps its id.
 - **Events name their project.** One `/api/events` SSE stream; every event carries `project` (null = the machine's own
   work). A recursive watcher per open project (`src/core/watch.ts`) emits one `changed` event per burst of writes (200 ms
   after the last, at most 1 s apart while writes go on), the project's `CLAUDE.md` included, `index/` and `.testimus/`
@@ -471,6 +475,12 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   The project at the top of the rail opens a menu of the known projects (a quick switch) and one action, « All
   projects… », to First launch › Project — the one place that opens a folder, opens by Jira key, creates, hides,
   deletes or shows a project in Explorer; reached with a project open, opening one there goes back to the app.
+- **Names, never internal ids**: a label is what speaks to the user — a test's summary (its Jira key beside it in mono
+  when it has one; a local test carries a « Local » badge), a document's title (and its code), the project's name, a
+  context's or column's name; a missing one is « Untitled test / document / context », never the id
+  (`src/ui/lib/labels.ts`: `testLabel`, `docLabel`, `contextLabel`, `nameTests` for a text that still names tests by
+  id, such as Claude's own words, `useTestNames`). An id (job, `local-…`) stays visible only in a job's folded
+  « Technical details », beside its name. `tests/e2e/ids.spec.ts` fails on a `local-<hex>` in any visible text.
 - **Safety rules of the page**: a Jira write always shows its plan first; from the palette (Ctrl K, every command by
   name, a form from its schema) nothing runs blind — a command with `dryRun` shows its plan, one that loses something
   without a dry run asks first naming what goes; any Claude run on a test or the project **locks the editor**, the lock

@@ -12,6 +12,7 @@ import {
   PAGE,
   searchTests,
 } from "../lib/jira/read.ts";
+import { testName } from "../lib/names.ts";
 import { natural } from "../lib/natural.ts";
 import { readProject, readXray } from "../lib/project.ts";
 import { listLocalTests, localTestRef } from "../lib/store.ts";
@@ -437,6 +438,7 @@ export const commands = [
     mutates: true,
     job: "push",
     subject: (i) => (i.dryRun ? `${i.id} (plan only)` : i.id),
+    label: (i, project) => `${testName(project, i.id)}${i.dryRun ? " (plan only)" : ""}`,
     async run(ctx, input) {
       return runPush(ctx, projectOf(ctx), input);
     },

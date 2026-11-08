@@ -110,9 +110,9 @@ describe("activityOf", () => {
       "Wrote the steps of “Circulation des trains”",
       "Wrote the steps of “Alarmes”",
       "Corrected “Alarmes”",
-      "Wrote local-0000abcd",
+      "Wrote “Untitled test”",
       "Edited P/notes.txt",
-      "Opened local-0000abcd",
+      "Opened “Untitled test”",
       "Searched the files for “Départ”",
       "Used xray.fields",
       "The generation changed the existing test X",
@@ -120,7 +120,7 @@ describe("activityOf", () => {
     expect(p[3].acts.at(-1)?.level).toBe("warn");
     expect(p[4].acts.map((a) => a.text)).toEqual([
       "Checking 2 new test(s)",
-      "Checked local-bcfc0be3",
+      "Checked “Circulation des trains”",
       "Something else",
     ]);
     expect(p[5].acts[0].text).toBe("Done · 2 tests written");
@@ -248,7 +248,7 @@ describe("GenActivity", () => {
     expect(named("docs.show")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Planned 3 tests" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Wrote the steps of 3 tests" })).toBeInTheDocument();
-    expect(screen.getByText("Last written: local-0000abcd; 1 test written more than once.")).toBeInTheDocument();
+    expect(screen.getByText("Last written: “Untitled test”; 1 test written more than once.")).toBeInTheDocument();
     expect(screen.getByText("The generation changed the existing test X")).toHaveAttribute("data-level", "warn");
     expect(screen.getByRole("heading", { name: "Checked the new tests" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Done · 2 tests written" })).toBeInTheDocument();

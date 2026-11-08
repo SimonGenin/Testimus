@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
+import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { isObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Answer } from "../ui/Answer.tsx";
@@ -51,6 +52,7 @@ export function UserTurn({ turn }: { turn: Turn }) {
 export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnActions }) {
   const failed = !t.running && !!(t.again || t.trouble);
   const words = t.text || (t.running && !t.tools.some((x) => !x.done));
+  const names = useTestNames();
   return (
     <>
       <DockActivity turn={t} />
@@ -105,7 +107,14 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
             ) : undefined
           }
         >
-          {words && <AnswerText text={t.text} running={t.running} listed={t.sources} onOpenSource={a.onOpenSource} />}
+          {words && (
+            <AnswerText
+              text={nameTests(t.text, names)}
+              running={t.running}
+              listed={t.sources}
+              onOpenSource={a.onOpenSource}
+            />
+          )}
           {t.trouble && (
             <div role="status" {...stylex.props(styles.trouble)}>
               <strong {...stylex.props(type.strong, styles.troubleTitle)}>{t.trouble.title}</strong>

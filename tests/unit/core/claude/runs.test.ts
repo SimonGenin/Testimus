@@ -226,7 +226,13 @@ describe("check edges", () => {
     const r = await checkOne(ctxOf(), dir, "LFRPS12-1420", true);
     expect(r.ok).toBe(false);
     expect(r.summary).toMatch(/check_record was not called/);
-    expect(logs.some((m) => m.includes("LFRPS12-1420 changed while LFRPS12-1420"))).toBe(true);
+    expect(
+      logs.some((m) =>
+        m.includes(
+          "« Sectionneur sans TK — menu contextuel et propriétés » changed while « Sectionneur sans TK — menu contextuel et propriétés »",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("a failed run carries its diagnosis", async () => {

@@ -4,6 +4,7 @@ import type { Job, JobEvent } from "../../../core/types.ts";
 import { activityOf, DOING, lasted, type Phase, type Verdict } from "../../lib/activity.ts";
 import { plural } from "../../lib/format.ts";
 import { clock } from "../../lib/jobs.ts";
+import { isLocalId, type TestNames, UNTITLED_TEST, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { JobLog } from "../shell/JobLog.tsx";
 import { Badge, type BadgeTone } from "../ui/Badge.tsx";
@@ -105,7 +106,7 @@ function title(p: Phase, live: boolean, planned: number, afterCheck: boolean): s
   return live ? DOING.prepare : "Got ready";
 }
 
-function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; names: Map<string, string> }) {
+function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; names: TestNames }) {
   const [open, setOpen] = useState(false);
   const [inOrder, setInOrder] = useState(false);
   const last = p.written[p.written.length - 1];
@@ -147,7 +148,7 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
       )}
       {p.kind === "write" && last && (
         <span {...stylex.props(type.compact, styles.quiet)}>
-          Last written: {last.summary ? `“${last.summary}”` : last.id}
+          Last written: “{last.summary || names(last.id) || UNTITLED_TEST}”
           {p.written.some((w) => w.saves > 1) &&
             `; ${plural(p.written.filter((w) => w.saves > 1).length, "test")} written more than once`}
           .
@@ -159,8 +160,10 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
             const { label, tone, kind } = verdictOf(v);
             return (
               <li key={v.id} data-verdict={kind} {...stylex.props(styles.verdict)}>
-                <span {...stylex.props(type.code, styles.id)}>{v.id}</span>
-                <span {...stylex.props(styles.name)}>{names.get(v.id) ?? ""}</span>
+                {!v.name && !isLocalId(v.id) && <span {...stylex.props(type.code, styles.id)}>{v.id}</span>}
+                <span {...stylex.props(styles.name)}>
+                  {v.name ?? names(v.id) ?? (isLocalId(v.id) ? UNTITLED_TEST : "")}
+                </span>
                 <Badge tone={tone} size="sm" label={label} />
               </li>
             );
@@ -254,10 +257,12 @@ export function ClaudeActivity({
     onOpenChange?.(v);
   };
   const [raw, setRaw] = useState(false);
-  const phases = activityOf(events);
+  const nameOf = useTestNames();
+  const phases = activityOf(events, nameOf);
   const head = runLine(events, model, effort);
   const planned = phases.reduce((n, p) => n + p.planned.length, 0);
-  const names = new Map(phases.flatMap((p) => p.written.filter((w) => w.summary).map((w) => [w.id, w.summary])));
+  const written = new Map(phases.flatMap((p) => p.written.filter((w) => w.summary).map((w) => [w.id, w.summary])));
+  const names: TestNames = (id) => written.get(id) || nameOf(id);
   // ponytail: a run whose Claude stopped on an error does not end on a green « Done »
   const stopped = !running && !!claudeSaid(events);
   // ponytail: the head says where the run is — while Claude works it is not yet « what Claude did »

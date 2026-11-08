@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
+import { contextLabel } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Checkbox } from "../ui/Checkbox.tsx";
@@ -61,7 +62,7 @@ export function ContextPicker({
           {shown.map((c) => (
             <li key={c.id}>
               <Checkbox
-                label={c.name || c.id}
+                label={contextLabel(c)}
                 icon="context"
                 hint={`${c.shared ? "shared · " : "this project · "}${contextLine(c)}`}
                 checked={isOn(c.id)}

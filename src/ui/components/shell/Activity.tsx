@@ -8,6 +8,7 @@ import { project } from "../../lib/data/client.ts";
 import { onAnyEvent } from "../../lib/data/events.ts";
 import { useCommand, useFetching, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
+import { subjectLabel } from "../../lib/jobs.ts";
 import { useNow } from "../../lib/now.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
@@ -90,7 +91,7 @@ function LiveActivity() {
         key: j.id,
         id: j.id,
         kind: j.kind,
-        label: j.subject || j.kind,
+        label: subjectLabel(j, new Map()) || j.kind,
         message: j.message,
         startedAt: j.startedAt,
         progress: j.progress,

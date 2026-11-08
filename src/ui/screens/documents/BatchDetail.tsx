@@ -14,6 +14,7 @@ import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { useCommand, useRead } from "../../lib/data/query.ts";
 import { message, plural } from "../../lib/format.ts";
+import { testRef } from "../../lib/labels.ts";
 import { type BatchShown, batchJob, batchLine, isPhoto, jobPercent } from "../../lib/media.ts";
 import { useProjectJobs } from "../../lib/projectJobs.ts";
 import { errorToast, jobToast } from "../../lib/toast.ts";
@@ -300,7 +301,7 @@ export function BatchDetail({
           )}
         </div>
         {b.citedBy.length > 0 && (
-          <p {...stylex.props(type.small, styles.muted)}>Cited by {b.citedBy.map((t) => t.key ?? t.id).join(", ")}.</p>
+          <p {...stylex.props(type.small, styles.muted)}>Cited by {b.citedBy.map(testRef).join(", ")}.</p>
         )}
         <ul aria-label="Photos of the batch" {...stylex.props(styles.grid)}>
           {b.items.map((i) => (

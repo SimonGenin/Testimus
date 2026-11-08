@@ -411,7 +411,8 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     await waitFor(() =>
       expect(within(group).getByRole("button", { name: "House style" })).toHaveAttribute("aria-pressed", "false"),
     );
-    fireEvent.click(within(group).getByRole("button", { name: "gloss" }));
+    expect(within(group).queryByRole("button", { name: "gloss" })).toBeNull();
+    fireEvent.click(within(group).getByRole("button", { name: "Untitled context" }));
     await waitFor(() => expect(inputs("project.set")[1]).toEqual({ claude: { contexts: ["gloss"] } }));
     const before = calls("contexts.list").length;
     fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));

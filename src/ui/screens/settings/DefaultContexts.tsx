@@ -9,6 +9,7 @@ import { Field } from "../../components/ui/Field.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
+import { contextLabel } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { type ProjectJson, useSetProject } from "./project.ts";
 
@@ -46,7 +47,7 @@ export function DefaultContexts({ chosen }: { chosen: string[] }) {
                 return (
                   <Chip
                     key={x.id}
-                    label={x.name || x.id}
+                    label={contextLabel(x)}
                     tone="claude"
                     icon="context"
                     pressed={on}

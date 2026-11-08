@@ -38,6 +38,7 @@ import {
 } from "../lib/docs-pipeline.ts";
 import { findLot, updateLot, writePart } from "../lib/media.ts";
 import { prepareLot, readLot, writeAnnex } from "../lib/media-pipeline.ts";
+import { docName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
 import { docFigures } from "../rag/chunk.ts";
 import { chunksOf, withIndex } from "../rag/db.ts";
@@ -511,6 +512,7 @@ export const commands = [
     job: "docs.convert",
     positional: ["id"],
     subject: (i) => i.id,
+    label: (i, project) => docName(project, i.id),
     async run(ctx, input) {
       const project = projectOf(ctx);
       if (input.pdf) attachPdf(project, input.id, input.pdf);
@@ -861,6 +863,7 @@ export const commands = [
     mutates: true,
     job: "describe-figures",
     subject: (i) => i.docId ?? "all documents",
+    label: (i, project) => (i.docId ? docName(project, i.docId) : "All documents"),
     async run(ctx, input) {
       const project = projectOf(ctx);
       if (input.anchors && !input.docId)

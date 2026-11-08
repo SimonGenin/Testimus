@@ -7,6 +7,7 @@ import { type } from "../../components/ui/type.ts";
 import { discardAutosave, flushAutosaves } from "../../lib/data/autosave.ts";
 import { execute, invalidate, key, read } from "../../lib/data/query.ts";
 import { differs, lossOf } from "../../lib/diff.ts";
+import { testLabel } from "../../lib/labels.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 
 const styles = stylex.create({
@@ -41,7 +42,7 @@ export async function deleteTest(client: QueryClient, t: DeleteTarget): Promise<
     client.removeQueries({ queryKey: key("tests.show", { id: t.id }) as unknown as readonly unknown[] });
     toast({
       tone: "neutral",
-      title: `Local copy of ${t.key ?? t.id} deleted`,
+      title: `Local copy of ${t.key ?? `« ${testLabel(t)} »`} deleted`,
       detail: t.key ? "The Jira test is untouched." : undefined,
     });
     return true;
@@ -113,9 +114,13 @@ export function DeleteTest({
       onClose={onClose}
     >
       <p {...stylex.props(styles.text)}>
-        <span {...stylex.props(type.code)}>{target.key ?? target.id}</span> — {target.summary || "Untitled"} —{" "}
-        {target.key ? "stays in Jira. Its" : "Its"} test.md, its images and its review state are removed from the
-        project.
+        {target.key && (
+          <>
+            <span {...stylex.props(type.code)}>{target.key}</span> —{" "}
+          </>
+        )}
+        {testLabel(target)} — {target.key ? "stays in Jira. Its" : "Its"} test.md, its images and its review state are
+        removed from the project.
       </p>
       <p {...stylex.props(styles.text)}>
         {!target.synced

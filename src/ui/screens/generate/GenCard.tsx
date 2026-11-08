@@ -7,6 +7,7 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
+import { testLabel } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import type { GenCheck } from "./GenResult.tsx";
 
@@ -68,7 +69,7 @@ export function GenCard({ item, check, writing, checking, onOpen }: GenCardProps
       </div>
     );
   const test = item.test;
-  const title = test.summary || "Untitled test";
+  const title = testLabel(test);
   const review = (check?.review ?? item.ref?.review ?? test.review) as ReviewState;
   return (
     <Card
@@ -76,7 +77,8 @@ export function GenCard({ item, check, writing, checking, onOpen }: GenCardProps
         <span {...stylex.props(styles.titles)}>
           <span>{title}</span>
           <span {...stylex.props(type.small, type.regular, styles.meta)}>
-            <span {...stylex.props(type.code)}>{item.id}</span>· {plural(test.steps.length, "step")}
+            {test.key ? <span {...stylex.props(type.code)}>{test.key}</span> : <Badge label="Local" size="sm" />}·{" "}
+            {plural(test.steps.length, "step")}
             {test.folder ? ` · ${test.folder}` : ""}
           </span>
         </span>

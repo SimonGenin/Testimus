@@ -123,7 +123,7 @@ describe("scripted Claude (serve --mock)", () => {
     expect(r).toMatchObject({ ok: true });
     expect(sent[0]).toEqual({
       method: "notifications/progress",
-      params: { progressToken: "tok", progress: 1, message: "Claude on LFRPS12-1398" },
+      params: { progressToken: "tok", progress: 1, message: "Claude on Disjoncteur — ouverture à distance" },
     });
     expect(showJob(dir, "nope")).toBeNull();
   });

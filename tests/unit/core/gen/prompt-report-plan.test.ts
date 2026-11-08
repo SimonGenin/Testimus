@@ -595,7 +595,11 @@ describe("gen.tests", () => {
     };
     off();
     expect(r).toMatchObject({ tests: [], changed: ["LFRPS12-1398"], skipped: [], reportFound: false });
-    expect(logs.some((m) => m.includes("changed the existing test LFRPS12-1398"))).toBe(true);
+    expect(
+      logs.some((m) =>
+        m.includes("changed the existing test « Disjoncteur — ouverture à distance » — Revert puts it back"),
+      ),
+    ).toBe(true);
     expect(logs.some((m) => m.includes("no gen-report block"))).toBe(true);
   });
 

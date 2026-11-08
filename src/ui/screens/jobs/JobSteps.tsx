@@ -8,6 +8,7 @@ import { Raw } from "../../components/ui/Raw.tsx";
 import { Timeline } from "../../components/ui/Timeline.tsx";
 import { type } from "../../components/ui/type.ts";
 import { clock, duration, kindLabel, logLines, processLabel, resultLine } from "../../lib/jobs.ts";
+import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { stepState } from "./kinds.ts";
 
@@ -77,6 +78,7 @@ export function JobSteps({
   onOpen(id: string): void;
 }) {
   const procs = job.processes ?? [];
+  const names = useTestNames();
   return (
     <Timeline
       label="Steps"
@@ -95,11 +97,11 @@ export function JobSteps({
               <Progress
                 label={`${s.label} progress`}
                 value={pct}
-                detail={`${s.message ? `${s.message} · ` : ""}${s.done ?? 0} of ${s.total}`}
+                detail={`${s.message ? `${nameTests(s.message, names)} · ` : ""}${s.done ?? 0} of ${s.total}`}
               />
             )}
             {s.status === "running" && pct === null && s.message && (
-              <span {...stylex.props(type.small, styles.msg)}>{s.message}</span>
+              <span {...stylex.props(type.small, styles.msg)}>{nameTests(s.message, names)}</span>
             )}
             {s.status !== "running" && s.total ? (
               <span {...stylex.props(type.small, styles.msg)}>
@@ -120,7 +122,7 @@ export function JobSteps({
             {mine.length > 0 && <JobProcesses list={mine} now={now} label={`Processes of ${s.label}`} />}
             {tail.length > 0 && (
               <Raw
-                lines={tail.map((l) => ({ text: l.text, level: l.level, at: clock(l.at) }))}
+                lines={tail.map((l) => ({ text: nameTests(l.text, names), level: l.level, at: clock(l.at) }))}
                 label={`Log of ${s.label}`}
               />
             )}

@@ -1,5 +1,6 @@
 import type { Ctx } from "../command.ts";
 import { loadCorpus, mechanicalCheck, semanticOf } from "../lib/check.ts";
+import { quoted, testName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
 import { setReview } from "../lib/review.ts";
 import { readCheck, readTest } from "../lib/store.ts";
@@ -64,7 +65,8 @@ export async function fixTest(
   const findings = [...mechanicalCheck(project, id, loadCorpus(project)), ...semanticOf(readCheck(project, id))];
   const p = readProject(project);
   const scope = { kind: "test" as const, testId: id };
-  ctx.progress({ message: `Claude fixes ${id}`, done: 0, total: 2 });
+  const name = quoted(testName(project, id));
+  ctx.progress({ message: `Claude fixes ${name}`, done: 0, total: 2 });
   const r = await runClaude({
     project,
     prompt: buildPrompt(
@@ -90,19 +92,19 @@ export async function fixTest(
   };
   if (!r.ok || ctx.signal.aborted)
     return { ...base, ok: false, review: readTest(project, id).test.review, check: readCheck(project, id) };
-  ctx.progress({ message: `Re-checking ${id}`, done: 1, total: 2 });
+  ctx.progress({ message: `Re-checking ${quoted(testName(project, id))}`, done: 1, total: 2 });
   const c = await checkOne(ctx, project, id, opts.semantic);
   // ponytail: a fixed test waits for the reviewer again, whatever its re-check found; the re-check only
   // says what is left
   const review = setReview(project, id, { review: "draft" }).review;
   markLeft(project, r.runId, [id]);
   if (c.ok && c.semantic && !ctx.signal.aborted) {
-    ctx.progress({ message: `${id} fixed and re-checked`, done: 2, total: 2 });
+    ctx.progress({ message: `${quoted(testName(project, id))} fixed and re-checked`, done: 2, total: 2 });
     return { ...base, ok: true, review, check: c.check };
   }
   const message = c.semantic
-    ? `Claude fixed ${id}, but the semantic re-check did not finish. Run check.run on it.`
-    : `Claude fixed ${id}; only the mechanical check ran. Run check.run on it.`;
+    ? `Claude fixed ${quoted(testName(project, id))}, but the semantic re-check did not finish. Run check.run on it.`
+    : `Claude fixed ${quoted(testName(project, id))}; only the mechanical check ran. Run check.run on it.`;
   ctx.log("warn", message);
   ctx.progress({ message, done: 2, total: 2 });
   return { ...base, ok: true, review, check: c.check, message };

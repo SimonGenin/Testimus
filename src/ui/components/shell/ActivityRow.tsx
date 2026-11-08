@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import { useJobEvents } from "../../lib/data/events.ts";
 import { kindLabel } from "../../lib/jobs.ts";
+import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { kindIcon } from "../../screens/jobs/kinds.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
@@ -117,7 +118,8 @@ export function ActivityRow({
   const [icon, tone] = kindOf(item.kind);
   const progress = live.progress ?? item.progress;
   const sized = !!progress && progress.total > 0;
-  const message = live.message ?? item.message;
+  const names = useTestNames();
+  const message = nameTests(live.message ?? item.message ?? "", names);
   const job = !!item.id;
   const detail =
     [message, sized ? `${progress.done}/${progress.total}` : ""].filter(Boolean).join(" · ") ||

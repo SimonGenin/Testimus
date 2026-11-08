@@ -23,6 +23,7 @@ import {
   writeLotContext,
 } from "../lib/media.ts";
 import { afterAnnex, lotSteps, prepareLot, readLot, testsCitingLot, writeAnnex } from "../lib/media-pipeline.ts";
+import { batchName, docName } from "../lib/names.ts";
 import { REVIEW } from "../schemas.ts";
 import type { DocJson, MediaLot } from "../types.ts";
 
@@ -248,6 +249,7 @@ export const commands = [
     job: "media",
     positional: ["doc"],
     subject: (i) => i.doc,
+    label: (i, project) => docName(project, i.doc),
     async run(ctx, input) {
       const project = projectOf(ctx);
       readDoc(project, input.doc);
@@ -268,6 +270,7 @@ export const commands = [
     job: "media",
     positional: ["doc", "lot"],
     subject: (i) => `${i.doc} · ${i.lot}`,
+    label: (i, project) => batchName(project, i.doc, i.lot),
     async run(ctx, input) {
       const project = projectOf(ctx);
       lotOf(project, input.doc, input.lot);
@@ -295,6 +298,7 @@ export const commands = [
     job: "media",
     positional: ["doc", "lot", "item"],
     subject: (i) => `${i.doc} · ${i.lot} · ${i.item}`,
+    label: (i, project) => `${batchName(project, i.doc, i.lot)} · ${i.item}`,
     async run(ctx, input) {
       const project = projectOf(ctx);
       dropItem(project, input.doc, input.lot, input.item);
@@ -319,6 +323,7 @@ export const commands = [
     job: "media",
     positional: ["doc", "lot"],
     subject: (i) => `${i.doc} · ${i.lot}`,
+    label: (i, project) => batchName(project, i.doc, i.lot),
     async run(ctx, input) {
       const project = projectOf(ctx);
       updateLot(project, input.doc, input.lot, (l) => {
@@ -346,6 +351,7 @@ export const commands = [
     job: "media",
     positional: ["doc", "lot"],
     subject: (i) => `${i.doc} · ${i.lot}`,
+    label: (i, project) => batchName(project, i.doc, i.lot),
     async run(ctx, input) {
       const project = projectOf(ctx);
       const l = lotOf(project, input.doc, input.lot);
@@ -386,6 +392,7 @@ export const commands = [
     job: "media",
     positional: ["doc", "lot"],
     subject: (i) => `${i.doc} · ${i.lot}`,
+    label: (i, project) => batchName(project, i.doc, i.lot),
     async run(ctx, input) {
       const project = projectOf(ctx);
       lotOf(project, input.doc, input.lot);
@@ -411,6 +418,7 @@ export const commands = [
     job: "media",
     positional: ["doc", "lot"],
     subject: (i) => `${i.doc} · ${i.lot}`,
+    label: (i, project) => batchName(project, i.doc, i.lot),
     async run(ctx, input) {
       const project = projectOf(ctx);
       const was = lotOf(project, input.doc, input.lot);

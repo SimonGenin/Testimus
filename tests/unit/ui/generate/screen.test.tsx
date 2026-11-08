@@ -163,7 +163,8 @@ describe("Generate screen", () => {
     expect(named("gen.tests")).toHaveLength(0);
     expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
     expect(screen.getByLabelText("What should be tested?")).toHaveValue("new words");
-    fireEvent.click(screen.getByRole("button", { name: "g9" }));
+    expect(screen.queryByText("g9")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open the job" }));
     expect(a.navigate).toHaveBeenCalledWith("jobs", "g9");
   });
 
@@ -498,6 +499,7 @@ describe("Generate screen", () => {
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-aaaaaaaa" });
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-bbbbbbbb" });
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-cccccccc" });
+    emit({ jobId: "j1", at, type: "changed", paths: ["tests/local-aaaaaaaa/test.md", "tests/local-bbbbbbbb/test.md"] });
     expect(await screen.findByRole("region", { name: /^First/ })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Claude is writing a test" })).toBeInTheDocument();
     expect(screen.getAllByText("Checking…").length).toBeGreaterThan(0);

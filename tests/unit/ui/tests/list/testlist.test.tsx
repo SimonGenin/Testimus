@@ -391,7 +391,7 @@ describe("TestList › delete", () => {
     expect(await screen.findByRole("alertdialog", { name: "Delete the local copy?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    fireEvent.click(rowAction(localRow(/^Untitled/), "Delete the local copy of t-z"));
+    fireEvent.click(rowAction(localRow(/^Untitled/), "Delete the local copy of Untitled test"));
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("t-z"));
     expect(screen.queryByRole("alertdialog")).toBeNull();

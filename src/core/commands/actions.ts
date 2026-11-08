@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { runAction, triageFailed, triageRun } from "../claude/actions.ts";
-import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, scopeLabel } from "../claude/schemas.ts";
+import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE } from "../claude/schemas.ts";
 import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -17,6 +17,7 @@ import {
   writeAction,
 } from "../lib/actions.ts";
 import { readDoc } from "../lib/docs.ts";
+import { docName, scopeName } from "../lib/names.ts";
 import { testDir } from "../lib/store.ts";
 import { ACTION_EFFORTS, ACTION_MODELS, type ClaudeScope } from "../types.ts";
 
@@ -196,6 +197,7 @@ export const commands = [
     job: "claude",
     positional: ["id"],
     subject: (i) => i.id,
+    label: (i, project) => (project ? readAction(project, i.id).title : ""),
     async run(ctx, input) {
       const project = projectOf(ctx);
       const a = readAction(project, input.id);
@@ -204,7 +206,7 @@ export const commands = [
           "This action is already running.",
           "Wait for its run to end, or cancel it (testimus jobs cancel).",
         );
-      ctx.progress({ message: `Claude action on ${scopeLabel(a.scope)}: ${a.title}` });
+      ctx.progress({ message: `Claude action on ${scopeName(project, a.scope)}: ${a.title}` });
       return await runAction(ctx, project, input.id, input);
     },
   }),
@@ -232,6 +234,7 @@ export const commands = [
     mutates: true,
     job: "actions.triage",
     subject: (i) => i.docId ?? i.jobId ?? "",
+    label: (i, project) => (i.docId ? docName(project, i.docId) : ""),
     cause: (i) => (i.jobId ? { jobId: i.jobId, why: "after-failure" } : undefined),
     async run(ctx, input) {
       return await triageRun(ctx, projectOf(ctx), input);

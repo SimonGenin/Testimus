@@ -4,6 +4,7 @@ import { decide, needTest, reviewQueue } from "../claude/review.ts";
 import { CHECK_FILE, DIAGNOSIS, REVIEW, TEST_REF } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { testEvidence } from "../lib/check.ts";
+import { testName } from "../lib/names.ts";
 
 const queueItem = z.object({
   id: z.string().describe("Test id"),
@@ -125,6 +126,7 @@ export const commands = [
     job: "fix",
     positional: ["id"],
     subject: (i) => i.id,
+    label: (i, project) => testName(project, i.id),
     async run(ctx, input) {
       const project = projectOf(ctx);
       needTest(project, input.id);

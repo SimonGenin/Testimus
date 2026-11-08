@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { plural } from "../../lib/format.ts";
+import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Disclosure } from "../ui/Disclosure.tsx";
@@ -40,6 +41,7 @@ export const worked = (ms: number) => {
 // ponytail: what Claude did in a turn, in two lines at most — while it works, the step under way and the skills it
 // opened; once it is done, one folded line (how long, how many steps). Every step is under the fold, with its time
 export function DockActivity({ turn: t }: { turn: Turn }) {
+  const names = useTestNames();
   if (!t.tools.length) return null;
   const skills = [...new Set(t.tools.flatMap((x) => (x.skill ? [x.skill] : [])))];
   const current = t.running ? t.tools.find((x) => !x.done) : undefined;
@@ -51,7 +53,7 @@ export function DockActivity({ turn: t }: { turn: Turn }) {
           <span {...stylex.props(styles.mark)}>
             <Spinner size="sm" />
           </span>
-          <span {...stylex.props(styles.label)}>{current.label}…</span>
+          <span {...stylex.props(styles.label)}>{nameTests(current.label, names)}…</span>
         </div>
       )}
       <Disclosure
@@ -71,7 +73,7 @@ export function DockActivity({ turn: t }: { turn: Turn }) {
         <ol aria-label="What Claude did" {...stylex.props(type.small, styles.steps)}>
           {t.tools.map((x, i) => (
             <li key={i} {...stylex.props(styles.step)}>
-              <span {...stylex.props(styles.label)}>{x.label}</span>
+              <span {...stylex.props(styles.label)}>{nameTests(x.label, names)}</span>
               {x.at && t.startedAt && (
                 <span {...stylex.props(type.tabular, styles.at)}>{elapsed((x.at - t.startedAt) / 1000)}</span>
               )}

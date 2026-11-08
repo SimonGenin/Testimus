@@ -3,6 +3,7 @@ import { checkTests, selectTests, semanticPlan } from "../claude/check.ts";
 import { CHECK_FILE, FINDING_KINDS, REVIEW, SEVERITY, TEST_REF } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { isStale, recordSemantic } from "../lib/check.ts";
+import { testsName } from "../lib/names.ts";
 import { readCheck, testExists } from "../lib/store.ts";
 
 const counts = z.object({
@@ -61,6 +62,7 @@ export const commands = [
     mutates: true,
     job: "check",
     subject: subjectOf,
+    label: (i, project) => (i.ids?.length && i.folder === undefined && !i.all ? testsName(project, i.ids) : ""),
     async run(ctx, input) {
       const project = projectOf(ctx);
       const ids = selectTests(project, input);

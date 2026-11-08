@@ -14,13 +14,13 @@ import {
   tracked,
   windowTitle,
 } from "../../lib/desktop.ts";
-import { kindLabel, resultLine } from "../../lib/jobs.ts";
+import { kindLabel, resultLine, subjectLabel } from "../../lib/jobs.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
 import { useRunningJobs } from "./Activity.tsx";
 
 export function jobNotice(job: Job): { title: string; body: string } {
   const title = `${kindLabel(job.kind)} ${job.status === "failed" ? "failed" : "finished"}`;
-  const body = [job.subject, resultLine(job)].filter(Boolean).join("\n");
+  const body = [subjectLabel(job, new Map()), resultLine(job)].filter(Boolean).join("\n");
   return { title: title.slice(0, 200), body: body.slice(0, 1000) };
 }
 

@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { key, useRead } from "../../lib/data/query.ts";
+import { contextLabel } from "../../lib/labels.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
@@ -108,7 +109,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
     setSel(undefined);
   };
 
-  const name = (c: ContextSummary) => (c.id === id && words.value ? words.value.name || c.id : c.name || c.id);
+  const name = (c: ContextSummary) => (c.id === id && words.value ? contextLabel(words.value) : contextLabel(c));
   const rows: ContextSummary[] = list ?? [];
 
   return (
@@ -121,9 +122,9 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
       onClose={onClose}
       footNote={
         detail && (
-          <span {...stylex.props(type.mono, styles.path)}>
+          <span {...stylex.props(styles.path)}>
             <Icon name="folder" size="sm" />
-            {detail.shared ? `shared library · ${detail.id}/` : `contexts/${detail.id}/`}
+            {detail.shared ? "In the shared library" : "In this project"}
             {detail.shared && <span {...stylex.props(type.small, styles.muted)}>· deleted for every project</span>}
           </span>
         )
@@ -151,7 +152,7 @@ export function ContextsDialog({ onClose, initialId }: { onClose: () => void; in
           ]}
           onClose={() => setDeleting(false)}
         >
-          {`« ${detail.name || detail.id} » — its notes, files and paths.`}
+          {`« ${contextLabel(detail)} » — its notes, files and paths.`}
         </Modal>
       )}
       <div {...stylex.props(styles.body)}>

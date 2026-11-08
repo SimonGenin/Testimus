@@ -17,7 +17,7 @@ describe("a run never destroys a user edit", () => {
     await invoke("check.run", { ids: ["LFRPS12-1398"] }, { project: dir });
     off();
     expect(readFileSync(f, "utf8")).toBe(mine);
-    expect(logs.join("\n")).toMatch(/changed while LFRPS12-1398 was being checked/);
+    expect(logs.join("\n")).toMatch(/changed while « Disjoncteur — ouverture à distance » was being checked/);
   });
 
   it("claude.revert refuses when the test changed after the run (naming it), force discards", async () => {

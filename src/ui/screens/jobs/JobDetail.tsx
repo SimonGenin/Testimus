@@ -4,18 +4,20 @@ import type { Job } from "../../../core/types.ts";
 import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
-import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { type Screen, useApp } from "../../lib/app.ts";
 import { type JobNode, kindLabel, percent, resultLine, subjectLabel } from "../../lib/jobs.ts";
+import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { JobCards } from "./JobCard.tsx";
+import { JobFiles } from "./JobFiles.tsx";
 import { FullLog } from "./JobFullLog.tsx";
 import { JobHead } from "./JobHead.tsx";
 import { JobProblem } from "./JobProblem.tsx";
 import { JobProcesses, JobSteps } from "./JobSteps.tsx";
+import { JobTechnical } from "./JobTechnical.tsx";
 import { useJobDetail } from "./useJobDetail.ts";
 
 const styles = stylex.create({
@@ -40,11 +42,6 @@ const styles = stylex.create({
   now: { margin: 0, color: color.textMuted },
   sect: { display: "flex", flexDirection: "column", gap: space.s3 },
   h3: { margin: 0 },
-  files: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: space.s2 },
-  file: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
-  fileIcon: { flex: "none", display: "inline-flex", color: color.textSubtle },
-  how: { flex: "none", color: color.textSubtle },
-  path: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: color.text },
   cli: {
     color: color.textMuted,
     paddingTop: space.s4,
@@ -113,15 +110,6 @@ function resultLink(job: Job): { label: string; screen: Screen; ids: string[] } 
   return k && list.length ? { label: list.length === 1 ? k.one : k.many, screen: k.screen, ids: list } : null;
 }
 
-// ponytail: a changed file that is a test's or a document's opens it
-function placeOfPath(path: string): { label: string; screen: Screen; id: string } | null {
-  const m = /^(tests|docs)\/([^/]+)\//.exec(path.replace(/\\/g, "/"));
-  if (!m) return null;
-  return m[1] === "tests"
-    ? { label: `Open ${m[2]} in Tests`, screen: "tests", id: m[2] }
-    : { label: `Open ${m[2]} in Documents`, screen: "documents", id: m[2] };
-}
-
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title} {...stylex.props(styles.sect)}>
@@ -154,18 +142,12 @@ export function JobDetail({
   onOpen(id: string): void;
 }) {
   const app = useApp();
+  const names = useTestNames();
   const { job, events, cancel, again } = useJobDetail(node.job, onOpen);
   const [showLog, setShowLog] = useState(false);
   const link = job.status === "done" ? resultLink(job) : null;
   const claude =
     events.some((e) => e.type === "claude") || (job.processes ?? []).some((p) => p.label.startsWith("Claude"));
-  const changed = [...new Set(events.flatMap((e) => (e.type === "changed" ? e.paths : [])))];
-  const how = new Map<string, "added" | "deleted">();
-  for (const e of events)
-    if (e.type === "changed") {
-      for (const p of e.added ?? []) how.set(p, "added");
-      for (const p of e.removed ?? []) how.set(p, "deleted");
-    }
   const { model, effort } = askedOf(job, app.info?.project.claude);
   const carried = new Set((job.steps ?? []).map((s) => s.jobId).filter(Boolean));
   const inside = node.children.filter((n) => !carried.has(n.job.id)).map((n) => n.job);
@@ -189,7 +171,7 @@ export function JobDetail({
       {running && !job.steps?.length && (
         <div {...stylex.props(styles.sect)}>
           <Progress label={`${label} progress`} value={pct} />
-          {job.message && <p {...stylex.props(type.compact, styles.now)}>{job.message}</p>}
+          {job.message && <p {...stylex.props(type.compact, styles.now)}>{nameTests(job.message, names)}</p>}
         </div>
       )}
 
@@ -249,39 +231,7 @@ export function JobDetail({
 
       {claude && <ClaudeActivity events={events} running={running} now={now} model={model} effort={effort} />}
 
-      {changed.length > 0 && (
-        <Section title={`Files changed · ${changed.length}`}>
-          <ul {...stylex.props(styles.files)}>
-            {changed.map((p) => (
-              <li key={p} {...stylex.props(styles.file)}>
-                <span {...stylex.props(styles.fileIcon)}>
-                  <Icon
-                    name={how.get(p) === "added" ? "plus" : how.get(p) === "deleted" ? "trash" : "file"}
-                    size="sm"
-                  />
-                </span>
-                <span title={p} {...stylex.props(type.code, styles.path)}>
-                  {p}
-                </span>
-                <span {...stylex.props(type.small, styles.how)}>{how.get(p) ?? "modified"}</span>
-                {how.get(p) !== "deleted" && placeOfPath(p) && (
-                  <Button
-                    size="xs"
-                    variant="quiet"
-                    iconOnly
-                    icon="arrow-right"
-                    label={placeOfPath(p)?.label ?? ""}
-                    onClick={() => {
-                      const at = placeOfPath(p);
-                      if (at) app.navigate(at.screen, at.id);
-                    }}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+      <JobFiles events={events} onGo={app.navigate} />
 
       {claude ? (
         <Disclosure quiet summary="Show the full log" open={showLog} onOpenChange={setShowLog}>
@@ -290,6 +240,8 @@ export function JobDetail({
       ) : (
         <FullLog job={job} events={events} />
       )}
+
+      <JobTechnical job={job} />
 
       {CLI[job.kind] && (
         <span {...stylex.props(type.small, styles.cli)}>

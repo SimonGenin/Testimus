@@ -718,6 +718,7 @@ export type Job = {
   id: string;
   kind: string;
   subject: string;
+  label?: string;
   status: JobStatus;
   startedAt: string;
   endedAt?: string;

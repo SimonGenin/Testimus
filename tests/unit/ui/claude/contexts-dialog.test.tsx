@@ -137,9 +137,9 @@ describe("ContextsDialog", () => {
     const news = screen.getAllByRole("button", { name: /New context/ });
     expect(news).toHaveLength(2);
     fireEvent.click(news[1]);
-    expect(await screen.findByText("contexts/new-1/")).toBeInTheDocument();
-    expect(option(/new-1/)).toHaveAttribute("aria-selected", "true");
-    expect(option(/new-1/)).toHaveTextContent("empty");
+    expect(await screen.findByText("In this project")).toBeInTheDocument();
+    expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true");
+    expect(option(/Untitled context/)).toHaveTextContent("empty");
     await waitFor(() => expect(changes()).toBe(1));
     const closes = screen.getAllByRole("button", { name: "Close" });
     expect(closes).toHaveLength(2);
@@ -150,13 +150,13 @@ describe("ContextsDialog", () => {
   it("opens the asked context, or the first one when it is not there", async () => {
     backend([glossary, empty]);
     const a = mount("bare");
-    await waitFor(() => expect(option(/bare/)).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true"));
     expect(screen.getByText("plan.pdf")).toBeInTheDocument();
     a.unmount();
     mount("missing");
     await waitFor(() => expect(option(/Glossaire/)).toHaveAttribute("aria-selected", "true"));
     expect(option(/Glossaire/)).toHaveTextContent("1 path · notes");
-    expect(option(/bare/)).toHaveTextContent("1 file");
+    expect(option(/Untitled context/)).toHaveTextContent("1 file");
   });
 
   it("saves the name and notes after a pause, on blur and before switching", async () => {
@@ -164,7 +164,7 @@ describe("ContextsDialog", () => {
     mount();
     await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
     fireEvent.change(nameBox(), { target: { value: "" } });
-    expect(option(/glossary/)).toBeInTheDocument();
+    expect(screen.getAllByRole("option", { name: /Untitled context/ })).toHaveLength(2);
     fireEvent.change(nameBox(), { target: { value: "Lexique" } });
     expect(option(/Lexique/)).toBeInTheDocument();
     await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(1));
@@ -175,12 +175,12 @@ describe("ContextsDialog", () => {
     await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(2));
     fireEvent.blur(nameBox());
     fireEvent.change(nameBox(), { target: { value: "Lexique 2" } });
-    fireEvent.click(option(/bare/));
-    await waitFor(() => expect(option(/bare/)).toHaveAttribute("aria-selected", "true"));
+    fireEvent.click(option(/Untitled context/));
+    await waitFor(() => expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true"));
     expect(callsOf("contexts.set")).toHaveLength(3);
     expect(store[0].name).toBe("Lexique 2");
     const shows = callsOf("contexts.show").length;
-    fireEvent.click(option(/bare/));
+    fireEvent.click(option(/Untitled context/));
     await act(async () => {});
     expect(callsOf("contexts.show")).toHaveLength(shows);
   });
@@ -294,7 +294,7 @@ describe("ContextsDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
     expect(callsOf("contexts.remove")).toHaveLength(0);
     await confirm();
-    await waitFor(() => expect(option(/bare/)).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true"));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(callsOf("contexts.set")).toHaveLength(0);
     fail.add("contexts.remove");

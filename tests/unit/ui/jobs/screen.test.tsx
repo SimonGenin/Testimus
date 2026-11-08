@@ -540,16 +540,22 @@ describe("Jobs › the design's icons (audit icons 86–92)", () => {
         },
       ],
     });
+    setProject("C:\\p");
+    net.routes["tests.list"] = () => [
+      { id: "local-1", summary: "Un" },
+      { id: "local-2", summary: "Deux" },
+    ];
     const { state } = jobsScreen({ route: { screen: "jobs", arg: "g1" } });
     const side = await waitFor(() => detail("Generate tests job"));
     const files = await within(side).findByRole("region", { name: "Files changed · 3" });
+    await within(files).findAllByText(/^Deux/);
     const rows = within(files).getAllByRole("listitem");
     expect(rows.map((li) => [iconsIn(li), li.textContent])).toEqual([
-      [["file", "arrow-right"], "tests/local-1/test.mdmodifiedOpen local-1 in Tests"],
-      [["plus", "arrow-right"], "tests/local-2/test.mdaddedOpen local-2 in Tests"],
-      [["trash"], "tests/local-3/test.mddeleted"],
+      [["file", "arrow-right"], "Un › test.mdmodifiedOpen « Un » in Tests"],
+      [["plus", "arrow-right"], "Deux › test.mdaddedOpen « Deux » in Tests"],
+      [["trash"], "Untitled test › test.mddeleted"],
     ]);
-    fireEvent.click(within(rows[1]).getByRole("button", { name: "Open local-2 in Tests" }));
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "Open « Deux » in Tests" }));
     expect(state.navigate).toHaveBeenCalledWith("tests", "local-2");
     const procs = within(side).getByRole("list", { name: "Processes of Read the sources" });
     expect(iconsIn(within(procs).getByRole("listitem"))).toEqual(["terminal"]);

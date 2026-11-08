@@ -1,6 +1,7 @@
 import { type Ctx, UserError } from "../command.ts";
 import { agentPool, loadLine } from "../lib/agents.ts";
 import { type Corpus, loadCorpus, recordSemantic, runMechanical, semanticOf } from "../lib/check.ts";
+import { quoted, testName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
 import { readTestReview } from "../lib/review.ts";
 import { listLocalTests, readCheck, testExists } from "../lib/store.ts";
@@ -112,7 +113,7 @@ async function semanticPass(
     project,
     runId,
     label: "check",
-    title: `check ${id}`,
+    title: `check ${quoted(testName(project, id))}`,
     prompt: checkPrompt(id, mechanical.map(findingLine), p.language, runId),
     model: p.claude.model,
     effort: p.claude.effort,
@@ -122,19 +123,21 @@ async function semanticPass(
     signal: ctx.signal,
     onEvent: (e) => ctx.claude(e),
   });
+  const named = (t: string) => quoted(testName(project, t));
+  const names = (ts: string[]) => ts.map(named).join(", ");
   const own = r.changedTests.filter((t) => r.written.includes(t));
   const other = r.changedTests.filter((t) => !own.includes(t));
   if (own.length)
     try {
       revert(project, r.runId, { ids: own });
-      ctx.log("warn", `${id}: the check run edited ${own.join(", ")}; the edit was put back.`);
+      ctx.log("warn", `${named(id)}: the check run edited ${names(own)}; the edit was put back.`);
     } catch {
-      ctx.log("warn", `${id}: the check run edited ${own.join(", ")}, then the file changed again — kept as it is.`);
+      ctx.log("warn", `${named(id)}: the check run edited ${names(own)}, then the file changed again — kept as it is.`);
     }
   if (other.length)
     ctx.log(
       "warn",
-      `${other.join(", ")} changed while ${id} was being checked (not by the check): kept; check it again.`,
+      `${names(other)} changed while ${named(id)} was being checked (not by the check): kept; check it again.`,
     );
   const recorded = calledFor(r.calls, "check_record", id);
   return {
@@ -198,7 +201,7 @@ export async function checkTests(ctx: Ctx, project: string, ids: string[], seman
         const n = (s: string) => r.check.findings.filter((f) => f.severity === s).length;
         done++;
         ctx.progress({
-          message: `${id}: ${n("error")} error(s), ${n("warning")} warning(s)${r.ok ? "" : " — semantic check failed"}`,
+          message: `${quoted(testName(project, id))}: ${n("error")} error(s), ${n("warning")} warning(s)${r.ok ? "" : " — semantic check failed"}`,
           done,
           total,
         });

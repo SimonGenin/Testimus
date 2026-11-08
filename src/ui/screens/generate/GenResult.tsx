@@ -199,11 +199,12 @@ export function RunHead({
           over={
             <>
               <Icon name="claude" size="sm" />
-              <span>Claude is writing</span>·
-              {onOpenJob ? (
-                <Button variant="link" label={job.id} onClick={onOpenJob} />
-              ) : (
-                <span {...stylex.props(type.code)}>{job.id}</span>
+              <span>Claude is writing</span>
+              {onOpenJob && (
+                <>
+                  ·
+                  <Button variant="link" label="Open the job" onClick={onOpenJob} />
+                </>
               )}
             </>
           }

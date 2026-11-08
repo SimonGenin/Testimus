@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import { project } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { contextLabel } from "../../lib/labels.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color, radius, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
@@ -96,7 +97,7 @@ export function CopyContext({
             size="sm"
             block
             value={chosen}
-            options={theirs.map((c) => ({ value: c.id, label: c.name || c.id }))}
+            options={theirs.map((c) => ({ value: c.id, label: contextLabel(c) }))}
             onChange={setPick}
           />
         ) : (

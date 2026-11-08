@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DocJson } from "../../../core/types.ts";
-import { ReviewBadge } from "../../components/ui/Badge.tsx";
+import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -9,6 +9,7 @@ import { ApiError } from "../../lib/data/client.ts";
 import { execute, type Prefix, useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
+import { testLabel } from "../../lib/labels.ts";
 import { toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 
@@ -110,8 +111,8 @@ export function RemoveDoc({ doc, onClose, onRemoved }: { doc: DocJson; onClose: 
             <ul aria-label="Tests that cite this document" {...stylex.props(styles.list)}>
               {cited.slice(0, SHOWN).map((t) => (
                 <li key={t.id} {...stylex.props(type.small, styles.test)}>
-                  <span {...stylex.props(type.code)}>{t.key ?? t.id}</span>
-                  <span {...stylex.props(styles.sum)}>{t.summary}</span>
+                  {t.key ? <span {...stylex.props(type.code)}>{t.key}</span> : <Badge label="Local" size="sm" />}
+                  <span {...stylex.props(styles.sum)}>{testLabel(t)}</span>
                   <ReviewBadge state={t.review} size="sm" />
                 </li>
               ))}

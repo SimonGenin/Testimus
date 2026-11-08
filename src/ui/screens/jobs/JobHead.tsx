@@ -22,7 +22,6 @@ const styles = stylex.create({
     color: color.textMuted,
   },
   mono: { color: color.text },
-  id: { color: color.textSubtle },
   link: { display: "inline-flex", alignItems: "center", gap: space.s1 },
 });
 
@@ -78,15 +77,6 @@ export function JobHead({
           {clock(job.startedAt)}
           {job.endedAt ? ` → ${clock(job.endedAt)}` : ""}
         </span>
-        <span {...stylex.props(type.code, styles.id)}>{job.id}</span>
-        <Button
-          variant="quiet"
-          size="xs"
-          icon="copy"
-          iconOnly
-          label="Copy the job id"
-          onClick={() => void navigator.clipboard?.writeText(job.id).catch(() => {})}
-        />
         {origin && job.cause && (
           <span {...stylex.props(styles.link)}>
             {WHY[job.cause.why]}

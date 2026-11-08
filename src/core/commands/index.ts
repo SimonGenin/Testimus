@@ -126,6 +126,16 @@ export function parseInput(c: Command, raw: unknown): unknown {
   return r.data;
 }
 
+// ponytail: a label is a courtesy to the person reading the jobs — one that cannot be read (a test or an action not
+// there) leaves the job without it, never fails it
+function labelOf(c: Command, input: unknown, project: string | null): string | undefined {
+  try {
+    return c.label?.(input as never, project) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function subjectOf(c: Command, input: unknown): string {
   if (c.subject) return c.subject(input as never);
   const s = JSON.stringify(input);
@@ -149,7 +159,7 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
       opts.project,
       (ctx) => c.run({ ...ctx, invoke: nested }, input as never),
       opts.signal,
-      { cause, rerun },
+      { cause, rerun, label: labelOf(c, input, opts.project) },
     );
     if (opts.wait === false) return { jobId: job.id };
     return await done;

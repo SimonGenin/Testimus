@@ -1,6 +1,7 @@
 import type { ClaudeEvent, Job, JobEvent, JobStep } from "../../core/types.ts";
 import { toolLabel } from "../components/claude/ClaudeDock.tsx";
 import { plural } from "./format.ts";
+import { isLocalId } from "./labels.ts";
 
 export const KIND: Record<string, string> = {
   generate: "Generate tests",
@@ -98,15 +99,20 @@ export function logLines(events: JobEvent[]): LogLine[] {
 export const percent = (job: Job) =>
   job.progress && job.progress.total > 0 ? Math.round((job.progress.done / job.progress.total) * 100) : null;
 
-export const isJobId = (s: string) => /^[a-z][\w.-]*-[0-9a-f]{8}$/.test(s);
+export const isJobId = (s: string) => !isLocalId(s) && /^[a-z][\w.-]*-[0-9a-f]{8}$/.test(s);
 
 const base = (p: string) => p.split(/[\\/]/).pop() || p;
 
-// ponytail: the core's subjects are what a command was given (a path, an id, "index"); a row shows what it means
+// ponytail: the core names what a job works on when it starts (label: the test's summary, the document's title); an
+// older job has only its subject, what the command was given (a path, an id, "index") — a row shows what it means,
+// and never a local test's id
 export function subjectLabel(job: Job, byId: Map<string, Job>): string {
+  if (job.label?.trim()) return job.label.trim();
   const s = job.subject.trim();
   if (!s || s === "{}") return "";
   if (s === "index") return "All documents";
+  const parts = s.split(/,\s*/);
+  if (parts.every(isLocalId)) return parts.length === 1 ? "A local test" : `${parts.length} local tests`;
   if (isJobId(s)) {
     const o = byId.get(s);
     return o ? `${kindLabel(o.kind)}${subjectLabel(o, byId) ? ` · ${subjectLabel(o, byId)}` : ""}` : "A past job";

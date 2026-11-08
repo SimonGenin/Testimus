@@ -5,6 +5,7 @@ import { Raw, type RawLine } from "../../components/ui/Raw.tsx";
 import { Switch } from "../../components/ui/Switch.tsx";
 import { type } from "../../components/ui/type.ts";
 import { clock, logByStep } from "../../lib/jobs.ts";
+import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -17,6 +18,7 @@ const styles = stylex.create({
 // it follows the end until it is scrolled up
 export function FullLog({ job, events }: { job: Job; events: JobEvent[] }) {
   const [only, setOnly] = useState(false);
+  const names = useTestNames();
   const lines: RawLine[] = logByStep(events, job.steps).flatMap((p) => {
     const kept = only ? p.lines.filter((l) => l.level !== "info") : p.lines;
     if (!kept.length) return [];
@@ -29,7 +31,7 @@ export function FullLog({ job, events }: { job: Job; events: JobEvent[] }) {
           },
         ]
       : [];
-    return [...head, ...kept.map((l) => ({ text: l.text, level: l.level, at: clock(l.at) }))];
+    return [...head, ...kept.map((l) => ({ text: nameTests(l.text, names), level: l.level, at: clock(l.at) }))];
   });
   return (
     <section aria-label="Log" {...stylex.props(styles.wrap)}>

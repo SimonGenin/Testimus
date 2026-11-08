@@ -30,7 +30,11 @@ const proc = z.object({
 const job = z.object({
   id: z.string().describe("Job id"),
   kind: z.string().describe("What kind of work: the command's job name (generate, rag-index, pull…)"),
-  subject: z.string().describe("What it works on, in words"),
+  subject: z.string().describe("What it works on, as the command was given it (a test id, a document id, a path)"),
+  label: z
+    .string()
+    .optional()
+    .describe("What it works on, as a person names it when it started: the test's summary, the document's title"),
   status: STATUS,
   startedAt: z.string().describe("When it started (ISO)"),
   endedAt: z.string().optional().describe("When it ended (ISO)"),

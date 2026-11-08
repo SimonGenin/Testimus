@@ -3,6 +3,7 @@ import { Button } from "../../../components/ui/Button.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
 import { List } from "../../../components/ui/List.tsx";
 import type { ListItemProps } from "../../../components/ui/ListItem.tsx";
+import { testLabel } from "../../../lib/labels.ts";
 import { TestMeta } from "./rows.tsx";
 import type { Node } from "./tree.ts";
 
@@ -72,8 +73,8 @@ export const testItem = (
   locked: ((id: string) => false | string) | undefined,
   onDelete: (r: LocalTestRef) => void,
 ): ListItemProps => ({
-  title: r.summary || "Untitled",
-  tooltip: r.summary || "Untitled",
+  title: testLabel(r),
+  tooltip: testLabel(r),
   meta: <TestMeta r={r} />,
   actions: (
     <Button
@@ -81,7 +82,7 @@ export const testItem = (
       size="xs"
       iconOnly
       icon="trash"
-      label={`Delete the local copy of ${r.key ?? (r.summary || r.id)}`}
+      label={`Delete the local copy of ${r.key ?? testLabel(r)}`}
       disabled={locked?.(r.id) ?? false}
       onClick={() => onDelete(r)}
     />

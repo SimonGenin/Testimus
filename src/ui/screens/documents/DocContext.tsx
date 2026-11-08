@@ -10,6 +10,7 @@ import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { type } from "../../components/ui/type.ts";
 import type { Save } from "../../lib/data/autosave.ts";
 import { execute, key, useRead } from "../../lib/data/query.ts";
+import { contextLabel } from "../../lib/labels.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color } from "../../styles/tokens.stylex.ts";
 
@@ -69,7 +70,7 @@ export function DocContext({ id, shown, disabled }: { id: string; shown: Shown; 
     ...names
       .filter((c) => !ids.includes(c.id))
       .map((c) => ({
-        label: c.name || c.id,
+        label: contextLabel(c),
         icon: "context" as const,
         hint: c.shared ? "shared" : undefined,
         onSelect: () => void setContexts([...ids, c.id]),

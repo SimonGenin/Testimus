@@ -18,6 +18,7 @@ import { runOnScope } from "../claude/scoped.ts";
 import { leftAsIs, readRun, revert, standingRun } from "../claude/snapshot.ts";
 import { CONNECT, checkSignedIn, claudeExe, claudeVersion } from "../claude/status.ts";
 import { command, projectOf } from "../command.ts";
+import { scopeName, testName } from "../lib/names.ts";
 import { readXray } from "../lib/project.ts";
 import { parseTest } from "../lib/testfile.ts";
 import { TEST, TEST_ID } from "../schemas.ts";
@@ -60,9 +61,11 @@ export const commands = [
     mutates: true,
     job: "claude",
     subject: (i) => scopeLabel(i.scope),
+    label: (i, project) => scopeName(project, i.scope),
     async run(ctx, input) {
-      ctx.progress({ message: `Claude on ${scopeLabel(input.scope)}` });
-      return await runOnScope(ctx, projectOf(ctx), input);
+      const project = projectOf(ctx);
+      ctx.progress({ message: `Claude on ${scopeName(project, input.scope)}` });
+      return await runOnScope(ctx, project, input);
     },
   }),
   command({
@@ -152,6 +155,7 @@ export const commands = [
     job: "comment-draft",
     positional: ["key"],
     subject: (i) => i.key,
+    label: (i, project) => testName(project, i.key),
     async run(ctx, input) {
       return draftComment({
         project: projectOf(ctx),

@@ -123,7 +123,9 @@ describe("check commands", () => {
     expect(readTest(project, "local-3f9a12c0").test.review).toBe("draft");
     expect(readTest(project, "LFRPS12-1420").test.review).toBe("draft");
     expect(progress.at(-1)).toMatchObject({ done: 2, total: 2 });
-    expect(progress.map((p) => p.message).join("\n")).toContain("LFRPS12-1420: 1 error(s), 1 warning(s)");
+    expect(progress.map((p) => p.message).join("\n")).toContain(
+      "« Sectionneur sans TK — menu contextuel et propriétés »: 1 error(s), 1 warning(s)",
+    );
   });
 
   it("the previous semantic findings are dropped by a new run; every test keeps its review state", async () => {

@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import type { ClaudeAction, ClaudeScope, Effort } from "../../../core/types.ts";
 import { originLine, scopeWords } from "../../lib/actions.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button } from "../ui/Button.tsx";
@@ -127,6 +128,7 @@ export function ActionCard({
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const names = useTestNames();
   return (
     <div {...stylex.props(styles.card)}>
       <Card
@@ -158,7 +160,7 @@ export function ActionCard({
         }
       >
         <span>
-          <Badge tone="claude" size="sm" label={scopeWords(action.scope)} />
+          <Badge tone="claude" size="sm" label={scopeWords(action.scope, names)} />
         </span>
         {ready ? (
           <>

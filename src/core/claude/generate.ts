@@ -4,6 +4,7 @@ import { env } from "../env.ts";
 import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
 import { fieldOrder } from "../lib/columns.ts";
+import { quoted, testName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
 import {
   holdNewTests,
@@ -305,7 +306,8 @@ async function generate(project: string, asked: GenInput, ctx: Ctx): Promise<Gen
   }
   markLeft(project, runId, tests);
   for (const id of tests) markGenerated(project, id);
-  for (const id of changed) ctx.log("warn", `The generation changed the existing test ${id} — revert with ${runId}.`);
+  for (const id of changed)
+    ctx.log("warn", `The generation changed the existing test ${quoted(testName(project, id))} — Revert puts it back.`);
   const reports = planned.length || !first ? planned.map((r) => r.report) : [first.report];
   const reportFound = reports.every((r) => r.found);
   const failed = runs.find((r) => !r.run.ok)?.run;

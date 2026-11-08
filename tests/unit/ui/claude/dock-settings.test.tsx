@@ -573,7 +573,8 @@ describe("contexts dialog", () => {
     );
     expect(callsOf("contexts.share")[0].input).toEqual({ id: "ctx-a", shared: true });
     expect(screen.getByRole("option", { name: /shared · empty/ })).toBeVisible();
-    expect(screen.getByText(/shared library · ctx-a\//)).toBeVisible();
+    expect(screen.getByText(/In the shared library/)).toBeVisible();
+    expect(screen.queryByText(/ctx-a/)).toBeNull();
     expect(screen.getByText("· deleted for every project")).toBeVisible();
   });
 

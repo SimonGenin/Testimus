@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Effort } from "../../../core/types.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
+import { contextLabel } from "../../lib/labels.ts";
 import { space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { ClaudeBlock } from "../ui/ClaudeBlock.tsx";
@@ -104,7 +105,7 @@ export function DockComposer({
               { group: "Saved contexts — this run" },
               ...(all.length
                 ? all.map((c) => ({
-                    label: c.name || c.id,
+                    label: contextLabel(c),
                     icon: "context" as const,
                     hint: c.shared ? "shared" : "this project",
                     checked: included(contexts, c.id),
