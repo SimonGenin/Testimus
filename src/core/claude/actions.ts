@@ -195,7 +195,9 @@ export async function runAction(
   const s = a.suggest ?? suggestFor(a);
   const model = o.model || s.model;
   const effort = o.effort || s.effort;
-  const ids = o.contexts ?? effectiveContexts(project, "testId" in a.scope ? a.scope.testId : undefined);
+  const ids =
+    o.contexts ??
+    effectiveContexts(project, a.scope.kind === "step" || a.scope.kind === "test" ? a.scope.testId : undefined);
   const runId = newRunId();
   writeAction(project, { ...a, state: "running" });
   let left: ClaudeAction = { ...a, state: "open" };

@@ -44,6 +44,7 @@ export const PREFS = {
   jiraLayout: oneOf(["columns", "rows"], "columns"),
   localLayout: oneOf(["tree", "columns", "rows"], "tree"),
   showDetails: flag(true),
+  runFoldOk: flag(false),
   jobsGroup: flag(true),
   alwaysOnTop: flag(false),
   project: text(""),

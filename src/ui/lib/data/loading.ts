@@ -28,6 +28,7 @@ const WORDS = {
   "rag.spaces": "the vector spaces",
   "review.evidence": "the sources read",
   "review.queue": "the review queue",
+  "runs.history": "the other runs of this test",
   "runs.list": "the test runs",
   "runs.show": "the test run",
   "search.all": "the results",

@@ -83,7 +83,9 @@ function scopeIds(project: string, scope: ClaudeScope): string[] {
         ? [...new Set(scope.testIds)]
         : scope.kind === "doc"
           ? testsCiting(project, docOf(project, scope.docId)).map((t) => t.id)
-          : [scope.testId];
+          : scope.kind === "run"
+            ? []
+            : [scope.testId];
   for (const id of ids) testDir(project, id);
   return ids;
 }

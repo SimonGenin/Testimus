@@ -10,25 +10,29 @@ export function useDockScope(focus: Focus | null, docId: string | null) {
   const [sub, setSub] = useState<Sub>("project");
   const testId = focus?.testId;
 
+  const runOnly = !!focus?.run && !testId;
   useEffect(() => {
-    setTab((t) => (t === "actions" ? t : testId ? "test" : docId ? "docs" : "test"));
-    setSub(testId ? "test" : docId ? "doc" : "project");
-  }, [testId, docId]);
+    setTab((t) => (t === "actions" ? t : testId || runOnly ? "test" : docId ? "docs" : "test"));
+    setSub(testId ? "test" : runOnly ? "run" : docId ? "doc" : "project");
+  }, [testId, docId, runOnly]);
 
   useEffect(() => {
-    if (focus?.step == null && sub === "step") setSub("test");
-    if (!focus && (sub === "step" || sub === "test")) setSub("project");
+    if (focus?.step == null && sub === "step") setSub(runOnly ? "run" : "test");
+    if (runOnly && sub === "test") setSub("run");
+    if (!focus && (sub === "step" || sub === "test" || sub === "run")) setSub("project");
+    if (focus && !focus.run && sub === "run") setSub("test");
     if (!docId && sub === "doc") setSub("all");
-  }, [focus, docId, sub]);
+  }, [focus, docId, sub, runOnly]);
 
   const pickTab = (t: Tab) => {
     setTab(t);
     if (t === "docs") setSub(docId ? "doc" : "all");
-    if (t === "test") setSub(focus ? (focus.step != null && sub === "step" ? "step" : "test") : "project");
+    if (t === "test")
+      setSub(runOnly ? "run" : focus ? (focus.step != null && sub === "step" ? "step" : "test") : "project");
   };
 
   // a request from the app (the palette's question, the test header's Ask Claude) sets the scope it is about
-  const ask = (mode: "docs" | "test", scope?: "test" | "step" | "project") => {
+  const ask = (mode: "docs" | "test", scope?: "test" | "step" | "run" | "project") => {
     if (mode === "docs") {
       setTab(docId ? "docs" : "test");
       setSub(docId ? "doc" : "project");
@@ -38,22 +42,34 @@ export function useDockScope(focus: Focus | null, docId: string | null) {
     }
   };
 
+  const run = focus?.run;
   const scope: ClaudeScope =
-    sub === "step" && focus && focus.step != null
-      ? { kind: "step", testId: focus.testId, step: focus.step }
-      : sub === "test" && focus
-        ? { kind: "test", testId: focus.testId }
-        : { kind: "project" };
+    run && focus && (sub === "step" || sub === "test" || sub === "run")
+      ? {
+          kind: "run",
+          run,
+          ...(sub !== "run" && focus.testId ? { testId: focus.testId } : {}),
+          ...(sub === "step" && focus.step != null ? { step: focus.step } : {}),
+        }
+      : sub === "step" && focus && focus.step != null
+        ? { kind: "step", testId: focus.testId, step: focus.step }
+        : sub === "test" && focus
+          ? { kind: "test", testId: focus.testId }
+          : { kind: "project" };
   const word =
     sub === "step" && focus?.step != null
       ? `Step ${focus.step}`
       : sub === "test" && focus
-        ? (focus.key ?? "This test")
-        : sub === "doc" && docId
-          ? docId
-          : sub === "all"
-            ? "All documents"
-            : "Whole project";
+        ? run
+          ? "This test"
+          : (focus.key ?? "This test")
+        : sub === "run" && run
+          ? "This run"
+          : sub === "doc" && docId
+            ? docId
+            : sub === "all"
+              ? "All documents"
+              : "Whole project";
   const placeholder =
     sub === "doc"
       ? `Ask anything about ${docId}…`
@@ -61,7 +77,9 @@ export function useDockScope(focus: Focus | null, docId: string | null) {
         ? "Ask the documents — answers cite their passages"
         : sub === "project"
           ? "Ask about the project, or tell Claude what to do with its tests…"
-          : "Ask Claude to change or explain this test…";
+          : run
+            ? "Ask about this test, its notes and screenshots, or the run…"
+            : "Ask Claude to change or explain this test…";
   const label =
     sub === "doc"
       ? `Ask about ${docId}`
@@ -69,7 +87,9 @@ export function useDockScope(focus: Focus | null, docId: string | null) {
         ? "Ask the documents"
         : sub === "project"
           ? "Ask Claude about the project"
-          : "Ask Claude about this test";
+          : run
+            ? "Ask Claude about the run"
+            : "Ask Claude about this test";
 
   return { tab, sub, setSub, pickTab, ask, scope, word, placeholder, label };
 }

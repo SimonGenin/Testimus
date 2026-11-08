@@ -28,7 +28,7 @@ export type { DockJob } from "./useDockRuns.ts";
 
 export type DockRequest = {
   mode: "docs" | "test";
-  scope?: "test" | "step" | "project";
+  scope?: "test" | "step" | "run" | "project";
   prompt?: string;
   /** the prompt is asked at once (the palette's « Ask Claude »), not only put in the box */
   send?: boolean;
@@ -120,11 +120,8 @@ export function ClaudeDock({
 
   const ctx = useRunContexts({ tab, sub, focus, docId, projectDir, defaults: cfg?.contexts });
 
-  const view: ActionTarget | undefined = focus
-    ? { kind: "test", id: focus.testId }
-    : docId
-      ? { kind: "document", id: docId }
-      : undefined;
+  const view: ActionTarget | undefined =
+    focus && !focus.run ? { kind: "test", id: focus.testId } : docId ? { kind: "document", id: docId } : undefined;
   const actionsRead = useRead("actions.list", view ? { view } : {}, { enabled: !!projectDir });
   const inRun = new Set(runs.turns.filter((t) => t.action && t.running).map((t) => t.action?.id));
   const actions = ((actionsRead.data as unknown as Action[] | undefined) ?? []).filter(
@@ -289,7 +286,7 @@ export function ClaudeDock({
             mode={docsMode ? "docs" : "test"}
             label={where.label}
             placeholder={offline ? "Claude is optional — everything else works without it" : where.placeholder}
-            scope={sub === "test" && focus ? "Whole test" : where.word}
+            scope={sub === "test" && focus && !focus.run ? "Whole test" : where.word}
             quickAsks={cfg?.presets ?? []}
             contexts={ctx}
             all={ctx.saved ?? []}

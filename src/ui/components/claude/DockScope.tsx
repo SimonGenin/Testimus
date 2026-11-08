@@ -7,7 +7,7 @@ import { Tabs } from "../ui/Tabs.tsx";
 import { type } from "../ui/type.ts";
 
 export type Tab = "docs" | "test" | "actions";
-export type Sub = "doc" | "all" | "step" | "test" | "project";
+export type Sub = "doc" | "all" | "step" | "test" | "run" | "project";
 
 const styles = stylex.create({
   scope: { display: "flex", flexDirection: "column", gap: space.s3, paddingInline: space.s5, paddingTop: space.s4 },
@@ -50,7 +50,7 @@ export function DockScope({
           { value: "docs", label: "Documents", icon: "documents", disabled: tab !== "docs" && busy },
           {
             value: "test",
-            label: focus ? "This test" : "On the project",
+            label: focus?.run ? "This run" : focus ? "This test" : "On the project",
             icon: focus ? "tests" : "folder",
             disabled: tab !== "test" && busy,
           },
@@ -87,16 +87,23 @@ export function DockScope({
               value={sub}
               onChange={(s) => !running && onSub(s)}
               options={[
-                {
-                  value: "step",
-                  label: focus.step != null ? `Step ${focus.step}` : "Step",
-                  disabled: running || focus.step == null,
-                },
-                { value: "test", label: "Whole test", disabled: running },
+                ...(focus.run && !focus.testId
+                  ? []
+                  : [
+                      {
+                        value: "step" as const,
+                        label: focus.step != null ? `Step ${focus.step}` : "Step",
+                        disabled: running || focus.step == null,
+                      },
+                      { value: "test" as const, label: "Whole test", disabled: running },
+                    ]),
+                ...(focus.run ? [{ value: "run" as const, label: "Whole run", disabled: running }] : []),
                 { value: "project", label: "Whole project", disabled: running },
               ]}
             />
-            <span {...stylex.props(type.small, type.mono, styles.key)}>{focus.key ?? "local test"}</span>
+            <span {...stylex.props(type.small, type.mono, styles.key)}>
+              {focus.run ? "read only · the run" : (focus.key ?? "local test")}
+            </span>
           </div>
         ) : (
           <span {...stylex.props(type.small, styles.line)}>

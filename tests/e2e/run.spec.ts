@@ -16,14 +16,16 @@ test("the Run screen lists the runs, and a test is run step by step, saved, then
   await expect(run.getByRole("progressbar", { name: "Run progress" })).toHaveAttribute("aria-valuenow", "67");
   await shoot(page, "run/run-list");
 
-  await run.getByRole("button", { name: "Continue — next test not run" }).click();
+  await expect(page.getByRole("complementary", { name: "What the run found" })).toContainText("Step 2 · NOK");
+  await run.getByRole("button", { name: "Continue · test 3" }).click();
   await expect(page).toHaveURL(new RegExp(`#/run/${RUN}/LFRPS12-1398$`));
   const test1398 = page.getByRole("region", { name: /^Test Disjoncteur/ });
   await test1398.getByRole("group", { name: "Step 1" }).getByRole("button", { name: "NOK" }).click();
   await test1398.getByRole("textbox", { name: "What happened" }).fill("Le disjoncteur reste fermé.");
   const verdict = page.getByRole("radiogroup", { name: "Result of the test" });
-  await expect(verdict.getByRole("radio", { name: /Problem/ })).toHaveAttribute("aria-checked", "true");
-  const side = page.getByRole("complementary", { name: "Comments and questions" });
+  await expect(verdict.getByRole("radio", { name: /Problem/ })).toBeChecked();
+  await expect(page.getByRole("navigation", { name: "Tests of the run" }).getByRole("option")).toHaveCount(3);
+  const side = page.getByRole("region", { name: "Comments and questions" });
   await side.getByRole("textbox", { name: "Add a comment or a question" }).fill("Poste 3, image du 6/11.");
   await side.getByRole("button", { name: "Add" }).click();
   await expect(side.locator("p", { hasText: "Poste 3, image du 6/11." })).toBeVisible();
@@ -33,7 +35,7 @@ test("the Run screen lists the runs, and a test is run step by step, saved, then
   await expect(run).toBeVisible();
   const row = run.getByRole("row", { name: /Disjoncteur/ });
   await expect(row).toContainText("Problem");
-  await expect(row).toContainText("0 OK · 1 NOK");
+  await expect(row).toContainText("1 NOK");
   await expect(row).toContainText("1 comment");
   await expect(run.getByRole("button", { name: "Every test has a result" })).toBeDisabled();
   await expect(runs.getByRole("group", { name: "Finished" })).toContainText("Recette J5 — Sectionneurs");
@@ -61,9 +63,9 @@ test("the keyboard marks the steps: J / K move, O and N mark, Ctrl+Enter saves",
     "true",
   );
   const verdict = page.getByRole("radiogroup", { name: "Result of the test" });
-  await expect(verdict.getByRole("radio", { name: /Passed/ })).toHaveAttribute("aria-checked", "true");
+  await expect(verdict.getByRole("radio", { name: /Passed/ })).toBeChecked();
   await verdict.getByRole("radio", { name: /Problem/ }).click();
-  await expect(verdict.getByRole("radio", { name: /Problem/ })).toHaveAttribute("aria-checked", "true");
+  await expect(verdict.getByRole("radio", { name: /Problem/ })).toBeChecked();
   await page.keyboard.press("Control+Enter");
   await expect(page).not.toHaveURL(/LFRPS12-1420$/);
   await boot(page, `#/run/${RUN}`);
@@ -83,6 +85,34 @@ test("New run… freezes the tests of a folder into a run of its own", async ({ 
   await dialog.getByRole("button", { name: "Make the run (3 tests)" }).click();
   await expect(page).toHaveURL(/#\/run\/essai-sur-site-bobigny$/);
   const run = page.getByRole("region", { name: "Run Essai sur site — Bobigny" });
-  await expect(run.getByRole("table", { name: "Tests of the run" }).getByRole("row")).toHaveCount(4);
-  await expect(run).toContainText("Version under test 2.4.0");
+  await expect(
+    run.getByRole("table", { name: "Tests of the run — Traction / Sectionneurs" }).getByRole("row"),
+  ).toHaveCount(3);
+  await expect(
+    run.getByRole("table", { name: "Tests of the run — Traction / Disjoncteurs" }).getByRole("row"),
+  ).toHaveCount(2);
+  await expect(run).toContainText("Version 2.4.0");
+});
+
+test("Claude reads the test being run: the bar's Ask Claude opens the dock on the run, its answer changes nothing", async ({
+  page,
+}) => {
+  await boot(page, `#/run/${RUN}/local-3f9a12c0`);
+  const t = page.getByRole("region", { name: /^Test Sectionneur avec TK/ });
+  await t.getByRole("toolbar", { name: "Test" }).getByRole("button", { name: "Ask Claude" }).click();
+  const dock = page.getByRole("complementary", { name: "Claude", exact: true });
+  await expect(dock.getByRole("tab", { name: "This run" })).toHaveAttribute("aria-selected", "true");
+  await expect(dock.getByRole("radio", { name: "Whole test" })).toHaveAttribute("aria-checked", "true");
+  await t.getByRole("article", { name: "Step 2" }).getByText("Clic droit sur le sectionneur avec TK.").click();
+  await dock.getByRole("radio", { name: "Step 2" }).click();
+  await dock.getByRole("textbox", { name: "Ask Claude about the run" }).fill("Rédige la note du step 2.");
+  await dock.getByRole("button", { name: "Send" }).click();
+  await expect(dock.getByText(/Note proposée/)).toBeVisible({ timeout: 20_000 });
+  await expect(dock.getByRole("button", { name: "Revert", exact: true })).toHaveCount(0);
+  await dock.getByRole("button", { name: "Use as the note of step 2" }).click();
+  await expect(t.getByRole("textbox", { name: "What happened" })).toHaveValue(
+    "La fenêtre s'ouvre mais la TK n'est pas indiquée dans le menu contextuel.",
+  );
+  await expect(t.getByRole("article", { name: "Step 2" })).toHaveAttribute("data-played", "nok");
+  await shoot(page, "run/run-claude");
 });

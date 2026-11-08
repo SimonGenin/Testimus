@@ -66,6 +66,20 @@ describe("the prompts the Claude runs send", () => {
     await expect(sent()).toMatchFileSnapshot(file("claude-run"));
   });
 
+  it("claude.run on a test run reads it with the read-only tools and snapshots no test", async () => {
+    setup();
+    const out = await call<any>(
+      "claude.run",
+      { scope: { kind: "run", run: "recette-j5-sectionneurs", testId: TEST, step: 2 }, prompt: "Rédige la note." },
+      dir,
+    );
+    expect(out.changedTests).toEqual([]);
+    const tools = seen[0].args[seen[0].args.indexOf("--allowedTools") + 1].split(",");
+    expect(tools).not.toContain("Edit");
+    expect(tools).not.toContain("Write");
+    await expect(sent()).toMatchFileSnapshot(file("claude-run-on-a-run"));
+  });
+
   it("a generation, planned then written one test per run", async () => {
     setup();
     await call(

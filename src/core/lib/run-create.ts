@@ -77,6 +77,7 @@ export function freezeTest(project: string, id: string, order: readonly string[]
   return {
     id,
     ...(test.key ? { key: test.key } : {}),
+    ...(test.folder ? { folder: test.folder } : {}),
     summary: test.summary,
     ...(test.description.trim() ? { description: test.description.trim() } : {}),
     preconditions: [...test.preconditions],

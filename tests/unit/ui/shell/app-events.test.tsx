@@ -70,6 +70,7 @@ describe("App, when a job changed project files", () => {
     expect(keysOfPaths(["test-runs/recette-j5/results/LFRPS12-1.json"])).toEqual([
       ["runs.list"],
       ["runs.show", { run: "recette-j5" }],
+      ["runs.history"],
     ]);
     expect(keysOfPaths(["tests/LFRPS12-1/test.md"]).map((k) => k[0])).not.toContain("runs.show");
   });

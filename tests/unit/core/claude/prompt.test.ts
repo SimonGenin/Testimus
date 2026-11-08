@@ -73,6 +73,20 @@ describe("buildPrompt", () => {
     expect(scopeLines({ kind: "project" })[0]).toBe("Scope: the whole project — every test and every document.");
   });
 
+  it("reads a test run and changes nothing: the files of the run, its test and step, the answer written out", () => {
+    const p = buildPrompt({ kind: "run", run: "recette-j5", testId: "A", step: 2 }, "Rédige la note.", [], dir);
+    expect(p.split("\n")[0]).toBe("Scope: step 2 of the test A of the test run recette-j5 — read only.");
+    expect(p).toContain("test-runs/recette-j5/run.json");
+    expect(p).toContain("test-runs/recette-j5/results/A.json");
+    expect(p).toContain("Change no file: Claude reads a test run, never marks a step or a result.");
+    expect(p).toContain("the text to paste alone in one fenced block");
+    expect(p).not.toContain("Only modify what the scope allows.");
+    expect(p).not.toContain("test.md format");
+    expect(p).toContain("\nRédige la note.\n");
+    expect(p.trimEnd().endsWith("When finished, give the answer.")).toBe(true);
+    expect(scopeLines({ kind: "run", run: "recette-j5" })[0]).toBe("Scope: the test run recette-j5 — read only.");
+  });
+
   it("states the scope, the step-only rule, the contexts and the 2-4 line reply, word for word", () => {
     const format =
       "Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: " +

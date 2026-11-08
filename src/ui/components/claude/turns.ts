@@ -68,7 +68,15 @@ export type Turn = {
   showRaw?: boolean;
   again?: Again;
   action?: ClaudeAction;
+  /** an answer about one step of a test run: its pasted block may become the step's note */
+  pasteTo?: { run: string; testId: string; step: number };
 };
+
+// ponytail: the text Claude put alone to be pasted — the last fenced block of its answer (the run prompt asks for one)
+export function pasteOf(text: string): string {
+  const blocks = [...text.matchAll(/```[^\n]*\n([\s\S]*?)```/g)];
+  return blocks.length ? blocks[blocks.length - 1][1].trim() : "";
+}
 
 export type RunResult = ClaudeResult & {
   runId?: string;
@@ -92,6 +100,14 @@ export type ChatResult = {
 
 // ponytail: a run with no test (the whole project) still marks Claude as running, so every editor locks
 export const PROJECT_RUN = "*project*";
+
+// ponytail: what a run locks — the test it edits, every test (the project), or nothing: on a test run Claude only
+// reads, so its lock names the run and matches no test
+export function lockOf(scope: ClaudeScope | undefined): string | undefined {
+  if (scope?.kind === "step" || scope?.kind === "test") return scope.testId;
+  if (scope?.kind === "run") return `run:${scope.run}`;
+  return undefined;
+}
 
 // ponytail: the one reading of the lock — Claude works on this test when its run names it or the whole project
 export const claudeOn = (claudeRunning: string | null, testId: string | null | undefined): boolean =>

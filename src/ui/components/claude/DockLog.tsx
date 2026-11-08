@@ -2,9 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useApp } from "../../lib/app.ts";
-import { read, useRead } from "../../lib/data/query.ts";
+import { execute, read, useRead } from "../../lib/data/query.ts";
 import { plural, relTime } from "../../lib/format.ts";
-import { errorToast } from "../../lib/toast.ts";
+import { errorToast, toast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
@@ -44,10 +44,12 @@ const PROJECT = {
   text: "Ask anything about the project, or tell Claude what to do with its tests. Every change can be reverted.",
 };
 
-const intro = (sub: Sub, docId: string | null) =>
-  sub === "doc" || sub === "all"
-    ? `Ask the documents a question. Claude answers from ${sub === "doc" && docId ? docId : "the project's documents"} and cites the passages it used; a click on a source opens it.`
-    : `Claude edits this ${sub === "step" ? "step" : "test"} in place. The editor reads the file back after the run, and Revert undoes the whole run.`;
+const intro = (sub: Sub, docId: string | null, run?: string) =>
+  run && sub !== "project" && sub !== "doc" && sub !== "all"
+    ? "Claude reads this run — its steps, notes and screenshots — and answers; it never marks a step or a result. Asked for the note of a step, its answer offers « Use as the note »."
+    : sub === "doc" || sub === "all"
+      ? `Ask the documents a question. Claude answers from ${sub === "doc" && docId ? docId : "the project's documents"} and cites the passages it used; a click on a source opens it.`
+      : `Claude edits this ${sub === "step" ? "step" : "test"} in place. The editor reads the file back after the run, and Revert undoes the whole run.`;
 
 const EARLIER = 5;
 
@@ -104,6 +106,18 @@ export function DockLog({
     onToggleRaw: runs.toggleRaw,
     onRetry: (a) => void runs.execute(a),
     onSettings: () => app.navigate("settings", "claude"),
+    onUseNote: (t, note) => {
+      const to = t.pasteTo;
+      if (!to) return;
+      execute(
+        client,
+        "runs.setResult",
+        { run: to.run, test: to.testId, steps: [{ step: to.step, ok: false, note }] },
+        { invalidates: [["runs.show"], ["runs.list"], ["runs.history"]] },
+      )
+        .then(() => toast({ tone: "success", title: `Note of step ${to.step} written`, detail: "The step is NOK." }))
+        .catch((e) => errorToast(e, "The note was not written"));
+    },
   };
   const asked = visible.filter((t) => t.role === "user").length;
   const docs = tab === "docs";
@@ -149,7 +163,7 @@ export function DockLog({
               {sub === "project" ? (
                 <EmptyState icon="claude" title={PROJECT.title} text={PROJECT.text} />
               ) : (
-                <p {...stylex.props(type.compact, styles.hint)}>{intro(sub, docId)}</p>
+                <p {...stylex.props(type.compact, styles.hint)}>{intro(sub, docId, app.focus?.run)}</p>
               )}
             </div>
           )}

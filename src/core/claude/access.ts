@@ -107,7 +107,7 @@ export function readOnlyCommands(): string[] {
 // project is open, a test run's results (a tester's findings: Claude reads runs, never marks one) and the overview of the
 // documents (written by its own run only)
 const NOT_IN_ACTION =
-  /^runs\.(?!list$|show$)|^(claude\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|chat\.ask|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
+  /^runs\.(?!list$|show$|history$)|^(claude\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|chat\.ask|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
 
 export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
   const ro = readOnlyCommands();

@@ -685,6 +685,7 @@ export type ClaudeScope =
   | { kind: "test"; testId: string }
   | { kind: "tests"; testIds: string[] }
   | { kind: "doc"; docId: string }
+  | { kind: "run"; run: string; testId?: string; step?: number }
   | { kind: "project" };
 export type ActionState = "open" | "running" | "done" | "dismissed";
 // ponytail: what an action works on, the way a person groups them — a step's action is its test's, a generation's

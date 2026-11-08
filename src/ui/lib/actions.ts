@@ -33,6 +33,7 @@ export function scopeInTarget(s: ClaudeScope): string {
   if (s.kind === "test") return "Whole test";
   if (s.kind === "doc") return "Whole document";
   if (s.kind === "tests") return `${s.testIds.length} tests`;
+  if (s.kind === "run") return s.step ? `Step ${s.step}` : s.testId ? "Whole test" : "Whole run";
   return "Whole project";
 }
 
@@ -76,5 +77,7 @@ export function scopeWords(s: ClaudeScope, nameOf: TestNames = () => undefined):
   if (s.kind === "test") return `${test(s.testId)} · whole test`;
   if (s.kind === "doc") return `${s.docId} · whole document`;
   if (s.kind === "tests") return `${s.testIds.length} tests`;
+  if (s.kind === "run")
+    return [`Run ${s.run}`, s.testId && test(s.testId), s.step && `step ${s.step}`].filter(Boolean).join(" · ");
   return "Whole project";
 }

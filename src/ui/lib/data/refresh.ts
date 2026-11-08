@@ -106,7 +106,7 @@ const PATHS: Rule[] = [
     () => [["contexts.list"], ["contexts.show"], ["contexts.ofTest"], ["contexts.ofProject"], ["claude.prompts"]],
   ],
   [/^\.testimus\/actions\//, () => [["actions.list"], ["actions.show"]]],
-  [/^test-runs\/([^/]+)(\/|$)/, (m) => [["runs.list"], ["runs.show", { run: m[1] }]]],
+  [/^test-runs\/([^/]+)(\/|$)/, (m) => [["runs.list"], ["runs.show", { run: m[1] }], ["runs.history"]]],
 ];
 
 // ponytail: what a finished job changed outside the project files (the index, the models folder, Jira)

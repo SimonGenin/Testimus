@@ -13,6 +13,7 @@ export type RunStep = { fields: Record<string, string>; images: string[] };
 export type RunTest = {
   id: string;
   key?: string;
+  folder?: string;
   summary: string;
   description?: string;
   preconditions: string[];
@@ -96,6 +97,7 @@ export function normalRun(raw: Partial<RunFile>, fallbackName: string): RunFile 
       .map((t) => ({
         id: t.id,
         ...(t.key ? { key: String(t.key) } : {}),
+        ...(typeof t.folder === "string" ? { folder: t.folder } : {}),
         summary: typeof t.summary === "string" ? t.summary : t.id,
         ...(t.description ? { description: String(t.description) } : {}),
         preconditions: Array.isArray(t.preconditions) ? t.preconditions.map(String) : [],
@@ -240,6 +242,27 @@ export function listRuns(project: string) {
     .filter((e) => e.isDirectory() && /^[a-z0-9][a-z0-9-]*$/.test(e.name) && existsSync(join(dir, e.name, "run.json")))
     .map((e) => runSummary(project, e.name))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.name.localeCompare(b.name));
+}
+
+// ponytail: the same test in every run that holds it (by its id, else its Jira key), newest run first — what it gave
+// each time
+export function testHistory(project: string, test: string) {
+  const out = [];
+  for (const s of listRuns(project)) {
+    const run = readRunFile(project, s.slug);
+    const t = run.tests.find((x) => x.id === test || (x.key && x.key === test));
+    if (!t) continue;
+    const r = readResult(project, s.slug, t);
+    out.push({
+      run: s.slug,
+      name: run.name,
+      createdAt: run.createdAt,
+      status: r.status,
+      ...(r.updatedAt ? { updatedAt: r.updatedAt } : {}),
+      ...(r.updatedBy ? { updatedBy: r.updatedBy } : {}),
+    });
+  }
+  return out;
 }
 
 export function removeRun(project: string, slug: string): void {

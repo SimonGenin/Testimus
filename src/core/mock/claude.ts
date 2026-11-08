@@ -171,6 +171,27 @@ registerMockScript(
   },
 );
 
+// ponytail: a question on a test run — Claude reads it and answers, a note ready to paste; nothing is written
+const RUN_ANSWER = [
+  "J'ai lu le run, les marques et les notes du test. ",
+  "Le step NOK décrit un écart du produit, pas du test : le résultat attendu suit le document.\n\n",
+  "Note proposée :\n\n```text\nLa fenêtre s'ouvre mais la TK n'est pas indiquée dans le menu contextuel.\n```",
+];
+registerMockScript(
+  (prompt) => /^Scope: .*the test run ([a-z0-9-]+) — read only\./.test(prompt),
+  (spawn) =>
+    mockStream(spawn, {
+      tools: [
+        {
+          name: "mcp__testimus__runs_show",
+          input: { run: spawn.stdin.match(/the test run ([a-z0-9-]+) — read only/)?.[1] ?? "" },
+        },
+      ],
+      texts: RUN_ANSWER,
+      result: RUN_ANSWER.join(""),
+    }),
+);
+
 export async function mockSpawnClaude(run: ClaudeSpawn): Promise<ClaudeOut> {
   const state = process.env.TESTIMUS_MOCK_CLAUDE;
   if (state === "absent") throw new Error("spawn claude ENOENT — claude executable not found on PATH");

@@ -31,6 +31,7 @@ export function scopeName(project: string | null, s: ClaudeScope): string {
   if (s.kind === "step") return `${testName(project, s.testId)} · step ${s.step}`;
   if (s.kind === "test") return testName(project, s.testId);
   if (s.kind === "tests") return `${s.testIds.length} tests`;
+  if (s.kind === "run") return runScopeName(project, s);
   return "the project";
 }
 
@@ -48,4 +49,18 @@ export function generationName(project: string | null, id: string): string {
   const sections = input?.sections ?? [];
   if (sections.length) return sections.length === 1 ? sections[0] : `${sections.length} sections`;
   return UNTITLED_GENERATION;
+}
+
+function runScopeName(project: string | null, s: Extract<ClaudeScope, { kind: "run" }>): string {
+  const run = project
+    ? readJson<{ name?: unknown; tests?: { id?: unknown; summary?: unknown }[] } | null>(
+        join(project, "test-runs", s.run, "run.json"),
+        null,
+      )
+    : null;
+  const name = typeof run?.name === "string" && run.name.trim() ? run.name : s.run;
+  if (!s.testId) return `the run ${quoted(name)}`;
+  const t = run?.tests?.find((x) => x.id === s.testId);
+  const test = typeof t?.summary === "string" && t.summary.trim() ? t.summary : s.testId;
+  return `${test}${s.step ? ` · step ${s.step}` : ""} · run ${quoted(name)}`;
 }

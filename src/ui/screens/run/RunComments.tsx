@@ -11,16 +11,7 @@ import { color, space } from "../../styles/tokens.stylex.ts";
 import { clock, type RunResult } from "./runs.ts";
 
 const styles = stylex.create({
-  side: {
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s5,
-    padding: space.s6,
-    minHeight: 0,
-    overflowY: "auto",
-  },
-  title: { margin: 0 },
+  side: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
   body: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.s2 },
   meta: { color: color.textMuted },
   text: { margin: 0, whiteSpace: "pre-wrap" },
@@ -53,7 +44,7 @@ function Answer({ q, onSend }: { q: Comment; onSend: Send }) {
   );
 }
 
-function CommentCard({ c, onSend }: { c: Comment; onSend: Send }) {
+function CommentCard({ c, onSend, onAsk }: { c: Comment; onSend: Send; onAsk?: (q: Comment) => void }) {
   const what = [c.kind === "question" ? "Question" : "Comment", c.step && `step ${c.step}`, c.by, clock(c.at)]
     .filter(Boolean)
     .join(" · ");
@@ -75,6 +66,9 @@ function CommentCard({ c, onSend }: { c: Comment; onSend: Send }) {
             <>
               <Badge {...QUESTION.open} size="sm" />
               <Answer q={c} onSend={onSend} />
+              {onAsk && (
+                <Button size="sm" variant="claude-quiet" icon="claude" label="Ask Claude" onClick={() => onAsk(c)} />
+              )}
             </>
           ))}
       </div>
@@ -82,12 +76,27 @@ function CommentCard({ c, onSend }: { c: Comment; onSend: Send }) {
   );
 }
 
-// ponytail: what the testers said about the test — remarks and questions, newest last; a question stays open until
-// someone answers it
-export function RunComments({ comments, steps, onSend }: { comments: Comment[]; steps: number; onSend: Send }) {
+// ponytail: what the testers said about the test — a remark or a question first (about the step being played), then
+// what was said, newest last; a question stays open until someone answers it
+export function RunComments({
+  comments,
+  steps,
+  step: current,
+  onSend,
+  onAsk,
+}: {
+  comments: Comment[];
+  steps: number;
+  /** the step being played: what a new remark is about until another is picked */
+  step?: number;
+  onSend: Send;
+  /** ask Claude about an open question */
+  onAsk?: (q: Comment) => void;
+}) {
   const [text, setText] = useState("");
   const [kind, setKind] = useState<"comment" | "question">("comment");
-  const [step, setStep] = useState("test");
+  const [picked, setStep] = useState<string | null>(null);
+  const step = picked ?? (current ? String(current) : "test");
   const [busy, setBusy] = useState(false);
   const add = async () => {
     setBusy(true);
@@ -99,14 +108,10 @@ export function RunComments({ comments, steps, onSend }: { comments: Comment[]; 
     }
   };
   return (
-    <aside aria-label="Comments and questions" {...stylex.props(styles.side)}>
-      <h3 {...stylex.props(type.titleSm, styles.title)}>Comments and questions</h3>
-      {comments.map((c) => (
-        <CommentCard key={c.id} c={c} onSend={onSend} />
-      ))}
+    <div {...stylex.props(styles.side)}>
       <Text
         multiline
-        rows={3}
+        rows={2}
         ariaLabel="Add a comment or a question"
         placeholder="Add a comment or a question…"
         value={text}
@@ -123,10 +128,12 @@ export function RunComments({ comments, steps, onSend }: { comments: Comment[]; 
             { value: "question", label: "Question" },
           ]}
         />
+        <span {...stylex.props(styles.spacer)} />
         <Select
           size="sm"
           appearance="quiet"
           label="About"
+          icon="target"
           value={step}
           onChange={setStep}
           options={[
@@ -134,13 +141,15 @@ export function RunComments({ comments, steps, onSend }: { comments: Comment[]; 
             ...Array.from({ length: steps }, (_, i) => ({ value: String(i + 1), label: `Step ${i + 1}` })),
           ]}
         />
-        <span {...stylex.props(styles.spacer)} />
         <Button size="sm" label="Add" loading={busy} disabled={!text.trim()} onClick={add} />
       </div>
+      {comments.map((c) => (
+        <CommentCard key={c.id} c={c} onSend={onSend} onAsk={onAsk} />
+      ))}
       <p {...stylex.props(type.small, styles.explain)}>
         A question stays open until someone answers it, here or after an import. Claude reads the questions; it never
         answers on its own.
       </p>
-    </aside>
+    </div>
   );
 }

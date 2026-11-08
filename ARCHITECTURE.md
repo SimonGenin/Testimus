@@ -741,7 +741,8 @@ result, comments and questions. It is a folder of the project — files are the 
 ```
 test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionneurs », -2 on a clash)
   run.json                  { name, version?, environment?, createdAt, createdBy, importedAt?, tests: [{ id, key?,
-                              summary, description?, preconditions, steps: [{ fields: { <column>: text }, images }] }] }
+                              folder?, summary, description?, preconditions, steps: [{ fields: { <column>: text },
+                              images }] }]   (folder: its Xray folder then; a run made before 2026-11-08 has none)
   images/<testId>/<file>    the run's copy of each picture a step shows (a field's ![](images/<file>) points here)
   results/<testId>.json     { status: not-run|passed|problem|blocked, steps: [{ ok: true|false|null, note? }],
                               blockedReason?, comments: [{ id, kind: comment|question, step?, text, by, at, answer?,
@@ -756,7 +757,8 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
 - **No result file = not run.** A result is read tolerantly (`normalResult`: one mark per frozen step whatever the
   file says, every field kept only with its type — a comment's `at` / `by` / `answer` strings, `kind` in its two
   values, `step` an integer within the test's steps, `history` normalized the same way) and written whole by
-  `runs.setResult` / `runs.comment` / `runs.attach`, stamped with the OS user and the time. A picture a step shows is
+  `runs.setResult` / `runs.comment` / `runs.attach` / `runs.detach` (a screenshot off, with its file), stamped with
+  the OS user and the time. A picture a step shows is
   the run's copy at `images/<testId>/<the file's own name>` (`src/shared/run-image.ts`, for the creation and the
   screen alike).
 - **The proposed result** is one rule of the core (`proposedStatus`): only while the test is **not run** — a NOK
@@ -766,15 +768,31 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   (`tests/unit/core/runs/page-script.test.ts`); saving every change at once, it records the proposal as the result
   of a test not run and follows the marks while that result is still its own proposal in this page; a result chosen,
   or recorded before the page was opened, stays. The tester decides; Blocked needs its reason.
-- Commands: group `runs` (`list`, `show`, `create`, `setResult`, `comment`, `attach`, `remove` — asked first in the
-  palette). The watcher reads `test-runs/` like the rest; `lib/data/refresh.ts` maps a path there to `runs.list` and
-  that run's `runs.show`.
-- **Claude reads runs, never marks one**: `runs.list` / `runs.show` are read-only (every run kind has them); the
-  writes are off every Claude run (`action` included) and `test-runs/**` is refused to Edit/Write (`claude/access.ts`).
-- Screen `#/run` (rail item after Tests): the runs (in progress / finished), a run (bar split by result, filters,
-  the tests' table, Continue = the next test not run), `#/run/<run>/<test>` runs one test (keys O / N / J / K,
-  Ctrl+Enter = save and next). Status words: Passed · Problem · Blocked · Not run (`RUN_STATUS`, success / danger /
-  warning / neutral). The rail item sits after Tests rather than straight after Review: the rail's order is the work's.
+- Commands: group `runs` (`list`, `show`, `history`, `create`, `setResult`, `comment`, `attach`, `detach`, `remove`
+  — asked first in the palette). `runs.history { test }` gives the test's result in every run that holds it (by id or
+  Jira key), newest run first. The watcher reads `test-runs/` like the rest; `lib/data/refresh.ts` maps a path there
+  to `runs.list`, that run's `runs.show` and `runs.history`.
+- **Claude reads runs, never marks one**: `runs.list` / `runs.show` / `runs.history` are read-only (every run kind
+  has them); the writes are off every Claude run (`action` included) and `test-runs/**` is refused to Edit/Write
+  (`claude/access.ts`). The dock talks about a run through the scope `{ kind: "run", run, testId?, step? }`: a
+  `claude.run` on it is a `chat` run (read-only tools), snapshots no test, locks no test (its lock is `run:<run>`),
+  shows no revert card, and its prompt (`prompt.ts runPrompt`) says to change no file and to write a note, a comment,
+  an answer or a bug out in the answer, for the tester to take.
+- Screen `#/run` (rail item after Tests). **The runs**: a list filtered by words and state (In progress, Finished,
+  With questions), sorted (last activity, name, least done, most problems), each with its bar split by result; **a
+  run**: its facts, a card of progress and a tile per result, the tests' table (tabs by result, words, a sort also by a
+  column's head, by folder when the run kept folders), Continue = the next test not run; beside it **what the run
+  found** (each NOK step with its note and screenshots, blocked tests, open questions — Claude drafts a bug, answers,
+  summarizes). **`#/run/<run>/<test>` runs one test laid out like the Tests editor**: the run's tests on the left
+  (the same filters and sort as the table: one view kept while the tester moves), the frozen test in the middle in the
+  editor's step cards (`StepFrame`, stacked or Action | Expected — the editor's `stepLayout` pref), OK / NOK in each
+  step's head, « Mark the n left OK », « Fold OK steps » (`runFoldOk` pref); on the right a testing panel: the test's
+  screenshots, comments and questions, the same test in other runs (`runs.history`), and at its foot the result
+  (proposed by the marks) with Save and next. A picture dropped on a step is that step's (a step not marked becomes
+  NOK); dropped on the panel or pasted (Ctrl+V) it goes to the step being played. Keys O / N / J / K, Ctrl+Enter =
+  save and next. Status words: Passed · Problem · Blocked · Not run (`RUN_STATUS`, success / danger / warning /
+  neutral), and In progress for a test not run whose steps are being marked. The rail item sits after Tests rather
+  than straight after Review: the rail's order is the work's.
 - **A run as pages, out of the app** (`lib/run-pages.ts`, template `templates/run-pages/`): `runs.export { run, dir }`
   writes a new or empty folder — `index.html` (one page: HTML, inline CSS, the run and its results embedded so it
   opens even from `file://`) and its classic script `run.js` (no network, no React), `run.json` (`format:

@@ -78,6 +78,10 @@ export const RESULT_VIEW = RESULT.extend({
 export const FROZEN_TEST = z.object({
   id: z.string().describe("The test's id when the run was made (its folder under tests/)"),
   key: z.string().optional().describe("Its Jira key, if it had one"),
+  folder: z
+    .string()
+    .optional()
+    .describe("Its Xray folder when the run was made (absent in runs made before it was kept)"),
   summary: z.string().describe("Its summary"),
   description: z.string().optional().describe("Its description"),
   preconditions: z.array(z.string()).describe("Its preconditions (Jira keys)"),

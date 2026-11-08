@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -14,8 +14,9 @@ import { ImportRun } from "./ImportRun.tsx";
 import { NewRun } from "./NewRun.tsx";
 import { RunDetail } from "./RunDetail.tsx";
 import { RunExec } from "./RunExec.tsx";
+import { RunFindings } from "./RunFindings.tsx";
 import { RunList } from "./RunList.tsx";
-import { routeOf } from "./runs.ts";
+import { routeOf, TEST_VIEW, type TestView } from "./runs.ts";
 
 const styles = stylex.create({
   screen: {
@@ -47,6 +48,7 @@ const styles = stylex.create({
     borderInlineEndWidth: border.width,
     borderInlineEndColor: color.border,
   },
+  findings: { display: { default: "flex", [breakpoint.queue]: "none" }, minHeight: 0 },
   none: { boxSizing: "border-box", flex: 1, display: "flex", padding: space.s7 },
   loading: {
     boxSizing: "border-box",
@@ -58,22 +60,32 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: the testers' screen — the runs on the left, a run and its tests on the right; a test opens full width to
-// be run, with its comments beside it
+// ponytail: the testers' screen — the runs on the left, a run (its progress, its tests, what it found) on the right; a
+// test opens to be run like a test of the Tests editor. How the tests are filtered and sorted is one view, kept from
+// the run to its tests and back; Claude reads the run open here
 export function RunScreen() {
   const app = useApp();
   const { run: slug, test } = routeOf(app.route.screen === "run" ? app.route.arg : undefined);
   const [creating, setCreating] = useState(false);
   const [pages, setPages] = useState<"export" | "import" | null>(null);
+  const [view, setView] = useState<TestView>(TEST_VIEW);
   const runs = useRead("runs.list", {});
   const list = runs.data?.runs;
+  const me = runs.data?.user ?? "";
   const shown = slug || list?.find((r) => !r.finished)?.slug || list?.[0]?.slug || "";
   const run = useRead("runs.show", { run: shown }, { enabled: !!shown });
   const open = (s: string, t?: string) => app.navigate("run", t ? `${s}/${t}` : s);
   const playing = test && run.data?.slug === shown ? run.data.tests.find((t) => t.id === test) : undefined;
+  const { setFocus, askClaude } = app;
+  const overview = !playing && run.data?.slug === shown ? run.data : undefined;
+
+  useEffect(() => {
+    if (overview) setFocus({ testId: "", summary: overview.name, step: null, run: overview.slug });
+  }, [setFocus, overview?.slug, overview?.name, overview]);
+  useEffect(() => () => setFocus(null), [setFocus]);
 
   const newRun = <Button variant="primary" size="sm" label="New run…" onClick={() => setCreating(true)} />;
-  const importRun = <Button size="sm" label="Import results…" onClick={() => setPages("import")} />;
+  const importRun = <Button size="sm" icon="upload" label="Import results…" onClick={() => setPages("import")} />;
   const dialog = (
     <>
       {creating && (
@@ -105,6 +117,9 @@ export function RunScreen() {
           key={playing.id}
           run={run.data}
           test={playing}
+          view={view}
+          onView={setView}
+          me={me}
           onGo={(t) => open(shown, t)}
           onBack={() => open(shown)}
         />
@@ -113,7 +128,9 @@ export function RunScreen() {
 
   return (
     <div {...stylex.props(styles.screen)}>
-      <ScreenHeader title="Run">{newRun}</ScreenHeader>
+      <ScreenHeader title="Run" crumbs={overview ? [overview.name] : []}>
+        {newRun}
+      </ScreenHeader>
       <div {...stylex.props(styles.body)}>
         {(!list || list.length > 0) && (
           <nav aria-label="Runs" {...stylex.props(styles.list)}>
@@ -132,17 +149,29 @@ export function RunScreen() {
               {run.error.message}
             </Banner>
           </div>
-        ) : run.data && run.data.slug === shown ? (
-          <RunDetail
-            run={run.data}
-            onOpenTest={(t) => open(shown, t)}
-            actions={
-              <>
-                <Button size="sm" label="Export as pages…" onClick={() => setPages("export")} />
-                {importRun}
-              </>
-            }
-          />
+        ) : overview ? (
+          <>
+            <RunDetail
+              run={overview}
+              view={view}
+              onView={setView}
+              me={me}
+              onOpenTest={(t) => open(shown, t)}
+              actions={
+                <>
+                  <Button size="sm" icon="download" label="Export as pages…" onClick={() => setPages("export")} />
+                  {importRun}
+                </>
+              }
+            />
+            <div {...stylex.props(styles.findings)}>
+              <RunFindings
+                run={overview}
+                onOpenTest={(t) => open(shown, t)}
+                onAsk={(prompt) => askClaude("run", prompt)}
+              />
+            </div>
+          </>
         ) : list && !list.length ? (
           <div {...stylex.props(styles.none)}>
             <EmptyState

@@ -24,7 +24,7 @@ export function useDock(screen: Screen) {
   }, []);
 
   const askClaude = useCallback(
-    (scope: "test" | "step", prompt?: string) => open({ mode: "test", scope, prompt }),
+    (scope: "test" | "step" | "run", prompt?: string) => open({ mode: "test", scope, prompt }),
     [open],
   );
   const runInDock = useCallback((job: DockJob) => open({ mode: "test", job }), [open]);

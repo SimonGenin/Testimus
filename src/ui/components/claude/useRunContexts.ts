@@ -23,8 +23,8 @@ export function useRunContexts({
   defaults: string[] | undefined;
 }) {
   const [pick, setPick] = useState<Record<string, boolean>>({});
-  const testId = focus?.testId;
-  const onProject = tab === "test" && sub === "project";
+  const testId = focus?.run ? undefined : focus?.testId;
+  const onProject = tab === "test" && (sub === "project" || !!focus?.run);
   const ofProject = useRead("contexts.ofProject", {}, { enabled: !!projectDir && onProject });
   const ofTest = useRead(
     "contexts.ofTest",

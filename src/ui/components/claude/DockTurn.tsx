@@ -15,7 +15,7 @@ import { AnswerText } from "./AnswerText.tsx";
 import { DiagnosisText } from "./DiagnosisText.tsx";
 import { DockActivity } from "./DockActivity.tsx";
 import { RevertConflict } from "./RevertConflict.tsx";
-import { type Again, changed, metaLine, type RunCard, runBadges, type Turn } from "./turns.ts";
+import { type Again, changed, metaLine, pasteOf, type RunCard, runBadges, type Turn } from "./turns.ts";
 
 const styles = stylex.create({
   trouble: { display: "flex", flexDirection: "column", gap: space.s1 },
@@ -37,6 +37,8 @@ export type TurnActions = {
   onToggleRaw: (t: Turn) => void;
   onRetry: (a: Again) => void;
   onSettings: () => void;
+  /** the pasted block of an answer about a step of a test run becomes that step's note (a NOK) */
+  onUseNote?: (t: Turn, note: string) => void;
 };
 
 export function UserTurn({ turn }: { turn: Turn }) {
@@ -54,6 +56,7 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
   const failed = !t.running && !!(t.again || t.trouble);
   const words = t.text || (t.running && !t.tools.some((x) => !x.done));
   const names = useTestNames();
+  const paste = t.pasteTo && !t.running ? pasteOf(t.text) : "";
   return (
     <>
       <DockActivity turn={t} />
@@ -63,8 +66,18 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
           error={!!t.trouble}
           meta={t.meta && !t.running ? metaLine(t.meta) : undefined}
           footer={
-            !t.running && (t.run || failed || t.raw !== undefined) ? (
+            !t.running && (t.run || failed || t.raw !== undefined || paste) ? (
               <>
+                {paste && t.pasteTo && a.onUseNote && (
+                  <Button
+                    size="sm"
+                    variant="claude"
+                    icon="check"
+                    label={`Use as the note of step ${t.pasteTo.step}`}
+                    disabled={a.busy ? "Claude is working — wait for it to finish" : false}
+                    onClick={() => a.onUseNote?.(t, paste)}
+                  />
+                )}
                 {t.again && (
                   <Button
                     size="sm"

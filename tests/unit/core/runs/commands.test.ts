@@ -20,7 +20,8 @@ const resultOf = async (id: string, run = RUN) => (await show(run)).tests.find((
 
 describe("runs.list and runs.show", () => {
   it("lists the runs newest first with their counts, open questions and whether they are finished", async () => {
-    const { runs } = await call<any>("runs.list", {}, project);
+    const { runs, user } = await call<any>("runs.list", {}, project);
+    expect(user).toBe(osUser());
     expect(runs.map((r: any) => r.slug)).toEqual([RUN, "recette-j4-traction"]);
     expect(runs[0]).toMatchObject({
       name: "Recette J5 — Sectionneurs",
@@ -72,6 +73,8 @@ describe("runs.create", () => {
     expect(existsSync(join(dir, "images", T1420, "fig-40.png"))).toBe(true);
     const run = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
     expect(run).toMatchObject({ name: "Recette J6 — Sectionneurs", version: "2.5", createdBy: osUser() });
+    expect(run.tests.map((t: any) => t.folder)).toEqual(["/Traction/Sectionneurs", "/Traction/Sectionneurs"]);
+    expect((await show(out.slug)).tests[0].folder).toBe("/Traction/Sectionneurs");
     expect(existsSync(`${dir}.tmp`)).toBe(false);
   });
 
@@ -195,6 +198,36 @@ describe("runs.comment and runs.attach", () => {
   });
 });
 
+describe("runs.detach and runs.history", () => {
+  it("takes a screenshot off with its file, and refuses one the test does not have", async () => {
+    const png = Buffer.from("89504e470d0a1a0a", "hex").toString("base64");
+    const { attachment } = await call<any>(
+      "runs.attach",
+      { run: RUN, test: TLOCAL, step: 1, dataBase64: png, name: "capture.png" },
+      project,
+    );
+    const file = join(project, "test-runs", RUN, "results", TLOCAL, attachment.file);
+    const out = await call<any>("runs.detach", { run: RUN, test: TLOCAL, file: attachment.file }, project);
+    expect(out.attachment).toEqual(attachment);
+    expect(out.result.attachments.some((a: any) => a.file === attachment.file)).toBe(false);
+    expect(existsSync(file)).toBe(false);
+    await expect(call("runs.detach", { run: RUN, test: TLOCAL, file: attachment.file }, project)).rejects.toThrow(
+      /No screenshot/,
+    );
+  });
+
+  it("gives a test's result in every run that holds it, by its id or its Jira key, newest run first", async () => {
+    const { runs } = await call<any>("runs.history", { test: "LFRPS12-1398" }, project);
+    expect(runs.map((r: any) => [r.run, r.status])).toEqual([
+      [RUN, "not-run"],
+      ["recette-j4-traction", "passed"],
+    ]);
+    expect(runs[1].updatedBy).toBeTruthy();
+    expect((await call<any>("runs.history", { test: TLOCAL }, project)).runs).toHaveLength(1);
+    expect((await call<any>("runs.history", { test: "LFRPS12-9" }, project)).runs).toEqual([]);
+  });
+});
+
 describe("runs.remove and Claude's access", () => {
   it("deletes the run's folder and nothing else", async () => {
     const out = await call<any>("runs.remove", { run: "recette-j4-traction" }, project);
@@ -206,8 +239,10 @@ describe("runs.remove and Claude's access", () => {
   it("lets every Claude run read the runs and none mark a result", () => {
     for (const kind of ["chat", "check", "generate", "fix", "run", "action"] as const) {
       const { allow, deny } = mcpAccess(kind);
-      expect(allow).toEqual(expect.arrayContaining(["mcp__testimus__runs_list", "mcp__testimus__runs_show"]));
-      for (const w of ["setResult", "comment", "attach", "create", "remove", "export", "import"])
+      expect(allow).toEqual(
+        expect.arrayContaining(["mcp__testimus__runs_list", "mcp__testimus__runs_show", "mcp__testimus__runs_history"]),
+      );
+      for (const w of ["setResult", "comment", "attach", "detach", "create", "remove", "export", "import"])
         expect(deny, `${kind} ${w}`).toContain(`mcp__testimus__runs_${w}`);
     }
   });

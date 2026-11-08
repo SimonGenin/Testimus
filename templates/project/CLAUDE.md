@@ -49,8 +49,8 @@ project is in **Team notes** at the end.
 - `test-runs/<run>/` — a test run the testers play: `run.json` (its name, the version under test, and a
   frozen copy of each test as it was when the run was made), `results/<testId>.json` (passed, problem,
   blocked or not run; OK / NOK per step with notes; comments and questions) and the screenshots in
-  `results/<testId>/`. Read them with `runs_list` and `runs_show` (what failed, what testers asked);
-  a result is a tester's finding: never write one.
+  `results/<testId>/`. Read them with `runs_list`, `runs_show` and `runs_history` (what failed, what testers
+  asked, how a test did in other runs); a result is a tester's finding: never write one.
 
 Derived files, never edited by hand: `index/`, `.testimus/`, `tests/*/.remote.md`,
 `tests/*/check.json`.
@@ -98,7 +98,7 @@ in permission lists; `testimus help` lists them all). Prefer them to guessing:
 - **Writing tests** (generation, fix, edit runs only): `tests_create`, `tests_edit`, `tests_save`,
   `tests_addImage`; `check_run` (from a Claude run it does the mechanical pass only — you are the
   semantic check).
-- **Test runs** (read): `runs_list`, `runs_show` — what the testers found when they ran the tests.
+- **Test runs** (read): `runs_list`, `runs_show`, `runs_history` — what the testers found when they ran the tests.
 - **Context**: `contexts_list`, `contexts_show`, `contexts_ofTest`; `actions_list`.
 - **Xray** (read): `xray_search`, `xray_status`, `xray_folders`, `xray_preconditions`, `xray_plan`.
 - **The test's Jira issue** (read): `issue_comments` (the thread; a mention reads `@[Name](accountId)`),

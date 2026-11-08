@@ -26,19 +26,19 @@ export type ScopedInput = {
 // ponytail: a request on tests goes through the edit-test skill; one on the project may be a question, answered as is
 const sent = (scope: Parameters<typeof scopedPrompt>[0], request: string, context: string[]) => {
   const prompt = scopedPrompt(scope, request, context);
-  return scope.kind === "project" ? prompt : `${EDIT_MARKER}\n${prompt}`;
+  return scope.kind === "project" || scope.kind === "run" ? prompt : `${EDIT_MARKER}\n${prompt}`;
 };
 
 export async function runOnScope(ctx: Ctx, project: string, input: ScopedInput) {
   const p = readProject(project);
   const ids =
     input.contexts ??
-    (input.scope.kind === "project"
+    (input.scope.kind === "project" || input.scope.kind === "run"
       ? projectContexts(project)
       : effectiveContexts(project, "testId" in input.scope ? input.scope.testId : undefined));
   const context = contextLines(project, readContexts(project, ids), input.note, input.conversation);
   const { calls: _calls, ...r } = await runClaude({
-    kind: "run",
+    kind: input.scope.kind === "run" ? "chat" : "run",
     project,
     prompt: sent(input.scope, input.prompt, context),
     model: input.model || p.claude.model,

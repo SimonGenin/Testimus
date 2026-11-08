@@ -13,6 +13,7 @@ import {
   type ChatResult,
   changedOf,
   fixOutcome,
+  lockOf,
   PROJECT_RUN,
   type RunResult,
   skillOf,
@@ -132,10 +133,16 @@ export function useDockRuns(app: AppState) {
         raw: typeof r.raw === "string" ? r.raw : t.raw,
         again: ok ? undefined : again,
         action: r.action ?? t.action,
+        pasteTo:
+          ok && again?.scope?.kind === "run" && again.scope.testId && again.scope.step
+            ? { run: again.scope.run, testId: again.scope.testId, step: again.scope.step }
+            : undefined,
         // ponytail: every run with a snapshot gets its card, « 0 steps changed » too, with Revert (Xray Editor) — but
         // a failed run that changed nothing has nothing to show, revert or check
         run:
-          r.runId && (ok || steps > 0 || changedTests.length > 0 || !!r.changedFiles?.length)
+          r.runId &&
+          again?.scope?.kind !== "run" &&
+          (ok || steps > 0 || changedTests.length > 0 || !!r.changedFiles?.length)
             ? {
                 runId: r.runId,
                 testId: testId || changedTests[0] || "",
@@ -218,7 +225,7 @@ export function useDockRuns(app: AppState) {
     }
     const conversation = transcript(turns.filter((x) => !x.action));
     const id = begin({ role: "assistant", text: "", tools: [], running: true, action: a });
-    const tid = "testId" in a.scope ? a.scope.testId : "";
+    const tid = a.scope.kind === "step" || a.scope.kind === "test" ? a.scope.testId : "";
     try {
       await runOnTest(
         id,
@@ -238,7 +245,7 @@ export function useDockRuns(app: AppState) {
   const execute = async (a: Again) => {
     if (locked) return;
     const t0 = Date.now();
-    const tid = a.scope && "testId" in a.scope ? a.scope.testId : undefined;
+    const tid = lockOf(a.scope);
     const conversation = transcript(turns, a.mode === "docs" && !!chatId && !a.problem);
     const answerId = start(a.mode === "test" ? "run" : "chat", a.text, a.label, a.mode === "test" ? tid : undefined);
     const extra = {

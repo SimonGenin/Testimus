@@ -51,6 +51,15 @@ export const SCOPE = z.discriminatedUnion("kind", [
     kind: z.literal("doc").describe("One document and the tests that cite it."),
     docId: TEST_ID.describe("Document id (its folder under docs/)."),
   }),
+  z.object({
+    kind: z.literal("run").describe("A test run, read only: the run, one of its tests, or one step of it."),
+    run: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]*$/, "A run: its folder under test-runs/")
+      .describe("The run: its folder under test-runs/."),
+    testId: TEST_ID.optional().describe("One test of the run (its id when the run was made)."),
+    step: z.number().int().min(1).optional().describe("One step of that test, 1-based."),
+  }),
   z.object({ kind: z.literal("project").describe("The whole project: every test, every document.") }),
 ]);
 
@@ -140,5 +149,6 @@ export function scopeLabel(s: ClaudeScope): string {
   if (s.kind === "step") return `${s.testId} step ${s.step}`;
   if (s.kind === "test") return s.testId;
   if (s.kind === "tests") return `${s.testIds.length} tests`;
+  if (s.kind === "run") return [`run ${s.run}`, s.testId, s.step && `step ${s.step}`].filter(Boolean).join(" ");
   return "project";
 }

@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { DragEvent, FocusEvent, KeyboardEvent, ReactNode } from "react";
+import type { DragEvent, FocusEvent, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { Card } from "../../../components/ui/Card.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { border, breakpoint, color, size, space } from "../../../styles/tokens.stylex.ts";
@@ -51,15 +51,17 @@ export const cardFlush = stylex.create({
 });
 
 export const edgeOf = (m: StepMarks) =>
-  m.unreadable
+  m.unreadable || m.played === "nok"
     ? "danger"
-    : m.claude
-      ? "claude"
-      : m.mark === "new"
-        ? "success"
-        : m.mark === "modified"
-          ? "warning"
-          : undefined;
+    : m.played === "ok"
+      ? "success"
+      : m.claude
+        ? "claude"
+        : m.mark === "new"
+          ? "success"
+          : m.mark === "modified"
+            ? "warning"
+            : undefined;
 
 export type StepFrameProps = {
   n: number;
@@ -75,12 +77,16 @@ export type StepFrameProps = {
   dragging?: boolean;
   /** Review: the step the arrows are on */
   current?: boolean;
+  /** a file dragged over the card would land on this step */
+  dropping?: boolean;
   draggable?: boolean;
   onFocusCapture?: (e: FocusEvent) => void;
   onKeyDown?: (e: KeyboardEvent) => void;
   onDragStart?: (e: DragEvent) => void;
   onDragOver?: (e: DragEvent) => void;
+  onDragLeave?: (e: DragEvent) => void;
   onDrop?: (e: DragEvent) => void;
+  onPointerDown?: (e: PointerEvent) => void;
   onDragEnd?: (e: DragEvent) => void;
 };
 
@@ -97,6 +103,7 @@ export function StepFrame({
   focused = false,
   dragging = false,
   current,
+  dropping = false,
   ...events
 }: StepFrameProps) {
   const folded = line !== undefined;
@@ -108,12 +115,14 @@ export function StepFrame({
       data-mark={marks.mark && marks.mark !== "same" ? marks.mark : undefined}
       data-claude={marks.claude || undefined}
       data-unreadable={marks.unreadable || undefined}
+      data-played={marks.played}
+      data-dropping={dropping || undefined}
       data-dragging={dragging || undefined}
       data-focused={focused || undefined}
       {...events}
       {...stylex.props(stepMarker, styles.frame, dragging && styles.dragging)}
     >
-      <Card edge={edgeOf(marks)} focused={focused} padded={false}>
+      <Card edge={edgeOf(marks)} focused={focused} selected={dropping} padded={false}>
         <div {...stylex.props(cardFlush.child)}>
           <div {...stylex.props(styles.head, folded && styles.folded)}>
             {grip}

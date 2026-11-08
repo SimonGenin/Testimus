@@ -53,7 +53,7 @@ describe("the Run screen", () => {
     expect(rows.map((r) => within(r).getAllByRole("cell")[1].textContent)).toEqual(["Passed", "Problem", "Not run"]);
     expect(rows[1]).toHaveTextContent("1 OK · 1 NOK");
     expect(rows[1]).toHaveTextContent("1 comment · 1 question");
-    fireEvent.click(within(run).getByRole("radio", { name: /^Problems/ }));
+    fireEvent.click(within(run).getByRole("tab", { name: /^Problems/ }));
     expect(within(table).getAllByRole("row")).toHaveLength(2);
   });
 
@@ -64,8 +64,8 @@ describe("the Run screen", () => {
     writeFileSync(file, JSON.stringify(r));
     withApp(<RunScreen />, at(RUN));
     const run = await screen.findByRole("region", { name: /^Run Recette J5/ });
-    expect(within(run).getByText("2 open questions")).toBeInTheDocument();
-    expect(within(run).getByRole("radio", { name: /^With questions/ })).toHaveTextContent("1");
+    expect(within(run).getAllByText("2 open questions")[0]).toBeInTheDocument();
+    expect(within(run).getByRole("tab", { name: /^Questions/ })).toHaveTextContent("1");
   });
 
   it("shows a step's picture from the run's copy, where the run was made to keep it", async () => {
@@ -91,7 +91,7 @@ describe("the Run screen", () => {
     const run = await screen.findByRole("region", { name: /^Run Recette J5/ });
     fireEvent.click(within(run).getByRole("button", { name: /Sectionneur avec TK/ }));
     expect(state.navigate).toHaveBeenLastCalledWith("run", `${RUN}/local-3f9a12c0`);
-    fireEvent.click(within(run).getByRole("button", { name: "Continue — next test not run" }));
+    fireEvent.click(within(run).getByRole("button", { name: "Continue · test 3" }));
     expect(state.navigate).toHaveBeenLastCalledWith("run", `${RUN}/LFRPS12-1398`);
   });
 
@@ -180,7 +180,7 @@ describe("running a test", () => {
 
   it("adds a question about a step, and answers the open one", async () => {
     withApp(<RunScreen />, at(`${RUN}/local-3f9a12c0`));
-    const side = await screen.findByRole("complementary", { name: "Comments and questions" });
+    const side = await screen.findByRole("region", { name: "Comments and questions" });
     expect(within(side).getByText("Open")).toBeInTheDocument();
     fireEvent.change(within(side).getByRole("textbox", { name: "Add a comment or a question" }), {
       target: { value: "Faut-il tester sur le poste 4 ?" },
@@ -194,6 +194,84 @@ describe("running a test", () => {
     fireEvent.click(within(side).getByRole("button", { name: "Send the answer" }));
     expect(await within(side).findByText("Answered")).toBeInTheDocument();
     expect(callsOf("runs.comment").at(-1)?.input).toMatchObject({ answers: "q0a1b2c3", text: "Oui." });
+  });
+});
+
+describe("running a test like a test of the editor", () => {
+  const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "capture.png", { type: "image/png" });
+
+  it("drops a screenshot on a step not marked yet: it is that step's, the step becomes NOK, and × takes it off", async () => {
+    withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
+    const test = await screen.findByRole("region", { name: /^Test / });
+    const step = within(test).getByRole("article", { name: "Step 1" });
+    fireEvent.dragOver(step, { dataTransfer: { types: ["Files"], files: [] } });
+    expect(step).toHaveAttribute("data-dropping");
+    fireEvent.drop(step, { dataTransfer: { types: ["Files"], files: [png()] } });
+    await waitFor(() => expect(callsOf("runs.attach").at(-1)?.input).toMatchObject({ test: "LFRPS12-1398", step: 1 }));
+    await waitFor(() =>
+      expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({ steps: [{ step: 1, ok: false }] }),
+    );
+    const file = callsOf("runs.attach").length && (await screen.findAllByRole("figure"))[0].getAttribute("aria-label");
+    expect(file).toMatch(/^Screenshot capture-[0-9a-f]{8}\.png$/);
+    const name = String(file).replace("Screenshot ", "");
+    fireEvent.click(within(test).getByRole("button", { name: `Remove ${name}` }));
+    await waitFor(() => expect(callsOf("runs.detach").at(-1)?.input).toMatchObject({ file: name }));
+  });
+
+  it("pastes a screenshot to the step being played", async () => {
+    withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
+    await screen.findByRole("region", { name: /^Test / });
+    const e = new Event("paste", { cancelable: true });
+    Object.defineProperty(e, "clipboardData", { value: { files: [png()] } });
+    window.dispatchEvent(e);
+    await waitFor(() => expect(callsOf("runs.attach").at(-1)?.input).toMatchObject({ step: 1, name: "capture.png" }));
+  });
+
+  it("marks every step left OK at once, and folds the OK steps to one line", async () => {
+    withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
+    const test = await screen.findByRole("region", { name: /^Test / });
+    fireEvent.click(within(test).getByRole("button", { name: "Mark the 1 left OK" }));
+    await waitFor(() =>
+      expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({ steps: [{ step: 1, ok: true }] }),
+    );
+    await waitFor(() =>
+      expect(within(test).getByRole("article", { name: "Step 1" })).toHaveAttribute("data-played", "ok"),
+    );
+    fireEvent.click(within(test).getByRole("switch", { name: "Fold OK steps" }));
+    expect(within(test).getByRole("article", { name: "Step 1" })).toHaveAttribute("data-folded");
+  });
+
+  it("lists the run's tests beside it, filters them, and shows the same test in the other runs", async () => {
+    const { state } = withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
+    const list = await screen.findByRole("navigation", { name: "Tests of the run" });
+    expect(within(list).getAllByRole("option")).toHaveLength(3);
+    fireEvent.click(within(list).getByRole("button", { name: "Problems 1" }));
+    expect(within(list).getAllByRole("option")).toHaveLength(1);
+    fireEvent.click(within(list).getByRole("option", { name: /Sectionneur avec TK/ }));
+    expect(state.navigate).toHaveBeenLastCalledWith("run", `${RUN}/local-3f9a12c0`);
+    fireEvent.click(within(list).getByRole("button", { name: "All 3" }));
+    fireEvent.click(within(list).getByRole("button", { name: /^Sort:/ }));
+    fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /Only tests I ran/ }));
+    expect(within(list).queryAllByRole("option")).toHaveLength(0);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    const others = await screen.findByRole("list", { name: "This test in other runs" });
+    expect(others).toHaveTextContent("Recette J4 — Traction");
+    expect(within(others).getByText("Passed")).toBeInTheDocument();
+    expect(state.setFocus).toHaveBeenLastCalledWith(
+      expect.objectContaining({ testId: "LFRPS12-1398", run: RUN, step: 1 }),
+    );
+  });
+
+  it("tells the dock the run open on the runs page, and lists what the run found", async () => {
+    const { state } = withApp(<RunScreen />, at(RUN));
+    const found = await screen.findByRole("complementary", { name: "What the run found" });
+    expect(within(found).getByRole("region", { name: "Problems to look at" })).toHaveTextContent("Step 2 · NOK");
+    expect(within(found).getByRole("region", { name: "Open questions" })).toHaveTextContent("1");
+    await waitFor(() =>
+      expect(state.setFocus).toHaveBeenLastCalledWith(expect.objectContaining({ testId: "", run: RUN })),
+    );
+    fireEvent.click(within(found).getByRole("button", { name: "Summarize this run for a report" }));
+    expect(state.askClaude).toHaveBeenLastCalledWith("run", expect.stringMatching(/^Summarize this test run/));
   });
 });
 

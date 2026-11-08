@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { extname, isAbsolute, join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -124,5 +124,18 @@ export function attachCapture(project: string, slug: string, testId: string, a: 
   const r = readResult(project, slug, t);
   const attachment = { file, ...(a.step !== undefined ? { step: a.step } : {}) };
   r.attachments.push(attachment);
+  return { test: t.id, attachment, result: save(project, slug, t, r) };
+}
+
+// ponytail: a screenshot taken off a test goes with its file; one the result does not list is refused, never a guess
+export function detachCapture(project: string, slug: string, testId: string, file: string) {
+  const t = testOf(project, slug, testId);
+  const r = readResult(project, slug, t);
+  const at = r.attachments.findIndex((a) => a.file === file);
+  if (at < 0)
+    throw new UserError(`No screenshot ${file} on this test.`, `testimus runs show ${slug} lists its screenshots.`);
+  const [attachment] = r.attachments.splice(at, 1);
+  if (/^capture-[0-9a-f]{8}\.[a-z]+$/.test(file))
+    rmSync(join(runDir(project, slug), "results", t.id, file), { force: true });
   return { test: t.id, attachment, result: save(project, slug, t, r) };
 }

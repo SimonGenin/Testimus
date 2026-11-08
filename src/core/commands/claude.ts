@@ -47,7 +47,9 @@ export const commands = [
     summary:
       "Run Claude on a test, a step, several tests or the project; snapshots the tests so the run can be reverted.",
     input: z.object({
-      scope: SCOPE.describe("What Claude may edit: { kind: step|test|tests|project, testId?, step?, testIds? }."),
+      scope: SCOPE.describe(
+        "What Claude may edit: { kind: step|test|tests|project, testId?, step?, testIds? }; or what it reads without changing anything: { kind: run, run, testId?, step? } (a test run).",
+      ),
       prompt: z.string().describe("The request, e.g. « Rephrase in house style »."),
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)."),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)."),

@@ -410,6 +410,50 @@ describe("Claude dock: on a test", () => {
     expect(callsOf("claude.run")[1].input.scope).toEqual({ kind: "test", testId: "local-1" });
   });
 
+  it("on a test run, reads the run — the step, the test or the whole run — locks no test and offers no revert", async () => {
+    net.routes["claude.run"] = () => ({
+      ok: true,
+      summary: "Le prénom est remonté de SECIB.\n\n```text\nLe prénom SECIB remplace celui de Symplicy.\n```",
+      runId: "run-2",
+    });
+    net.routes["runs.setResult"] = () => ({ test: "LFRPS12-1398", result: {} });
+    const { state } = mount({}, { focus: focus({ testId: "LFRPS12-1398", step: 1, run: "recette-j5" }) });
+    expect(screen.getByRole("tab", { name: "This run" })).toBeInTheDocument();
+    expect(screen.getByText("read only · the run")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Step 1" }));
+    ask("Rédige la note");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
+    expect(callsOf("claude.run")[0].input.scope).toEqual({
+      kind: "run",
+      run: "recette-j5",
+      testId: "LFRPS12-1398",
+      step: 1,
+    });
+    expect(state.setClaudeRunning).toHaveBeenCalledWith("run:recette-j5");
+    expect(await screen.findByText("Le prénom est remonté de SECIB.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Revert/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Use as the note of step 1" }));
+    await waitFor(() =>
+      expect(callsOf("runs.setResult").at(-1)?.input).toEqual({
+        run: "recette-j5",
+        test: "LFRPS12-1398",
+        steps: [{ step: 1, ok: false, note: "Le prénom SECIB remplace celui de Symplicy." }],
+      }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Whole run" }));
+    ask("Résume");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
+    expect(callsOf("claude.run")[1].input.scope).toEqual({ kind: "run", run: "recette-j5" });
+    expect(await screen.findAllByText("Le prénom est remonté de SECIB.")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^Use as the note/ })).toHaveLength(1);
+  });
+
+  it("on the runs page, talks about the whole run or the project only", () => {
+    mount({}, { focus: focus({ testId: "", summary: "Recette J5", run: "recette-j5" }) });
+    expect(screen.getByRole("radio", { name: "Whole run" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByRole("radio", { name: "Whole test" })).toBeNull();
+  });
+
   it("reports a review fix: back to review, re-check incomplete, several tests", async () => {
     mount({}, { focus: focus() });
     expect(screen.getByText("local test")).toBeInTheDocument();

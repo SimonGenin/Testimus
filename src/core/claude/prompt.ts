@@ -151,6 +151,16 @@ export function scopeLines(scope: ShownScope): string[] {
       `Files: docs/${scope.docId}/ (through the docs_* tools only) and the tests/*/test.md whose sources cite it`,
     ];
   if (scope.kind === "test") return [`Scope: the whole test ${scope.testId}.`, `Files: tests/${scope.testId}/test.md`];
+  if (scope.kind === "run") {
+    const dir = `test-runs/${scope.run}`;
+    const what = scope.testId
+      ? `${scope.step ? `step ${scope.step} of ` : ""}the test ${scope.testId} of the test run ${scope.run}`
+      : `the test run ${scope.run}`;
+    return [
+      `Scope: ${what} — read only.`,
+      `Files: ${dir}/run.json (the tests as frozen when the run was made), ${dir}/results/${scope.testId ?? "<testId>"}.json (OK / NOK per step with what happened, the result, comments and questions) and the screenshots in ${dir}/results/${scope.testId ?? "<testId>"}/ — open them with Read; runs_show and runs_history read the same.`,
+    ];
+  }
   return [`Scope: step ${scope.step} of test ${scope.testId}.`, `Files: tests/${scope.testId}/test.md`];
 }
 
@@ -166,6 +176,7 @@ export function buildPrompt(
 }
 
 export function scopedPrompt(scope: ShownScope, request: string, context: string[]): string {
+  if (scope.kind === "run") return runPrompt(scope, request, context);
   const lines = [...scopeLines(scope), "Only modify what the scope allows."];
   if (scope.kind === "step")
     lines.push(
@@ -190,6 +201,22 @@ export function scopedPrompt(scope: ShownScope, request: string, context: string
       ? "When finished, give the answer, or reply in 2-4 lines: what you changed (which tests and steps) and anything you could not do."
       : "When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.",
   );
+  return `${lines.join("\n")}\n`;
+}
+
+// ponytail: a run is the testers' — Claude reads it and answers; a note, a comment or a bug it is asked for is written
+// out in the answer for the tester to take, never into the run (its writes are refused to every Claude run)
+function runPrompt(scope: Extract<ClaudeScope, { kind: "run" }>, request: string, context: string[]): string {
+  const lines = [
+    ...scopeLines(scope),
+    "Change no file: Claude reads a test run, never marks a step or a result.",
+    "When the request asks for a note on what happened, a comment, an answer to a question or a bug report, write it out in the answer in the project's language, the text to paste alone in one fenced block (```text … ```).",
+    'Say whether what the tester saw contradicts the documents or the test itself; put the source of every factual sentence from a document at its end: [<docId>#<anchor> "<exact quote from doc.md>"] — use rag_search and rag_passage to find them.',
+    ...context,
+  ];
+  const req = request.trim();
+  if (req) lines.push("", req);
+  lines.push("", "When finished, give the answer.");
   return `${lines.join("\n")}\n`;
 }
 

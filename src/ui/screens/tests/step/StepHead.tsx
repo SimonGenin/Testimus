@@ -64,7 +64,14 @@ const styles = stylex.create({
   },
 });
 
-export type StepMarks = { claude?: boolean; added?: boolean; mark?: StepMark; unreadable?: boolean };
+// ponytail: ok / nok — a step played in a test run: its card and number take the tester's mark
+export type StepMarks = {
+  claude?: boolean;
+  added?: boolean;
+  mark?: StepMark;
+  unreadable?: boolean;
+  played?: "ok" | "nok";
+};
 
 export function StepNumber({ n, marks }: { n: number; marks: StepMarks }) {
   return (
@@ -78,6 +85,8 @@ export function StepNumber({ n, marks }: { n: number; marks: StepMarks }) {
         marks.mark === "modified" && styles.numModified,
         marks.mark === "new" && styles.numNew,
         marks.claude && styles.numClaude,
+        marks.played === "ok" && styles.numNew,
+        marks.played === "nok" && styles.numBad,
         marks.unreadable && styles.numBad,
       )}
     >

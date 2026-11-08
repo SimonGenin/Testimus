@@ -29,7 +29,7 @@ const styles = stylex.create({
 // ponytail: the contexts the run attaches when none is picked — the test's own list, else the project's defaults
 // (claude/actions.ts runAction), by name
 function useActionContexts(scope: ClaudeScope, defaults: string[] | undefined): string[] | null {
-  const testId = "testId" in scope ? scope.testId : "";
+  const testId = scope.kind === "step" || scope.kind === "test" ? scope.testId : "";
   const own = useRead("contexts.ofTest", { testId }, { enabled: !!testId });
   const all = useContexts();
   const ids = testId ? (own.data as { effective?: string[] } | undefined)?.effective : (defaults ?? []);

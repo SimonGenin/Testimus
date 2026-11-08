@@ -1,8 +1,18 @@
 import { z } from "zod";
 import { command, projectOf } from "../command.ts";
+import { osUser } from "../lib/review.ts";
 import { createRun, pickTests } from "../lib/run-create.ts";
-import { addComment, attachCapture, setResult } from "../lib/run-results.ts";
-import { countsOf, listRuns, type RunResult, readRunFile, removeRun, resultView, runView } from "../lib/runs.ts";
+import { addComment, attachCapture, detachCapture, setResult } from "../lib/run-results.ts";
+import {
+  countsOf,
+  listRuns,
+  type RunResult,
+  readRunFile,
+  removeRun,
+  resultView,
+  runView,
+  testHistory,
+} from "../lib/runs.ts";
 import { localTestRef } from "../lib/store.ts";
 import { REVIEW } from "../schemas.ts";
 import { commands as pages } from "./runs-pages.ts";
@@ -29,11 +39,14 @@ export const commands = [
   command({
     name: "runs.list",
     summary:
-      "The test runs of the project (test-runs/<run>/), newest first: name, version, environment, who made it, how many tests passed, have a problem, are blocked or not run, open questions, finished or not.",
+      "The test runs of the project (test-runs/<run>/), newest first: name, version, environment, who made it, how many tests passed, have a problem, are blocked or not run, open questions, finished or not; and who records results from here.",
     input: z.object({}),
-    output: z.object({ runs: z.array(SUMMARY).describe("Every run, newest first") }),
+    output: z.object({
+      runs: z.array(SUMMARY).describe("Every run, newest first"),
+      user: z.string().describe("Who records results from here: the name a result written now is stamped with"),
+    }),
     mutates: false,
-    run: async (ctx) => ({ runs: listRuns(projectOf(ctx)) }),
+    run: async (ctx) => ({ runs: listRuns(projectOf(ctx)), user: osUser() }),
   }),
 
   command({
@@ -174,6 +187,45 @@ export const commands = [
     positional: ["run", "test"],
     subject: (i) => `${i.run} ${i.test}`,
     run: async (ctx, input) => viewed(attachCapture(projectOf(ctx), input.run, input.test, input)),
+  }),
+
+  command({
+    name: "runs.detach",
+    summary: "Take a screenshot off a test of a run: its entry and its file under test-runs/<run>/results/<testId>/.",
+    input: z.object({
+      run: RUN,
+      test: RUN_TEST,
+      file: z.string().describe("The screenshot's file name (capture-<8hex>.<ext>), as runs.show lists it"),
+    }),
+    output: changed.extend({ attachment: ATTACHMENT.describe("The screenshot taken off") }),
+    mutates: true,
+    positional: ["run", "test", "file"],
+    subject: (i) => `${i.run} ${i.test}`,
+    run: async (ctx, input) => viewed(detachCapture(projectOf(ctx), input.run, input.test, input.file)),
+  }),
+
+  command({
+    name: "runs.history",
+    summary:
+      "One test in every run that holds it (by its id or Jira key), newest run first: the run, when it was made, the result it got, who recorded it and when.",
+    input: z.object({ test: RUN_TEST }),
+    output: z.object({
+      runs: z
+        .array(
+          z.object({
+            run: z.string().describe("The run's folder under test-runs/"),
+            name: z.string().describe("The run's name"),
+            createdAt: z.string().describe("When the run was made (ISO)"),
+            status: STATUS,
+            updatedAt: z.string().optional().describe("When the result last changed (ISO)"),
+            updatedBy: z.string().optional().describe("Who changed it last"),
+          }),
+        )
+        .describe("Every run holding the test, newest first"),
+    }),
+    mutates: false,
+    positional: ["test"],
+    run: async (ctx, input) => ({ runs: testHistory(projectOf(ctx), input.test) }),
   }),
 
   command({

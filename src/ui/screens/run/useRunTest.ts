@@ -17,7 +17,7 @@ export function useRunTest(run: string, test: string) {
     client.setQueryData<RunView>(key("runs.show", { run }) as unknown as readonly unknown[], (old) =>
       old ? { ...old, tests: old.tests.map((t) => (t.id === test ? { ...t, result } : t)) } : old,
     );
-  const effects = { invalidates: [["runs.list"]] as [string][] };
+  const effects = { invalidates: [["runs.list"], ["runs.history"]] as [string][] };
 
   const setResult = async (input: Omit<CommandInput<"runs.setResult">, "run" | "test">) => {
     const out = await execute(client, "runs.setResult", { run, test, ...input }, effects);
@@ -31,6 +31,16 @@ export function useRunTest(run: string, test: string) {
       setResult({ steps: [{ step, ok, ...(note !== undefined ? { note } : {}) }] }).catch((e) =>
         errorToast(e, "The mark was not saved"),
       ),
+    marks: (steps: { step: number; ok: boolean }[]) =>
+      setResult({ steps }).catch((e) => errorToast(e, "The marks were not saved")),
+    unshot: async (file: string) => {
+      try {
+        const out = await execute(client, "runs.detach", { run, test, file }, effects);
+        put(out.result);
+      } catch (e) {
+        errorToast(e, "The screenshot was not taken off");
+      }
+    },
     note: (step: number, ok: boolean | null, note: string) =>
       setResult({ steps: [{ step, ok, note }] }).catch((e) => errorToast(e, "The note was not saved")),
     save: async (input: Omit<CommandInput<"runs.setResult">, "run" | "test">) => {

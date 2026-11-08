@@ -82,7 +82,7 @@ test("a run exported as pages is played in the browser on its own server, then i
   await expect(imp).toBeHidden();
   const row = run.getByRole("row", { name: /Disjoncteur/ });
   await expect(row).toContainText("Problem");
-  await expect(row).toContainText("0 OK · 1 NOK");
+  await expect(row).toContainText("1 NOK");
   await expect(row).toContainText("1 question");
   await expect(row).toContainText("PM");
 

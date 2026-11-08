@@ -32,7 +32,8 @@ export type ProjectInfo = {
   };
 };
 
-export type Focus = { testId: string; key?: string; summary: string; step: number | null };
+// ponytail: run — the test is one of a test run (its slug): the dock then reads the run, never edits the test
+export type Focus = { testId: string; key?: string; summary: string; step: number | null; run?: string };
 
 export type ClaudeRun = {
   runId: string;
@@ -64,7 +65,7 @@ export type AppState = {
   closeProject: () => void;
   /** a source to show; from: the test (and step) that cites it, so the document it opens can lead back there */
   openSource: (s: Source, from?: SourceFrom) => void;
-  askClaude: (scope: "test" | "step", prompt?: string) => void;
+  askClaude: (scope: "test" | "step" | "run", prompt?: string) => void;
   runInDock: (job: { name: string; input: unknown; label: string; testId: string }) => void;
   /** a problem the app met, asked to Claude in the dock: it explains the cause and may propose an action */
   askAbout: (problem: ChatProblem, label?: string) => void;
