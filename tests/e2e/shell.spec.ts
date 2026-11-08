@@ -32,7 +32,7 @@ test("the project menu lists the projects and « All projects… » goes to the 
   for (const gone of ["Open a folder…", "Open by Jira key…", "New project…", "Show in Explorer"])
     await expect(page.getByRole("menuitem", { name: gone })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "All projects…" }).click();
-  await expect(page).toHaveURL(/#\/setup\/project$/);
+  await expect(page).toHaveURL(/#\/setup\/project\/app$/);
   await expect(page.getByRole("heading", { level: 1, name: "Choose a project" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Known projects" })).toContainText("RATP Sosie");
   await page.getByRole("button", { name: "Open by Jira key…" }).click();
