@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { api, boot, expect, mockServer, SCREENS_DIR, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4444);
+const server = mockServer(4444);
 
 const RUN = "recette-j5-sectionneurs";
 let base = "";
@@ -86,7 +86,7 @@ test("a run exported as pages is played in the browser on its own server, then i
   await expect(row).toContainText("1 question");
   await expect(row).toContainText("PM");
 
-  const shown = await api<{ tests: { id: string; result: { steps: { note?: string }[] } }[] }>(url, "runs.show", {
+  const shown = await api<{ tests: { id: string; result: { steps: { note?: string }[] } }[] }>(server.url, "runs.show", {
     run: RUN,
   });
   expect(shown.tests.find((t) => t.id === "LFRPS12-1398")?.result.steps[0].note).toBe("Le disjoncteur reste fermé.");
@@ -96,7 +96,7 @@ test("without Node the page keeps the results in the browser and saves a run.jso
   page,
 }) => {
   const dir = join(base, "no-node");
-  await api(url, "runs.export", { run: RUN, dir, results: false });
+  await api(server.url, "runs.export", { run: RUN, dir, results: false });
   const sheet = await page.context().newPage();
   await sheet.goto(pathToFileURL(join(dir, "index.html")).href);
   await expect(sheet.getByRole("note")).toContainText("No local server");
@@ -116,7 +116,7 @@ test("without Node the page keeps the results in the browser and saves a run.jso
   await expect(imp).toContainText("1 test with a new result");
   await imp.getByRole("button", { name: /^Import/ }).click();
   await expect(imp).toBeHidden();
-  const shown = await api<{ tests: { id: string; result: { steps: { ok: boolean | null }[] } }[] }>(url, "runs.show", {
+  const shown = await api<{ tests: { id: string; result: { steps: { ok: boolean | null }[] } }[] }>(server.url, "runs.show", {
     run: RUN,
   });
   expect(shown.tests[0].result.steps[0].ok).toBe(true);
