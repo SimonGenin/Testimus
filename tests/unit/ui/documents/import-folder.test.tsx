@@ -43,7 +43,7 @@ const scan = (dir: string) => ({
     file("~$A_01_00.docx", { importable: false, reason: "lock-file", why: "Word's lock file" }),
   ],
   documents: 2,
-  leftAside: 3,
+  leftAside: 2,
   truncated: false,
 });
 

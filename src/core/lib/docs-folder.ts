@@ -198,7 +198,7 @@ export function scanFolder(project: string | null, dir: string, recursive: boole
     recursive,
     files,
     documents: new Set(files.filter((f) => f.importable).map((f) => f.group ?? f.rel)).size,
-    leftAside: files.filter((f) => !f.importable && f.reason !== "twin").length,
+    leftAside: files.filter((f) => !f.importable && f.reason !== "twin" && f.reason !== "in-project").length,
     truncated,
   };
 }

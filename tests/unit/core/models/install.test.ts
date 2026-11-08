@@ -7,17 +7,9 @@ import type { Ctx } from "../../../../src/core/command.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { env } from "../../../../src/core/env.ts";
 import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
-import { registryFile } from "../../../../src/core/lib/models-catalog.ts";
+import { needEntry, registryFile } from "../../../../src/core/lib/models-catalog.ts";
 import { downloadDeps } from "../../../../src/core/lib/models-download.ts";
-import {
-  catalogView,
-  installDeps,
-  list,
-  needEntry,
-  remove,
-  usedBy,
-  verify,
-} from "../../../../src/core/lib/models-install.ts";
+import { catalogView, installDeps, list, remove, usedBy, verify } from "../../../../src/core/lib/models-install.ts";
 import { addPath } from "../../../../src/core/lib/models-install-path.ts";
 import { pull } from "../../../../src/core/lib/models-install-pull.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";

@@ -586,10 +586,12 @@ after the frontmatter, so a review decision never makes findings stale.
   language, the same words for items of the same nature — **no list of categories exists in the code**, the skills and
   the prompt only give examples; `why` is one or two concrete sentences (which source is missing, what the documents or
   `context.md` say). An item without a category (an older report, a model that left it out) reads as « Other »; a
-  planned test a cancel or a failed run left is « Stopped before it was written ». The page groups the items by
-  category, the largest group first (`screens/generate/SkippedList.tsx`); every category wears the warning tone, since
+  planned test a cancel or a failed run left is « Stopped before it was written ». One grouping, the core's
+  (`claude/gen-reply.ts byCategory`): the results and `gen.show` carry the items by category, the largest group first,
+  and the core's actions group them the same way; the page only cuts the list where the category changes
+  (`screens/generate/SkippedList.tsx`); every category wears the warning tone, since
   the code cannot tell a gap from a choice.
-- **The test being written** (2026-11-08): a generation job's progress lines carry `gen: [{ id?, summary?, state:
+- **The test being written** (2026-11-08): a generation job's progress lines carry, when it moved, `gen: [{ id?, summary?, state:
   waiting | writing | written | missed }]` (`claude/gen-board.ts`), from the run's own tool calls — the test a run is on
   is `writing`, the one it left `written`, a planned test not started `waiting` with its plan summary, a planned run
   that wrote nothing `missed`. While the job runs, Generate draws each test as a folding card, read only
@@ -767,7 +769,7 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   target on screen first (`view: { kind, id }`: the dock passes the test in focus or the document open, Generate its
   generation), then project, documents, tests, generations, jobs; by name inside a kind; by date proposed inside a
   target. The page only cuts that list where the target changes (`lib/actions.ts groupByTarget`) under a head « Kind ·
-  name » (`ActionTargetHead`: badge + name) — the dock's Actions tab, Generate's suggestions. An action shown alone
+  name » (`ActionGroup`: badge + name, one component for both) — the dock's Actions tab, Generate's suggestions. An action shown alone
   beside its problem (a conversion warning) says its target (« on document « Traction » »). Triage of a failed job is decided by the core (`actions.triageFailed`), once per job, only when Claude is
   there. Action runs are snapshotted.
 - **What Claude is given is visible** (Settings › Context; `claude.prompts`, read only, readable by every run kind):

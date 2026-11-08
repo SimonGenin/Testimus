@@ -16,7 +16,7 @@ import { deviceFor, deviceOf, isGguf } from "./fit/placement.ts";
 import { unsupportedOn } from "./fit/support.ts";
 import { fitOf, gb, releaseOurs } from "./fit/verdict.ts";
 import { knownMachine, machineProfile, platformOf, systemName } from "./machine/profile.ts";
-import { catalogEntry, pack } from "./models-catalog.ts";
+import { catalogEntry, entriesOf, pack } from "./models-catalog.ts";
 import { filesFor, filesPresent } from "./models-download.ts";
 import { budgets, downloadsAllowed, modelsDir, readRegistry } from "./models-registry.ts";
 import { isComplete, modelDir, modelRoots } from "./models-store.ts";
@@ -155,19 +155,12 @@ function resolveOne(id: string, queryTask: string): One {
   return { model: null, source: "download", reason: "" };
 }
 
-function entriesOf(v: PackVariant): CatalogEntry[] {
-  return [v.embedding, v.reranker]
-    .filter((m): m is string => !!m)
-    .map((m) => catalogEntry(m))
-    .filter((e): e is CatalogEntry => !!e);
-}
-
 type Tried = { v: PackVariant; i: number; one: Record<string, One>; fit: Fit | null; ok: boolean; slow: boolean };
 
 // The one reason a variant is left aside on this PC, as a clause: no runtime here, cannot be downloaded, the memory it needs
 // against what this PC has (with the numbers), never run on this system, or llama.cpp on the processor; "" = none
 function asideReason(t: Tried, machine: MachineProfile | null, headroom: number): string {
-  const entries = entriesOf(t.v);
+  const entries = entriesOf([t.v.embedding, t.v.reranker]);
   const off = machine ? [...new Set(entries.map((e) => unsupportedOn(e, machine)).filter((w) => !!w))] : [];
   if (off.length) return `no runtime here: ${off.join("; ")}`;
   const gone = Object.values(t.one).find((o) => o.source === "unavailable");
@@ -191,12 +184,14 @@ function asideReason(t: Tried, machine: MachineProfile | null, headroom: number)
 /** this PC can run the variant at all: a runtime for it and the memory to load it (a tight fit runs) */
 export function runsHere(v: PackVariant, machine: MachineProfile | null): boolean {
   if (!machine) return true;
-  const verdict = fitOf(entriesOf(v), releaseOurs(machine), { headroom: budgets().headroom }).verdict;
+  const verdict = fitOf(entriesOf([v.embedding, v.reranker]), releaseOurs(machine), {
+    headroom: budgets().headroom,
+  }).verdict;
   return verdict !== "unsupported" && verdict !== "ram-too-small";
 }
 
 export const variantName = (v: PackVariant): string =>
-  entriesOf(v)
+  entriesOf([v.embedding, v.reranker])
     .map((e) => e.label)
     .join(" + ");
 
@@ -219,10 +214,13 @@ export async function resolveChoice(
   for (const [i, v] of variants.entries()) {
     const one: Record<string, One> = {};
     for (const id of [v.embedding, v.reranker].filter((m): m is string => !!m)) one[id] = resolveOne(id, queryTask);
-    const fit = machine ? fitOf(entriesOf(v), machine, { headroom, lines: deps.lines }) : null;
+    const fit = machine ? fitOf(entriesOf([v.embedding, v.reranker]), machine, { headroom, lines: deps.lines }) : null;
     const ok = fit?.verdict !== "unsupported" && !Object.values(one).some((o) => o.source === "unavailable");
     // ponytail: llama.cpp on the processor indexes several times slower; a later variant without it is preferred
-    const slow = isPack && !!machine && entriesOf(v).some((e) => isGguf(e) && deviceFor(e, machine) === "cpu");
+    const slow =
+      isPack &&
+      !!machine &&
+      entriesOf([v.embedding, v.reranker]).some((e) => isGguf(e) && deviceFor(e, machine) === "cpu");
     tried.push({ v, i, one, fit, ok, slow });
     if (ok && !slow && (!fit || fit.verdict === "fits")) break;
   }

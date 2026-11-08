@@ -4,7 +4,7 @@ import { type Proposal, proposeAction } from "../lib/actions.ts";
 import { quoted, testName } from "../lib/names.ts";
 import { readCheck, testExists } from "../lib/store.ts";
 import type { Effort, Finding } from "../types.ts";
-import { type Skipped, STOPPED } from "./gen-reply.ts";
+import { byCategory, type Skipped, STOPPED } from "./gen-reply.ts";
 
 // ponytail: after a generation the core itself leaves a Claude action per problem it can name — a test of the
 // generation with findings, a category of tests not written — the same actions.* as any run's proposals: one per
@@ -69,9 +69,7 @@ export function proposeGenActions(
       suggest: { model: "sonnet", effort: errors ? "high" : "medium" },
     });
   }
-  const groups = new Map<string, Skipped[]>();
-  for (const s of o.skipped) if (s.category !== STOPPED) groups.set(s.category, [...(groups.get(s.category) ?? []), s]);
-  for (const [category, items] of groups) {
+  for (const { category, items } of byCategory(o.skipped.filter((s) => s.category !== STOPPED))) {
     const head = `Write the ${plural(items.length, "test")} skipped for `;
     propose({
       title: `${head}${quoted(clip(category, MAX_TITLE - head.length - 4))}`,

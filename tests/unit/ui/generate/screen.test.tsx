@@ -557,7 +557,7 @@ describe("Generate screen", () => {
         endedAt: at,
         result: output({
           tests: ["local-aaaaaaaa", "local-bbbbbbbb"],
-          skipped: [{ item: "Alarme", why: "no passage" }],
+          skipped: [{ item: "Alarme", category: "Other", why: "no passage" }],
         }),
       }),
       events: [],
@@ -741,7 +741,7 @@ describe("Generate › the tests land from the job events (was ui-screens)", () 
           { id: "local-bbbbbbbb", ok: false, review: "draft", errors: 2, warnings: 1 },
         ],
         changed: [],
-        skipped: [{ item: "Alarme de sectionneur", why: "no passage describes the alarm" }],
+        skipped: [{ item: "Alarme de sectionneur", category: "Other", why: "no passage describes the alarm" }],
         reportFound: true,
         durationMs: 1000,
       },

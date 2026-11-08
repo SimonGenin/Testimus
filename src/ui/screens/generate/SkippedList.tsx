@@ -10,9 +10,7 @@ import { parseSourceRef, sourceLabel } from "../../lib/fields.ts";
 import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 
-export type SkippedItem = { item: string; category?: string; why: string; sources?: string[] };
-
-const OTHER = "Other";
+export type SkippedItem = { item: string; category: string; why: string; sources?: string[] };
 
 const styles = stylex.create({
   groups: {
@@ -34,22 +32,18 @@ const styles = stylex.create({
 
 const ID = /^(?=.*[\d_])[\w.#-]+$/;
 
-export type SkippedGroup = { category: string; items: SkippedItem[] };
+type Group = { category: string; items: SkippedItem[] };
 
-// ponytail: the categories are Claude's own words for this generation — no list is known here; items of one category
-// go together, the category with the most items first, then in the order Claude reported them
-export function byCategory(skipped: SkippedItem[]): SkippedGroup[] {
-  const groups: SkippedGroup[] = [];
+// ponytail: the core sends the items grouped by Claude's categories, the largest first (gen-reply.ts byCategory); the
+// page only cuts the list where the category changes
+function cut(skipped: SkippedItem[]): Group[] {
+  const groups: Group[] = [];
   for (const s of skipped) {
-    const category = s.category?.trim() || OTHER;
-    const g = groups.find((x) => x.category === category);
-    if (g) g.items.push(s);
-    else groups.push({ category, items: [s] });
+    const last = groups.at(-1);
+    if (last && last.category === s.category) last.items.push(s);
+    else groups.push({ category: s.category, items: [s] });
   }
-  return groups
-    .map((g, k) => ({ g, k }))
-    .sort((a, b) => b.g.items.length - a.g.items.length || a.k - b.k)
-    .map(({ g }) => g);
+  return groups;
 }
 
 function Item({ s }: { s: SkippedItem }) {
@@ -103,8 +97,8 @@ export function SkippedList({
       onOpenChange={onOpenChange}
     >
       <div {...stylex.props(styles.groups)}>
-        {byCategory(skipped).map((g) => (
-          <section key={g.category} aria-label={g.category} {...stylex.props(styles.group)}>
+        {cut(skipped).map((g, k) => (
+          <section key={`${k}:${g.category}`} aria-label={g.category} {...stylex.props(styles.group)}>
             <span {...stylex.props(styles.head)}>
               <Badge tone="warning" size="sm" label={g.category} />
               <span {...stylex.props(type.small, type.tabular, styles.count)}>{g.items.length}</span>

@@ -9,6 +9,26 @@ export type Skipped = { item: string; category: string; why: string; sources?: s
 // items fall under one word the page groups like any other
 export const OTHER = "Other";
 export const STOPPED = "Stopped before it was written";
+export type SkippedGroup = { category: string; items: Skipped[] };
+
+// ponytail: the one grouping of the items not written — Claude's own categories, no list known here; items of one
+// category go together, the category with the most items first, then in the order Claude reported them. The results
+// carry the items in this order (inCategoryOrder), so the page only cuts the list where the category changes
+export function byCategory(skipped: Skipped[]): SkippedGroup[] {
+  const groups: SkippedGroup[] = [];
+  for (const s of skipped) {
+    const g = groups.find((x) => x.category === s.category);
+    if (g) g.items.push(s);
+    else groups.push({ category: s.category, items: [s] });
+  }
+  return groups
+    .map((g, k) => ({ g, k }))
+    .sort((a, b) => b.g.items.length - a.g.items.length || a.k - b.k)
+    .map(({ g }) => g);
+}
+
+export const inCategoryOrder = (skipped: Skipped[]): Skipped[] => byCategory(skipped).flatMap((g) => g.items);
+
 export type GenReport = {
   found: boolean;
   tests: string[];

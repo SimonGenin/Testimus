@@ -15,7 +15,7 @@ import type {
 import { isGguf } from "./fit/placement.ts";
 import { fitOf } from "./fit/verdict.ts";
 import { machineProfile } from "./machine/profile.ts";
-import { catalog, catalogEntry, pack } from "./models-catalog.ts";
+import { catalog, catalogEntry, needEntry, pack } from "./models-catalog.ts";
 import { inside, norm, pruneEmpty } from "./models-dir.ts";
 import { checkFile, filesFor } from "./models-download.ts";
 import { opSignal, perfStats, speedLine } from "./models-perf.ts";
@@ -40,12 +40,6 @@ export const installDeps = {
   findLlamaBuild: async (dir: string): Promise<LlamaRuntime | null> =>
     (await import("../rag/runtimes/llamacpp.ts")).identifyLlamaBuild(dir),
 };
-
-export function needEntry(id: string): CatalogEntry {
-  const e = catalogEntry(id);
-  if (!e) throw new UserError(`Unknown model ${id}.`, "testimus models catalog lists the catalog ids.");
-  return e;
-}
 
 export function sizeOf(path: string): number {
   if (!existsSync(path)) return 0;

@@ -51,7 +51,11 @@ const scanned = z.object({
     )
     .describe("Every file found, in the folder's order (sub-folders after the files)"),
   documents: z.number().describe("Documents an import would add"),
-  leftAside: z.number().describe("Files left aside (the renderings added with their .docx are not counted)"),
+  leftAside: z
+    .number()
+    .describe(
+      "Files left aside: neither a document to import nor one already in the project (the renderings added with their .docx are not counted)",
+    ),
   truncated: z
     .boolean()
     .describe(`True when the folder holds more than ${FOLDER_MAX_FILES} files: only those were read`),

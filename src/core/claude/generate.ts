@@ -16,13 +16,13 @@ import {
   testExists,
   writeTest,
 } from "../lib/store.ts";
-import { awaitsReview, type ClaudeEvent, type Diagnosis, type Tokens } from "../types.ts";
+import { awaitsReview, type ClaudeEvent, type Diagnosis, type GenTestProgress, type Tokens } from "../types.ts";
 import { checkTests } from "./check.ts";
 import { proposeGenActions } from "./gen-actions.ts";
 import { addPart, mergeSkipped, readPrior } from "./gen-again.ts";
 import { genBoard, type Lane } from "./gen-board.ts";
 import { categoriesOf, checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
-import { type GenReport, parseGenReport, parsePlan, type Skipped, STOPPED } from "./gen-reply.ts";
+import { type GenReport, inCategoryOrder, parseGenReport, parsePlan, type Skipped, STOPPED } from "./gen-reply.ts";
 import { ledgerOf, readLedger, writeLedger } from "./ledger.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { absorbRun, markLeft, readRun } from "./snapshot.ts";
@@ -172,14 +172,25 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx, 
 }
 
 async function generate(project: string, asked: GenInput, outer: Ctx, into?: string): Promise<GenResult> {
+  // ponytail: a progress line carries the board (gen) only when it moved since the last one that did — the page reads
+  // the last line that has one
   let said = "";
-  const board = genBoard((gen) => outer.progress({ message: said, gen }));
+  let sent = "";
+  const moved = (gen: GenTestProgress[]) => {
+    const now = JSON.stringify(gen);
+    if (!gen.length || now === sent) return {};
+    sent = now;
+    return { gen };
+  };
+  const board = genBoard((gen) => {
+    const g = moved(gen);
+    if (g.gen) outer.progress({ message: said, ...g });
+  });
   const ctx: Ctx = {
     ...outer,
     progress: (p) => {
       said = p.message;
-      const gen = board.tests();
-      outer.progress({ ...p, ...(gen.length ? { gen } : {}) });
+      outer.progress({ ...p, ...moved(board.tests()) });
     },
   };
   const prior = asked.resume?.trim() ? readPrior(project, asked.resume.trim()) : null;
@@ -352,14 +363,16 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     checks,
     changed,
     discarded,
-    skipped: mergeSkipped(
-      base?.skipped ?? prior?.skipped ?? [],
-      [
-        ...(first ? (plan?.skipped ?? []) : []),
-        ...reports.flatMap((r) => r.skipped),
-        ...left.map((t) => ({ item: t.summary, category: STOPPED, why })),
-      ],
-      reports.flatMap((r) => r.covered),
+    skipped: inCategoryOrder(
+      mergeSkipped(
+        base?.skipped ?? prior?.skipped ?? [],
+        [
+          ...(first ? (plan?.skipped ?? []) : []),
+          ...reports.flatMap((r) => r.skipped),
+          ...left.map((t) => ({ item: t.summary, category: STOPPED, why })),
+        ],
+        reports.flatMap((r) => r.covered),
+      ),
     ),
     reportFound,
     consulted: consulted.length,

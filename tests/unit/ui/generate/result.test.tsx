@@ -277,7 +277,7 @@ describe("Generate › result helpers", () => {
       <GenSummary
         result={output({
           reportFound: false,
-          skipped: [{ item: "R2 alarm", why: "no passage" }],
+          skipped: [{ item: "R2 alarm", category: "Other", why: "no passage" }],
           changed: ["T9", "T8"],
         })}
         checked="checked line"
@@ -296,12 +296,12 @@ describe("Generate › result helpers", () => {
     expect(screen.queryByRole("region", { name: /Not written/ })).toBeNull();
   });
 
-  it("GenSummary: the tests not written are grouped by Claude's category, the largest group first; none is « Other »", () => {
+  it("GenSummary: the tests not written under their category, in the core's order, cut where the category changes", () => {
     const skipped = [
-      { item: "Alarme R2", category: "Hors périmètre", why: "pas le sectionneur" },
       { item: "Menu B", category: "Pas de source", why: "§2 ne dit pas ce que montre l'écran" },
-      { item: "Menu C", why: "un ancien rapport" },
       { item: "Menu D", category: "Pas de source", why: "context.md : pas câblé" },
+      { item: "Alarme R2", category: "Hors périmètre", why: "pas le sectionneur" },
+      { item: "Menu C", category: "Other", why: "un ancien rapport" },
     ];
     render(<GenSummary result={output({ skipped })} checked="" open />);
     const list = screen.getByRole("region", { name: "Not written" });
@@ -317,7 +317,7 @@ describe("Generate › result helpers", () => {
   });
 
   it("GenSummary: the not-covered list is folded as the screen says, and its summary asks to unfold it", () => {
-    const skipped = Array.from({ length: 2 }, (_, i) => ({ item: `Item ${i}`, why: "no passage" }));
+    const skipped = Array.from({ length: 2 }, (_, i) => ({ item: `Item ${i}`, category: "Other", why: "no passage" }));
     const onOpenChange = vi.fn();
     render(<GenSummary result={output({ skipped })} checked="" open={false} onOpenChange={onOpenChange} />);
     const fold = screen.getByRole("button", { name: "Not written · 2" });
@@ -330,8 +330,13 @@ describe("Generate › result helpers", () => {
   it("GenSummary: an item not covered shows the passages that ask for it, and a chip opens its passage", () => {
     const openSource = vi.fn();
     const skipped = [
-      { item: "Menu B", why: "no source", sources: ['D1#§2 "le menu B s\'ouvre"', "not a source", "D1#fig:4"] },
-      { item: "Menu C", why: "" },
+      {
+        item: "Menu B",
+        category: "Other",
+        why: "no source",
+        sources: ['D1#§2 "le menu B s\'ouvre"', "not a source", "D1#fig:4"],
+      },
+      { item: "Menu C", category: "Other", why: "" },
     ];
     const { rerender } = render(<GenSummary result={output({ skipped })} checked="" open />);
     const list = screen.getByRole("region", { name: "Not written" });

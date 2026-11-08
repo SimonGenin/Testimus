@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { scopeIndex } from "../claude/gen-prompt.ts";
+import { inCategoryOrder } from "../claude/gen-reply.ts";
 import { reviseGeneration } from "../claude/gen-revise.ts";
 import { discardable, generateTests } from "../claude/generate.ts";
 import { readLedger } from "../claude/ledger.ts";
@@ -33,7 +34,7 @@ const GEN_RESULT = z.object({
         category: z
           .string()
           .describe(
-            "Why no test, in a few words Claude chose for this generation (no fixed list; the same words for items of the same nature; « Other » when the report gave none) — the page groups by it",
+            "Why no test, in a few words Claude chose for this generation (no fixed list; the same words for items of the same nature; « Other » when the report gave none). The items come grouped by it, the largest category first",
           ),
         why: z
           .string()
@@ -193,7 +194,7 @@ export const commands = [
         request: l.input.request ?? "",
         ...(l.at ? { at: l.at } : {}),
         tests: (l.tests ?? []).filter((id) => testExists(project, id)),
-        skipped: (l.skipped ?? []).map(({ item, category, why }) => ({ item, category, why })),
+        skipped: inCategoryOrder(l.skipped ?? []).map(({ item, category, why }) => ({ item, category, why })),
       };
     },
   }),

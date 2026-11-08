@@ -73,7 +73,9 @@ describe("gen.tests says in its progress which test it writes", () => {
   it("against the --mock Claude: the first test is written, then the second, and the test on disk grows meanwhile", async () => {
     const boards: GenTestProgress[][] = [];
     const onDisk: boolean[] = [];
+    let lines = 0;
     const off = subscribe((e: JobEvent) => {
+      if (e.type === "progress") lines++;
       if (e.type !== "progress" || !e.gen) return;
       boards.push(e.gen);
       const writing = e.gen.find((t) => t.state === "writing");
@@ -93,5 +95,9 @@ describe("gen.tests says in its progress which test it writes", () => {
     expect(states.at(-1)).toBe("a:written b:written");
     expect(onDisk.length).toBeGreaterThan(0);
     expect(onDisk.every(Boolean)).toBe(true);
+    const said = boards.map((g) => JSON.stringify(g));
+    for (let k = 1; k < said.length; k++)
+      expect(said[k], "a progress line carries the board only when it moved").not.toBe(said[k - 1]);
+    expect(lines).toBeGreaterThan(boards.length);
   });
 });

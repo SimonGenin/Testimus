@@ -27,11 +27,11 @@ const styles = stylex.create({
 type Scan = CommandOutput<"docs.scanFolder">;
 type Found = Scan["files"][number];
 
-function summary(s: Scan, inProject: number, aside: number): string {
+function summary(s: Scan, inProject: number): string {
   const found = `${plural(s.files.length, "file")} found${s.recursive ? " (sub-folders included)" : ""}`;
   const more = s.truncated ? " — only the first ones were read" : "";
   const there = inProject ? ` · ${inProject} already in the project` : "";
-  return `${found}${more} · ${s.documents} can be imported${there} · ${aside} left aside`;
+  return `${found}${more} · ${s.documents} can be imported${there} · ${s.leftAside} left aside`;
 }
 
 const note = (text: string) => <span {...stylex.props(type.small, styles.muted)}>{text}</span>;
@@ -178,7 +178,7 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
             hint={"The folder's full path on this PC (not a network path \\\\server\\share)"}
           />
         )}
-        {scan && note(summary(scan, docs.length - scan.documents, aside.length))}
+        {scan && note(summary(scan, docs.length - scan.documents))}
         {scan && (
           <List
             label="Files found"

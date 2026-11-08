@@ -4,8 +4,8 @@ import { acceptable, rememberFit } from "./doctor-models.ts";
 import { fitOf } from "./fit/verdict.ts";
 import { machineProfile } from "./machine/profile.ts";
 import { advise, PACK_ORDER } from "./models-advice.ts";
-import { catalog, catalogEntry } from "./models-catalog.ts";
-import { NO_DIR, NO_DIR_CODE, needEntry, verify } from "./models-install.ts";
+import { catalog, catalogEntry, entriesOf } from "./models-catalog.ts";
+import { NO_DIR, NO_DIR_CODE, verify } from "./models-install.ts";
 import { pull } from "./models-install-pull.ts";
 import { type PackContext, type PackRow, planOf, type UsePlan } from "./models-packs.ts";
 import { readPerf } from "./models-perf.ts";
@@ -30,10 +30,6 @@ export const modelsDeps = {
   },
   llama: () => import("../rag/runtimes/llamacpp.ts"),
 };
-
-export function entriesOf(ids: (string | null | undefined)[]): CatalogEntry[] {
-  return ids.filter((m): m is string => !!m).map((m) => needEntry(m));
-}
 
 function plainChoice(c: ActiveChoice | RagChoice): RagChoice {
   return "pack" in c ? { pack: c.pack } : { embedding: c.embedding, reranker: c.reranker };

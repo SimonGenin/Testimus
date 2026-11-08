@@ -3,9 +3,9 @@ import { command, UserError } from "../command.ts";
 import { fitOf } from "../lib/fit/verdict.ts";
 import { integrated, rankGpus, usable } from "../lib/machine/gpus.ts";
 import { machineProfile } from "../lib/machine/profile.ts";
+import { entriesOf } from "../lib/models-catalog.ts";
 import { perfStats, readPerf } from "../lib/models-perf.ts";
 import { budgets } from "../lib/models-registry.ts";
-import { entriesOf } from "../lib/models-use.ts";
 import { fit } from "./models-schemas.ts";
 
 export const commands = [

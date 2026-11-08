@@ -6,6 +6,7 @@ import type { Effort } from "../types.ts";
 import { checkTests } from "./check.ts";
 import { proposeGenActions } from "./gen-actions.ts";
 import { genBoard } from "./gen-board.ts";
+import { inCategoryOrder } from "./gen-reply.ts";
 import { type GenCheck, type GenResult, generateTests, toolStep } from "./generate.ts";
 import { readLedger } from "./ledger.ts";
 import { runOnScope } from "./scoped.ts";
@@ -106,7 +107,7 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
     }
   }
   if (!r.ok) ctx.log("error", r.summary);
-  const skipped = ledger.skipped ?? [];
+  const skipped = inCategoryOrder(ledger.skipped ?? []);
   proposeGenActions(
     project,
     input.generation,

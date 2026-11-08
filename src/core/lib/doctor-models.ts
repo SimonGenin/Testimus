@@ -122,7 +122,7 @@ export function rememberFit(entries: CatalogEntry[], verdict: FitVerdict | null)
 }
 
 // ponytail: the models a set in use stands for — the one resolved here, else the one wanted, of each kind
-function entriesOf(active: Awaited<ReturnType<ModelDeps["active"]>>): CatalogEntry[] {
+function inUse(active: Awaited<ReturnType<ModelDeps["active"]>>): CatalogEntry[] {
   const of = (kind: CatalogEntry["kind"], m: ResolvedModel | null) =>
     m?.entry ?? active.wanted.map((id) => catalogEntry(id)).find((e) => e?.kind === kind);
   return [of("embedding", active.embedding), of("reranker", active.reranker)].filter((e): e is CatalogEntry => !!e);
@@ -152,7 +152,7 @@ export async function modelsFit(
   project: string | null,
   deps: ModelDeps = modelDeps,
 ): Promise<{ entries: CatalogEntry[]; fit: Fit } | null> {
-  const entries = entriesOf(await deps.active(project));
+  const entries = inUse(await deps.active(project));
   const machine = await deps.machine();
   if (!entries.length) return null;
   return { entries, fit: fitOf(entries, machine, { headroom: budgets().headroom, lines: readPerf() }) };
@@ -207,7 +207,7 @@ export async function modelRows(project: string | null, deps: ModelDeps = modelD
   const wantE = active.wanted.find((m) => catalogEntry(m)?.kind === "embedding");
   const wantR = active.wanted.find((m) => catalogEntry(m)?.kind === "reranker");
   rows.push(installRow("embedding", active.embedding, wantE), installRow("reranker", active.reranker, wantR));
-  const entries = entriesOf(active);
+  const entries = inUse(active);
   const machine = await deps.machine().catch(() => null);
   if (!entries.length || !machine)
     rows.push(

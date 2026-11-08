@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needEntry } from "../../../../src/core/lib/models-install.ts";
+import { needEntry } from "../../../../src/core/lib/models-catalog.ts";
 import { suggestPack } from "../../../../src/core/lib/models-packs.ts";
 
 describe("a model the catalog does not have", () => {

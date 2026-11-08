@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { genPrompt, languageName } from "../../../../src/core/claude/gen-prompt.ts";
-import { parseGenReport } from "../../../../src/core/claude/gen-reply.ts";
+import { byCategory, inCategoryOrder, parseGenReport } from "../../../../src/core/claude/gen-reply.ts";
 import { generateTests, stampTest } from "../../../../src/core/claude/generate.ts";
 import type { Ctx } from "../../../../src/core/command.ts";
 import { type ClaudeOut, env } from "../../../../src/core/env.ts";
@@ -130,5 +130,18 @@ describe("generateTests, a failed run", () => {
     expect(r.diagnosis?.kind).toBe("login");
     expect(logs.some((m) => m.startsWith("error: Invalid API key"))).toBe(true);
     expect(logs.some((m) => m.includes("no gen-report block"))).toBe(false);
+  });
+});
+
+describe("the items not written, grouped by category", () => {
+  it("one group per category, the largest first, then in Claude's order; the results carry them in that order", () => {
+    const s = (item: string, category: string) => ({ item, category, why: "" });
+    const skipped = [s("R2", "Hors périmètre"), s("B", "Pas de source"), s("C", "Other"), s("D", "Pas de source")];
+    expect(byCategory(skipped).map((g) => [g.category, g.items.map((x) => x.item)])).toEqual([
+      ["Pas de source", ["B", "D"]],
+      ["Hors périmètre", ["R2"]],
+      ["Other", ["C"]],
+    ]);
+    expect(inCategoryOrder(skipped).map((x) => x.item)).toEqual(["B", "D", "R2", "C"]);
   });
 });

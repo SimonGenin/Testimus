@@ -13,7 +13,7 @@ import { deviceFor, isGguf, onIntegratedGpu } from "./fit/placement.ts";
 import { fitOf, releaseOurs } from "./fit/verdict.ts";
 import { machineProfile } from "./machine/profile.ts";
 import { PACK_ORDER } from "./models-advice.ts";
-import { catalog, catalogEntry } from "./models-catalog.ts";
+import { catalog, catalogEntry, entriesOf } from "./models-catalog.ts";
 import { type Installed, packNotes } from "./models-pack-notes.ts";
 import { perfStats, variantSpeed } from "./models-perf.ts";
 import { evalReports, type Measured, NOT_MEASURED, packQuality, refdocQuality } from "./models-quality.ts";
@@ -66,18 +66,13 @@ export type UsePlan = {
   expected: string;
 };
 
-function entriesOf(v: PackVariant): CatalogEntry[] {
-  return [v.embedding, v.reranker]
-    .filter((m): m is string => !!m)
-    .map((m) => catalogEntry(m))
-    .filter((e): e is CatalogEntry => !!e);
-}
+const variantEntries = (v: PackVariant) => entriesOf([v.embedding, v.reranker]);
 
 // ponytail: a pack made for a GPU that runs here on the processor is several times slower than it promises (Qwen3 0.6B
 // indexes 2.1 passages/s on the processor, 27/s on DirectML): it says so and is never the suggestion
 export function processorFallback(p: Pack, i: number, machine: MachineProfile): boolean {
-  const onCpu = entriesOf(p.variants[i]).every((e) => deviceFor(e, machine) === "cpu");
-  return onCpu && p.variants.slice(0, i + 1).some((v) => entriesOf(v).some((e) => e.devices.includes("gpu")));
+  const onCpu = variantEntries(p.variants[i]).every((e) => deviceFor(e, machine) === "cpu");
+  return onCpu && p.variants.slice(0, i + 1).some((v) => variantEntries(v).some((e) => e.devices.includes("gpu")));
 }
 
 function installedOf(models: PackModel[]): Installed {
@@ -89,7 +84,7 @@ function usedInstead(ctx: PackContext | null, id: string): string | null {
   const u = ctx?.using;
   if (!u || u.pack === id) return null;
   if (u.pack) return `the ${catalog().packs.find((p) => p.id === u.pack)?.label ?? u.pack} pack`;
-  return entriesOf(u.variant)
+  return variantEntries(u.variant)
     .map((e) => e.label)
     .join(" + ");
 }
@@ -119,7 +114,7 @@ export async function packRows(
     const index = inUse >= 0 ? inUse : r.variantIndex;
     const v = index === null ? null : p.variants[index];
     const models: PackModel[] = v
-      ? entriesOf(v).map((e) => ({
+      ? variantEntries(v).map((e) => ({
           id: e.id,
           label: e.label,
           kind: e.kind as PackModel["kind"],
@@ -128,7 +123,7 @@ export async function packRows(
       : [];
     const fit =
       inUse >= 0 && v && machine
-        ? fitOf(entriesOf(v), releaseOurs(machine), { headroom: budgets().headroom, lines: deps.lines })
+        ? fitOf(variantEntries(v), releaseOurs(machine), { headroom: budgets().headroom, lines: deps.lines })
         : (r.fit ?? null);
     const installed = installedOf(models);
     const downloadMB = models
@@ -220,7 +215,7 @@ export function suggestPack(machine: MachineProfile | null, lines: PerfLine[] = 
     const p = packs.find((x) => x.id === id);
     if (!p) continue;
     for (const [i, v] of p.variants.entries()) {
-      const entries = entriesOf(v);
+      const entries = variantEntries(v);
       // ponytail: a reranker on the processor makes each query take seconds, and llama.cpp on an integrated GPU has the
       // memory but a fraction of a discrete card's compute; both stay a choice, never the suggestion
       const slow = entries.some(

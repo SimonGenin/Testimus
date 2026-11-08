@@ -6,10 +6,10 @@ import { env } from "../env.ts";
 import type { CatalogEntry, Installation, InstallState } from "../types.ts";
 import { deviceOf, isGguf } from "./fit/placement.ts";
 import { machineProfile } from "./machine/profile.ts";
-import { catalog } from "./models-catalog.ts";
+import { catalog, needEntry } from "./models-catalog.ts";
 import { copyTree } from "./models-dir.ts";
 import { filesFor, filesPresent, hashFile, installPath } from "./models-download.ts";
-import { installDeps, NO_DIR, NO_DIR_CODE, needEntry, probeInstall, sizeOf } from "./models-install.ts";
+import { installDeps, NO_DIR, NO_DIR_CODE, probeInstall, sizeOf } from "./models-install.ts";
 import { putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
 import { isComplete } from "./models-store.ts";
 
