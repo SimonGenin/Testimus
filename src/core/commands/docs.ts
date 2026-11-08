@@ -30,6 +30,7 @@ import {
   convertSteps,
   convertWith,
   copyIn,
+  inSlot,
   inspect,
   nameOf,
   pairFiles,
@@ -385,37 +386,39 @@ export const commands = [
         const project = projectOf(ctx);
         const studied = input.convert && (input.study || !!input.conversion);
         const batches = input.media ?? [];
-        ctx.steps?.(
-          input.convert
-            ? convertSteps(
-                [
-                  ...(studied ? [{ id: "copy", label: "Copy the original" }] : []),
-                  { id: "convert", label: studied ? "Study and convert" : "Copy and convert" },
-                  ...(batches.length ? [MEDIA_STEP] : []),
-                ],
-                input,
-              )
-            : [{ id: "copy", label: "Copy the original" }],
-        );
-        ctx.step?.(studied || !input.convert ? "copy" : "convert");
-        let doc = await copyIn(ctx, project, save, input, input.convert && !studied);
-        for (const b of batches) await addLot(ctx, project, doc.id, b);
         if (!input.convert) {
+          ctx.steps?.([{ id: "copy", label: "Copy the original" }]);
+          ctx.step?.("copy");
+          const doc = await copyIn(ctx, project, save, input, false);
+          for (const b of batches) await addLot(ctx, project, doc.id, b);
           for (const l of readDoc(project, doc.id).media ?? []) await prepareLot(ctx, project, doc.id, l.id);
           return { ...readDoc(project, doc.id), citedBy: [] };
         }
-        if (studied)
-          try {
-            ctx.step?.("convert");
-            doc = await convertWith(ctx, project, doc.id, input, runOf(input));
-          } catch (e) {
-            rmSync(docDir(project, doc.id), { recursive: true, force: true });
-            throw e;
-          }
-        const read = input.describeFigures ?? shouldDescribeFigures(project);
-        await withBatches(ctx, project, doc.id, runOf(input), read);
-        doc = readDoc(project, doc.id);
-        return { ...doc, ...(await afterConversion(ctx, project, doc, runOf(input), input)) };
+        const steps = convertSteps(
+          [
+            ...(studied ? [{ id: "copy", label: "Copy the original" }] : []),
+            { id: "convert", label: studied ? "Study and convert" : "Copy and convert" },
+            ...(batches.length ? [MEDIA_STEP] : []),
+          ],
+          input,
+        );
+        ctx.steps?.(steps);
+        return inSlot(ctx, project, steps, async () => {
+          ctx.step?.(studied ? "copy" : "convert");
+          let doc = await copyIn(ctx, project, save, input, !studied);
+          for (const b of batches) await addLot(ctx, project, doc.id, b);
+          if (studied)
+            try {
+              ctx.step?.("convert");
+              doc = await convertWith(ctx, project, doc.id, input, runOf(input));
+            } catch (e) {
+              rmSync(docDir(project, doc.id), { recursive: true, force: true });
+              throw e;
+            }
+          const read = input.describeFigures ?? shouldDescribeFigures(project);
+          await withBatches(ctx, project, doc.id, runOf(input), read);
+          return afterConversion(ctx, project, readDoc(project, doc.id), runOf(input), input);
+        });
       }),
   }),
   command({
@@ -529,21 +532,21 @@ export const commands = [
           });
       }
       const batches = (readDoc(project, input.id).media ?? []).some((l) => l.included);
-      ctx.steps?.(
-        convertSteps(
-          [
-            { id: "convert", label: input.study ? "Study and convert" : "Convert to text" },
-            ...(batches ? [MEDIA_STEP] : []),
-          ],
-          input,
-        ),
+      const steps = convertSteps(
+        [
+          { id: "convert", label: input.study ? "Study and convert" : "Convert to text" },
+          ...(batches ? [MEDIA_STEP] : []),
+        ],
+        input,
       );
-      ctx.step?.("convert");
-      await convertWith(ctx, project, input.id, input, runOf(input));
-      const read = input.describeFigures ?? shouldDescribeFigures(project);
-      await withBatches(ctx, project, input.id, runOf(input), read);
-      const doc = readDoc(project, input.id);
-      return { ...doc, ...(await afterConversion(ctx, project, doc, runOf(input), input)) };
+      ctx.steps?.(steps);
+      return inSlot(ctx, project, steps, async () => {
+        ctx.step?.("convert");
+        await convertWith(ctx, project, input.id, input, runOf(input));
+        const read = input.describeFigures ?? shouldDescribeFigures(project);
+        await withBatches(ctx, project, input.id, runOf(input), read);
+        return afterConversion(ctx, project, readDoc(project, input.id), runOf(input), input);
+      });
     },
   }),
   command({

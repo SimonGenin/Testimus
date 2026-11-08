@@ -1,14 +1,21 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { scope } from "../../shared/run/work.ts";
+import { type Semaphore, scope, semaphore } from "../../shared/run/work.ts";
 import { activeModels } from "../rag/activation.ts";
 import { indexFile, openDb } from "../rag/db.ts";
 import { spaceOf } from "../rag/fingerprint.ts";
 import { type LiveIndex, liveIndex } from "../rag/indexer.ts";
 import type { DocIndexing, DocRef, IndexRun } from "../types.ts";
+import { conversionsAtOnce } from "./agents.ts";
 import { listDocs } from "./docs.ts";
 
-type Queue = { converting: Set<Promise<unknown>>; running: Promise<unknown> | null; waiting: Promise<unknown> | null };
+type Slots = { n: number; take: Semaphore; users: number };
+type Queue = {
+  converting: Set<Promise<unknown>>;
+  running: Promise<unknown> | null;
+  waiting: Promise<unknown> | null;
+  slots: Slots | null;
+};
 
 const queues = new Map<string, Queue>();
 
@@ -16,7 +23,7 @@ function queueOf(project: string): Queue {
   const key = resolve(project).toLowerCase();
   let q = queues.get(key);
   if (!q) {
-    q = { converting: new Set(), running: null, waiting: null };
+    q = { converting: new Set(), running: null, waiting: null, slots: null };
     queues.set(key, q);
   }
   return q;
@@ -32,6 +39,29 @@ export function whileConverting<T>(project: string, work: () => Promise<T>): Pro
   q.converting.add(p);
   p.then(done, done);
   return p;
+}
+
+// ponytail: at most conversionsAtOnce() conversions of a project go at a time — counted when a batch starts (the slots
+// are made again once every conversion of the last batch ended); one asked for meanwhile waits its turn (onWait), and
+// an index run waits for it as for those going. A conversion that fails frees its slot like one that ends
+export function conversionSlot<T>(
+  project: string,
+  work: () => Promise<T>,
+  o: { signal?: AbortSignal; onWait?: (atOnce: number) => void } = {},
+): Promise<T> {
+  const q = queueOf(project);
+  if (!q.slots?.users) {
+    const n = conversionsAtOnce();
+    q.slots = { n, take: semaphore(n), users: 0 };
+  }
+  const slots = q.slots;
+  if (slots.users >= slots.n) o.onWait?.(slots.n);
+  slots.users++;
+  return whileConverting(project, () =>
+    slots.take(work, o.signal).finally(() => {
+      slots.users--;
+    }),
+  );
 }
 
 function start<T>(q: Queue, run: () => Promise<T>): Promise<T> {

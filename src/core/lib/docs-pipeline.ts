@@ -17,7 +17,7 @@ import { writeAtomic } from "./atomic.ts";
 import { recheckMechanical, testsCiting } from "./check.ts";
 import { docDir, readDoc, writeDoc } from "./docs.ts";
 import { addDoc, convertedCopy, reconvertDoc, setConversion, twinOf } from "./docs-convert.ts";
-import { indexAfterConversions, whileConverting } from "./docs-index.ts";
+import { conversionSlot, indexAfterConversions, whileConverting } from "./docs-index.ts";
 
 export type AfterConvert = { describeFigures?: boolean; triage?: boolean; study?: boolean; index?: boolean };
 export type IndexOutcome = { chunks?: number; degraded?: string; error?: string };
@@ -121,18 +121,44 @@ export function recheckCiting(ctx: Ctx, project: string, doc: DocJson): CitingTe
   return cited;
 }
 
+export type Converted = { doc: DocJson; citedBy: CitingTest[]; index?: Promise<IndexOutcome> };
+
+// ponytail: the figures, the citing tests and the triage belong to the conversion (its slot); the index run is only
+// asked for — before the slot is let go, so the run waits for this conversion's batch and is shared (inSlot awaits it)
 export async function afterConversion(
   ctx: Ctx,
   project: string,
   doc: DocJson,
   claude: JobRun,
   o: AfterConvert,
-): Promise<Aftermath> {
+): Promise<Converted> {
   await withFigures(ctx, project, doc, claude, o.describeFigures);
   ctx.step?.("cited");
   const citedBy = recheckCiting(ctx, project, doc);
   if (!o.study) await withTriage(ctx, project, doc, claude, o.triage);
-  return { citedBy, ...(o.index ? { index: await withIndex(ctx, project, claude) } : {}) };
+  return { doc, citedBy, ...(o.index ? { index: withIndex(ctx, project, claude) } : {}) };
+}
+
+export const QUEUE_STEP = { id: "queue", label: "Wait for the other conversions" };
+
+// ponytail: a conversion job runs in one of the project's conversion slots (lib/docs-index.ts); waiting for one is a
+// step of its own (« Waiting to convert » on the page), and the index run it asked for is awaited once the slot is free
+export async function inSlot(
+  ctx: Ctx,
+  project: string,
+  steps: { id: string; label: string }[],
+  work: () => Promise<Converted>,
+): Promise<DocJson & Aftermath> {
+  const r = await conversionSlot(project, work, {
+    signal: ctx.signal,
+    onWait: (n) => {
+      ctx.steps?.([QUEUE_STEP, ...steps]);
+      ctx.step?.("queue");
+      ctx.progress({ message: `Waiting to convert (${n} at a time)` });
+    },
+  });
+  const index = r.index ? await r.index : undefined;
+  return { ...r.doc, citedBy: r.citedBy, ...(index ? { index } : {}) };
 }
 
 // ponytail: the profile Claude studies — of the copies in the document's folder, or of a file not added yet and

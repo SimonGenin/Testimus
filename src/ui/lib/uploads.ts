@@ -13,13 +13,15 @@ export type Upload = {
   key: string;
   name: string;
   job: "add" | "convert" | "index";
-  phase: "reading" | "adding" | "converting" | "indexing" | "done" | "failed" | "index-failed";
+  phase: "reading" | "adding" | "waiting" | "converting" | "indexing" | "done" | "failed" | "index-failed";
   pct: number | null;
   message: string;
   docId?: string;
   /** the job behind the row, once it has one (Cancel, « Open in Jobs ») */
   jobId?: string;
   error?: unknown;
+  /** a conversion that updates the index once done (the one run shared by the conversions asked for together) */
+  index?: boolean;
 };
 
 type Local = Upload & { project: string | null };
@@ -87,8 +89,14 @@ function rowsOf(j: Job, now: number): Upload[] {
   const recent = !!j.endedAt && now - Date.parse(j.endedAt) < SHOWN_DONE_MS;
   if (j.status === "running") {
     if (kind === "add" && j.steps?.some((s) => s.id === "convert" && s.status === "running")) return [];
-    const indexing = kind === "index" || j.steps?.some((s) => s.id === "index" && s.status === "running");
-    return [{ ...row, phase: kind === "add" ? "adding" : indexing ? "indexing" : "converting" }];
+    const now = j.steps?.find((s) => s.status === "running")?.id;
+    if (kind === "convert" && now === "queue")
+      return [
+        { ...row, phase: "waiting", message: "Waiting to convert", index: j.steps?.some((s) => s.id === "index") },
+      ];
+    const indexing = kind === "index" || now === "index";
+    const phase = kind === "add" ? "adding" : indexing ? "indexing" : "converting";
+    return [{ ...row, phase, ...(kind === "convert" ? { index: j.steps?.some((s) => s.id === "index") } : {}) }];
   }
   if (j.status === "done") {
     if (kind === "add")
@@ -301,4 +309,15 @@ export function useReindex(): { reindex: () => void; indexing: boolean; failure:
     reindex: () =>
       void reindexAll(() => void invalidate(client, [["docs.list"], ["rag.status"], ["rag.spaces"], ["gen.preview"]])),
   };
+}
+
+// ponytail: several conversions under way — how many go at once, how many wait their turn, and the one index run that
+// follows them; nothing for a single conversion
+export function conversionsLine(rows: Upload[]): string | null {
+  const going = rows.filter((u) => u.job === "convert" && (u.phase === "converting" || u.phase === "waiting"));
+  const waiting = going.filter((u) => u.phase === "waiting").length;
+  const now = going.length - waiting;
+  if (!waiting && now < 2) return null;
+  const index = going.some((u) => u.index) ? "then one index run" : "";
+  return [`Converting ${now} at a time`, waiting ? `${waiting} waiting` : "", index].filter(Boolean).join(" · ");
 }

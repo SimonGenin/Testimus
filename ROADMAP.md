@@ -36,7 +36,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
         outils MCP. ffmpeg téléchargé à la demande comme llama.cpp (build win64 épinglé + SHA-256), sans admin. `/files`
         avec les requêtes `Range` pour un lecteur vidéo.
 - [x] **Un document à partir d'un dossier.** Choisir un dossier et ajouter tous ses éléments valides, prêts à l'import.
-- [ ] **Plusieurs conversions à la fois.**
+- [x] **Plusieurs conversions à la fois.**
 - [ ] **Un document qui relie les documents entre eux.** Après un import de documents et de photos, Claude écrit une
       sorte de README qui parle des documents et des liens entre eux ; il est ensuite ajouté au contexte de chaque
       commande, pour que tous les outils connaissent ces liens. Optionnel. Corrigé après chaque import, de façon

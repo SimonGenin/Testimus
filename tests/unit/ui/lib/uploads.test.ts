@@ -31,6 +31,7 @@ vi.mock("../../../../src/ui/lib/toast.ts", async (importOriginal) => {
 const {
   addDocFiles,
   addDocPaths,
+  conversionsLine,
   convertDoc,
   dismissUpload,
   forgetSettled,
@@ -122,6 +123,33 @@ describe("a folder import", () => {
       ["c1", "convert", "A", "converting"],
       ["c2", "convert", "B", "converting"],
     ]);
+  });
+});
+
+describe("several conversions at once", () => {
+  it("a conversion waiting for a slot says so, and the list says how many go, wait, and the one index run after", () => {
+    const step = (id: string, s: "running" | "done" | "waiting") => ({ id, label: id, status: s });
+    const going = (id: string, at: number) =>
+      job({ id, subject: id, startedAt: iso(at), steps: [step("convert", "running"), step("index", "waiting")] });
+    const queued = (id: string, at: number) =>
+      job({
+        id,
+        subject: id,
+        startedAt: iso(at),
+        message: "Waiting to convert (2 at a time)",
+        steps: [step("queue", "running"), step("convert", "waiting"), step("index", "waiting")],
+      });
+    const rows = uploadsOf([going("A", 0), going("B", 1), queued("C", 2), queued("D", 3)], [], view());
+    expect(rows.map((r) => [r.docId, r.phase, r.message])).toEqual([
+      ["A", "converting", "Converting"],
+      ["B", "converting", "Converting"],
+      ["C", "waiting", "Waiting to convert"],
+      ["D", "waiting", "Waiting to convert"],
+    ]);
+    expect(conversionsLine(rows)).toBe("Converting 2 at a time · 2 waiting · then one index run");
+    expect(conversionsLine(rows.slice(0, 1))).toBeNull();
+    const noIndex = uploadsOf([job({ id: "X", subject: "X" }), job({ id: "Y", subject: "Y" })], [], view());
+    expect(conversionsLine(noIndex)).toBe("Converting 2 at a time");
   });
 });
 

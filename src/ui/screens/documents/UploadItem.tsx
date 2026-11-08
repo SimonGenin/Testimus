@@ -27,10 +27,11 @@ const nowOf = (u: Upload): string | null =>
       ? "Indexing"
       : null;
 
-// ponytail: a row of the list while its file is read, added, converted or indexed — the job's step, its last message
+// ponytail: a row of the list while its file is read, added, waits for a conversion slot, is converted or indexed — the job's step, its last message
 // and its progress (Cancel stops its job); a finished row says so until the list shows the document again
 export function uploadItem(u: Upload, onCancel?: (jobId: string) => void): ListItemProps {
   const now = nowOf(u);
+  const waiting = u.phase === "waiting";
   const msg = u.message === now ? "" : u.message;
   const sub = u.docId ?? (u.job === "index" ? "Search index" : "New document");
   return {
@@ -38,7 +39,7 @@ export function uploadItem(u: Upload, onCancel?: (jobId: string) => void): ListI
     tooltip: u.name,
     lead: <Icon name="documents" />,
     actions:
-      now && u.jobId && onCancel ? (
+      (now || waiting) && u.jobId && onCancel ? (
         <Button
           size="xs"
           variant="quiet"
@@ -51,7 +52,11 @@ export function uploadItem(u: Upload, onCancel?: (jobId: string) => void): ListI
     meta: (
       <span {...stylex.props(styles.lines)}>
         <span {...stylex.props(type.mono, styles.mono)}>{sub}</span>
-        {now ? (
+        {waiting ? (
+          <span>
+            <Badge size="sm" icon="clock" label="Waiting to convert" />
+          </span>
+        ) : now ? (
           <Progress
             label={now}
             value={u.pct}

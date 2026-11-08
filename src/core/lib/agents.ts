@@ -116,4 +116,16 @@ export function agentPool(
   };
 }
 
+// ponytail: a conversion reads a whole document in this process and may run Claude on its figures — as many at once as
+// the agents setting allows; adaptive, no more than the cores (one left for the rest) and the free memory (AGENT_MB
+// each) allow, read when a batch of conversions starts
+export function conversionsAtOnce(
+  set: AgentsSetting = agentsSetting(),
+  cores = os.availableParallelism(),
+  freeMB = loadDeps.freeMB(),
+): number {
+  if (!set.adaptive) return set.max;
+  return Math.max(1, Math.min(set.max, cores - 1, Math.floor(freeMB / AGENT_MB)));
+}
+
 export const loadLine = (l: Load) => `CPU ${Math.round(l.cpu * 100)} %, ${(l.freeMB / 1024).toFixed(1)} GB free`;

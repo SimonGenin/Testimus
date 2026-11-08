@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Locator, Page } from "@playwright/test";
+import { sampleDocx } from "../tests/fixtures/docx/sample.ts";
 
 export type Server = {
   url: string;
@@ -1401,6 +1402,26 @@ export function SCENARIOS(essai: string): Scenario[] {
             await tap(p, "Read the folder");
             await see(p, /can be imported/);
           },
+        },
+      ],
+    },
+    {
+      id: "converting",
+      note: "Four documents imported together: two convert at once, two wait their turn, then one index run",
+      env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_CLAUDE_MS: "600000" },
+      before: async (s) => {
+        await s.api("system.set", { agentsMax: 2, agentsAdaptive: false });
+        const dir = mkdtempSync(join(tmpdir(), "testimus-screens-many-"));
+        for (const n of ["Traction", "Signalisation", "Energie", "Freinage"])
+          writeFileSync(join(dir, `SPEC_${n}_01_00.docx`), sampleDocx());
+        await s.api("docs.addFolder", { dir });
+      },
+      shots: [
+        {
+          id: "documents",
+          note: "Documents while several conversions go: Converting on two rows, Waiting to convert on two",
+          hash: "#/documents",
+          prep: (p) => see(p, /Converting 2 at a time/),
         },
       ],
     },

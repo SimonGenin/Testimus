@@ -100,8 +100,8 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   (`conflict` = the file moved since it was read → HTTP 409; `edited-after-run`, `doc-gone`, `models-dir-unset`,
   `not-a-document`…). A failing request never stops the core.
 - **One place for processes, waits and cleanup**: `src/shared/run/` (Node only, so the desktop shell may import it).
-  `work.ts`: cancellable `sleep`/`timeout`, `retry` (growing delay or `Retry-After`), `semaphore` (the six Jira calls;
-  waiters leave on cancel), `scope` (cleanups run last-in first-out whatever ends it), `every`, `debounce` (with
+  `work.ts`: cancellable `sleep`/`timeout`, `retry` (growing delay or `Retry-After`), `semaphore` (the six Jira calls,
+  the conversion slots; waiters leave on cancel), `scope` (cleanups run last-in first-out whatever ends it), `every`, `debounce` (with
   `maxMs`). `process.ts`: start a program directly or through a `.cmd` shim (cmd metacharacters refused), the registry of
   live children, kill **the whole tree** (`taskkill /T /F` on Windows, process groups elsewhere), lines of stdout/stderr,
   every child killed when the parent goes. Nothing else in `src/` spawns, kills or waits (guard).
@@ -206,7 +206,19 @@ docs/<docId>/
 - **The pipeline** (`lib/docs-pipeline.ts`): add (copy only) → convert (job: optional study, conversion, figure
   descriptions, re-check of the citing tests, triage of the warnings by Claude when present) → index (a child job,
   **one index run at a time** per `rag.db`; runs asked for meanwhile share the next one). A failed index run keeps the
-  conversion. `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
+  conversion.
+- **Several conversions at once** (2026-11-08). Each conversion (`docs.convert`, `docs.add` with convert) is its own
+  job and holds one of the project's conversion slots (`lib/docs-index.ts` `conversionSlot`, a `semaphore` of
+  `src/shared/run/work.ts`) from its start to the end of its triage: the conversion, the batches, the figure
+  descriptions (so Claude's figure runs are bounded by the slots too, one run at a time per document), the re-check.
+  The slots number `conversionsAtOnce()` (`lib/agents.ts`): the agents setting that bounds generation; adaptive, no
+  more than the cores less one and the free memory (1 GB each) allow — counted when a batch starts, made again once
+  the last batch is over. A conversion asked for meanwhile waits its turn (a `queue` step, « Waiting to convert » on
+  the page); a failed one frees its slot and stops none of the others. Every conversion asked for, waiting or going,
+  counts for the index: a conversion **asks** for its index run before it lets its slot go (it never waits for the run
+  inside the slot, which would wait for itself), so the run starts once the last conversion of the batch is done and
+  is shared by all — one index run for a folder import. The Documents list shows « Converting · … » on each conversion
+  going, « Waiting to convert » on those in line, and « Converting 2 at a time · 2 waiting · then one index run ». `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
   citing tests are left and their sources become `source-missing`.
 - **A folder** (`lib/docs-folder.ts`): `docs.scanFolder` reads a folder (sub-folders by default, hidden ones and the
   project's own folder skipped, at most 2 000 files) and says, file by file, whether an import adds it: each `.docx`
@@ -215,7 +227,8 @@ docs/<docId>/
   a kind not converted yet (`.doc`, `.txt`, pictures, videos…), empty, already in the project (same id or same file
   name), or the same id as another file found. The id is the code read from the name, accents dropped, made a valid
   folder name. `docs.addFolder` copies the documents asked for (the same `addDoc` as `docs.add`), then starts one
-  `docs.convert` job per document, children of the import job, and waits for them. A network path (`\\server\share`)
+  `docs.convert` job per document, children of the import job, and waits for them (they share the slots and the one
+  index run below). A network path (`\\server\share`)
   is refused (§13). Decided: a document already in the project is shown, unticked, never replaced — reconverting is
   `docs.convert`; photos and videos stay out of a folder import until they are documents of their own (ROADMAP).
 - **Amendments**: `doc.json.amends` lists what a document amends; the graph links it (document and section level), and

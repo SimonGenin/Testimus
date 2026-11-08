@@ -10,7 +10,7 @@ import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { indexRunLine, indexRunPercent } from "../../lib/format.ts";
 import { type Batch, batchLine } from "../../lib/media.ts";
-import { owns, settled, type Upload } from "../../lib/uploads.ts";
+import { conversionsLine, owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
 import { DocBadges } from "./badges.tsx";
@@ -50,6 +50,7 @@ const styles = stylex.create({
   batchName: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   out: { color: color.textSubtle },
   run: { paddingBlock: space.s3, paddingInline: space.s6 },
+  converting: { margin: 0, paddingTop: space.s3, paddingInline: space.s6, color: color.textMuted },
 });
 
 // ponytail: a document's batches under its row — what each holds, and whether it is in the document
@@ -120,6 +121,7 @@ export function DocList({
     ...(docs ?? []).map((d) => ({ key: d.id, doc: d, upload: uploads.find((u) => owns(u, d)) })),
     ...uploads.filter((u) => !listed(u) && u.job !== "index").map((u) => ({ key: `upload-${u.key}`, upload: u })),
   ];
+  const converting = conversionsLine(uploads);
   const failures = uploads.filter((u) => u.phase === "failed" || u.phase === "index-failed");
   const pick = (key: string) => {
     const it = items.find((i) => i.key === key);
@@ -135,6 +137,11 @@ export function DocList({
         </div>
       )}
       <div {...stylex.props(styles.body)}>
+        {converting && (
+          <p role="status" {...stylex.props(type.small, styles.converting)}>
+            {converting}
+          </p>
+        )}
         <List
           label="Documents"
           items={items}
