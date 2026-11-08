@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -68,11 +68,38 @@ describe("media.migrate", () => {
     expect(readdirSync(join(P, "docs", PARENT, "figures"))).toEqual(["fig-40.png"]);
     expect(read("docs", PARENT, "doc.md")).not.toContain("lot-");
     const test = read("tests", TEST, "test.md");
-    expect(test).toContain(`- ${NEW}#img:1 "IMG_0042.jpg — 12/10/2026 14:03"`);
+    expect(test).toContain(`- ${NEW}#img:1 "IMG_0042.jpg — 2026-10-12 14:03"`);
+    expect(test).toContain(`- ${NEW}#img:2 "IMG_0043.jpg — 2026-10-12 14:05"`);
+    expect(test).toContain(`- ${NEW}#§media "Recette TCO 12/10"`);
     expect(test).toContain(`- ${PARENT}#§5.6.6 "Le sectionneur est représenté sur la schématique de traction"`);
     const findings = readCheck(P, TEST)?.findings ?? [];
     expect(findings.filter((f) => f.kind === "source-missing")).toEqual([]);
-    expect(findings.some((f) => f.kind === "quote-not-found" && f.sources.includes(`${NEW}#img:1`))).toBe(true);
+    const notFound = findings.filter((f) => f.kind === "quote-not-found" || f.kind === "quote-not-at-anchor");
+    expect(notFound.flatMap((f) => f.sources).filter((x) => x.startsWith(NEW))).toEqual([]);
+  });
+
+  it("stopped half-way, takes the documents it already made when it runs again", async () => {
+    await call("media.migrate", {}, P);
+    rmSync(join(P, "docs", PARENT), { recursive: true });
+    cpSync(join(LEGACY, "docs", PARENT), join(P, "docs", PARENT), { recursive: true });
+    cpSync(join(LEGACY, "tests"), join(P, "tests"), { recursive: true });
+    const again = await call<Report>("media.migrate", {}, P);
+    expect(again.migrated.map((m) => m.doc)).toEqual([NEW]);
+    expect(readdirSync(join(P, "docs")).sort()).toEqual([PARENT, NEW]);
+    expect(read("tests", TEST, "test.md")).toContain(`- ${NEW}#img:1 "IMG_0042.jpg — 2026-10-12 14:03"`);
+  });
+
+  it("that fails when a project opens (a file held) is tried again by the next command", async () => {
+    chmodSync(join(P, "docs"), 0o555);
+    try {
+      await call("docs.list", {}, P);
+    } finally {
+      chmodSync(join(P, "docs"), 0o755);
+    }
+    expect(existsSync(join(P, "docs", NEW))).toBe(false);
+    await call("docs.list", {}, P);
+    expect(existsSync(join(P, "docs", NEW, "doc.json"))).toBe(true);
+    expect(doc(PARENT).media).toBeUndefined();
   });
 
   it("is idempotent, and runs by itself the first time a command names the project", async () => {

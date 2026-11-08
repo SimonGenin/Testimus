@@ -377,12 +377,15 @@ docs/<docId>/
   kept, its context its `context.md`, its `reference` kept, `relatesTo: [parent]` — a link, never an amendment (the
   photos were about that document; they amend nothing). The sources of the tests that cited the annex are rewritten
   mechanically, line by line (`<parent>#§lot-<batch>.<item>` and `fig:lot-…` → `<new>#img:<n>`, `§lot-<batch>` →
-  `<new>#§media`, the quote and `@column` kept), and their mechanical check is redone — a quote taken from an annex's
-  description then reports `quote-not-found`, honestly: a description is not quotable any more. The parent goes back
-  to what it was before its first batch (`body.md` becomes `doc.md`, the batches' folders, pictures and figure entries
-  go). It is idempotent and runs by itself once per project and process, before the first command that names the
-  project (`commands/index.ts` → `migrateOnOpen`), writing its report to `.testimus/migrations/media-<time>.json`;
-  `media.migrate --dryRun` says what it would do.
+  `<new>#§media`, `@column` kept) with the quote found there — the picture's caption (`imageCaption`) for a photo, the
+  batch's title for `§media` (the annex's own quote was its old caption or a description, not in the new doc.md) —,
+  and their mechanical check is redone. The parent goes back to what it was before its first batch (`body.md` becomes
+  `doc.md`, the batches' folders, pictures and figure entries go). It is idempotent and runs by itself once per
+  project and process, before the first command that names the project (`commands/index.ts` → `migrateOnOpen`),
+  writing its report to `.testimus/migrations/media-<time>.json`; `media.migrate --dryRun` says what it would do. One
+  stopped half-way (a file held — `EBUSY` —, the process killed) is not marked done: the next command runs it again,
+  and it takes the batch's document it already made (the folder without its doc.json yet, or the images document of
+  the batch's title whose `relatesTo` names the parent) instead of making a second one.
 
 ## 6. Index and search (RAG)
 

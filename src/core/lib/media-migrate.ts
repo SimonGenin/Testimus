@@ -7,10 +7,11 @@ import type { DocJson, FigureEntry, MediaFile } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { recheckMechanical, testsCiting } from "./check.ts";
 import { docDir, docIds, readFigures, writeContext, writeDoc, writeFigures } from "./docs.ts";
-import { imageAnchor, imageEntry, ordered, withFiles } from "./media.ts";
+import { imageAnchor, imageCaption, imageEntry, ordered, withFiles } from "./media.ts";
 import { MEDIA_SECTION, writeMediaMd } from "./media-md.ts";
 import { MEDIA_CONVERTER } from "./media-pipeline.ts";
 import { readJson } from "./project.ts";
+import { formatSource, parseSource } from "./testfile.ts";
 
 // ponytail: the shape of a batch of photos as doc.json.media held it until 2026-11-08 — read here only, to migrate it
 type LegacyItem = {
@@ -42,33 +43,41 @@ export function needsMigration(project: string): boolean {
   return docIds(project).some((id) => lotsOf(project, id).length > 0);
 }
 
-function newId(project: string, parent: string, lot: string, taken: Set<string>): string {
-  const base = `${parent}-${lot}`.slice(0, 120);
+// ponytail: a migration stopped half-way (a file held, the process killed) left the batch's document behind: the
+// next one takes it again — the folder without its doc.json yet, or the images document of that title that names
+// the parent — instead of making a second
+function ownedBy(project: string, id: string, parent: string, lot: LegacyLot): boolean {
+  const file = join(docDir(project, id), "doc.json");
+  if (!existsSync(file)) return true;
+  const d = readJson<Partial<DocJson>>(file, {});
+  return d.source?.type === "images" && d.title === lot.title && (d.relatesTo ?? []).includes(parent);
+}
+
+function newId(project: string, parent: string, lot: LegacyLot, taken: Set<string>): string {
+  const base = `${parent}-${lot.id}`.slice(0, 120);
   let id = base;
-  for (let k = 2; existsSync(docDir(project, id)) || taken.has(id); k++) id = `${base}-${k}`;
+  for (let k = 2; taken.has(id) || (existsSync(docDir(project, id)) && !ownedBy(project, id, parent, lot)); k++)
+    id = `${base}-${k}`;
   taken.add(id);
   return id;
 }
 
-// ponytail: a lot-… anchor of the parent's annex, as the new images document names it — the annex's heading is the
-// document's head section, a photo is its picture
-function mapAnchor(anchor: string, plans: Map<string, { doc: string; items: Map<string, number> }>): string | null {
+type Plan = { doc: string; title: string; items: Map<string, { n: number; caption: string }> };
+
+// ponytail: a lot-… anchor of the parent's annex, as the new images document names it, with the quote found there —
+// the annex's heading is the document's head section (its title), a photo is its picture (its caption)
+function mapAnchor(anchor: string, plans: Map<string, Plan>): { docId: string; anchor: string; quote: string } | null {
   const m = LOT_ANCHOR.exec(normalizeAnchor(anchor));
   const plan = m ? plans.get(m[1]) : undefined;
   if (!m || !plan) return null;
-  if (!m[2]) return `${plan.doc}#§${MEDIA_SECTION}`;
-  const n = plan.items.get(m[2]);
-  return n ? `${plan.doc}#${imageAnchor(n)}` : null;
+  if (!m[2]) return { docId: plan.doc, anchor: `§${MEDIA_SECTION}`, quote: plan.title };
+  const item = plan.items.get(m[2]);
+  return item ? { docId: plan.doc, anchor: imageAnchor(item.n), quote: item.caption } : null;
 }
 
 // ponytail: every source line of the tests that names a migrated photo by the parent's id or code is rewritten to the
-// new document's anchor — mechanically, the rest of the line (quote, @column) kept as it was
-function rewriteTests(
-  project: string,
-  parent: DocJson,
-  plans: Map<string, { doc: string; items: Map<string, number> }>,
-  dryRun: boolean,
-): Rewritten[] {
+// new document's anchor and the quote found there — mechanically, its @column kept as it was
+function rewriteTests(project: string, parent: DocJson, plans: Map<string, Plan>, dryRun: boolean): Rewritten[] {
   const root = join(project, "tests");
   const out: Rewritten[] = [];
   if (!existsSync(root)) return out;
@@ -82,13 +91,14 @@ function rewriteTests(
     const lines = text.split("\n").map((line) => {
       if (/^#{1,6}\s/.test(line)) inSources = /^###\s+Sources\s*$/i.test(line.trim());
       if (!inSources) return line;
-      const m = /^(\s*[-*]\s+)([^#\s"]+)#(\S+)(.*)$/.exec(line);
-      if (!m || !names.has(m[2])) return line;
-      const to = mapAnchor(m[3], plans);
+      const bullet = /^\s*[-*]\s+/.exec(line)?.[0];
+      const source = bullet ? parseSource(line.slice(bullet.length)) : null;
+      if (!bullet || !source || !names.has(source.docId)) return line;
+      const to = mapAnchor(source.anchor, plans);
       if (!to) return line;
-      out.push({ test, from: `${m[2]}#${m[3]}`, to });
+      out.push({ test, from: `${source.docId}#${source.anchor}`, to: `${to.docId}#${to.anchor}` });
       changed = true;
-      return `${m[1]}${to}${m[4]}`;
+      return `${bullet}${formatSource({ ...source, ...to })}`;
     });
     if (changed && !dryRun) writeAtomic(file, lines.join("\n"));
   }
@@ -203,13 +213,15 @@ export function migrateMedia(project: string, dryRun = false): MigrationReport {
     if (!lots.length) continue;
     const raw = readJson<DocJson>(join(docDir(project, parentId), "doc.json"), {} as DocJson);
     const parent: DocJson = { ...raw, id: parentId };
-    const plans = new Map<string, { doc: string; items: Map<string, number> }>();
+    const plans = new Map<string, Plan>();
     for (const lot of lots) {
-      const id = newId(project, parentId, lot.id, taken);
+      const id = newId(project, parentId, lot, taken);
       const items = new Map(
-        ordered(lot.items.map((x, k) => ({ ...x, n: k + 1 }))).map((it, i) => [it.id, i + 1] as const),
+        ordered(lot.items.map((x, k) => ({ ...x, n: k + 1 }))).map(
+          (it, i) => [it.id, { n: i + 1, caption: imageCaption(it) }] as const,
+        ),
       );
-      plans.set(lot.id, { doc: id, items });
+      plans.set(lot.id, { doc: id, title: lot.title, items });
       if (dryRun)
         report.migrated.push({ from: parentId, lot: lot.id, doc: id, title: lot.title, images: lot.items.length });
       else report.migrated.push(migrateLot(project, parent, lot, id));
@@ -228,13 +240,22 @@ export function migrateMedia(project: string, dryRun = false): MigrationReport {
 const done = new Set<string>();
 
 // ponytail: run once per project and process, before the first command that names it — a project shared by a
-// colleague on an older version is migrated the first time this version opens it
+// colleague on an older version is migrated the first time this version opens it. One that fails (a file held:
+// EBUSY) is not done: the next command tries again, and takes the documents already made
 export function migrateOnOpen(project: string): MigrationReport | null {
   const key = resolve(project).toLowerCase();
   if (done.has(key)) return null;
+  if (!existsSync(join(project, "docs")) || !needsMigration(project)) {
+    done.add(key);
+    return null;
+  }
+  let report: MigrationReport;
+  try {
+    report = migrateMedia(project);
+  } catch {
+    return null;
+  }
   done.add(key);
-  if (!existsSync(join(project, "docs")) || !needsMigration(project)) return null;
-  const report = migrateMedia(project);
   writeAtomic(
     join(project, ".testimus", "migrations", `media-${env.now().toISOString().replace(/[:.]/g, "-")}.json`),
     `${JSON.stringify(report, null, 2)}\n`,
