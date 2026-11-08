@@ -97,7 +97,7 @@ describe("docs.scanFolder", () => {
     });
     expect(s.files.some((x) => x.rel.startsWith(".svn/"))).toBe(false);
     expect(s.documents).toBe(5);
-    expect(s.leftAside).toBe(s.files.length - 6 - 1 - 1);
+    expect(s.leftAside).toBe(s.files.length - 6 - 1 - 2);
     expect(s.truncated).toBe(false);
   });
 

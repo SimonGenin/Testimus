@@ -18,6 +18,9 @@ const TILES = MOSAIC_SIDE * MOSAIC_SIDE;
 const MAX_MOSAICS = 12;
 const FALLBACK_FRAMES = 12;
 
+// ponytail: the Claude run surveying a video's mosaics is built by claude/media.ts (tests/unit/core/claude/catalog.test.ts)
+export const promptsUsed = ["video-survey"];
+
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export const videoDir = (project: string, docId: string, n: number) => join(docDir(project, docId), "video", String(n));
 
