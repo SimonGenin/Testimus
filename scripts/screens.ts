@@ -253,7 +253,7 @@ async function runShot(browser: Browser, server: Server, sc: Scenario, sh: Shot,
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     const want = sh.expectErrors;
-    if (!want || !want.pattern.test(m.text())) {
+    if (!want?.pattern.test(m.text())) {
       entry.errors.push(m.text());
       return;
     }

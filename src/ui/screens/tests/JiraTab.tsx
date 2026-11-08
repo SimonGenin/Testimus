@@ -39,7 +39,7 @@ function Busy({ label, children }: { label: string | null; children: ReactNode }
       {children}
     </div>
   ) : (
-    <>{children}</>
+    children
   );
 }
 

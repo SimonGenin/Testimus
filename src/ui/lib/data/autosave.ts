@@ -6,7 +6,7 @@ import { type Key, matches, type Prefix, setFlushHook } from "./query.ts";
 export type AutosaveStatus = "saved" | "pending" | "saving" | "error" | "conflict";
 
 // returns the version the file has after the save (its mtime), when the command says it
-export type Save<T> = (value: T, base: string | undefined) => Promise<string | undefined | void>;
+export type Save<T> = (value: T, base: string | undefined) => Promise<string | undefined>;
 
 type Entry = {
   key: Key;

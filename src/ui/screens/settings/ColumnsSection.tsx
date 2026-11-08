@@ -10,6 +10,7 @@ import { Modal } from "../../components/ui/Modal.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
+import type { Save } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Key, key, type Prefix } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -111,11 +112,11 @@ export function ColumnsSection() {
       },
     ).catch((e) => errorToast(e, "Could not save the column"));
 
-  const descriptionOf = (c: StepColumn) => {
+  const descriptionOf = (c: StepColumn): { saveKey: Key; save: Save<string> } => {
     const saveKey: Key = [project(), "project.info", { column: c.name }];
     return {
       saveKey,
-      save: async (text: string) => {
+      save: async (text) => {
         if (text.trim() === c.description) return;
         await execute(client, "columns.save", { name: c.name, description: text }, { invalidates: READS }, saveKey[0]);
       },

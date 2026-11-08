@@ -8,6 +8,7 @@ import { Card } from "../../components/ui/Card.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
+import type { Save } from "../../lib/data/autosave.ts";
 import { invalidate, type Key } from "../../lib/data/query.ts";
 import { desktop, examplePath, pickFolder } from "../../lib/desktop.ts";
 import { canRestart, restartApp, restartHint, type Updates, useStartUpdate, useUpdates } from "../../lib/updates.ts";
@@ -48,7 +49,7 @@ export function UpdatesSection() {
   const u = updates.data;
   const typed = settings.data?.updates?.from ?? "";
 
-  const save = async (value: string) => {
+  const save: Save<string> = async (value) => {
     if (value.trim() === typed) return;
     await setSettings({ updatesFrom: value.trim() });
     await invalidate(client, [["system.updates"]]);
@@ -87,7 +88,7 @@ export function UpdatesSection() {
                       disabled={!settings.data}
                       onClick={() =>
                         void pickFolder("Choose the update folder").then((picked) =>
-                          picked ? save(picked) : undefined,
+                          picked ? save(picked, undefined) : undefined,
                         )
                       }
                     />
