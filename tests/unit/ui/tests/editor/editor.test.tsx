@@ -6,7 +6,7 @@ import type { Step, Test } from "../../../../../src/core/types.ts";
 import { setProject } from "../../../../../src/ui/api.ts";
 import { ClaudeDock } from "../../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { AppContext, type AppState, type ClaudeRun } from "../../../../../src/ui/lib/app.ts";
-import { discardAutosave, flushAutosaves } from "../../../../../src/ui/lib/data/autosave.ts";
+import { discardAutosave, flushAutosaves, pendingAutosaves } from "../../../../../src/ui/lib/data/autosave.ts";
 import { key } from "../../../../../src/ui/lib/data/query.ts";
 import { TestEditor } from "../../../../../src/ui/screens/tests/TestEditor.tsx";
 import { iconOf } from "../../../helpers/icons.ts";
@@ -101,6 +101,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  // ponytail: an edit a test left unsent (a refused save) would leave with the next test's blur, into its server
+  for (const k of pendingAutosaves()) discardAutosave(k);
   vi.unstubAllGlobals();
   setProject(null);
   delete window.testimusDesktop;
@@ -849,6 +851,14 @@ describe("TestEditor › Claude", () => {
   });
 
   it("reloads after a run and marks the changed and added steps, then shows and reverts them", async () => {
+    // ponytail: as the core does, a save moves test.md's version and returns it — the 400 ms timer may send the edit
+    // below before its assertion on a slow machine, and the editor knows its own save by that version
+    show = { mtime: 1 };
+    server.routes["tests.save"] = (input) => {
+      shown = input.test as Test;
+      show = { mtime: 2 };
+      return { id: input.id, sync: "modified", mtime: 2 };
+    };
     const { again, state } = editor();
     await ready();
     shown = makeTest({ steps: [step("Un"), step("Two"), step("Three"), step("Quatre")] });
@@ -1805,29 +1815,27 @@ describe("TestEditor › late callbacks after the same test reloads", () => {
     images: [{ file: "images/a.png" }],
   });
   const lastToast = (title: string) => toasts.filter((t) => t.title === title).at(-1) as T;
-  const settle = async () => {
-    blurWindow();
-    await new Promise((r) => setTimeout(r, 450));
-  };
+  const settle = () => act(() => flushAutosaves());
 
   it("a reload from disk on window focus makes an image Undo, its expiry and a step Undo too late", async () => {
     server.routes["tests.removeImage"] = () => ({ removed: false, reason: "a step still lists it" });
-    // ponytail: the edits must still be unsent when the disk changes — a save the 400 ms timer sends on a slow machine
-    // fails here and keeps them pending, as an unsent edit is
-    server.routes["tests.save"] = () => {
-      throw new Fail("busy");
-    };
     show = { mtime: 1 };
     shown = makeTest({ steps: [step("One"), imageStep(), step("Three")] });
     editor();
     await screen.findByRole("img", { name: "a.png" });
+    // ponytail: another program writes test.md before the edits, as the core sees it — a save the 400 ms timer sends
+    // on a slow machine is refused as a conflict, so the edits are unsent when the window gets focus, whenever it goes
+    show = { mtime: 2 };
+    shown = makeTest({ steps: [step("Disk one"), step("Disk two")] });
+    server.routes["tests.save"] = (input) => {
+      if (input.ifMtime !== show.mtime) throw new Fail("test.md changed on disk.", undefined, 409, "conflict");
+      return { id: input.id, sync: "modified", mtime: show.mtime };
+    };
     fireEvent.click(screen.getByRole("button", { name: "Remove a.png from Action of step 2" }));
     const image = lastToast("Image removed");
     expect(image.onExpire).toBeTypeOf("function");
     fireEvent.click(screen.getByRole("button", { name: "Delete step 3" }));
     const deleted = lastToast("Step 3 deleted");
-    show = { mtime: 2 };
-    shown = makeTest({ steps: [step("Disk one"), step("Disk two")] });
     focusWindow();
     // ponytail: the edits were not saved yet — the change on disk under them is a conflict, never a silent overwrite
     expect(await screen.findByText("test.md changed on disk")).toBeInTheDocument();

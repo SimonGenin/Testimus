@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 const root = mkdtempSync(join(tmpdir(), "testimus-cov-cli-"));
@@ -24,9 +24,18 @@ async function freshEnv() {
   };
 }
 
+let actual: typeof import("../../../src/core/commands/index.ts");
+
+// ponytail: the real registry is read once, before the tests — its first import transforms the whole command graph
+// (every command, the core, the RAG runtimes: ~13 s cold on this Mac, more under load), work no test's 20 s should
+// carry; evaluating it again for each run cost ~0.3 s more per run. Each run gets fresh only cli.ts and what it shares
+// with the fake (command.ts, jobs.ts)
+beforeAll(async () => {
+  actual = await import("../../../src/core/commands/index.ts");
+}, 120_000);
+
 async function fakeRegistry() {
   const { UserError, command } = await import("../../../src/core/command.ts");
-  const actual = await import("../../../src/core/commands/index.ts");
   const { startJob } = await import("../../../src/core/jobs.ts");
   const echo = command({
     name: "fake.run",

@@ -316,11 +316,11 @@ describe("JiraTab list", () => {
     const { again } = tab({ tree: null, query: "nine" });
     expect(screen.getByRole("status", { name: "Searching Jira for nine" })).toBeInTheDocument();
     expect(screen.getByText("search “nine”")).toBeInTheDocument();
-    expect(await screen.findByRole("option", { name: /Summary K-9/ }, { timeout: 2000 })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Summary K-9/ })).toBeInTheDocument();
     expect(screen.getByText("1 found")).toBeInTheDocument();
     expect(callsTo("xray.search")[0].input).toEqual({ text: "nine" });
     again({ tree: null, query: "zzz" });
-    expect(await screen.findByText("Nothing in Jira matches “zzz”.", undefined, { timeout: 2000 })).toBeInTheDocument();
+    expect(await screen.findByText("Nothing in Jira matches “zzz”.")).toBeInTheDocument();
   });
 
   it("reports a failed search", async () => {
@@ -328,6 +328,6 @@ describe("JiraTab list", () => {
       throw new Fail("bad JQL");
     };
     tab({ query: "x" });
-    await waitFor(() => expect(errors.at(-1)?.title).toBe("Jira search failed"), { timeout: 2000 });
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Jira search failed"));
   });
 });

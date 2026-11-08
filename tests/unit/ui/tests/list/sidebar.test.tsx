@@ -287,7 +287,7 @@ describe("Tests sidebar › the folder list", () => {
     expect(sk.querySelectorAll('ul > li[role="presentation"]')).toHaveLength(6);
     await waitFor(() => expect(pending[0]).toBeDefined());
     pending[0].resolve(slice("/Traction", 0, 250));
-    expect(await screen.findByText("100 of 250", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("100 of 250")).toBeInTheDocument();
     expect(screen.getByText("/Traction")).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Loading more tests in /Traction" })).toBeInTheDocument();
     FakeIO.fire();
@@ -295,14 +295,18 @@ describe("Tests sidebar › the folder list", () => {
     await waitFor(() => expect(pending[1]).toBeDefined());
     expect(named("xray.search").filter((c) => c.input.folder === "/Traction" && c.input.page === 1)).toHaveLength(1);
     pending[1].resolve(slice("/Traction", 1, 250));
-    expect(await screen.findByText("200 of 250", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("200 of 250")).toBeInTheDocument();
     FakeIO.fire();
     await waitFor(() => expect(pending[2]).toBeDefined());
     pending[2].resolve(slice("/Traction", 2, 250));
-    expect(await screen.findByText("250 of 250", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("250 of 250")).toBeInTheDocument();
     expect(screen.getByText(/all 250 loaded/)).toBeInTheDocument();
     expect(screen.queryByRole("status", { name: /Loading more/ })).toBeNull();
-    expect(screen.getAllByRole("option", { name: /\/Traction test/ })).toHaveLength(250);
+    // ponytail: the 250 rows by role, then each row's text — the same check as by accessible name, which computes the
+    // style of every node of every row and took seconds alone in jsdom, the most of this test under load
+    const rows = screen.getAllByRole("option");
+    expect(rows).toHaveLength(250);
+    for (const row of rows) expect(row).toHaveTextContent(/\/Traction test \d+/);
   });
 
   it("drops a slice that lands after another folder was opened", async () => {
