@@ -45,9 +45,8 @@ test("a new table: blank heads, the focus in the first, its tools always in view
 }) => {
   await openTest(page, "LFRPS12-1420");
   const field = fieldOf(page, "Action");
-  const addTable = field.getByRole("button", { name: "Table", exact: true }).last();
-  await pointAt(page, addTable);
-  await addTable.click();
+  await pointAt(page, field.getByRole("textbox", { name: "Action of step 1" }));
+  await field.getByRole("button", { name: "Add a table after this text of Action of step 1" }).click();
   const table = field.getByRole("table", { name: "Table in Action of step 1" });
   await expect(table).toBeVisible();
   const head = table.getByRole("textbox", { name: "Action of step 1, header row, column 1" });
