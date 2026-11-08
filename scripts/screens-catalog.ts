@@ -527,9 +527,13 @@ function fixtureShots(): Shot[] {
     },
     {
       id: "tests-editor-hidden-details",
-      note: "Editor with details hidden",
+      note: "Editor with the Details card folded to its one line",
       hash: `#/tests/${T1420}`,
-      prep: (p) => tap(p, /^Hide details/),
+      prep: async (p, s) => {
+        await openTest(p, s, T1420);
+        await tap(p.getByRole("region", { name: "Details" }), "Fold the details");
+        await p.getByRole("button", { name: "Show the details" }).waitFor({ timeout: T });
+      },
     },
     {
       id: "tests-editor-split",
