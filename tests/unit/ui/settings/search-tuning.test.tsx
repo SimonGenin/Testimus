@@ -17,15 +17,28 @@ const DEFAULTS = {
   synonyms: [],
 };
 
-const settings = (over: Record<string, unknown> = {}, reranker: string | null = null) => ({
+let project: Record<string, unknown> = {};
+
+const settings = (
+  over: Record<string, unknown> = project,
+  reranker: string | null = null,
+  pack: Record<string, unknown> | null = null,
+) => ({
   defaults: DEFAULTS,
-  pack: null,
-  base: DEFAULTS,
+  pack,
+  base: { ...DEFAULTS, ...pack },
   project: Object.keys(over).length ? over : null,
-  effective: { ...DEFAULTS, ...over },
+  effective: { ...DEFAULTS, ...pack, ...over },
   reranker,
   glossary: { documents: 38, project: 0 },
 });
+
+const setRetrieval = (input: Record<string, unknown>) => {
+  const next: Record<string, unknown> = { ...project, ...(input.retrieval as Record<string, unknown>) };
+  for (const key of input.unset as string[]) delete next[key];
+  project = next;
+  return settings();
+};
 
 const HITS = [
   {
@@ -60,11 +73,12 @@ const HITS = [
 
 beforeEach(() => {
   fakeNet();
+  project = {};
   net.routes["rag.retrieval"] = () => settings();
   net.routes["docs.list"] = () => [{ id: "SOSIE_211", title: "Traction", code: "SOSIE_211" }];
   net.routes["rag.search"] = () => HITS;
   net.routes["jobs.list"] = () => [];
-  net.routes["rag.setRetrieval"] = (input) => settings((input.retrieval as Record<string, unknown>) ?? {});
+  net.routes["rag.setRetrieval"] = setRetrieval;
 });
 
 afterEach(reset);
@@ -95,12 +109,12 @@ describe("Settings › Search › Ranking and Words", () => {
     choose(select, /Above its threshold/);
     fireEvent.click(await screen.findByRole("button", { name: "Save to project.json" }));
     await waitFor(() =>
-      expect(inputs("rag.setRetrieval")).toEqual([{ retrieval: { rerank: { top: 30, mode: "threshold" } } }]),
+      expect(inputs("rag.setRetrieval")).toEqual([{ retrieval: { rerank: { mode: "threshold" } }, unset: [] }]),
     );
   });
 
-  it("saves only what differs from the defaults and the pack; Reset goes back to them", async () => {
-    net.routes["rag.retrieval"] = () => settings({ candidates: 80 });
+  it("saves only what the draft changed; Reset ranking gives the ranking back to the defaults and the pack", async () => {
+    project = { candidates: 80 };
     mountSettings(<Tuning />);
     fireEvent.click(await screen.findByRole("radio", { name: "Meaning" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Typos forgiven/ }));
@@ -109,13 +123,32 @@ describe("Settings › Search › Ranking and Words", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save to project.json" }));
     await waitFor(() =>
       expect(inputs("rag.setRetrieval")).toEqual([
-        { retrieval: { candidates: 80, rrfWeights: [1, 2], typos: true, bm25Weights: [1, 1, 5, 0] } },
+        { retrieval: { rrfWeights: [1, 2], typos: true, bm25Weights: [1, 1, 5, 0] }, unset: [] },
       ]),
     );
     await waitFor(() => expect(screen.queryByRole("button", { name: "Save to project.json" })).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset ranking" }));
     fireEvent.click(await screen.findByRole("button", { name: "Save to project.json" }));
-    await waitFor(() => expect(inputs("rag.setRetrieval")[1]).toEqual({ retrieval: null }));
+    await waitFor(() =>
+      expect(inputs("rag.setRetrieval")[1]).toEqual({ retrieval: {}, unset: ["candidates", "rrfWeights"] }),
+    );
+    await waitFor(() => expect(project).toEqual({ typos: true, bm25Weights: [1, 1, 5, 0] }));
+    expect(screen.getByRole("checkbox", { name: /Typos forgiven/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /French forms/ })).not.toBeChecked();
+  });
+
+  it("a key the team set that this PC's pack matches stays in project.json when something else is saved", async () => {
+    project = { candidates: 80 };
+    net.routes["rag.retrieval"] = () => settings(project, null, { candidates: 80 });
+    mountSettings(<Tuning />);
+    const chips = await screen.findByRole("textbox", { name: "Synonyms and acronyms" });
+    fireEvent.change(chips, { target: { value: "TK = télécommande" } });
+    fireEvent.keyDown(chips, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("button", { name: "Save to project.json" }));
+    await waitFor(() =>
+      expect(inputs("rag.setRetrieval")).toEqual([{ retrieval: { synonyms: [["TK", "télécommande"]] }, unset: [] }]),
+    );
+    expect(project).toEqual({ candidates: 80, synonyms: [["TK", "télécommande"]] });
   });
 
   it("Discard goes back to what is saved", async () => {
@@ -134,7 +167,7 @@ describe("Settings › Search › Ranking and Words", () => {
     expect(screen.queryByRole("button", { name: "Save to project.json" })).toBeNull();
     fireEvent.change(field, { target: { value: "120" } });
     fireEvent.click(await screen.findByRole("button", { name: "Save to project.json" }));
-    await waitFor(() => expect(inputs("rag.setRetrieval")).toEqual([{ retrieval: { candidates: 120 } }]));
+    await waitFor(() => expect(inputs("rag.setRetrieval")).toEqual([{ retrieval: { candidates: 120 }, unset: [] }]));
   });
 
   it("a synonym is a chip « a = b », saved as a group", async () => {
@@ -144,7 +177,7 @@ describe("Settings › Search › Ranking and Words", () => {
     fireEvent.keyDown(chips, { key: "Enter" });
     fireEvent.click(await screen.findByRole("button", { name: "Save to project.json" }));
     await waitFor(() =>
-      expect(inputs("rag.setRetrieval")).toEqual([{ retrieval: { synonyms: [["TK", "télécommande"]] } }]),
+      expect(inputs("rag.setRetrieval")).toEqual([{ retrieval: { synonyms: [["TK", "télécommande"]] }, unset: [] }]),
     );
   });
 });

@@ -33,7 +33,7 @@ export function Ranking({ draft, reranker }: { draft: Draft; reranker: string | 
   return (
     <Card
       title="Ranking"
-      actions={<Button size="sm" variant="quiet" label="Reset to defaults" onClick={draft.reset} />}
+      actions={<Button size="sm" variant="quiet" label="Reset ranking" onClick={draft.reset} />}
     >
       <Stack>
         <Grid>

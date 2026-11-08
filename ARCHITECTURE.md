@@ -437,12 +437,16 @@ docs/<docId>/
   this PC's (a rerank threshold is already keyed by model id, so a PC with another reranker never takes it).
 - **Settings › Search** edits them as a **draft**: Ranking (candidates; « Words vs meaning » = `rrfWeights` [2, 1] ·
   [1, 1] · [1, 2]; « Weight of codes and ids » = codes column 1 · 5; reranker Top N / « Above its threshold », only
-  when the models in use have a reranker; « Also bring » = `expand`; « Reset to defaults » = defaults < pack; the raw
-  numbers under Advanced) and Words (French forms, accents and case — always, the index folds them —, typos, synonym
-  chips « a = b »). **Try it** runs `rag.search` with the draft as its `retrieval` override and `explain`; **Measure on
-  the benchmark** runs `rag.measure` with it; **Save** writes, through `rag.setRetrieval`, only the keys that differ
-  from defaults < pack (a pack's later change still reaches a key the team never set). `rag.retrieval` reads defaults,
-  pack, base, project, effective, the reranker in use and the glossary counts.
+  when the models in use have a reranker; « Also bring » = `expand`; « Reset ranking » gives the ranking keys —
+  candidates, rrfK, the word weights but the French forms column, rrfWeights, rerank, expand — back to defaults < pack,
+  never the Words card's typos and synonyms; the raw numbers under Advanced) and Words (French forms, accents and case
+  — always, the index folds them —, typos, synonym chips « a = b »). **Try it** runs `rag.search` with the draft as
+  its `retrieval` override and `explain`; **Measure on the benchmark** runs `rag.measure` with it; **Save** sends
+  `rag.setRetrieval` only the keys the draft changed from what is saved (`rerank` by its own keys) and, in `unset`, the
+  keys Reset ranking gave back that project.json still holds; the core writes them over project.json rag.retrieval
+  and keeps every other key — a page never rewrites the team's settings from this PC's pack (a colleague on another
+  pack keeps what was set; a pack's later change still reaches a key the team never set). `retrieval: null` takes it
+  all out. `rag.retrieval` reads defaults, pack, base, project, effective, the reranker in use and the glossary counts.
 - **Filters** (`rag.search`, so Claude's `rag_search` too, and Try it): `docIds`, `kinds` (the chunk's `kind`, a free
   string: section · figure today, whatever kinds media add later), `section` (a section number: the section, its
   sub-sections and the figures inside them, by the chunk's path), `dateFrom` / `dateTo` (doc.json `date`, bounds

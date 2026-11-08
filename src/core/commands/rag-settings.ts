@@ -18,7 +18,9 @@ import {
 const settingsOut = z.object({
   defaults: retrievalSettings.describe("Testimus's defaults"),
   pack: retrievalOverride.nullable().describe("What the pack in use on this PC sets over the defaults; null: nothing"),
-  base: retrievalSettings.describe("The defaults with the pack's settings: what « Reset to defaults » goes back to"),
+  base: retrievalSettings.describe(
+    "The defaults with the pack's settings: what « Reset ranking » gives the ranking back to",
+  ),
   project: retrievalOverride
     .nullable()
     .describe("project.json rag.retrieval, shared with the team; null: the project sets nothing"),
@@ -60,6 +62,15 @@ function tidy(r: RetrievalOverride): RetrievalOverride {
   return { ...r, synonyms };
 }
 
+// ponytail: a save never rewrites what it did not change — a colleague's key, or one this PC's pack happens to
+// match, stays in project.json
+function patched(saved: RetrievalOverride, over: RetrievalOverride, unset: string[]): RetrievalOverride {
+  const next: Record<string, unknown> = { ...saved, ...over };
+  if (over.rerank) next.rerank = { ...saved.rerank, ...over.rerank };
+  for (const key of unset) delete next[key];
+  return next as RetrievalOverride;
+}
+
 const measured = z.object({
   report: z.string().describe("Its report under .testimus/eval/"),
   setting: z.string().describe("Its configuration name"),
@@ -79,21 +90,25 @@ export const commands = [
   command({
     name: "rag.setRetrieval",
     summary:
-      "Replace project.json rag.retrieval (shared with the team) with these settings; null or {} goes back to the defaults and the pack's.",
+      "Change project.json rag.retrieval (shared with the team): the keys given are written over what it holds, the keys in unset are taken out (back to the pack's or the default), the others stay; null takes it all out.",
     input: z.object({
       retrieval: retrievalOverride
         .nullable()
         .describe(
-          "The whole new rag.retrieval: candidates, rrfK, bm25Weights, rrfWeights, rerank, expand, typos, synonyms; a key left out takes the pack's or the default; null resets",
+          "The keys to write (candidates, rrfK, bm25Weights, rrfWeights, rerank, expand, typos, synonyms; rerank's own keys merge with the saved ones); a key left out keeps what project.json holds; null takes everything out",
         ),
+      unset: z
+        .array(retrievalOverride.keyof())
+        .default([])
+        .describe("Keys taken out of project.json rag.retrieval: they go back to the pack's or the default"),
     }),
     output: settingsOut,
     mutates: true,
     async run(ctx, input) {
       const dir = projectOf(ctx);
       const p = readProject(dir);
-      const next = input.retrieval ? tidy(input.retrieval) : null;
       const rag = { ...p.rag };
+      const next = input.retrieval ? patched(rag.retrieval ?? {}, tidy(input.retrieval), input.unset) : null;
       if (next && Object.keys(next).length) rag.retrieval = next as typeof rag.retrieval;
       else delete rag.retrieval;
       writeProject(dir, { ...p, rag });

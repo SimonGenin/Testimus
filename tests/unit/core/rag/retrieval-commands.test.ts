@@ -34,7 +34,28 @@ describe("rag.retrieval and rag.setRetrieval", () => {
     expect(s.glossary).toEqual({ documents: expect.any(Number), project: 0 });
   });
 
-  it("replaces project.json rag.retrieval, tidies the synonyms, and resets with null", async () => {
+  it("writes the keys given over project.json rag.retrieval, takes out the unset ones, keeps the others", async () => {
+    await call(
+      "project.set",
+      { rag: { retrieval: { candidates: 80, rrfK: 20, rerank: { top: 40, mode: "topk" }, typos: true } } },
+      dir,
+    );
+    await call(
+      "rag.setRetrieval",
+      { retrieval: { synonyms: [["TK", "télécommande"]], rerank: { mode: "threshold" } }, unset: ["rrfK"] },
+      dir,
+    );
+    expect(saved()).toEqual({
+      candidates: 80,
+      rerank: { top: 40, mode: "threshold" },
+      typos: true,
+      synonyms: [["TK", "télécommande"]],
+    });
+    await call("rag.setRetrieval", { retrieval: {}, unset: ["candidates", "rerank", "typos", "synonyms"] }, dir);
+    expect(saved()).toBeUndefined();
+  });
+
+  it("tidies the synonyms, and resets with null", async () => {
     await call("project.set", { rag: { retrieval: { rrfK: 20, candidates: 70 } } }, dir);
     const s = await call<Settings>(
       "rag.setRetrieval",
@@ -52,13 +73,14 @@ describe("rag.retrieval and rag.setRetrieval", () => {
       dir,
     );
     expect(saved()).toEqual({
+      rrfK: 20,
       candidates: 80,
       rrfWeights: [2, 1],
       typos: true,
       synonyms: [["TK", "télécommande"]],
     });
     expect(s.project).toEqual(saved());
-    expect(s.effective).toMatchObject({ candidates: 80, rrfK: 60, rrfWeights: [2, 1], typos: true });
+    expect(s.effective).toMatchObject({ candidates: 80, rrfK: 20, rrfWeights: [2, 1], typos: true });
     const reset = await call<Settings>("rag.setRetrieval", { retrieval: null }, dir);
     expect(saved()).toBeUndefined();
     expect(reset.project).toBeNull();

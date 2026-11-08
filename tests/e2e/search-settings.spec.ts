@@ -102,14 +102,14 @@ test.describe("search settings: edited, tried, measured, saved", () => {
       synonyms: [["pilotage", "télécommande"]],
     });
 
-    await search.getByRole("button", { name: "Reset to defaults" }).click();
+    await search.getByRole("button", { name: "Reset ranking" }).click();
     await search.getByRole("button", { name: "Save to project.json" }).click();
     await expect
       .poll(
         async () =>
           (await api<{ project: { rag: { retrieval?: unknown } } }>(server.url, "project.info")).project.rag.retrieval,
       )
-      .toBeUndefined();
+      .toEqual({ typos: true, synonyms: [["pilotage", "télécommande"]] });
   });
 });
 
