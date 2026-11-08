@@ -17,37 +17,46 @@ test("the kit lists every component by family, and filters by name", async ({ pa
   await expect(nav).toContainText("No component named « zzz »");
 });
 
-test("each component page shows its props and every state, light and dark, styled by the tokens", async ({ page }) => {
-  await page.setViewportSize({ width: 1600, height: 3600 });
-  await page.emulateMedia({ colorScheme: "light" });
-  await boot(page, "#/kit");
-  await setTheme(page, "light");
-  mkdirSync(join(SCREENS_DIR, "kit"), { recursive: true });
-  const rows = page.getByRole("navigation", { name: "Components" }).getByRole("option");
-  await expect(rows.first()).toBeVisible();
-  const count = await rows.count();
-  expect(count).toBeGreaterThanOrEqual(7);
-  for (let i = 0; i < count; i++) {
-    await rows.nth(i).click();
-    const name =
-      (await page.getByRole("main", { name: "Component" }).getByRole("heading", { level: 1 }).textContent())?.trim() ??
-      "";
-    expect((await rows.nth(i).textContent())?.startsWith(name)).toBe(true);
-    await expect(page.getByRole("banner").getByRole("heading", { level: 1 })).toContainText(name);
-    await expect(page).toHaveURL(new RegExp(`#/kit/${name}$`));
-    const props = page.getByRole("region", { name: "Props" });
-    await expect(props.locator("span").first()).toBeVisible();
-    const light = page.getByRole("region", { name: `${name}, Light` });
-    const dark = page.getByRole("region", { name: `${name}, Dark` });
-    await expect(light).toBeVisible();
-    await expect(dark).toBeVisible();
-    const bg = (r: typeof light) => r.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(await bg(light)).toBe("rgb(247, 247, 248)");
-    expect(await bg(dark)).toBe("rgb(14, 14, 16)");
-    await page.evaluate(() => document.fonts.ready);
-    await page.screenshot({ path: join(SCREENS_DIR, "kit", `${name}.png`), animations: "disabled" });
-  }
-});
+// ponytail: every component page, its checks and a 1600 × 3600 capture took ~54 s of a test's 60 s alone — the pages
+// are shared out in parts of the list (the nth quarter of the components in the order the kit lists them), each with
+// its own budget; together they still visit every page
+const PARTS = 4;
+for (let part = 0; part < PARTS; part++)
+  test(`each component page shows its props and every state, light and dark, styled by the tokens (part ${part + 1} of ${PARTS})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1600, height: 3600 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await boot(page, "#/kit");
+    await setTheme(page, "light");
+    mkdirSync(join(SCREENS_DIR, "kit"), { recursive: true });
+    const rows = page.getByRole("navigation", { name: "Components" }).getByRole("option");
+    await expect(rows.first()).toBeVisible();
+    const count = await rows.count();
+    expect(count).toBeGreaterThanOrEqual(7);
+    const size = Math.ceil(count / PARTS);
+    for (let i = part * size; i < Math.min(count, (part + 1) * size); i++) {
+      await rows.nth(i).click();
+      const name =
+        (
+          await page.getByRole("main", { name: "Component" }).getByRole("heading", { level: 1 }).textContent()
+        )?.trim() ?? "";
+      expect((await rows.nth(i).textContent())?.startsWith(name)).toBe(true);
+      await expect(page.getByRole("banner").getByRole("heading", { level: 1 })).toContainText(name);
+      await expect(page).toHaveURL(new RegExp(`#/kit/${name}$`));
+      const props = page.getByRole("region", { name: "Props" });
+      await expect(props.locator("span").first()).toBeVisible();
+      const light = page.getByRole("region", { name: `${name}, Light` });
+      const dark = page.getByRole("region", { name: `${name}, Dark` });
+      await expect(light).toBeVisible();
+      await expect(dark).toBeVisible();
+      const bg = (r: typeof light) => r.evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(await bg(light)).toBe("rgb(247, 247, 248)");
+      expect(await bg(dark)).toBe("rgb(14, 14, 16)");
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({ path: join(SCREENS_DIR, "kit", `${name}.png`), animations: "disabled" });
+    }
+  });
 
 test("the page follows the explicit theme and the system one", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
