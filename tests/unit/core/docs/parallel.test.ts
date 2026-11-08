@@ -105,6 +105,46 @@ describe("the conversion slots of a project", () => {
     await Promise.all([two, index]);
     expect(order).toEqual(["a", "b", "index"]);
   });
+
+  it("a shared index run is not cancelled by one of those waiting for it, only once all of them cancelled", async () => {
+    const P = fixtureCopy("slots-shared");
+    const gate = deferred();
+    const busy = conversionSlot(P, () => gate.p);
+    const a = new AbortController();
+    const b = new AbortController();
+    const signals: AbortSignal[] = [];
+    const run = async (signal: AbortSignal) => {
+      signals.push(signal);
+      if (signal.aborted) throw new Error("index cancelled");
+      return "indexed";
+    };
+    const forA = indexAfterConversions(P, run, { signal: a.signal });
+    const forB = indexAfterConversions(P, run, { signal: b.signal });
+    a.abort(new Error("A cancelled"));
+    await expect(forA).rejects.toThrow("A cancelled");
+    gate.open();
+    await busy;
+    expect(await forB).toBe("indexed");
+    expect(signals).toHaveLength(1);
+    expect(signals[0].aborted).toBe(false);
+
+    const gate2 = deferred();
+    const busy2 = conversionSlot(P, () => gate2.p);
+    const c = new AbortController();
+    const d = new AbortController();
+    const forC = indexAfterConversions(P, run, { signal: c.signal });
+    const forD = indexAfterConversions(P, run, { signal: d.signal });
+    c.abort(new Error("C cancelled"));
+    d.abort(new Error("D cancelled"));
+    await expect(forC).rejects.toThrow("C cancelled");
+    await expect(forD).rejects.toThrow("D cancelled");
+    gate2.open();
+    await busy2;
+    await tick();
+    expect(signals).toHaveLength(1);
+    expect(await indexAfterConversions(P, run)).toBe("indexed");
+    expect(signals).toHaveLength(2);
+  });
 });
 
 describe("several documents converted together", () => {

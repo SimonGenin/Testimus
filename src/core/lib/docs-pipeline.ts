@@ -86,15 +86,15 @@ async function withTriage(ctx: Ctx, project: string, doc: DocJson, claude: JobRu
 // the other conversions, and a failed run never undoes the conversion
 export async function withIndex(ctx: Ctx, project: string, claude: JobRun): Promise<IndexOutcome> {
   ctx.step?.("index");
-  const run = () => {
-    throwIfAborted(ctx.signal);
+  const run = (signal: AbortSignal) => {
+    throwIfAborted(signal);
     return startJob(
       "rag-index",
       "index",
       project,
       (c) =>
         indexProject(project, c, { claude: { model: claude.model, effort: claude.effort }, describe: claudeHeaders }),
-      ctx.signal,
+      signal,
       { rerun: { name: "rag.index", input: { force: false } } },
     ).done as Promise<IndexReport>;
   };

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { type Semaphore, scope, semaphore } from "../../shared/run/work.ts";
+import { reasonOf, type Semaphore, scope, semaphore, throwIfAborted } from "../../shared/run/work.ts";
 import { activeModels } from "../rag/activation.ts";
 import { indexFile, openDb } from "../rag/db.ts";
 import { spaceOf } from "../rag/fingerprint.ts";
@@ -10,10 +10,11 @@ import { conversionsAtOnce } from "./agents.ts";
 import { listDocs } from "./docs.ts";
 
 type Slots = { n: number; take: Semaphore; users: number };
+type Shared = { p: Promise<unknown>; ctl: AbortController; users: number; settled: boolean };
 type Queue = {
   converting: Set<Promise<unknown>>;
   running: Promise<unknown> | null;
-  waiting: Promise<unknown> | null;
+  waiting: Shared | null;
   slots: Slots | null;
 };
 
@@ -74,24 +75,60 @@ function start<T>(q: Queue, run: () => Promise<T>): Promise<T> {
   return p;
 }
 
+// ponytail: a caller of a shared run stops waiting for it when its own signal aborts; the run itself stops only once
+// every caller has left (its signal is its own, never one caller's)
+function join<T>(q: Queue, s: Shared, signal?: AbortSignal): Promise<T> {
+  s.users++;
+  const leave = () => {
+    if (s.settled || --s.users > 0) return;
+    if (q.waiting === s) q.waiting = null;
+    s.ctl.abort(reasonOf(signal as AbortSignal));
+  };
+  if (signal?.aborted) leave();
+  else signal?.addEventListener("abort", leave, { once: true });
+  return until(s.p as Promise<T>, signal);
+}
+
+function shared<T>(work: (signal: AbortSignal) => Promise<T>): Shared {
+  const ctl = new AbortController();
+  const s: Shared = { p: Promise.resolve(), ctl, users: 0, settled: false };
+  s.p = work(ctl.signal);
+  const done = () => {
+    s.settled = true;
+  };
+  s.p.then(done, done);
+  return s;
+}
+
 // ponytail: one index run at a time per project, never while a conversion is writing a document: a run asked for
-// meanwhile waits for both, and the runs asked for while it waits share it (it reads every document when it starts)
+// meanwhile waits for both, and the runs asked for while it waits share it (it reads every document when it starts).
+// The run gets a signal of its own: it is cancelled when everyone who asked for it cancelled — one conversion's cancel
+// only ends that conversion's wait — or when its own job is cancelled
 export function indexAfterConversions<T>(
   project: string,
-  run: () => Promise<T>,
+  run: (signal: AbortSignal) => Promise<T>,
   o: { signal?: AbortSignal; waiting?: (message: string) => void } = {},
 ): Promise<T> {
   const q = queueOf(project);
-  if (q.waiting) return until(q.waiting as Promise<T>, o.signal);
-  if (!q.running && !q.converting.size) return start(q, run);
+  if (q.waiting) return join(q, q.waiting, o.signal);
+  if (!q.running && !q.converting.size)
+    return join(
+      q,
+      shared((signal) => start(q, () => run(signal))),
+      o.signal,
+    );
   o.waiting?.(q.converting.size ? "Waiting for the other conversions" : "Waiting for the index run");
-  const waiting = (async () => {
-    while (q.running || q.converting.size) await Promise.allSettled([q.running, ...q.converting]);
-    q.waiting = null;
-    return start(q, run);
-  })();
-  q.waiting = waiting;
-  return until(waiting, o.signal);
+  const s: Shared = shared(async (signal) => {
+    while (q.running || q.converting.size) {
+      await Promise.allSettled([q.running, ...q.converting]);
+      throwIfAborted(signal);
+    }
+    if (q.waiting === s) q.waiting = null;
+    throwIfAborted(signal);
+    return start(q, () => run(signal));
+  });
+  q.waiting = s;
+  return join(q, s, o.signal);
 }
 
 async function vectorsComplete(project: string): Promise<boolean> {

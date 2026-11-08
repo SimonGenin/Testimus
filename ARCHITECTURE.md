@@ -261,7 +261,9 @@ docs/<docId>/
   the page); a failed one frees its slot and stops none of the others. Every conversion asked for, waiting or going,
   counts for the index: a conversion **asks** for its index run before it lets its slot go (it never waits for the run
   inside the slot, which would wait for itself), so the run starts once the last conversion of the batch is done and
-  is shared by all — one index run for a folder import. The Documents list shows « Converting · … » on each conversion
+  is shared by all — one index run for a folder import. The shared run has a signal of its own (`lib/docs-index.ts`):
+  a conversion cancelled stops only its own wait; the run is cancelled once everyone waiting for it cancelled, or when
+  its own `rag-index` job is cancelled. The Documents list shows « Converting · … » on each conversion
   going, « Waiting to convert » on those in line, and « Converting 2 at a time · 2 waiting · then one index run ». `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
   citing tests are left and their sources become `source-missing`.
 - **A folder** (`lib/docs-folder.ts`): `docs.scanFolder` reads a folder (sub-folders by default, hidden ones and the
