@@ -351,7 +351,16 @@ describe("small model widgets", () => {
     expect(screen.getByText("fast")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use this pack" }));
     expect(onUse).toHaveBeenCalled();
-    rerender(<PackActions pack={pack("balanced", { active: true })} op={null} busy={false} onUse={onUse} />);
+    rerender(<PackActions pack={pack("light", { active: true })} op={null} busy={false} onUse={onUse} />);
+    fireEvent.click(screen.getByRole("button", { name: "Use this pack" }));
+    expect(onUse).toHaveBeenCalledTimes(2);
+    rerender(
+      <PackActions pack={pack("balanced", { chosen: true, installed: "some" })} op={null} busy={false} onUse={onUse} />,
+    );
+    expect(screen.getByRole("button", { name: "Use this pack" })).toBeInTheDocument();
+    rerender(
+      <PackActions pack={pack("balanced", { active: true, chosen: true })} op={null} busy={false} onUse={onUse} />,
+    );
     expect(screen.queryByRole("button", { name: "Use this pack" })).toBeNull();
   });
 

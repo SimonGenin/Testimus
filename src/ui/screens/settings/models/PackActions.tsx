@@ -29,7 +29,8 @@ function MeasureButton({
 }
 
 // The foot of a pack card in Settings › Models: the job on the pack while it runs, else « Use this pack » (not for the
-// pack in use with its models here) and the measure
+// pack this PC chose with its models here — a pack in use as a fallback, Light while Quality is missing, can still be
+// chosen) and the measure
 export function PackActions({
   pack,
   op,
@@ -54,7 +55,7 @@ export function PackActions({
     );
   return (
     <div {...stylex.props(styles.foot)}>
-      {!(pack.active && ready) && (
+      {!(pack.chosen && ready) && (
         <Button size="sm" label="Use this pack" disabled={!pack.available || busy} onClick={onUse} />
       )}
       {onMeasure && (

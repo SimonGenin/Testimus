@@ -251,7 +251,7 @@ describe("Settings › Models", () => {
   it("shows the pack cards, the active one marked, the core's notes, Custom, and the folder", async () => {
     base({
       packs: [
-        pack("light", { active: true, speed: "query 40 ms, index 6 passages/s" }),
+        pack("light", { active: true, chosen: true, speed: "query 40 ms, index 6 passages/s" }),
         pack("balanced", {
           variant: 1,
           reranker: "rr",
