@@ -1,10 +1,9 @@
 import { type ReactElement, useEffect } from "react";
 import { SETUP_FROM_APP, useApp } from "../../lib/app.ts";
-import { project, setProject } from "../../lib/data/client.ts";
+import { project } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { baseName } from "../../lib/desktop.ts";
+import { baseName, showProject } from "../../lib/desktop.ts";
 import { initials } from "../../lib/format.ts";
-import { writePref } from "../../lib/prefs.ts";
 import { errorToast } from "../../lib/toast.ts";
 import type { ButtonProps } from "../ui/Button.tsx";
 import { Menu, type MenuEntry } from "../ui/Menu.tsx";
@@ -30,12 +29,6 @@ export function ProjectButton() {
   const key = p?.jiraProject;
   const here = app.info?.dir ?? project();
   const known = asKnown(list.data);
-  const switchTo = (dir: string) => {
-    setProject(dir);
-    writePref("project", dir);
-    app.refreshInfo();
-    app.testsChanged();
-  };
   const entries: MenuEntry[] = [
     { group: "Projects" },
     ...(known.length
@@ -44,7 +37,7 @@ export function ProjectButton() {
           icon: "folder" as const,
           hint: k.jiraProject || "no key",
           checked: k.dir === here,
-          onSelect: () => switchTo(k.dir),
+          onSelect: () => void showProject(app, k.dir),
         }))
       : [{ label: "No other project known yet", disabled: true, onSelect: () => {} }]),
     "separator",
