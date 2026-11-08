@@ -41,9 +41,11 @@ export const commands = [
       k: z.number().int().min(1).max(50).default(10).describe("How many passages to return"),
       docIds: z.array(z.string()).optional().describe("Only search these documents"),
       kinds: z
-        .array(z.string())
+        .array(chunkKind)
         .optional()
-        .describe("Only these kinds of passage: section (a section's text), figure (a figure); default every kind"),
+        .describe(
+          "Only these kinds of passage: section, figure, image, transcript, frame (see a passage's kind); default every kind",
+        ),
       section: z
         .string()
         .optional()

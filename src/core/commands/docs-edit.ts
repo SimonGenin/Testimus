@@ -37,7 +37,11 @@ export const commands = [
       amends: z.array(z.string()).optional().describe("Ids of the documents this one amends; empty list clears it"),
       title: z.string().optional().describe("Document title"),
       version: z.string().optional().describe("Document version, e.g. 01.01"),
-      date: z.string().optional().describe("Document date, YYYY-MM-DD"),
+      date: z
+        .string()
+        .regex(/^(\d{4}-\d{2}-\d{2})?$/, "A date is written YYYY-MM-DD (or empty to clear it)")
+        .optional()
+        .describe("Document date, YYYY-MM-DD; empty clears it"),
       kind: kind.optional().describe("spec, minutes or other"),
       context: z.string().optional().describe("What the team says about this document; replaces context.md"),
       ifMtime: z

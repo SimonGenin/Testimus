@@ -22,7 +22,7 @@ const styles = stylex.create({
 
 type Hit = CommandOutput<"rag.search">[number];
 
-const KINDS = [
+const KINDS: { value: Hit["kind"] | "all"; label: string }[] = [
   { value: "all", label: "Every kind" },
   { value: "section", label: "Text only" },
   { value: "figure", label: "Figures only" },
@@ -63,7 +63,7 @@ function titleOf(h: Hit): string {
 export function TryIt({ draft }: { draft: Retrieval }) {
   const [query, setQuery] = useState("");
   const [doc, setDoc] = useState("all");
-  const [kind, setKind] = useState("all");
+  const [kind, setKind] = useState<Hit["kind"] | "all">("all");
   const [section, setSection] = useState("");
   const docs = useRead("docs.list", {});
   const asked = { q: useSettled(query.trim(), 300), section: useSettled(section.trim(), 300) };

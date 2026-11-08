@@ -460,8 +460,8 @@ docs/<docId>/
   and keeps every other key — a page never rewrites the team's settings from this PC's pack (a colleague on another
   pack keeps what was set; a pack's later change still reaches a key the team never set). `retrieval: null` takes it
   all out. `rag.retrieval` reads defaults, pack, base, project, effective, the reranker in use and the glossary counts.
-- **Filters** (`rag.search`, so Claude's `rag_search` too, and Try it): `docIds`, `kinds` (the chunk's `kind`, a free
-  string: section · figure today, whatever kinds media add later), `section` (a section number: the section, its
+- **Filters** (`rag.search`, so Claude's `rag_search` too, and Try it): `docIds`, `kinds` (the chunk's `kind`: section ·
+  figure · image · transcript · frame; an unknown one is refused, by its name), `section` (a section number: the section, its
   sub-sections and the figures inside them, by the chunk's path), `dateFrom` / `dateTo` (doc.json `date`, bounds
   included; narrows `docIds`). BM25 filters in SQL before its candidate cut (`search/filter.ts` `scopeSql`), vectors
   after the nearest neighbours (≤ 4096).

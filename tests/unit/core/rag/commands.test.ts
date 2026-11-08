@@ -85,6 +85,12 @@ describe("rag commands through the registry, each output checked against its sch
     expect(hits.some((h) => h.docId === D3 && h.anchor === "§5.6.6")).toBe(true);
     const bm25 = await call<unknown[]>("rag.search", { query: "sectionneur", mode: "bm25", k: 2 }, dir);
     expect(bm25.length).toBeLessThanOrEqual(2);
+    const frames = await call<{ kind: string }[]>("rag.search", { query: "sectionneur", kinds: ["frame"] }, dir);
+    expect(frames.length).toBeGreaterThan(0);
+    expect(frames.every((h) => h.kind === "frame")).toBe(true);
+    await expect(call("rag.search", { query: "sectionneur", kinds: ["photo"] }, dir)).rejects.toThrow(
+      /kinds.*(section|frame)/s,
+    );
     const p = await call<{ anchor: string; title: string; figures: unknown[] }>(
       "rag.passage",
       { ref: `${D3}#§5.6.6` },

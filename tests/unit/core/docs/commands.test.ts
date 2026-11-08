@@ -198,6 +198,11 @@ describe("docs.show, docs.set and docs.remove through the registry", () => {
       P,
     );
     expect(doc).toMatchObject({ status: "validated", amends: [D3], title: "Signalisation v2" });
+    await expect(call("docs.set", { id: D4, date: "12/10/2026" }, P)).rejects.toThrow(/YYYY-MM-DD/);
+    expect(await call<{ date: string }>("docs.set", { id: D4, date: "2026-10-12" }, P)).toMatchObject({
+      date: "2026-10-12",
+    });
+    expect(await call<{ date: string }>("docs.set", { id: D4, date: "" }, P)).toMatchObject({ date: "" });
     expect(readFileSync(join(P, "docs", D4, "context.md"), "utf8")).toBe("Lu par l'équipe.\n");
   });
 
