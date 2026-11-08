@@ -66,8 +66,8 @@ const styles = stylex.create({
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
   },
-  row: { display: "flex", alignItems: "center", gap: space.s1 },
-  grow: { flex: 1 },
+  row: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s1 },
+  end: { display: "flex", alignItems: "center", gap: space.s1, marginInlineStart: "auto" },
 });
 
 // the two boxes and the tools above the list, as in Xray Editor: « Search Jira » asks Jira, « Filter tests » narrows
@@ -187,27 +187,28 @@ export function ListTools({
           />
         )}
         {local && assignees && !noProject && <AssigneeFilter filter={filter} who={assignees} onFilter={onFilter} />}
-        <span {...stylex.props(styles.grow)} />
-        {layout && onLayout && (
-          <Segmented<ListLayout>
-            size="sm"
-            label="Folders and tests"
-            value={layout}
-            onChange={onLayout}
-            options={LAYOUTS.filter((o) => withTree || o.value !== "tree")}
-          />
-        )}
-        {reveal && (
-          <Button
-            size="sm"
-            variant="quiet"
-            iconOnly
-            icon="folder-open"
-            label="Show the test in Explorer"
-            disabled={!canReveal}
-            onClick={onReveal}
-          />
-        )}
+        <span {...stylex.props(styles.end)}>
+          {layout && onLayout && (
+            <Segmented<ListLayout>
+              size="sm"
+              label="Folders and tests"
+              value={layout}
+              onChange={onLayout}
+              options={LAYOUTS.filter((o) => withTree || o.value !== "tree")}
+            />
+          )}
+          {reveal && (
+            <Button
+              size="sm"
+              variant="quiet"
+              iconOnly
+              icon="folder-open"
+              label="Show the test in Explorer"
+              disabled={!canReveal}
+              onClick={onReveal}
+            />
+          )}
+        </span>
       </div>
     </div>
   );
