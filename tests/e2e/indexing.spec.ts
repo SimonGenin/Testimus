@@ -3,7 +3,7 @@ import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 type Status = { degraded: string | null; indexing: { state: string; docs: number } | null };
 
 // ponytail: the fake embedder takes 8 s for the passages, so the run is seen while it goes
-const { url } = mockServer(4430, {
+const server = mockServer(4430, {
   TESTIMUS_MOCK_INDEX: "bm25",
   TESTIMUS_MOCK_ADVICE: "none",
   TESTIMUS_MOCK_INDEX_MS: "8000",
@@ -22,7 +22,7 @@ test("while an index run goes no index warning shows — its progress does; the 
   await expect(screen.getByText("Search on words only")).toBeVisible();
   await expect(rows.first()).toContainText("Not up to date");
 
-  const { jobId } = await api<{ jobId: string }>(url, "rag.index", {});
+  const { jobId } = await api<{ jobId: string }>(server.url, "rag.index", {});
   expect(jobId).toBeTruthy();
   const bar = list.getByRole("progressbar", { name: "Index" });
   await expect(bar).toBeVisible();
@@ -31,7 +31,7 @@ test("while an index run goes no index warning shows — its progress does; the 
   await expect(rows.nth(1)).toContainText("Waiting to index");
   await expect(list).not.toContainText("Not up to date");
   await expect(screen.getByText("Search on words only")).toHaveCount(0);
-  const status = await api<Status>(url, "rag.status");
+  const status = await api<Status>(server.url, "rag.status");
   expect(status.degraded).not.toBeNull();
   expect(status.indexing).toMatchObject({ state: "running", docs: 2 });
   await shoot(page, "documents-indexing-e2e");
@@ -47,5 +47,5 @@ test("while an index run goes no index warning shows — its progress does; the 
   await expect(rows.nth(1)).toContainText("Indexed");
   await expect(bar).toHaveCount(0);
   await expect(screen.getByText("Search on words only")).toHaveCount(0);
-  expect((await api<Status>(url, "rag.status")).indexing).toBeNull();
+  expect((await api<Status>(server.url, "rag.status")).indexing).toBeNull();
 });
