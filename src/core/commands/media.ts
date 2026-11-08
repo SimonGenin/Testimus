@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
@@ -18,7 +18,7 @@ import {
 import { readVideo, transcriptLines, writeMediaMd } from "../lib/media-md.ts";
 import { migrateMedia } from "../lib/media-migrate.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
-import { videoDir, videoSummary } from "../lib/media-video.ts";
+import { videoSummary } from "../lib/media-video.ts";
 import { docName } from "../lib/names.ts";
 import { normalizeFrame } from "../lib/video-frames.ts";
 import { videoIo } from "../lib/video-io.ts";
@@ -312,9 +312,13 @@ export const commands = [
       const out = join(project, ".testimus", "frames", input.doc, `${f.n}-${Math.floor(secs)}.jpg`);
       if (!existsSync(out)) {
         ffmpegOrFail();
-        const raw = join(videoDir(project, input.doc, f.n), `at-${Math.floor(secs)}.jpg`);
-        await videoIo.frameAt(join(docDir(project, input.doc), f.file), secs, raw, ctx.signal);
-        await normalizeFrame(raw, out);
+        const raw = `${out.slice(0, -4)}.raw.jpg`;
+        try {
+          await videoIo.frameAt(join(docDir(project, input.doc), f.file), secs, raw, ctx.signal);
+          await normalizeFrame(raw, out);
+        } finally {
+          rmSync(raw, { force: true });
+        }
       }
       return { file: out, at: secs };
     },

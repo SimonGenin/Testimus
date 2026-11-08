@@ -1,4 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  closeSync,
+  constants,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import { basename, extname, join } from "node:path";
 import { UserError } from "../command.ts";
 import type { DocJson, DocKind, FigureEntry, MediaFile, SourceType } from "../types.ts";
@@ -78,15 +90,39 @@ export const updateFile = (project: string, docId: string, n: number, change: (f
     if (f) change(f);
   });
 
-function bytesOf(f: Picked, name: string): Buffer {
-  if (f.dataBase64 !== undefined) return Buffer.from(f.dataBase64, "base64");
-  if (f.path && existsSync(f.path)) return readFileSync(f.path);
-  throw new Error(`File not found: ${f.path ?? name}`);
+// ponytail: a file on this PC is hashed and copied as it streams, never held whole — a video passes 2 GiB, which a
+// Buffer cannot hold
+function sha256Of(path: string): string {
+  const h = createHash("sha256");
+  const chunk = Buffer.alloc(1 << 20);
+  const fd = openSync(path, "r");
+  try {
+    for (let n = readSync(fd, chunk); n > 0; n = readSync(fd, chunk)) h.update(chunk.subarray(0, n));
+  } finally {
+    closeSync(fd);
+  }
+  return h.digest("hex");
 }
 
-// ponytail: each file is copied as it is under files/ (its own name, made unique) and numbered after the highest
-// number the document ever gave — a number is never reused, so an anchor img:<n> stays the picture it was; the same
-// file twice is refused, and what is neither an image nor a video is said why
+function bytesOf(f: Picked, name: string): { hash: string; write: (to: string) => void } {
+  if (f.dataBase64 !== undefined) {
+    const data = Buffer.from(f.dataBase64, "base64");
+    return { hash: sha256(data), write: (to) => writeAtomic(to, data) };
+  }
+  const path = f.path;
+  if (!path || !existsSync(path)) throw new Error(`File not found: ${path ?? name}`);
+  return {
+    hash: sha256Of(path),
+    write: (to) => {
+      copyFileSync(path, `${to}.partial`, constants.COPYFILE_FICLONE);
+      renameSync(`${to}.partial`, to);
+    },
+  };
+}
+
+// ponytail: each file is copied as it is under files/ (its own name, made unique — never over a file already there)
+// and numbered after the highest number the document ever gave — a number is never reused, so an anchor img:<n>
+// stays the picture it was; the same file twice is refused, and what is neither an image nor a video is said why
 export function copyMediaFiles(project: string, docId: string, picked: Picked[]) {
   const doc = readDoc(project, docId);
   const dir = join(docDir(project, docId), "files");
@@ -107,25 +143,27 @@ export function copyMediaFiles(project: string, docId: string, picked: Picked[])
       rejected.push({ name, why: "Only images (JPEG, PNG, WebP) and videos can be added here.", code: "not-media" });
       continue;
     }
-    let data: Buffer;
+    let data: ReturnType<typeof bytesOf>;
     try {
       data = bytesOf(p, name);
     } catch (e) {
       rejected.push({ name, why: e instanceof Error ? e.message : String(e), code: "failed" });
       continue;
     }
-    const hash = sha256(data);
+    const hash = data.hash;
     if (hashes.has(hash)) {
       rejected.push({ name, why: "This file is already in the document.", code: "duplicate" });
       continue;
     }
     hashes.add(hash);
     const n = next++;
-    let file = name.replace(/[\\/:*?"<>|]/g, "_");
-    if (names.has(file.toLowerCase())) file = `${n}-${file}`;
+    const safe = name.replace(/[\\/:*?"<>|]/g, "_");
+    let file = safe;
+    for (let k = 1; names.has(file.toLowerCase()) || existsSync(join(dir, file)); k++)
+      file = k === 1 ? `${n}-${safe}` : `${n}-${k}-${safe}`;
     names.add(file.toLowerCase());
     mkdirSync(dir, { recursive: true });
-    writeAtomic(join(dir, file), data);
+    data.write(join(dir, file));
     added.push({ n, name, file: `files/${file}`, kind, sha256: hash, state: "new" });
   }
   if (added.length)

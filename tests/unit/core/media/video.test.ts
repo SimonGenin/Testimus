@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
@@ -152,6 +152,12 @@ describe("media.transcript and media.frame", () => {
     expect(other.at).toBe(47);
     expect(other.anchor).toBeUndefined();
     expect((await sharp(other.file).metadata()).width).toBe(1280);
+    expect(other.file.startsWith(join(P, ".testimus", "frames"))).toBe(true);
+    const leftovers = (d: string): string[] =>
+      readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? leftovers(join(d, e.name)) : /^at-|\.raw\./.test(e.name) ? [e.name] : [],
+      );
+    expect([...leftovers(dir(V)), ...leftovers(join(P, ".testimus", "frames"))]).toEqual([]);
     await expect(call("media.frame", { doc: V, at: "03:00" }, P)).rejects.toThrow("No moment 03:00");
   });
 });

@@ -1,10 +1,14 @@
-import { existsSync, readFileSync } from "node:fs";
+import fs, { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { loadCorpus, mechanicalFindings } from "../../../../src/core/lib/check.ts";
+import { sha256 } from "../../../../src/core/lib/hash.ts";
+import { copyMediaFiles, newMediaDoc } from "../../../../src/core/lib/media.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-media.ts";
@@ -193,6 +197,40 @@ const SPEC: Source = {
   anchor: "§5.6.6",
   quote: "Le sectionneur est représenté sur la schématique de traction",
 };
+
+describe("files copied into a document", () => {
+  it("never write over a file already there: a name taken gets the next free one", () => {
+    newMediaDoc(P, { id: "D", title: "D", name: "a.jpg" });
+    const pick = (name: string, text: string) => ({ name, dataBase64: Buffer.from(text).toString("base64") });
+    copyMediaFiles(P, "D", [pick("a.jpg", "one"), pick("3-a.jpg", "two")]);
+    const r = copyMediaFiles(P, "D", [pick("a.jpg", "three")]);
+    expect(r.added.map((f) => [f.n, f.file])).toEqual([[3, "files/3-2-a.jpg"]]);
+    expect(readFileSync(join(dir("D"), "files", "3-a.jpg"), "utf8")).toBe("two");
+    expect(readFileSync(join(dir("D"), "files", "3-2-a.jpg"), "utf8")).toBe("three");
+  });
+
+  it("take a video past 2 GiB from this PC: hashed and copied as it streams, never read whole", () => {
+    const big = join(mkdtempSync(join(tmpdir(), "testimus-big-")), "long.mp4");
+    writeFileSync(big, "a video");
+    const whole = fs.readFileSync;
+    (fs as { readFileSync: unknown }).readFileSync = (...a: Parameters<typeof whole>) => {
+      if (String(a[0]) === big) throw new RangeError(`File size (2147487744) is greater than 2 GiB`);
+      return whole(...a);
+    };
+    syncBuiltinESMExports();
+    try {
+      newMediaDoc(P, { id: "V", title: "V", name: "long.mp4" });
+      const r = copyMediaFiles(P, "V", [{ path: big }]);
+      expect(r.rejected).toEqual([]);
+      expect(r.added[0]).toMatchObject({ n: 1, file: "files/long.mp4", kind: "video", sha256: sha256("a video") });
+      expect(whole(join(dir("V"), "files", "long.mp4"), "utf8")).toBe("a video");
+      expect(existsSync(join(dir("V"), "files", "long.mp4.partial"))).toBe(false);
+    } finally {
+      (fs as { readFileSync: unknown }).readFileSync = whole;
+      syncBuiltinESMExports();
+    }
+  });
+});
 
 describe("the mechanical check at an image", () => {
   it("finds the caption at its anchor, never what Claude read in the picture", () => {

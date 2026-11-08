@@ -245,7 +245,8 @@ docs/<docId>/
   (`t:3/04:30`). Decided: an image's anchor is its **number in the document**, given once when its file is copied
   (after `source.last`, the highest ever given) and never reused — so adding an image never moves another's anchor and
   a removed image's number never points at another picture (a file name is not stable enough: two cameras both write
-  `IMG_0042.jpg`).
+  `IMG_0042.jpg`). Its file keeps its name under `files/`, else `<n>-<name>`, else `<n>-<k>-<name>` — never over a
+  file there; a file from this PC is hashed and copied as it streams (a video passes 2 GiB, more than a Buffer holds).
 - **Conversion prefers `.docx`** (structure and images intact); PDF is the fallback (headings from numbering or font
   size, or the tagged structure; RATP PDFs draw heading numbers as pictures). A `.docx` and the `.pdf` of the same name
   are one document. `doc.json.conversion` keeps how it was converted (chosen by the `study-document` skill or the team),

@@ -1,6 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { run } from "../../shared/run/process.ts";
+import { scope } from "../../shared/run/work.ts";
 import { UserError } from "../command.ts";
 import { ffmpegOrFail } from "./ffmpeg.ts";
 import { catalog } from "./models-catalog.ts";
@@ -137,13 +138,19 @@ export const videoIo = {
       : language.toLowerCase().startsWith("en")
         ? "english"
         : undefined;
-    const out = await (await asr)(pcm, {
-      task: "transcribe",
-      ...(lang ? { language: lang } : {}),
-      return_timestamps: true,
-      chunk_length_s: 30,
-      stride_length_s: 5,
-    });
+    const listen = asr;
+    // ponytail: Whisper takes no signal — a cancel settles the transcription at once, its result is dropped
+    const out = await scope(
+      async () =>
+        (await listen)(pcm, {
+          task: "transcribe",
+          ...(lang ? { language: lang } : {}),
+          return_timestamps: true,
+          chunk_length_s: 30,
+          stride_length_s: 5,
+        }),
+      { signal },
+    );
     const lines = (out.chunks ?? [])
       .map((c) => ({ at: c.timestamp[0] ?? 0, end: c.timestamp[1] ?? c.timestamp[0] ?? 0, text: c.text.trim() }))
       .filter((l) => l.text);
