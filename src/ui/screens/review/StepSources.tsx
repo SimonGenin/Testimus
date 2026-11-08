@@ -5,7 +5,7 @@ import { Icon } from "../../components/ui/Icon.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { type ItemLink, sourceLabel } from "../../lib/fields.ts";
-import { isObserved } from "../../lib/media.ts";
+import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { chipMark, findingSummary, refKey } from "./sources.ts";
 
@@ -57,6 +57,7 @@ export function Links({
   selected: string;
   onOpen: (s: Source) => void;
 }) {
+  const observed = useObserved();
   return (
     <div {...stylex.props(styles.chips)}>
       {links.map((l, i) =>
@@ -66,8 +67,8 @@ export function Links({
               key={`${i}-${refKey(s)}-${s.quote}`}
               reference={sourceLabel(s)}
               quote={s.quote || undefined}
-              figure={s.anchor.startsWith("fig:")}
-              observed={isObserved(s.anchor)}
+              figure={isPictureAnchor(s.anchor)}
+              observed={observed(s.docId)}
               pressed={selected === chipMark(step, s)}
               onOpen={() => onOpen(s)}
             />
@@ -76,8 +77,8 @@ export function Links({
           <SourceChip
             key={l.item}
             reference={`${l.item} · ${sourceLabel(l.sources[0])}`}
-            figure={l.sources[0].anchor.startsWith("fig:")}
-            observed={isObserved(l.sources[0].anchor)}
+            figure={isPictureAnchor(l.sources[0].anchor)}
+            observed={observed(l.sources[0].docId)}
             pressed={selected === chipMark(step, l.sources[0])}
             onOpen={() => onOpen(l.sources[0])}
           />

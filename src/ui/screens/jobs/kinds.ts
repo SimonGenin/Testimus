@@ -10,7 +10,7 @@ export const KINDS: { id: string; label: string; kinds: (k: string) => boolean }
   {
     id: "documents",
     label: "Documents",
-    kinds: (k) => k.startsWith("docs.") || k === "describe-figures" || k === "media",
+    kinds: (k) => k.startsWith("docs.") || k === "describe-figures",
   },
   { id: "index", label: "Index", kinds: (k) => k === "rag-index" || k === "search-index" },
   { id: "generate", label: "Generate", kinds: (k) => k === "generate" },
@@ -53,7 +53,6 @@ export function findNode(nodes: JobNode[], id: string): JobNode | null {
 export const CLAUDE_KINDS = ["claude", "actions.triage", "fix", "chat", "columns"];
 
 export function kindIcon(kind: string): IconName {
-  if (kind === "media") return "image";
   if (kind.startsWith("docs.") || kind === "describe-figures") return "documents";
   if (kind === "generate") return "generate";
   if (kind === "check") return "check-circle";

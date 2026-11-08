@@ -12,12 +12,13 @@ import {
 } from "../rag/convert.ts";
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
+import { convertText } from "../rag/convert-text.ts";
 import { renderPage } from "../rag/pdf.ts";
 import type { DocConversion, DocJson, DocKind, DocStats, FigureEntry } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { docDir, isConverted, readDoc, writeDoc } from "./docs.ts";
+import { idOf } from "./docs-folder.ts";
 import { sha256 } from "./hash.ts";
-import { assembleDir, BODY } from "./media.ts";
 import { readJson, writeJson } from "./project.ts";
 
 type Progress = (message: string) => void;
@@ -28,6 +29,9 @@ const copyOf = (dir: string, file: string) => ({ file, sha256: sha256(readFileSy
 
 const fromOf = (file: string) => (extname(file).toLowerCase() === ".docx" ? "docx" : "pdf");
 
+export const CONVERTED = /\.(docx|pdf|txt|md)$/i;
+const isText = (ext: string) => ext === ".txt" || ext === ".md";
+
 export async function convertSource(file: string, opts: ConvertOpts & { pdf?: string }): Promise<Converted> {
   const ext = extname(file).toLowerCase();
   if (ext === ".docx") {
@@ -35,7 +39,11 @@ export async function convertSource(file: string, opts: ConvertOpts & { pdf?: st
     return convertDocx(readFileSync(file), { ...opts, pdfFigures: pdf });
   }
   if (ext === ".pdf") return convertPdf(readFileSync(file), opts);
-  throw new UserError(`Cannot convert ${ext || "a file without extension"}.`, "Give a .docx (preferred) or a .pdf.");
+  if (isText(ext)) return convertText(readFileSync(file), { markdown: ext === ".md", title: opts.title || opts.code });
+  throw new UserError(
+    `Cannot convert ${ext || "a file without extension"}.`,
+    "Give a .docx (preferred), a .pdf or a .txt.",
+  );
 }
 
 // ponytail: the pictures are written again under their anchors; a figure Claude described keeps its description
@@ -59,12 +67,8 @@ export function writeConverted(dir: string, c: Converted): { figures: FigureEntr
       ...(p?.kind ? { kind: p.kind } : {}),
     };
   });
-  // ponytail: the converted text is body.md; doc.md is assembled from it and the annexes of the included batches,
-  // whose figure entries stay as they were
-  const annexes = readJson<FigureEntry[]>(join(dir, "figures.json"), []).filter((f) => f.anchor.startsWith("fig:lot-"));
-  writeAtomic(join(dir, BODY), c.md);
-  assembleDir(dir);
-  writeJson(join(dir, "figures.json"), [...figures, ...annexes]);
+  writeAtomic(join(dir, "doc.md"), c.md);
+  writeJson(join(dir, "figures.json"), figures);
   const a = anchorsOf(c.md);
   return { figures, stats: { sections: a.sections.length, figures: figures.length, chars: c.md.length } };
 }
@@ -78,8 +82,11 @@ export async function addDoc(
   const file = resolve(input.file);
   const ext = extname(file).toLowerCase();
   if (!existsSync(file)) throw new UserError(`File not found: ${file}`, "Give the path of a .docx or .pdf file.");
-  if (ext !== ".docx" && ext !== ".pdf")
-    throw new UserError(`Cannot add ${ext || "a file without extension"}.`, "Give a .docx (preferred) or a .pdf.");
+  if (!CONVERTED.test(file))
+    throw new UserError(
+      `Cannot add ${ext || "a file without extension"} this way.`,
+      "Give a .docx (preferred), a .pdf or a .txt; images and videos are added with docs.addFiles or media.add.",
+    );
   if (input.pdf && extname(input.pdf).toLowerCase() !== ".pdf")
     throw new UserError(`--pdf must be a .pdf file: ${input.pdf}`, "Give the PDF rendering of the same document.");
   // ponytail: the .docx saved beside a .pdf under the same name is the same document with its structure intact
@@ -87,7 +94,7 @@ export async function addDoc(
   const twin = join(dirname(file), `${basename(file, extname(file))}.docx`);
   if (ext === ".pdf" && !input.pdf && existsSync(twin))
     return addDoc(project, { ...input, file: twin, pdf: file }, signal, progress);
-  const guess = guessFromName(file);
+  const guess = { ...guessFromName(file), code: idOf(file) };
   const id = input.id || guess.code;
   const dir = docDir(project, id);
   if (existsSync(join(dir, "doc.json")))
@@ -129,12 +136,13 @@ export async function addDoc(
     progress(`Converting ${ext.slice(1)}`);
     const converted = await convertSource(target, {
       code: guess.code,
+      title: basename(file, extname(file)),
       pdf: existsSync(pdfTarget) && ext === ".docx" ? pdfTarget : undefined,
       signal,
     });
     if (signal?.aborted) throw new Error("Cancelled.");
     const title = converted.meta.title || guess.code;
-    const c = wholeSection(converted, title || id, fromOf(target));
+    const c = isText(ext) ? converted : wholeSection(converted, title || id, fromOf(target));
     progress("Writing doc.md and figures");
     const { stats } = writeConverted(dir, c);
     const doc: DocJson = {
@@ -261,6 +269,7 @@ export async function reconvertDoc(
   const { crops, warnings } = await cropsOf(pdf, o.figures);
   const converted = await convertSource(file, {
     code: doc.code,
+    title: doc.title,
     pdf: extname(file).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
     reader: o.reader,
     numbers: o.numbers,
@@ -277,7 +286,7 @@ export async function reconvertDoc(
   // reads the real one; a title the team typed is kept
   const named = !isConverted(doc) && doc.title === stemOf(doc);
   const title = named && converted.meta.title ? converted.meta.title : doc.title;
-  const c = wholeSection(converted, title || id, fromOf(file));
+  const c = isText(extname(file).toLowerCase()) ? converted : wholeSection(converted, title || id, fromOf(file));
   progress("Writing doc.md and figures");
   const { stats } = writeConverted(dir, c);
   const next: DocJson = {

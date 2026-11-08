@@ -19,6 +19,7 @@ import "./claude-study.ts";
 import { mockHttp } from "./jira.ts";
 import { mockModelsOptions, seedChoice, setupModelsMock } from "./models.ts";
 import { setupUpdatesMock } from "./updates.ts";
+import { setupVideoMock } from "./video.ts";
 
 export function fixturesDir(): string {
   return fileURLToPath(new URL("../../../tests/fixtures/", import.meta.url));
@@ -97,6 +98,7 @@ export async function setupMock(): Promise<string | null> {
   writeJson(join(data, "settings.json"), { projects, lastProject: project, models: { allowRemote: false } });
   const models = mockModelsOptions();
   await setupModelsMock(root, project, models);
+  setupVideoMock(root);
   const { indexProject } = await import("../rag/indexer.ts");
   for (const p of projects) {
     if (p !== project) seedChoice(p, models.advice);

@@ -26,11 +26,12 @@ description: Correct one Xray test from a reviewer's "To fix" note and the test'
   it with `tests_addImage` `{ id, step, figure: "<docId>#fig:<n>", field }` — `Action` when it shows
   where to act, `Expected Result` when it shows what to see — and cite it in that step's
   `### Sources`. Never copy image files or write `### Attachments` by hand.
-- An `observed-only` finding: the expected result rests only on an annex (`§lot-…`, `fig:lot-…`,
-  photos of the real system), which says how to do a step, never what is expected. Find the passage
-  of the document's body that specifies the result and cite it; keep the annex line when it shows
-  how to do the step. When no passage of the body says it, remove that claim from the expected
-  result and say so in the reply — never keep a result only a photo shows.
+- An `observed-only` finding: the expected result rests only on an images or video document
+  (`img:`, `t:`, `frame:` — pictures and videos of the real system), which says how to do a step,
+  never what is expected. Find the passage of a written document that specifies the result and cite
+  it; keep the picture's line when it shows how to do the step. When no written document says it,
+  remove that claim from the expected result and say so in the reply — never keep a result only a
+  picture or a video shows.
 - A smart column (`columns_list`) holds what its description asks for; one whose description is
   empty stays empty. In a column with `referenceSource`, every item has its own source line ending
   `@<column> "<item>"` (generate-tests); an item you add, change or remove takes its line with it.

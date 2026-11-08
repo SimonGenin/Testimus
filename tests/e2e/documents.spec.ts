@@ -10,7 +10,7 @@ const server = mockServer(4350);
 test.use({ viewport: { width: 1920, height: 1080 } });
 
 test("the list shows each document with status and index state; the detail shows its text", async ({ page }) => {
-  await boot(page, "#/documents");
+  await boot(page, "#/documents/SOSIE_211_D401-1_3");
   await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
   const list = page.getByRole("region", { name: "Document list" });
   const rows = list.getByRole("option", { name: /SOSIE_/ });
@@ -33,7 +33,7 @@ test("the list shows each document with status and index state; the detail shows
 });
 
 test("the context note is edited and saved for Claude", async ({ page }) => {
-  await boot(page, "#/documents");
+  await boot(page, "#/documents/SOSIE_211_D401-1_3");
   const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" });
   const context = detail.getByRole("textbox", { name: "Note for this document" });
   await context.fill("Référence traction ligne 92. Les sectionneurs avec TK sont câblés depuis la v01.02.");
@@ -77,7 +77,9 @@ test("a .docx added is listed unconverted, then converted and indexed on demand"
   const listed = JSON.stringify(await api(server.url, "docs.list"));
   const added = [...listed.matchAll(/"id":"([^"]+)"/g)]
     .map((m) => m[1])
-    .find((id) => !id.startsWith("SOSIE_211_D401-1_3") && !id.startsWith("SOSIE_211_D401-1_4"));
+    .find(
+      (id) => id.startsWith("SOSIE_") && !id.startsWith("SOSIE_211_D401-1_3") && !id.startsWith("SOSIE_211_D401-1_4"),
+    );
   expect(added).toBeTruthy();
   const row = page
     .getByRole("region", { name: "Document list" })

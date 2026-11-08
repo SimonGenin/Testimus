@@ -48,7 +48,7 @@ Testimus' defaults for Xray's standard columns (the team reuses them unless the 
 - Data: The values entered or the object aimed at (a code, a record, a file), only when the action needs them.
 - Expected Result: Everything the user observes after the action, checkable on the product, in the words of the document.
 
-Documents (docs_show, rag_search, rag_passage, docs/<id>/doc.md): SOSIE_211_D401-1_3 « Traction » v01.01 validated; SOSIE_211_D401-1_4 « Signalisation » v01.01 submitted
+Documents (docs_show, rag_search, rag_passage, docs/<id>/doc.md): Manoeuvre_d_un_sectionneur_au_PCC « Manœuvre d'un sectionneur au PCC » v? draft video, observed; Notes_de_reunion « Notes de réunion » v? draft; RECETTE_TCO_12-10 « Recette TCO 12/10 » v? draft images, observed; SOSIE_211_D401-1_3 « Traction » v01.01 validated; SOSIE_211_D401-1_4 « Signalisation » v01.01 submitted
 
 Context to read before you start (reference material, do not edit it):
 - Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs

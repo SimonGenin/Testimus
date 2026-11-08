@@ -12,7 +12,7 @@ import { useRead } from "../../lib/data/query.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
 import { testLabel } from "../../lib/labels.ts";
-import { isObserved } from "../../lib/media.ts";
+import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Lightbox } from "../tests/Lightbox.tsx";
 import { StepRead } from "../tests/step/StepRead.tsx";
@@ -68,6 +68,7 @@ export function WritingCard({
 }) {
   const app = useApp();
   const openSource = useContext(AppContext)?.openSource;
+  const observed = useObserved();
   const id = entry.id ?? "";
   const shown = useRead("tests.show", { id }, { enabled: !!id });
   const data = shown.data as { test?: Test; check?: CheckFile | null } | undefined;
@@ -149,8 +150,8 @@ export function WritingCard({
                 key={`${s.docId}#${s.anchor} ${s.quote}`}
                 reference={sourceLabel(s)}
                 quote={s.quote || undefined}
-                figure={s.anchor.startsWith("fig:")}
-                observed={isObserved(s.anchor)}
+                figure={isPictureAnchor(s.anchor)}
+                observed={observed(s.docId)}
                 onOpen={openSource && (() => openSource(s))}
               />
             ))}

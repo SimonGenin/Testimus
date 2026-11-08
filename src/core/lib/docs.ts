@@ -109,7 +109,7 @@ export function partOf(md: string, anchor: string): { text: string; first: numbe
   if (start < 0) return null;
   const heading = (l: string) => l.match(/^(#{1,6}) .*<!-- § /)?.[1].length ?? 0;
   let end = lines.length;
-  if (kind === "fig") end = start + 1;
+  if (kind !== "§" && kind !== "page") end = start + 1;
   else
     for (let i = start + 1; i < lines.length; i++) {
       const h = heading(lines[i]);

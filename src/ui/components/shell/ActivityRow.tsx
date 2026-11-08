@@ -29,7 +29,6 @@ const TONE: Record<string, Tone> = {
   "docs.convert": "doc",
   "rag-index": "doc",
   "describe-figures": "claude",
-  media: "claude",
   generate: "claude",
   fix: "claude",
   check: "claude",

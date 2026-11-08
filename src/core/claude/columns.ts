@@ -1,5 +1,6 @@
 import { DEFAULT_DESCRIPTIONS, stepColumns } from "../lib/columns.ts";
 import { listDocs } from "../lib/docs.ts";
+import { isMediaDoc, sourceType } from "../lib/media.ts";
 import { readProject, readXray } from "../lib/project.ts";
 import { listLocalTests, readTest } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, StepColumn, XrayJson } from "../types.ts";
@@ -112,7 +113,10 @@ export function columnsPrompt(project: string, ask: string, contexts: string[], 
     fetchedAt: x.fetchedAt ?? "",
     columns: columnLines(columns, x, uses),
     docs: listDocs(project)
-      .map((d) => `${d.id} « ${oneLine(d.title, 80)} » v${d.version || "?"} ${d.status}`)
+      .map(
+        (d) =>
+          `${d.id} « ${oneLine(d.title, 80)} » v${d.version || "?"} ${d.status}${isMediaDoc(d) ? ` ${sourceType(d)}, ${d.reference ? "reference" : "observed"}` : ""}`,
+      )
       .join("; "),
     glossary: Object.entries(p.glossary ?? {})
       .slice(0, 40)

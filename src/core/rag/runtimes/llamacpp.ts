@@ -135,7 +135,7 @@ export const llamaIo = {
   },
 };
 
-async function sha256File(file: string): Promise<string> {
+export async function sha256File(file: string): Promise<string> {
   const h = createHash("sha256");
   for await (const chunk of createReadStream(file)) h.update(chunk as Buffer);
   return h.digest("hex");

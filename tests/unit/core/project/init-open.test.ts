@@ -137,7 +137,7 @@ describe("project.info / set / open / list", () => {
     };
     expect(info.project.jiraProject).toBe("LFRPS12");
     expect(info.fieldOrder).toContain("Exigence");
-    expect(info.counts.docs).toBe(2);
+    expect(info.counts.docs).toBe(5);
     expect(info.counts.tests).toBe(3);
     expect(Object.values(info.counts.review).reduce((a, b) => a + b, 0)).toBe(3);
     expect(info.counts.review.draft).toBeGreaterThanOrEqual(1);

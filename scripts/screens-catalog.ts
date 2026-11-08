@@ -212,62 +212,59 @@ function shellShots(): Shot[] {
   ];
 }
 
-function mediaShots(): Shot[] {
-  const LOT = "recette-tco-12-10";
+const IMAGES = "RECETTE_TCO_12-10";
+const FILM = "Manoeuvre_d_un_sectionneur_au_PCC";
+
+function imageShots(): Shot[] {
   return [
     {
-      id: "media-documents",
-      note: "Documents, a batch under its document and in its side panel",
-      hash: `#/documents/${DOC}`,
+      id: "images-grid",
+      note: "An images document: its pictures, anchors and Claude's reading",
+      hash: `#/documents/${IMAGES}`,
     },
     {
-      id: "media-annex-photo",
-      note: "Reading an annex photo (observed)",
-      hash: `#/documents/${DOC}%23§lot-${LOT}.img-0042`,
-      scroll: false,
-    },
-    {
-      id: "media-batch-new",
-      note: "Add photos & videos (the batch dialog)",
-      hash: `#/documents/${DOC}`,
+      id: "images-large",
+      note: "One image opened large",
+      hash: `#/documents/${IMAGES}`,
       prep: async (p) => {
-        await tap(p, "Add photos & videos…");
-        await dialog(p, "Add photos & videos");
+        await tap(p, /^img:1 /);
+        await dialog(p, "IMG_0042.jpg");
       },
     },
+    { id: "images-text", note: "An images document's text (doc.md)", hash: `#/documents/${IMAGES}%23§media` },
     {
-      id: "media-batch-detail",
-      note: "A batch: its context and its photos as Claude read them",
-      hash: `#/documents/${DOC}`,
-      prep: async (p) => {
-        await tap(p, "Open Recette TCO 12/10");
-        await dialog(p, "Recette TCO 12/10");
-      },
-    },
-    {
-      id: "media-drop-veil",
-      note: "Photos dragged over an open document",
-      hash: `#/documents/${DOC}`,
+      id: "images-add-choice",
+      note: "Two images dropped together: one document or one each",
+      hash: "#/documents",
       prep: async (p) => {
         await p.evaluate(() => {
           const dt = new DataTransfer();
           dt.items.add(new File(["x"], "IMG_0050.jpg", { type: "image/jpeg" }));
+          dt.items.add(new File(["y"], "IMG_0051.jpg", { type: "image/jpeg" }));
           document
             .querySelector('[data-testid="documents-screen"]')
-            ?.dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, bubbles: true }));
+            ?.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
         });
+        await dialog(p, "Add 2 images");
       },
+    },
+    { id: "images-text-doc", note: "A text document (.txt)", hash: "#/documents/Notes_de_reunion" },
+  ];
+}
+
+function videoShots(): Shot[] {
+  return [
+    { id: "video", note: "A video document: player, chapters, transcript, key frames", hash: `#/documents/${FILM}` },
+    {
+      id: "video-moment",
+      note: "A video opened at a moment a source names (t:00:47)",
+      hash: `#/documents/${FILM}%23t:00:47`,
     },
     {
-      id: "media-convert-again",
-      note: "Convert again, with the batches to put in the document",
-      hash: `#/documents/${DOC}`,
-      prep: async (p) => {
-        await tap(p, "More actions for this document");
-        await tap(p, /^Convert again/);
-      },
+      id: "video-text",
+      note: "A video's text: transcript lines and key frames",
+      hash: `#/documents/${FILM}%23§video-1`,
     },
-    { id: "media-scope", note: "Generate: the annexes under their document", hash: "#/generate" },
   ];
 }
 
@@ -1571,18 +1568,16 @@ export function SCENARIOS(essai: string): Scenario[] {
       shots: [modelsShots()[0]],
     },
     {
-      id: "media",
-      note: "Photos as annexes: the fixture's batch in the document",
+      id: "doc-images",
+      note: "Images as documents: the fixture's images document, a text document, the choice when images are added",
       env: { TESTIMUS_MOCK_SEED: "fixture" },
-      before: async (s) => {
-        const { jobId } = await s.api<{ jobId: string }>("media.include", {
-          doc: DOC,
-          lot: "recette-tco-12-10",
-          included: true,
-        });
-        await s.waitJob(jobId);
-      },
-      shots: mediaShots(),
+      shots: imageShots(),
+    },
+    {
+      id: "doc-video",
+      note: "A video as a document: the fixture's video, its transcript and key frames",
+      env: { TESTIMUS_MOCK_SEED: "fixture" },
+      shots: videoShots(),
     },
     {
       id: "essai",

@@ -1,89 +1,92 @@
+import { copyFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
+import { boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
-const server = mockServer(4366);
-const D3 = "SOSIE_211_D401-1_3";
-const FILES = join(import.meta.dirname, "..", "fixtures", "project", "docs", D3, "media", "recette-tco-12-10", "files");
+mockServer(4366);
+const DOCS = join(import.meta.dirname, "..", "fixtures", "project", "docs");
+const PHOTOS = join(DOCS, "RECETTE_TCO_12-10", "files");
+const FILM = join(DOCS, "Manoeuvre_d_un_sectionneur_au_PCC", "files", "manoeuvre.mp4");
 
 test.use({ viewport: { width: 1920, height: 1080 } });
 
-type Batch = { id: string; title: string; included: boolean; photos: number; analysed: number; state: string };
-
-test("a batch is added from its dialog, read by Claude, and becomes an annex of the document", async ({ page }) => {
-  await boot(page, `#/documents/${D3}`);
-  const detail = page.getByRole("region", { name: `${D3} details` });
-  const side = detail.getByRole("complementary", { name: "Document settings" });
-  await expect(side.getByRole("list", { name: "Photos and videos" })).toContainText("Recette TCO 12/10");
-
-  await side.getByRole("button", { name: "Add photos & videos…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add photos & videos" });
-  await expect(dialog.getByRole("button", { name: "Add the batch" })).toBeDisabled();
+const pick = async (page: import("@playwright/test").Page, files: string[]) => {
   const chooser = page.waitForEvent("filechooser");
-  await dialog.getByRole("button", { name: "Choose photos…" }).click();
-  await (await chooser).setFiles([join(FILES, "IMG_0042.jpg"), join(FILES, "IMG_0043.jpg")]);
-  await expect(dialog.getByRole("list", { name: "Files of the batch" }).getByRole("listitem")).toHaveCount(2);
-  await dialog.getByRole("textbox", { name: "Title" }).fill("Essai ouverture");
-  await dialog.getByRole("textbox", { name: "Context" }).fill("Photos du TCO réel, version 3.2.");
-  await shoot(page, "media-dialog");
-  await dialog.getByRole("button", { name: "Add the 2 photos" }).click();
-  await expect(dialog).toBeHidden();
+  await page.getByRole("button", { name: "Add documents" }).first().click();
+  await (await chooser).setFiles(files);
+};
 
-  await expect
-    .poll(async () =>
-      (await api<Batch[]>(server.url, "media.list", { doc: D3 })).find((b) => b.title === "Essai ouverture"),
-    )
-    .toMatchObject({ included: true, photos: 2, analysed: 2, state: "ready" });
-  const lists = page.getByRole("region", { name: "Document list" });
-  await expect(lists.getByRole("option", { name: new RegExp(D3) })).toContainText("Essai ouverture — 2 photos");
+test("images picked together become one document, observed, prepared and read, shown as a grid", async ({ page }) => {
+  await boot(page, "#/documents");
+  await pick(page, [join(PHOTOS, "IMG_0042.jpg"), join(PHOTOS, "IMG_0043.jpg")]);
+  const dialog = page.getByRole("dialog", { name: "Add 2 images" });
+  await expect(dialog.getByRole("radio", { name: /One document with the 2 images/ })).toBeChecked();
+  await dialog.getByRole("textbox", { name: "Title" }).fill("Visite du PCC");
+  await shoot(page, "media-add-images");
+  await dialog.getByRole("button", { name: "Add one document" }).click();
 
-  await side.getByRole("button", { name: "Open Essai ouverture" }).click();
-  const batch = page.getByRole("dialog", { name: "Essai ouverture" });
-  const photos = batch.getByRole("list", { name: "Photos of the batch" }).getByRole("listitem");
-  await expect(photos).toHaveCount(2);
-  await expect(photos.first()).toContainText("Photo simulée de IMG_0042.jpg");
-  await expect(photos.first()).toContainText("Illustrates §5.6.6");
-  await shoot(page, "media-batch");
-  await photos.first().getByRole("button", { name: "In the annex" }).click();
-
-  await expect(detail.getByText("Observed on the real system")).toBeVisible();
-  await expect(detail.getByRole("heading", { name: "IMG_0042" })).toBeVisible();
-  await expect(detail.getByRole("img", { name: /IMG_0042\.jpg/ })).toBeVisible();
-  await expect(detail.getByRole("navigation", { name: "Sections" })).toContainText("Annexes · observed");
-  await shoot(page, "media-annex");
+  const list = page.getByRole("region", { name: "Document list" });
+  const row = list.getByRole("option", { name: /Visite du PCC/ });
+  await expect(row).toContainText("Images · 2");
+  await expect(row).toContainText("Observed");
+  await row.click();
+  await page.getByRole("button", { name: "Prepare and read" }).click();
+  const grid = page.getByRole("list", { name: "Images" });
+  await expect(grid.getByRole("listitem")).toHaveCount(2, { timeout: 20_000 });
+  await expect(grid).toContainText("img:1");
+  await expect(grid).toContainText("Image simulée de IMG_0042.jpg");
+  await expect(page.getByRole("tab", { name: /Images/ })).toHaveAttribute("aria-selected", "true");
+  await grid.getByRole("button", { name: /img:2/ }).click();
+  const large = page.getByRole("dialog", { name: "IMG_0043.jpg" });
+  await expect(large.getByText(/#img:2$/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(large).toBeHidden();
 });
 
-test("the fixture's batch is put in the document and taken out by its checkbox", async ({ page }) => {
-  await boot(page, `#/documents/${D3}`);
-  const side = page.getByRole("complementary", { name: "Document settings" });
-  const box = side.getByRole("checkbox", { name: /Recette TCO 12\/10/ });
-  await expect(box).not.toBeChecked();
-  await box.click();
-  await expect
-    .poll(async () =>
-      (await api<Batch[]>(server.url, "media.list", { doc: D3 })).find((b) => b.id === "recette-tco-12-10"),
-    )
-    .toMatchObject({ included: true });
-  await expect(box).toBeChecked();
-  const toc = page.getByRole("navigation", { name: "Sections" });
-  await expect(toc).toContainText("Annexe — Recette TCO 12/10");
-  await box.click();
-  await expect(box).not.toBeChecked();
-  await expect(toc).not.toContainText("Annexe — Recette TCO 12/10");
+test("a video becomes a document: transcribed, surveyed, its transcript goes to a moment", async ({ page }) => {
+  const dir = mkdtempSync(join(tmpdir(), "testimus-film-"));
+  const film = join(dir, "essai PCC.mp4");
+  copyFileSync(FILM, film);
+  await boot(page, "#/documents");
+  await pick(page, [film]);
+  const row = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /essai PCC/ });
+  await expect(row).toContainText("Video");
+  await expect(row).toContainText("Observed");
+  await row.click();
+  await page.getByRole("button", { name: "Prepare and read" }).click();
+  const transcript = page.getByRole("listbox", { name: "Transcript" });
+  await expect(transcript.getByRole("option")).toHaveCount(11, { timeout: 30_000 });
+  await expect(row).toContainText("Video · 02:40");
+  const line = transcript.getByRole("option", { name: /clic droit sur le sectionneur/ }).first();
+  await line.click();
+  await expect(line).toHaveAttribute("aria-selected", "true");
+  const at = await page.getByLabel("Video essai PCC.mp4").evaluate((v: HTMLVideoElement) => v.currentTime);
+  expect(at).toBe(32);
+  await expect(page.getByRole("listbox", { name: "Chapters" })).toContainText("Refus de manœuvre");
+  await expect(page.getByRole("list", { name: "Key frames" }).getByRole("listitem")).toHaveCount(3);
 });
 
-test("the generation scope lists a document's annexes, each one left out on its own", async ({ page }) => {
-  const jobs = await api<{ jobId: string }>(server.url, "media.include", {
-    doc: D3,
-    lot: "recette-tco-12-10",
-    included: true,
-  });
-  expect(jobs.jobId).toBeTruthy();
-  await expect.poll(async () => (await api<Batch[]>(server.url, "media.list", { doc: D3 }))[0]?.included).toBe(true);
+test("the fixture's video opens at a moment a source names", async ({ page }) => {
+  await boot(page, "#/documents/Manoeuvre_d_un_sectionneur_au_PCC#t:00:47");
+  const transcript = page.getByRole("listbox", { name: "Transcript" });
+  await expect(transcript.getByRole("option", { name: /La fenêtre Propriétés/ }).first()).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await shoot(page, "media-video");
+});
+
+test("tests are generated from an images document like from any other", async ({ page }) => {
   await boot(page, "#/generate");
-  const annexes = page.getByRole("list", { name: "Annexes in scope" });
-  const annex = annexes.getByRole("checkbox", { name: "Annex — Recette TCO 12/10" });
-  await expect(annex).toBeChecked();
-  await annex.click();
-  await expect(page.getByRole("list", { name: "Documents in scope" })).toContainText(/[0-9] sections? picked/);
-  await shoot(page, "media-scope");
+  const request = page.getByRole("region", { name: "Request" });
+  const result = page.getByRole("region", { name: "Result" });
+  const docs = request.getByRole("list", { name: "Documents in scope" });
+  await request.getByRole("button", { name: "Select none" }).click();
+  await docs.getByRole("checkbox", { name: /Recette TCO 12\/10/ }).check();
+  await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le menu contextuel du sectionneur S12");
+  await request.getByRole("button", { name: "Generate" }).click();
+  const replace = page.getByRole("alertdialog", { name: /before generating\?$/ });
+  if (await replace.isVisible({ timeout: 2000 }).catch(() => false))
+    await replace.getByRole("button", { name: "Delete and generate" }).click();
+  await expect(result.getByRole("heading", { name: /tests? written/ })).toBeVisible({ timeout: 30_000 });
 });

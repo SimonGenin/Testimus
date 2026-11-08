@@ -8,7 +8,7 @@ import { refInfo } from "../rag/related.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Step, Test } from "../types.ts";
 import { stepColumns } from "./columns.ts";
 import { findDoc } from "./docs.ts";
-import { lotOfAnchor } from "./media.ts";
+import { isObserved } from "./media.ts";
 import { natural } from "./natural.ts";
 import { writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
@@ -30,7 +30,7 @@ export type Corpus = { docs: Map<string, DocText> };
 const ACTION = "Action";
 const EXPECTED = "Expected Result";
 const COMMENTS = /<!--[\s\S]*?-->/g;
-const ANCHORS = /<!--\s*(§|fig|page)\s*(\S+?)\s*-->/g;
+const ANCHORS = /<!--\s*(§|fig|page|img|frame|t)\s*(\S+?)\s*-->/g;
 
 export const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
@@ -94,21 +94,26 @@ const scoped = (d: DocText, anchor: string) => {
   return d.scopes.get(anchor) ?? null;
 };
 
-// ponytail: where a quote sits — the section whose own text (heading and body, without its subsections) holds
-// it, else a figure caption
+// ponytail: where a quote sits — a picture or a transcript line of an images or video document first (the narrowest
+// place), else the section whose own text (heading and body, without its subsections) holds it, else a figure caption
 function piecesOf(md: string): [string, string][] {
   const lines = md.split(/\r?\n/);
-  const out: [string, string][] = parseSections(md).map((s) => [s.anchor, plainText(`${lines[s.line]}\n${s.body}`)]);
+  const media: [string, string][] = [];
+  const figures: [string, string][] = [];
   lines.forEach((l, i) => {
-    const n = /<!--\s*fig\s+(\S+?)\s*-->/.exec(l)?.[1];
+    const n = /<!--\s*((?:fig|img|frame|t)\s+\S+?)\s*-->/.exec(l)?.[1].replace(/\s+/, ":");
     if (!n) return;
     let p0 = i;
     let p1 = i + 1;
     while (p0 > 0 && lines[p0 - 1].trim() !== "") p0--;
     while (p1 < lines.length && lines[p1].trim() !== "") p1++;
-    out.push([`fig:${n}`, plainText(lines.slice(p0, p1).join("\n"))]);
+    (n.startsWith("fig:") ? figures : media).push([n, plainText(lines.slice(p0, p1).join("\n"))]);
   });
-  return out;
+  const sections: [string, string][] = parseSections(md).map((s) => [
+    s.anchor,
+    plainText(`${lines[s.line]}\n${s.body}`),
+  ]);
+  return [...media, ...sections, ...figures];
 }
 
 function picturesOf(d: DocText): Set<string> {
@@ -292,12 +297,12 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
           sources: [ref],
         });
     }
-    // ponytail: an annex says how to do a step (where to click, the exact labels), never what is expected — an expected
-    // result whose every source is an observation is told, unless the team said its batch is a reference
+    // ponytail: images and videos say how to do a step (where to click, the exact labels), never what is expected — an
+    // expected result whose every source is an observed document is told, unless the team marked it as the reference
     const backing = s.sources.filter((x) => !x.column && x.anchor);
     const observed = backing.filter((x) => {
-      const lot = lotOfAnchor(normalizeAnchor(x.anchor));
-      return lot && !corpus.docs.get(x.docId)?.doc.media?.find((l) => l.id === lot)?.reference;
+      const d = corpus.docs.get(x.docId)?.doc;
+      return !!d?.source && isObserved(d as DocJson);
     });
     if (expected.trim() && backing.length && observed.length === backing.length) {
       const refs = [...new Set(observed.map((x) => `${x.docId}#${normalizeAnchor(x.anchor)}`))];
@@ -305,7 +310,7 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
         step,
         kind: "observed-only",
         severity: "warning",
-        message: `Step ${step}: its expected result rests only on ${andList(refs)}, photos of the real system — they show what it does, not what it must do. Cite the passage of the document that specifies the result (keep the annex for how to do the step), or mark the batch as a reference in Documents when the team says it is one.`,
+        message: `Step ${step}: its expected result rests only on ${andList(refs)}, pictures or videos of the real system — they show what it does, not what it must do. Cite the passage of a document that specifies the result (keep the picture for how to do the step), or mark the images or video document as the reference in Documents when the team says it is one.`,
         sources: refs,
       });
     }

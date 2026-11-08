@@ -8,6 +8,7 @@ import type {
   InstallState,
   LlamaRuntime,
   MachineProfile,
+  ModelKind,
   ModelsRegistry,
   ResolvedModel,
 } from "../types.ts";
@@ -255,7 +256,7 @@ export function list(): ListRow[] {
   return rows;
 }
 
-export async function catalogView(kind?: "embedding" | "reranker", machine?: MachineProfile) {
+export async function catalogView(kind?: ModelKind, machine?: MachineProfile) {
   const m = machine ?? (await machineProfile());
   const installed = list();
   const headroom = budgets().headroom;

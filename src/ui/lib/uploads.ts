@@ -178,7 +178,7 @@ export const setImportClaude = (next: ClaudeRun) => {
 
 // ponytail: a local row stands for a job until the list shows it; a failure before the job started stays on it, a
 // failure after is the job's own row
-async function tracked<T>(
+export async function tracked<T>(
   row: Omit<Local, "key" | "project" | "pct">,
   start: (onStart: (jobId: string) => void) => Promise<T>,
 ): Promise<{ ok: true; value: T } | { ok: false }> {
@@ -199,7 +199,7 @@ async function tracked<T>(
 }
 
 // ponytail: the page that asked is told only while it still shows the project it asked in
-const sameProject = (p: string | null, fn: () => void) => {
+export const sameProject = (p: string | null, fn: () => void) => {
   if (project() === p) fn();
 };
 
@@ -210,7 +210,7 @@ export type JobContext = { note?: string; contexts?: string[] };
 export async function convertDoc(
   id: string,
   name: string,
-  job: JobContext & { describeFigures?: boolean; study?: boolean; media?: string[] },
+  job: JobContext & { describeFigures?: boolean; study?: boolean },
   onDone: () => void,
   onStarted?: (jobId: string) => void,
 ): Promise<void> {
@@ -222,7 +222,6 @@ export async function convertDoc(
     ...extra,
     ...(job.describeFigures !== undefined && { describeFigures: job.describeFigures }),
     ...(job.study ? { study: true } : { triage: true }),
-    ...(job.media ? { media: job.media } : {}),
     index: true,
   };
   await tracked({ name, job: "convert", docId: id, phase: "converting", message: "Converting" }, (onStart) =>
@@ -234,29 +233,32 @@ export async function convertDoc(
   sameProject(p, onDone);
 }
 
-type Picked = { name: string; path: string; file?: File };
+export type Picked = { name: string; path: string; file?: File };
+/** images picked together: one document (with its title) or one each */
+export type ImagesChoice = { images: "together" | "each"; title?: string };
 
-export const addDocFiles = (files: File[], onDone: (docId?: string) => void) =>
-  addDocs(
-    files.map((f) => ({ name: f.name, path: pathOf(f), file: f })),
-    onDone,
-  );
+export const pickedOfFiles = (files: File[]): Picked[] =>
+  files.map((f) => ({ name: f.name, path: pathOf(f), file: f }));
+export const pickedOfPaths = (paths: string[]): Picked[] => paths.map((p) => ({ name: baseName(p), path: p }));
+export const addDocFiles = (files: File[], onDone: (docId?: string) => void, choice?: ImagesChoice) =>
+  addDocs(pickedOfFiles(files), onDone, choice);
+export const addDocPaths = (paths: string[], onDone: (docId?: string) => void, choice?: ImagesChoice) =>
+  addDocs(pickedOfPaths(paths), onDone, choice);
 
-export const addDocPaths = (paths: string[], onDone: (docId?: string) => void) =>
-  addDocs(
-    paths.map((p) => ({ name: baseName(p), path: p })),
-    onDone,
-  );
-
-async function sourceOf(p: Picked): Promise<{ path: string } | { name: string; dataBase64: string }> {
+export async function sourceOf(p: Picked): Promise<{ path: string } | { name: string; dataBase64: string }> {
   if (p.path) return { path: p.path };
   if (!p.file) throw new Error(`${p.name} could not be read.`);
   return { name: p.name, dataBase64: await readBase64(p.file) };
 }
 
-// ponytail: adding only copies the files — the core pairs a .docx with its .pdf and refuses what is not a document;
-// the team sets status, amends and context, then converts each on purpose
-async function addDocs(picked: Picked[], onDone: (docId?: string) => void): Promise<void> {
+// ponytail: adding only copies the files — the core pairs a .docx with its .pdf, makes images picked together one
+// document (or one each, as chosen) and refuses what is not a document; the team sets status, amends and context,
+// then converts each on purpose
+export async function addDocs(
+  picked: Picked[],
+  onDone: (docId?: string) => void,
+  choice?: ImagesChoice,
+): Promise<void> {
   const p = project();
   const files: Awaited<ReturnType<typeof sourceOf>>[] = [];
   const names: string[] = [];
@@ -273,14 +275,14 @@ async function addDocs(picked: Picked[], onDone: (docId?: string) => void): Prom
   if (!files.length) return;
   const name = names.length === 1 ? names[0] : `${names.length} files`;
   const r = await tracked({ name, job: "add", phase: "adding", message: "Adding" }, (onStart) =>
-    run<Added>("docs.addFiles", { files }, undefined, onStart),
+    run<Added>("docs.addFiles", { files, ...choice }, undefined, onStart),
   );
   if (!r.ok) return sameProject(p, onDone);
   const refused = r.value.rejected.filter((x) => x.code === "not-a-document");
   if (refused.length)
     toast({
       tone: "danger",
-      title: "Only Word (.docx) and PDF files can be added",
+      title: "Only Word, PDF, text, image and video files can be added",
       detail: refused.map((x) => x.name).join(", "),
     });
   sameProject(p, () => {

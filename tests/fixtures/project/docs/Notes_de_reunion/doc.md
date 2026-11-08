@@ -1,0 +1,11 @@
+# Notes de réunion <!-- § notes-de-reunion -->
+
+Réunion de suivi recette — 14/10/2026
+
+Présents : équipe recette RATP, équipe simulateur.
+
+Sectionneurs sans télécommande (TK) : le menu contextuel ne doit proposer que Propriétés tant que l'ouverture n'est pas autorisée par le PCC.
+
+Le message de refus de manœuvre doit apparaître dans le bandeau d'alarmes et être acquittable par le régulateur.
+
+Action : vérifier en recette la version 3.3 du simulateur avant le 30/10.

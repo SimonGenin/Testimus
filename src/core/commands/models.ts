@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { command } from "../command.ts";
+import { pullFfmpeg } from "../lib/ffmpeg.ts";
 import { applySetDir, planSetDir } from "../lib/models-dir.ts";
 import { catalogView, list, remove, verify } from "../lib/models-install.ts";
 import { addPath } from "../lib/models-install-path.ts";
@@ -16,12 +17,14 @@ const own = [
   command({
     name: "models.catalog",
     summary: "The model catalog, with whether each entry fits this PC (RAM, GPU) and its tier.",
-    input: z.object({ kind: z.enum(["embedding", "reranker"]).optional().describe("Only this kind") }),
+    input: z.object({ kind: z.enum(["embedding", "reranker", "speech"]).optional().describe("Only this kind") }),
     output: z.array(
       z
         .object({
           id: modelId,
-          kind: z.enum(["embedding", "reranker"]).describe("embedding (vectors for search) or reranker (reorders)"),
+          kind: z
+            .enum(["embedding", "reranker", "speech"])
+            .describe("embedding (vectors for search), reranker (reorders) or speech (transcribes a video, Whisper)"),
           label: z.string().describe("Its name in words"),
           tier: z.string().describe("light · balanced · quality: how heavy it is"),
           runtimes: z.array(z.string()).describe("What runs it: transformers (ONNX) or llamacpp (GGUF)"),
@@ -139,6 +142,26 @@ const own = [
       const build = await pullLlama(ctx, input.backend);
       return { exe: build.exe, build: build.build, backend: build.backend };
     },
+  }),
+  command({
+    name: "models.pullFfmpeg",
+    summary:
+      "Download ffmpeg (the pinned win64 build, SHA-256 checked) into the runtimes folder, without admin rights: videos are read with it (length, sound, frames). On macOS and Linux, development only, an ffmpeg on the PATH is taken. A job.",
+    input: z.object({}),
+    output: z.object({
+      ffmpeg: z.string().describe("Path of ffmpeg"),
+      ffprobe: z.string().describe("Path of ffprobe"),
+      build: z.string().describe("ffmpeg version (path: one found on the PATH)"),
+      via: z.enum(["download", "path"]).describe("download (the pinned build) or path (found on the PATH)"),
+    }),
+    mutates: true,
+    global: true,
+    job: "models-pull",
+    subject: () => "ffmpeg",
+    run: (ctx) =>
+      pullFfmpeg(ctx.signal, (loaded, total) =>
+        ctx.progress({ message: "ffmpeg", done: Math.round(loaded / MB), total: Math.round(total / MB) }),
+      ),
   }),
   command({
     name: "models.remove",

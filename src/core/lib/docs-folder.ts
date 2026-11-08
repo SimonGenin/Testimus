@@ -4,6 +4,7 @@ import { uncPath } from "../../shared/unc.ts";
 import { UserError } from "../command.ts";
 import { guessFromName } from "../rag/convert.ts";
 import { docIds, readDoc } from "./docs.ts";
+import { isImage, isVideo } from "./media.ts";
 import { natural } from "./natural.ts";
 
 export const FOLDER_REASONS = [
@@ -24,6 +25,7 @@ export type FolderFile = {
   importable: boolean;
   id?: string;
   twin?: string;
+  group?: string;
   reason?: FolderReason;
   why?: string;
 };
@@ -42,7 +44,8 @@ export const FOLDER_MAX_FILES = 2000;
 const SYSTEM = /^(thumbs\.db|ehthumbs\.db|desktop\.ini|\.ds_store)$/i;
 const TEMP = /\.(tmp|temp|bak|crdownload|part)$/i;
 const LATER =
-  /\.(docm|dotx?|xlsx?|xlsm|pptx?|rtf|odt|ods|odp|txt|md|csv|html?|msg|eml|vsdx?|png|jpe?g|gif|bmp|tiff?|webp|heic|mp4|mov|avi|mkv|wmv|webm|mp3|wav|m4a)$/i;
+  /\.(docm|dotx?|xlsx?|xlsm|pptx?|rtf|odt|ods|odp|csv|html?|msg|eml|vsdx?|gif|bmp|tiff?|heic|mp3|wav|m4a)$/i;
+const DOCUMENT = /\.(docx|pdf|txt|md)$/i;
 
 const keyOf = (p: string) => join(dirname(p), basename(p, extname(p)).toLowerCase());
 const isExt = (p: string, ext: string) => extname(p).toLowerCase() === ext;
@@ -52,6 +55,10 @@ const isExt = (p: string, ext: string) => extname(p).toLowerCase() === ext;
 export function idOf(file: string): string {
   const code = guessFromName(
     basename(file)
+      .replace(/œ/g, "oe")
+      .replace(/Œ/g, "OE")
+      .replace(/æ/g, "ae")
+      .replace(/Æ/g, "AE")
       .normalize("NFD")
       .replace(/\p{M}+/gu, ""),
   )
@@ -66,7 +73,7 @@ function asideOf(name: string, size: number): { reason: FolderReason; why: strin
   if (SYSTEM.test(name) || name.startsWith(".") || TEMP.test(name))
     return { reason: "not-a-document", why: "not a document" };
   if (isExt(name, ".doc")) return { reason: "not-supported", why: "an old Word .doc: save it as .docx in Word first" };
-  if (!isExt(name, ".docx") && !isExt(name, ".pdf"))
+  if (!DOCUMENT.test(name) && !isImage(name) && !isVideo(name))
     return LATER.test(name)
       ? { reason: "not-supported", why: `Testimus cannot convert ${extname(name).toLowerCase()} files yet` }
       : { reason: "not-a-document", why: "not a document" };
@@ -123,10 +130,11 @@ function projectNames(project: string | null): { ids: Set<string>; names: Set<st
   return { ids, names };
 }
 
-// ponytail: what an import of a folder would add, file by file — each .docx or .pdf is a document (a .pdf beside a
-// .docx of the same name is its rendering, added with it), everything else is left aside with the reason; the
-// project's own folder is never read, and a document already in the project (same id or same file name) is not
-// added twice
+// ponytail: what an import of a folder would add, file by file — each .docx, .pdf or .txt is a document (a .pdf beside
+// a .docx of the same name is its rendering, added with it), each video is one, and the images of one folder are one
+// images document named after that folder (group = the folder's rel, « . » for the folder itself); everything else is
+// left aside with the reason; the project's own folder is never read, and a document already in the project (same id
+// or same file name) is not added twice
 export function scanFolder(project: string | null, dir: string, recursive: boolean): FolderScan {
   const root = checkDir(dir);
   const { paths, truncated } = walk(root, recursive, project ? resolve(project) : null);
@@ -144,6 +152,17 @@ export function scanFolder(project: string | null, dir: string, recursive: boole
     if (aside) return { ...base, ...aside };
     const word = isExt(name, ".pdf") ? words.get(keyOf(path)) : undefined;
     if (word) return { ...base, reason: "twin" as const, why: `the rendering of ${basename(word)}, added with it` };
+    if (isImage(name)) {
+      const group = rel(dirname(path)) || ".";
+      const id = idOf(basename(dirname(path)));
+      if (known.ids.has(id.toLowerCase()))
+        return { ...base, id, group, reason: "in-project" as const, why: "already in the project" };
+      const first = taken.get(id.toLowerCase());
+      if (first && dirname(first) !== dirname(path))
+        return { ...base, id, group, reason: "same-code" as const, why: `the same document code as ${rel(first)}` };
+      taken.set(id.toLowerCase(), path);
+      return { ...base, importable: true, id, group };
+    }
     const id = idOf(path);
     if (known.ids.has(id.toLowerCase()) || known.names.has(name.toLowerCase()))
       return { ...base, id, reason: "in-project" as const, why: "already in the project" };
@@ -157,7 +176,7 @@ export function scanFolder(project: string | null, dir: string, recursive: boole
     dir: root,
     recursive,
     files,
-    documents: files.filter((f) => f.importable).length,
+    documents: new Set(files.filter((f) => f.importable).map((f) => f.group ?? f.rel)).size,
     leftAside: files.filter((f) => !f.importable && f.reason !== "twin").length,
     truncated,
   };

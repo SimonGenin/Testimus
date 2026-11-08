@@ -209,42 +209,62 @@ export type DocJson = {
   status: DocStatus;
   amends?: string[];
   contexts?: string[];
-  // `name`: where the original came from — its path on this PC, or the file name of an upload
-  source: { name: string; file: string; sha256: string; uploaded?: boolean };
+  source: DocSource;
   // the other original beside it (source.pdf beside source.docx, or the reverse)
   twin?: { file: string; sha256: string };
   converted?: { with: string; at: string; warnings: string[]; stats?: DocStats };
   conversion?: DocConversion;
-  // the batches of photos (and later videos) attached to the document: each included one is an annex of doc.md
-  media?: MediaLot[];
+  // an images or video document shows what the real system does (observed) until the team marks it as the reference
+  reference?: boolean;
+  // documents this one is about (an images document made from photos once attached to another): shown, given to
+  // Claude with it, never an amendment
+  relatesTo?: string[];
 };
-// ponytail: one file of a batch — its copy under media/<lot>/files/, the picture made from it under figures/, and
-// what Claude read in it (description, labels and kind live in figures.json under fig:lot-<lot>.<item>)
-export type MediaItem = {
-  id: string;
+// ponytail: what a document is made of — a Word or PDF file (with its twin), a text file, or files of its own: one or
+// several images, a video, or images and videos together. No type: read from source.file's extension. `name` is
+// where the original came from (its path on this PC, the name of an upload, the first file of an images document)
+export type SourceType = "docx" | "pdf" | "txt" | "images" | "video" | "mixed";
+export type DocSource = {
+  type?: SourceType;
   name: string;
   file: string;
-  kind: "photo";
+  sha256: string;
+  uploaded?: boolean;
+  files?: MediaFile[];
+  // the highest number a file of the document ever had (a removed file's number is never given again)
+  last?: number;
+};
+// ponytail: one file of an images or video document — its copy under files/, numbered once for good (img:<n>; a
+// video's anchors carry its number unless it is file 1), the picture made from an image under figures/; what Claude
+// read lives in figures.json (img:<n>, frame:<at>), a video's transcript and plan in video/<n>.json
+export type MediaFile = {
+  n: number;
+  name: string;
+  file: string;
+  kind: "image" | "video";
   sha256: string;
   figure?: string;
   takenAt?: string;
   width?: number;
   height?: number;
-  illustrates?: string[];
+  duration?: number;
   state: "new" | "ready" | "analysed" | "failed";
   error?: string;
 };
-export type MediaLot = {
-  id: string;
-  title: string;
-  included: boolean;
-  // the team says the batch shows the reference behaviour: an expected result sourced from it alone is not flagged
-  reference?: boolean;
-  added: string;
-  items: MediaItem[];
-  analysed?: { at: string; model?: string; effort?: string };
-  // what Claude chose in a video (chapters, key frames), kept so another analysis gives the same anchors (M5)
-  plan?: Record<string, unknown>;
+// ponytail: docs/<id>/video/<n>.json — what the video pipeline found in video n: ffprobe's facts, Whisper's timed
+// transcript (verbatim, quotable at t:…), the candidate frames (scene changes and one every 5 s, near-duplicates
+// dropped), and what Claude chose from the mosaics (chapters, key frames), kept so a new reading gives the same anchors
+export type VideoData = {
+  duration: number;
+  width?: number;
+  height?: number;
+  audio: boolean;
+  transcript: { at: number; end: number; text: string }[];
+  transcribed?: { with: string; at: string; language?: string };
+  candidates: { at: number; file: string }[];
+  chapters: { at: number; title: string }[];
+  keyFrames: { at: number; why: string; figure?: string }[];
+  surveyed?: { at: string; model?: string };
 };
 // ponytail: how a document is converted, chosen when Claude studied it (or by the team) and kept so that every
 // reconversion gives the same result
@@ -272,7 +292,9 @@ export type IndexRun = { state: "running" | "waiting"; doc: number; docs: number
 
 // Index
 
-export type ChunkKind = "section" | "figure";
+// ponytail: section = a passage of text; figure = a figure of a Word or PDF document; image = a picture of an images
+// document; transcript = timed speech of a video; frame = a key frame of a video
+export type ChunkKind = "section" | "figure" | "image" | "transcript" | "frame";
 export type Chunk = {
   id: string;
   docId: string;
@@ -403,7 +425,7 @@ export type ActiveChoice = RagChoice & { variant?: PackVariant };
 // Models
 
 export type RuntimeId = "transformers" | "llamacpp" | "mock";
-export type ModelKind = "embedding" | "reranker";
+export type ModelKind = "embedding" | "reranker" | "speech";
 export type Device = "cpu" | "dml" | "webgpu" | "gpu";
 export type Dtype = "fp32" | "fp16" | "q8" | "int8" | "uint8" | "q4" | "q4f16" | "bnb4";
 export type HfFile = { path: string; sha256: string; size: number };
@@ -473,8 +495,11 @@ export type ModelsRegistry = {
   runtimesDir?: string;
   installs: Installation[];
   llamacpp?: LlamaRuntime;
+  ffmpeg?: FfmpegRuntime;
   catalog?: CatalogEntry[];
 };
+// ponytail: ffmpeg and ffprobe, downloaded (the pinned win64 build) or found on the PATH (macOS / Linux, development)
+export type FfmpegRuntime = { ffmpeg: string; ffprobe: string; build: string; via: "download" | "path" };
 export type ResolvedModel = {
   entry: CatalogEntry;
   install: Installation;

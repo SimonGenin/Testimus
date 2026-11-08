@@ -34,7 +34,13 @@ describe("gen.preview: what a generation would do, before it runs", () => {
     });
     markIndexedInDb(P);
     const all = await call<Preview>("gen.preview", {}, P);
-    expect(all.searched.sort()).toEqual([D3, D4]);
+    expect(all.searched.sort()).toEqual([
+      "Manoeuvre_d_un_sectionneur_au_PCC",
+      "Notes_de_reunion",
+      "RECETTE_TCO_12-10",
+      D3,
+      D4,
+    ]);
     expect(all).toMatchObject({ unindexed: [], stale: [] });
   });
 });

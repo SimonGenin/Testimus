@@ -1,4 +1,4 @@
-import { basename, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { z } from "zod";
 import { throwIfAborted } from "../../shared/run/work.ts";
 import { NOTE } from "../claude/schemas.ts";
@@ -6,6 +6,8 @@ import { command, projectOf } from "../command.ts";
 import { showJob, waitJob } from "../jobs.ts";
 import { addDoc } from "../lib/docs-convert.ts";
 import { FOLDER_MAX_FILES, FOLDER_REASONS, scanFolder } from "../lib/docs-folder.ts";
+import { isVideo } from "../lib/media.ts";
+import { addMediaDocs } from "../lib/media-add.ts";
 import type { DocJson } from "../types.ts";
 import { after, contexts, docJson, effort, kind, model } from "./docs.ts";
 
@@ -32,6 +34,12 @@ const scanned = z.object({
           .string()
           .optional()
           .describe("The .pdf of the same name beside a .docx (its rel): added with it, as its rendering"),
+        group: z
+          .string()
+          .optional()
+          .describe(
+            "An image: the folder it is in (its rel, « . » for the folder itself) — the images of one folder are one images document, named after the folder",
+          ),
         reason: z
           .enum(FOLDER_REASONS)
           .optional()
@@ -135,10 +143,27 @@ export const commands = [
       ]);
       ctx.step?.("copy");
       const added: DocJson[] = [];
-      for (const [i, f] of chosen.entries()) {
+      const groups = new Map<string, typeof chosen>();
+      for (const f of chosen.filter((x) => x.group))
+        groups.set(f.group as string, [...(groups.get(f.group as string) ?? []), f]);
+      const one = chosen.filter((x) => !x.group);
+      const units: (typeof chosen)[] = [...one.map((f) => [f]), ...groups.values()];
+      for (const [i, unit] of units.entries()) {
         throwIfAborted(ctx.signal);
-        ctx.progress({ message: `Copying ${f.rel}`, done: i, total: chosen.length });
+        const f = unit[0];
+        ctx.progress({ message: `Copying ${f.group ? `${f.group}/` : f.rel}`, done: i, total: units.length });
         try {
+          if (f.group || isVideo(f.path)) {
+            const title = f.group ? basename(f.group === "." ? scan.dir : f.group) : basename(f.path, extname(f.path));
+            const r = addMediaDocs(
+              project,
+              unit.map((x) => ({ path: x.path })),
+              { title, kind: input.kind, id: f.id },
+            );
+            added.push(...r.added);
+            rejected.push(...r.rejected.map((x) => ({ name: x.name, why: x.why, code: "failed" as const })));
+            continue;
+          }
           const pdf = f.twin ? join(scan.dir, f.twin) : undefined;
           added.push(
             await addDoc(project, { file: f.path, pdf, id: f.id, kind: input.kind, convert: false }, ctx.signal),

@@ -22,7 +22,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 
 ## 2. Documents
 
-- [ ] **Les images deviennent des documents à part entière.** Ce ne sont plus des pièces jointes ni des annexes d'un
+- [x] **Les images deviennent des documents à part entière.** Ce ne sont plus des pièces jointes ni des annexes d'un
       autre document. Un document peut être un PDF, un Word, un `.txt`, une image, une vidéo… ou un ensemble d'images
       et de vidéos. Une image ou plusieurs images forment un document, comme un document est un ensemble de sections,
       et comme une vidéo est elle-même un ensemble d'images.

@@ -21,14 +21,17 @@ src/core/lib/         the domain modules:
                         exported as pages and imported back);
                         docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index; docs-folder: what
                         a folder import adds);
-                        media (+ media-pipeline: batches of photos, body.md + part.md → doc.md);
+                        media (an images or video document's files; + media-add, media-md: its doc.md,
+                        media-pipeline: its conversion, media-video: a video's steps, media-migrate: the 2026-11-05
+                        batches into documents), video-io (the ffmpeg / Whisper seam), video-frames (dHash, mosaics),
+                        ffmpeg (the pinned build, models.pullFfmpeg);
                         jira/ (http, read, steps, labels, push) and sync/ (connect, pull, push), ported from Xray Editor;
                         models-* (catalog, packs, download, install*, registry, resolve, perf, advice, quality, store,
                         dir, use);
                         machine/ what this PC has, knowing no model (probes = the seam: nvidia-smi, WMI, registry,
                         llama-server --list-devices, memory, drives; sources, gpus, profile);
                         fit/ will a model run here (placement, need, support, verdict)
-src/core/rag/         convert* (docx/pdf/html/png → doc.md + figures), pdf-tags-*, anchors (the one reader of anchors),
+src/core/rag/         convert* (docx/pdf/html/png/text → doc.md + figures), pdf-tags-*, anchors (the one reader of anchors),
                       chunk, embed, db, indexer, search/ (filter, lexical, typos, vector, hybrid, hits, explain, passage), runtimes/ (transformers,
                       llamacpp, llama-server, ort), graph, related, mentions, glossary, stem-fr, fingerprint,
                       activation, eval (+ eval-set, eval-score), bench, compare, refdoc, schemas, inspect, pdf
@@ -38,7 +41,8 @@ src/core/claude/      run (claude -p), access (tool access per run kind), stream
                       chat, generate (+ gen-prompt, gen-reply), check, fix, review, columns, actions, figures, headers,
                       prompt, limits, ledger, schemas, media, study, comment, scoped (claude.run), catalog (everything
                       Claude is given: each module that runs claude -p exports its `prompts` templates)
-src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates
+src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates,
+                      video (ffmpeg and Whisper made up)
 src/shared/           Node only, used by the core and the desktop shell: run/work.ts, run/process.ts, loopback, table,
                       tests (which test a file path touches), unc (a network path is never opened)
 src/faces/            cli.ts, mcp.ts, http.ts — thin adapters over the registry, no domain logic
@@ -67,7 +71,8 @@ scripts/              release.ts, publish.ts, desktop.ts, install.ps1, testimus.
                       refdoc.ts, screens.ts + screens-catalog.ts (+ SCREENS.md)
 tests/unit/           vitest by area (core/<zone>/, ui/<zone>/, shared/, desktop/, scripts/), helpers/, guards/
 tests/e2e/            playwright (desktop/ drives Electron; kit.spec captures the catalogue)
-tests/fixtures/       the LFRPS12 sample project, docx, evidence, rag, snowball-fr
+tests/fixtures/       the LFRPS12 sample project (two Word documents, an images, a video and a text document), legacy-batch
+                      (a project with a 2026-11-05 batch of photos, for the migration), docx, evidence, rag, snowball-fr
 .claude/skills/       dev skills: xray-cloud-api, port-from-xray-editor, docx-ingest, rag-eval
 .build/, .sandbox/    build journals and test data of past passes (git-ignored)
 ```
@@ -153,9 +158,11 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_INDEX_MS` | ms the fake embedder takes per batch of passages once the sandbox is indexed: keeps an index run going |
 | `TESTIMUS_MOCK_READ_MS` | `tests.list=12000,docs.list=3000`: those reads answer that many ms late, every time (the loading line under a skeleton, « answering slowly », Try again) |
 | `TESTIMUS_MOCK_DOWNLOAD_MS`, `TESTIMUS_MOCK_UPDATES`, `TESTIMUS_MOCK_UPDATE_MS` | fake downloads and updates |
+| `TESTIMUS_MOCK_FFMPEG` | `found` (default: a fake ffmpeg is registered), `absent`: videos are kept unread |
+| `TESTIMUS_MOCK_WHISPER` | `found` (default: a made-up French transcript, a line every 15 s), `absent`: no transcript |
 
 Other variables: `TESTIMUS_MODELS` (dev models folder, `D:/Projects/Testimus/.models`), `TESTIMUS_MACHINE` (impose a
-machine profile), `TESTIMUS_SHELL`, `TESTIMUS_NODE`, `TESTIMUS_API_TARGET` (Vite proxy in `--ui-dev`),
+machine profile), `TESTIMUS_FFMPEG_ANY_OS` (`1`: `models.pullFfmpeg` downloads the win64 build on any system — tests), `TESTIMUS_SHELL`, `TESTIMUS_NODE`, `TESTIMUS_API_TARGET` (Vite proxy in `--ui-dev`),
 `TESTIMUS_JIRA_TOKEN` / `TESTIMUS_XRAY_SECRET` (secrets for `system.setCredentials` without the command line).
 
 Several mock servers on `localhost` share one cookie jar and clash: give each its own port and use `127.0.0.1`.

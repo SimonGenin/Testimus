@@ -1,7 +1,7 @@
 import type { Source } from "../../../../core/types.ts";
 import { SourceChip } from "../../../components/ui/SourceChip.tsx";
 import { sourceLabel } from "../../../lib/fields.ts";
-import { isObserved } from "../../../lib/media.ts";
+import { isPictureAnchor, useObserved } from "../../../lib/media.ts";
 
 // a step's claim and where it comes from: docId and anchor in the mono face, the quote in the reading face
 export function StepSource({
@@ -15,12 +15,13 @@ export function StepSource({
   pressed?: boolean;
   onOpen?: (s: Source) => void;
 }) {
+  const observed = useObserved();
   return (
     <SourceChip
       reference={sourceLabel(source)}
       quote={source.quote || undefined}
-      figure={source.anchor.startsWith("fig:")}
-      observed={isObserved(source.anchor)}
+      figure={isPictureAnchor(source.anchor)}
+      observed={observed(source.docId)}
       compact={compact}
       pressed={pressed}
       onOpen={onOpen && (() => onOpen(source))}

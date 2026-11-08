@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { extname, join, normalize, resolve, sep } from "node:path";
@@ -32,6 +32,14 @@ const TYPES: Record<string, string> = {
   ".md": "text/markdown; charset=utf-8",
   ".pdf": "application/pdf",
   ".ico": "image/x-icon",
+  ".txt": "text/plain; charset=utf-8",
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+  ".mkv": "video/x-matroska",
+  ".avi": "video/x-msvideo",
+  ".wmv": "video/x-ms-wmv",
 };
 
 function uiDir(): string {
@@ -66,6 +74,39 @@ function sendFile(res: ServerResponse, file: string, cache = false, extra: Recor
     "cache-control": cache ? "max-age=31536000, immutable" : "no-cache",
   });
   res.end(readFileSync(file));
+}
+
+// ponytail: a project file answers a byte range (RFC 7233, one range) so the page's video player can seek; a range
+// past the end is 416, a malformed one is ignored and the whole file is sent
+export function rangeOf(header: string | undefined, size: number): { start: number; end: number } | "bad" | null {
+  const m = /^bytes=(\d*)-(\d*)$/.exec((header ?? "").trim());
+  if (!m || (!m[1] && !m[2])) return null;
+  const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+  const end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+  return start >= size || start > end ? "bad" : { start, end };
+}
+
+function sendProjectFile(req: IncomingMessage, res: ServerResponse, file: string): void {
+  const size = statSync(file).size;
+  const type = TYPES[extname(file).toLowerCase()] ?? "application/octet-stream";
+  const base = { ...FILE_HEADERS, "content-type": type, "cache-control": "no-cache", "accept-ranges": "bytes" };
+  const range = rangeOf(req.headers.range, size);
+  if (range === "bad") {
+    res.writeHead(416, { ...base, "content-range": `bytes */${size}` });
+    res.end();
+    return;
+  }
+  if (!range) {
+    res.writeHead(200, { ...base, "content-length": String(size) });
+    createReadStream(file).pipe(res);
+    return;
+  }
+  res.writeHead(206, {
+    ...base,
+    "content-length": String(range.end - range.start + 1),
+    "content-range": `bytes ${range.start}-${range.end}/${size}`,
+  });
+  createReadStream(file, { start: range.start, end: range.end }).pipe(res);
 }
 
 function inside(root: string, rel: string): string | null {
@@ -249,7 +290,7 @@ export function handler(state: ServeState) {
           send(res, 404, { error: "Not found" });
           return;
         }
-        sendFile(res, file, false, FILE_HEADERS);
+        sendProjectFile(req, res, file);
         return;
       }
       const session = {

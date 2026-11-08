@@ -134,9 +134,9 @@ describe("docs commands", () => {
   });
 
   it("refuses what it cannot convert and leaves no folder behind", async () => {
-    const txt = join(project, "..", "notes.txt");
-    writeFileSync(txt, "x");
-    await expect(run(project, "docs.add", { file: txt })).rejects.toThrow(/Cannot add/);
+    const xls = join(project, "..", "notes.xlsx");
+    writeFileSync(xls, "x");
+    await expect(run(project, "docs.add", { file: xls })).rejects.toThrow(/Cannot add/);
     const bad = join(project, "..", "broken_01.00.docx");
     writeFileSync(bad, "not a zip");
     await expect(run(project, "docs.add", { file: bad })).rejects.toThrow();
@@ -303,9 +303,12 @@ describe("docs commands", () => {
     const copy = join(mkdtempSync(join(tmpdir(), "testimus-fixture-")), "p");
     cpSync(join("tests", "fixtures", "project"), copy, { recursive: true });
     const list = await run<DocRef[]>(copy, "docs.list", {});
-    expect(list.map((d) => [d.id, d.status, d.indexed])).toEqual([
-      ["SOSIE_211_D401-1_3", "validated", "missing"],
-      ["SOSIE_211_D401-1_4", "submitted", "missing"],
+    expect(list.map((d) => [d.id, d.status, d.indexed, d.source.type ?? "docx"])).toEqual([
+      ["Manoeuvre_d_un_sectionneur_au_PCC", "draft", "missing", "video"],
+      ["Notes_de_reunion", "draft", "missing", "docx"],
+      ["RECETTE_TCO_12-10", "draft", "missing", "images"],
+      ["SOSIE_211_D401-1_3", "validated", "missing", "docx"],
+      ["SOSIE_211_D401-1_4", "submitted", "missing", "docx"],
     ]);
     const s = await run<{ md: string; context: string }>(copy, "docs.show", {
       id: "SOSIE_211_D401-1_3",

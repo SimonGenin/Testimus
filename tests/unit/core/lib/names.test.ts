@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { listJobs, waitJob } from "../../../../src/core/jobs.ts";
 import {
-  batchName,
   docName,
   quoted,
   scopeName,
@@ -39,8 +38,6 @@ describe("names: what the core calls a test, a document, a scope", () => {
     const p = fixtureCopy("names-doc");
     expect(docName(p, DOC)).toBe("Traction");
     expect(docName(p, "NOPE")).toBe("NOPE");
-    expect(batchName(p, DOC, "recette-tco-12-10")).toBe("Traction · Recette TCO 12/10");
-    expect(batchName(p, DOC, "gone")).toBe("Traction · gone");
     expect(scopeName(p, { kind: "test", testId: LOCAL })).toBe(SUMMARY);
     expect(scopeName(p, { kind: "step", testId: LOCAL, step: 2 })).toBe(`${SUMMARY} · step 2`);
     expect(scopeName(p, { kind: "doc", docId: DOC })).toBe("Traction");

@@ -23,9 +23,12 @@ const styles = stylex.create({
 type Hit = CommandOutput<"rag.search">[number];
 
 const KINDS = [
-  { value: "all", label: "Text and figures" },
+  { value: "all", label: "Every kind" },
   { value: "section", label: "Text only" },
   { value: "figure", label: "Figures only" },
+  { value: "image", label: "Images only" },
+  { value: "transcript", label: "Video transcripts only" },
+  { value: "frame", label: "Video key frames only" },
 ];
 
 const quoted = (xs: string[]) => xs.map((x) => `« ${x} »`).join(", ");

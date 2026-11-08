@@ -1,39 +1,70 @@
 import type { CommandOutput } from "../../core/commands/index.ts";
-import type { Job } from "../../core/types.ts";
-import { plural } from "./format.ts";
+import type { DocJson, SourceType } from "../../core/types.ts";
+import { useRead } from "./data/query.ts";
 
-export type Batch = CommandOutput<"media.list">[number];
-export type BatchShown = CommandOutput<"media.show">;
+export type MediaShown = CommandOutput<"media.show">;
+export type VideoShown = MediaShown["videos"][number];
 
-// ponytail: an annex's anchors all start with lot- (the body of a document never has one) — a source from an annex is
-// an observation of the real system, marked « Observed » wherever a source is shown
-export const isObserved = (anchor: string) => /^(?:§\s*|fig:)lot-/.test(anchor.trim());
+export const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
+export const VIDEO_EXTENSIONS = ["mp4", "mov", "m4v", "mkv", "webm", "avi", "wmv"];
+export const DOC_EXTENSIONS = ["docx", "pdf", "txt", "md"];
+const ext = (list: string[]) => list.map((e) => `.${e}`).join(",");
+export const MEDIA_ACCEPT = ext([...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS]);
+export const DOC_ACCEPT = ext([...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS]);
+export const isImage = (name: string) => /\.(jpe?g|png|webp)$/i.test(name);
+export const isVideo = (name: string) => /\.(mp4|mov|m4v|mkv|webm|avi|wmv)$/i.test(name);
 
-export const PHOTO_ACCEPT = ".jpg,.jpeg,.png,.webp";
-export const PHOTO_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
-export const isPhoto = (name: string) => /\.(jpe?g|png|webp)$/i.test(name);
-
-// ponytail: what a batch holds and where Claude is with it, in one line (« 14 photos · 2 not read yet »)
-export function batchLine(b: Pick<Batch, "photos" | "videos" | "analysed" | "failed">): string {
-  const parts = [plural(b.photos, "photo"), ...(b.videos ? [plural(b.videos, "video")] : [])];
-  const unread = b.photos - b.analysed - b.failed;
-  if (b.failed) parts.push(`${b.failed} unreadable`);
-  if (unread > 0) parts.push(`${unread} not read yet`);
-  return parts.join(" · ");
+// ponytail: the page's copy of the core's sourceType (src/core/lib/media.ts): written in doc.json for a document of
+// files, read from the copy's extension for a Word, PDF or text document
+export function sourceType(doc: Pick<DocJson, "source">): SourceType {
+  if (doc.source.type) return doc.source.type;
+  const e = (doc.source.file || doc.source.name || "").toLowerCase();
+  return e.endsWith(".pdf") ? "pdf" : e.endsWith(".txt") || e.endsWith(".md") ? "txt" : "docx";
 }
 
-// ponytail: the batch job running on a document — a new batch is the document's (its id comes when it ends), another
-// names the batch after the document
-export function batchJob(jobs: Job[], doc: string, lot?: string): Job | undefined {
-  return jobs.find(
-    (j) =>
-      j.kind === "media" &&
-      j.status === "running" &&
-      (lot
-        ? j.subject === `${doc} · ${lot}` || j.subject.startsWith(`${doc} · ${lot} · `)
-        : j.subject === doc || j.subject.startsWith(`${doc} · `)),
-  );
+export const isMediaDoc = (doc: Pick<DocJson, "source">) => ["images", "video", "mixed"].includes(sourceType(doc));
+export const isObservedDoc = (doc: Pick<DocJson, "source" | "reference">) => isMediaDoc(doc) && !doc.reference;
+
+// ponytail: a moment of a video as its anchors write it — mm:ss, h:mm:ss past an hour
+export function clock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-export const jobPercent = (j: Job | undefined) =>
-  j?.progress?.total ? Math.round(((j.progress.done ?? 0) / j.progress.total) * 100) : null;
+// ponytail: the second a t: or frame: anchor names (t:04:30, frame:3/04:30, t:04:30-2), null for another anchor
+export function momentOf(anchor: string): { n: number; at: number } | null {
+  const m = /^(?:t|frame):(?:(\d+)\/)?(?:(\d+):)?(\d{1,2}):(\d{2})(?:-\d+)?$/.exec(anchor.trim());
+  if (!m) return null;
+  return { n: m[1] ? Number(m[1]) : 1, at: Number(m[2] ?? 0) * 3600 + Number(m[3]) * 60 + Number(m[4]) };
+}
+
+export const isPictureAnchor = (anchor: string) => /^(fig|img|frame):/.test(anchor.trim());
+
+// ponytail: what a document is, in the words of the list — Word · PDF · Text · Images · 46 · Video · 12:40; images
+// and videos together say both
+export function typeLabel(doc: Pick<DocJson, "source">): string {
+  const t = sourceType(doc);
+  const files = doc.source.files ?? [];
+  const images = files.filter((f) => f.kind === "image").length;
+  const videos = files.filter((f) => f.kind === "video");
+  if (t === "pdf") return "PDF";
+  if (t === "txt") return "Text";
+  if (t === "images") return `Images · ${images}`;
+  if (t === "video") return videos[0]?.duration ? `Video · ${clock(videos[0].duration)}` : "Video";
+  if (t === "mixed") return `Images · ${images} · ${videos.length === 1 ? "Video" : `${videos.length} videos`}`;
+  return "Word";
+}
+
+// ponytail: whether a source's document shows the real system — an images or video document the team has not marked
+// as the reference; the documents are the cached docs.list, a source names its document by id or by code
+export function useObserved(): (docId: string) => boolean {
+  const list = useRead("docs.list", {}, { optional: true }).data;
+  const docs = Array.isArray(list) ? list : [];
+  return (docId) => {
+    const d = docs.find((x) => x.id === docId) ?? docs.find((x) => x.code === docId);
+    return !!d && isObservedDoc(d);
+  };
+}

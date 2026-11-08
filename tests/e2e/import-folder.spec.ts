@@ -22,11 +22,12 @@ test("a folder is read, its documents imported, each converted then indexed", as
   await dialog.getByRole("textbox", { name: "Folder" }).fill(dir);
   await dialog.getByRole("button", { name: "Read the folder" }).click();
   await expect(
-    dialog.getByText("4 files found (sub-folders included) · 2 can be imported · 2 left aside"),
+    dialog.getByText("4 files found (sub-folders included) · 3 can be imported · 1 left aside"),
   ).toBeVisible();
   await expect(dialog.getByRole("checkbox", { name: "SPEC_FA_01_00.docx" })).toBeChecked();
   await expect(dialog.getByText("Word's lock file")).toBeVisible();
-  await expect(dialog.getByText("Testimus cannot convert .txt files yet")).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "Notes.txt" })).toBeChecked();
+  await dialog.getByRole("checkbox", { name: "Notes.txt" }).uncheck();
   await shoot(page, "documents-import-folder-e2e");
   await dialog.getByRole("button", { name: "Import 2 documents" }).click();
   await expect(dialog).toHaveCount(0);

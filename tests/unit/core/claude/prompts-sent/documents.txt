@@ -130,27 +130,22 @@ Reply with only this block, one entry per passage, keyed by its id:
 ```
 
 =====
-Testimus media run for the batch « Recette TCO 12/10 » (lot-recette-tco-12-10) of the document SOSIE_211_D401-1_3 Traction.
+Testimus media run for the document RECETTE_TCO_12-10 Recette TCO 12/10.
 
-These are photos of the real system (screens of the simulator, a desk, a cabin), taken by the team. They show
-what the system does and how a tester gets there — never what it is required to do: say what you see, never
-what should happen.
+These pictures show the real system (screens of the simulator, a desk, a cabin): photos taken by the team, or
+frames of a video they filmed. They show what the system does and how a tester gets there — never what it is
+required to do: say what you see, never what should happen.
 
-What the team says about this batch:
-Photos du TCO réel prises pendant la recette du 12/10, version 3.2 du simulateur.
-
-Open each photo below with Read, look at it, and give:
+Open each picture below with Read, look at it, and give:
 - description: two to four sentences in French for a tester: which screen or object it is,
   what state it shows, where things are and what the operator does or can do there.
-- labels: every text visible in the photo, copied verbatim (same spelling, accents, case, abbreviations; never
+- labels: every text visible in the picture, copied verbatim (same spelling, accents, case, abbreviations; never
   translated or corrected), one entry per title, button, menu item, field or message; [] when none is readable.
 - kind: one of screen, diagram, symbol, table-image, photo (screen = a software window, photo = anything else).
-- sections: the anchors of the document's sections this photo illustrates, from the outline below (you may
-  search the document with rag_search or read docs/SOSIE_211_D401-1_3/doc.md); [] when none.
 Do not edit any file.
 
 What the team knows about this document:
-Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+Photos du TCO réel prises pendant la recette du 12/10, version 3.2 du simulateur.
 
 Context to read before you start (reference material, do not edit it):
 - Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
@@ -158,17 +153,43 @@ Context to read before you start (reference material, do not edit it):
 Additional context from the user for this run:
 Use the 2024 wording.
 
-Outline of the document:
-- §5 Schématique de traction
-- §5.6 Objets de traction
-- §5.6.6 Sectionneur (S)
-- §5.6.7 Disjoncteur (D)
+Pictures:
+- img:1 — docs/RECETTE_TCO_12-10/figures/img-1.jpg — IMG_0042.jpg — taken 2026-10-12 14:03
+- img:2 — docs/RECETTE_TCO_12-10/figures/img-2.jpg — IMG_0043.jpg — taken 2026-10-12 14:05
 
-Photos:
-- fig:lot-recette-tco-12-10.img-0042 — docs/SOSIE_211_D401-1_3/figures/lot-recette-tco-12-10-img-0042.jpg — IMG_0042.jpg — taken 2026-10-12 14:03
-- fig:lot-recette-tco-12-10.img-0043 — docs/SOSIE_211_D401-1_3/figures/lot-recette-tco-12-10-img-0043.jpg — IMG_0043.jpg — taken 2026-10-12 14:05
-
-Reply with only this block, one entry per photo, keyed by its anchor:
+Reply with only this block, one entry per picture, keyed by its anchor:
 ```media
-{"fig:lot-recette-tco-12-10.img-0042": {"description": "…", "labels": ["…"], "kind": "screen", "sections": ["§…"]}, "fig:lot-recette-tco-12-10.img-0043": {"description": "…", "labels": ["…"], "kind": "screen", "sections": ["§…"]}}
+{"img:1": {"description": "…", "labels": ["…"], "kind": "screen"}, "img:2": {"description": "…", "labels": ["…"], "kind": "screen"}}
+```
+
+=====
+Testimus video survey run for the video « manoeuvre.mp4 » (02:40) of the document Manoeuvre_d_un_sectionneur_au_PCC Manœuvre d'un sectionneur au PCC.
+
+The video was filmed on the real system: it shows what the system does and how an operator works, never what it
+is required to do. Open each mosaic below with Read: it shows the video's frames in time order, 4 × 4, each tile
+numbered with its moment. Then give, in French:
+- chapters: the parts of the video, each with the moment it starts (mm:ss) and a short title saying what the
+  operator does there; the first starts at 00:00.
+- moments: at most 40 moments worth seeing whole (a screen that changes, a menu, a message, an alarm),
+  each with its moment (mm:ss, one of the tiles' or between them) and why in a few words.
+Do not edit any file.
+
+What the team knows about this document:
+Vidéo filmée au PCC pendant la recette du 05/11, version 3.2 du simulateur.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Use the 2024 wording.
+
+Mosaics:
+- docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/mosaic-1.jpg — tiles 1 00:00, 2 00:20
+
+What is said (Whisper's transcript, timed):
+[00:02] Bonjour, on ouvre le poste.
+
+Reply with only this block:
+```video
+{"chapters": [{"at": "00:00", "title": "…"}], "moments": [{"at": "00:42", "why": "…"}]}
 ```

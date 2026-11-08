@@ -12,9 +12,9 @@ import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { plural } from "../../lib/format.ts";
+import { typeLabel } from "../../lib/media.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { indexWord } from "./badges.tsx";
-import { DocBatches } from "./DocBatches.tsx";
 import { DocContext } from "./DocContext.tsx";
 
 const styles = stylex.create({
@@ -61,19 +61,18 @@ export function DocSide({
   shown,
   running,
   onStatus,
-  onOpenBatch,
-  onAddBatch,
 }: {
   shown: CommandOutput<"docs.show">;
   running: boolean;
   onStatus: (s: DocJson["status"]) => void;
-  onOpenBatch: (lot: string) => void;
-  onAddBatch: () => void;
 }) {
   const d = shown.doc;
-  const ref = useRead("docs.list", {}).data?.find?.((x) => x.id === d.id);
+  const list = useRead("docs.list", {}).data;
+  const docs = Array.isArray(list) ? list : [];
+  const ref = docs.find((x) => x.id === d.id);
   const warnings = running ? [] : (d.converted?.warnings ?? []);
-  const from = d.source.file?.endsWith(".pdf") ? "PDF" : "Word";
+  const from = typeLabel(d);
+  const related = (d.relatesTo ?? []).map((id) => docs.find((x) => x.id === id) ?? { id, title: id });
   const ix = indexWord(ref ?? { indexed: "missing", converted: d.converted });
   const app = useApp();
   const actions = useRead("actions.list", { docId: d.id }).data ?? [];
@@ -100,9 +99,23 @@ export function DocSide({
       <Section title="Claude context">
         <DocContext id={d.id} shown={shown} disabled={running} />
       </Section>
-      <Section title="Photos & videos">
-        <DocBatches docId={d.id} disabled={running} onOpen={onOpenBatch} onAdd={onAddBatch} />
-      </Section>
+      {related.length > 0 && (
+        <Section title="About">
+          <ul aria-label="Documents this one is about" {...stylex.props(styles.warns)}>
+            {related.map((r) => (
+              <li key={r.id}>
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  icon="documents"
+                  label={r.title || r.id}
+                  onClick={() => app.navigate("documents", r.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
       {d.converted?.at && (
         <Section
           title="Conversion"

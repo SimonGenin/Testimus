@@ -21,6 +21,7 @@ import {
 } from "../../../../src/core/lib/project.ts";
 import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-gen.ts";
+import "../../../../src/core/mock/claude-media.ts";
 import type { FigureEntry } from "../../../../src/core/types.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -170,9 +171,15 @@ describe("figure descriptions", () => {
       docs: { docId: string; described: number; figures: number }[];
     };
     expect(r.docs.map((d) => [d.docId, d.figures, d.described])).toEqual([
+      ["Manoeuvre_d_un_sectionneur_au_PCC", 3, 3],
+      ["Notes_de_reunion", 0, 0],
+      ["RECETTE_TCO_12-10", 2, 2],
       [D3, 1, 1],
       ["SOSIE_211_D401-1_4", 0, 0],
     ]);
+    expect(
+      JSON.parse(readFileSync(join(dir, "docs", "RECETTE_TCO_12-10", "figures.json"), "utf8"))[0].description,
+    ).toMatch(/^Image simulée de IMG_0042.jpg/);
     expect(figuresOf()[0].description).toMatch(/^Description simulée de fig-40.png/);
     await expect(invoke("docs.describeFigures", { docId: "nope" }, { project: dir })).rejects.toThrow(
       /No document nope/,

@@ -180,7 +180,8 @@ rebuilt; they are never hand-edited.
   eval/behaviors.jsonl the project's retrieval benchmark set (§6)
   index/rag.db         derived: chunks, full text, vectors per space, graph, last index state; per machine, not shared
   .testimus/           derived, not shared: jobs/, runs/<runId>/ (snapshots), gen/<generation>.json (ledger),
-                         chats/, actions/, eval/ (reports), pages/, uploads/, shipped.json (above), jira-project.json
+                         chats/, actions/, eval/ (reports), pages/, frames/ (media.frame), uploads/, migrations/
+                         (what a migration changed), shipped.json (above), jira-project.json
 ```
 
 - **`columns.json`** `[{ name, id?, description?, mode: open|filled|collapsed|hidden, referenceSource? }]`. With `id`
@@ -203,12 +204,23 @@ rebuilt; they are never hand-edited.
 
 ```
 docs/<docId>/
-  source.docx | source.pdf   the original, copied in (never the SharePoint file itself); `twin` = the other rendering
-  doc.md                     derived: converted text with anchors (body.md + included media parts when batches exist)
-  figures/fig-<n>.<ext>      derived: every picture, in reading order
-  figures.json               [{ file, anchor, caption, description, labels?, kind? }] — description/labels/kind by Claude
-  doc.json                   { code, title, version, date, kind, status, amends?, contexts?, conversion?, source,
-                               twin?, converted?: { with, at, warnings, stats }, media? }
+  source.docx | source.pdf | source.txt | source.md
+                             the original, copied in (never the SharePoint file itself); `twin` = the other rendering
+  files/<name>               an images or video document's own files, copied in as they are (source.type images ·
+                               video · mixed)
+  doc.md                     derived: converted text with anchors (an images or video document: its verbatim lines)
+  figures/fig-<n>.<ext>      derived: every picture of a Word or PDF document, in reading order
+  figures/img-<n>.jpg        derived: image n normalised (jpg ≤ 2000 px, EXIF orientation); frame-<n>-<s>.jpg: a key
+                               frame of video n at second s
+  figures.json               [{ file, anchor, caption, description, labels?, kind? }] — fig:, img:, frame: entries;
+                               description/labels/kind by Claude
+  video/<n>.json             derived: video n — ffprobe's facts, Whisper's timed transcript, the candidate frames, and
+                               Claude's chapters and key frames (kept, so a new reading gives the same anchors)
+  video/<n>/                 derived: candidate frames, mosaics (rebuilt by docs.convert --force)
+  doc.json                   { code, title, version, date, kind, status, amends?, contexts?, conversion?, source: {
+                               type?, name, file, sha256, uploaded?, files?: [{ n, name, file, kind, sha256, figure?,
+                               takenAt?, width?, height?, duration?, state }], last? }, twin?, reference?, relatesTo?,
+                               converted?: { with, at, warnings, stats } }
   context.md                 what the team says about this document (read by every run)
 ```
 
@@ -216,7 +228,14 @@ docs/<docId>/
   Headings carry their section number (`## 5.6.6 Sectionneur (S) <!-- § 5.6.6 -->`; unnumbered → slug of the title,
   duplicates `-2`); figures their caption number (`<!-- fig 40 -->`, `f<order>` without caption); PDF pages
   `<!-- page 59 -->`. A source writes them `§5.6.6`, `fig:40`, `page:59`. `rag/anchors.ts` is the one reader of anchors
-  (it accepts « § 5.6 », « fig 40 »). A code the documents use (requirement id, alarm code) is text, not an anchor.
+  (it accepts « § 5.6 », « fig 40 », « t 04:30 »). A code the documents use (requirement id, alarm code) is text, not
+  an anchor. An images or video document adds three kinds: `img:<n>` an image (`<!-- img 3 -->`), `t:mm:ss` a line of a
+  video's transcript (`<!-- t 04:30 -->`, `h:mm:ss` past an hour, `-2` for a second line in the same second),
+  `frame:mm:ss` a key frame (`<!-- frame 04:30 -->`); a video other than the document's file 1 prefixes its number
+  (`t:3/04:30`). Decided: an image's anchor is its **number in the document**, given once when its file is copied
+  (after `source.last`, the highest ever given) and never reused — so adding an image never moves another's anchor and
+  a removed image's number never points at another picture (a file name is not stable enough: two cameras both write
+  `IMG_0042.jpg`).
 - **Conversion prefers `.docx`** (structure and images intact); PDF is the fallback (headings from numbering or font
   size, or the tagged structure; RATP PDFs draw heading numbers as pictures). A `.docx` and the `.pdf` of the same name
   are one document. `doc.json.conversion` keeps how it was converted (chosen by the `study-document` skill or the team),
@@ -234,7 +253,7 @@ docs/<docId>/
   conversion.
 - **Several conversions at once** (2026-11-08). Each conversion (`docs.convert`, `docs.add` with convert) is its own
   job and holds one of the project's conversion slots (`lib/docs-index.ts` `conversionSlot`, a `semaphore` of
-  `src/shared/run/work.ts`) from its start to the end of its triage: the conversion, the batches, the figure
+  `src/shared/run/work.ts`) from its start to the end of its triage: the conversion (an images or video document's files too), the figure
   descriptions (so Claude's figure runs are bounded by the slots too, one run at a time per document), the re-check.
   The slots number `conversionsAtOnce()` (`lib/agents.ts`): the agents setting that bounds generation; adaptive, no
   more than the cores less one and the free memory (1 GB each) allow — counted when a batch starts, made again once
@@ -246,23 +265,80 @@ docs/<docId>/
   going, « Waiting to convert » on those in line, and « Converting 2 at a time · 2 waiting · then one index run ». `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
   citing tests are left and their sources become `source-missing`.
 - **A folder** (`lib/docs-folder.ts`): `docs.scanFolder` reads a folder (sub-folders by default, hidden ones and the
-  project's own folder skipped, at most 2 000 files) and says, file by file, whether an import adds it: each `.docx`
-  or `.pdf` is a document, the `.pdf` of the same name beside a `.docx` is its rendering (its twin); the rest is left
-  aside with a reason — not a document (Thumbs.db, desktop.ini, hidden or temporary files), Word's lock file (`~$…`),
-  a kind not converted yet (`.doc`, `.txt`, pictures, videos…), empty, already in the project (same id or same file
-  name), or the same id as another file found. The id is the code read from the name, accents dropped, made a valid
-  folder name. `docs.addFolder` copies the documents asked for (the same `addDoc` as `docs.add`), then starts one
-  `docs.convert` job per document, children of the import job, and waits for them (they share the slots and the one
-  index run below). A network path (`\\server\share`)
-  is refused (§13). Decided: a document already in the project is shown, unticked, never replaced — reconverting is
-  `docs.convert`; photos and videos stay out of a folder import until they are documents of their own (ROADMAP).
+  project's own folder skipped, at most 2 000 files) and says, file by file, whether an import adds it: each `.docx`,
+  `.pdf`, `.txt` or `.md` is a document, the `.pdf` of the same name beside a `.docx` is its rendering (its twin), each
+  video is a document; the rest is left aside with a reason — not a document (Thumbs.db, desktop.ini, hidden or
+  temporary files), Word's lock file (`~$…`), a kind not converted yet (`.doc`, HEIC, sound, spreadsheets…), empty,
+  already in the project (same id or same file name), or the same id as another file found. The id is the code read
+  from the name, accents and ligatures dropped (œ → oe), made a valid folder name. `docs.addFolder` copies the
+  documents asked for (the same `addDoc` as `docs.add`), then starts one `docs.convert` job per document, children of
+  the import job, and waits for them (they share the slots and the one index run below). A network path
+  (`\\server\share`) is refused (§13). Decided: a document already in the project is shown, unticked, never replaced —
+  reconverting is `docs.convert`. Decided (2026-11-08): **the images of one folder are one images document**, named
+  after that folder (`group` = the folder's path, « . » for the folder itself) — a team files a visit's photos in a
+  folder of their own; a photo alone in a folder is a document of one image.
 - **Amendments**: `doc.json.amends` lists what a document amends; the graph links it (document and section level), and
   an amendment wins over what it amends.
-- **Media batches (as built, 2026-11-05 — the principle changes, see ROADMAP)**: a batch of photos is an *annex* of a
-  document (`doc.json.media`, `media/<lot>/part.md` appended to `body.md` to make `doc.md`, anchors `lot-…`); photos
-  normalised to jpg ≤ 2000 px with EXIF orientation and date (sharp); Claude reads 20 a run. A batch shows what the
-  real system does, not what it must do: a source from an annex says *how* to do a step; an expected result backed only
-  by an annex is `observed-only` (mechanical check) unless the batch is a reference.
+- **A document has a source type** (2026-11-08): `docx` · `pdf` · `txt` (a `.txt` or `.md`) — read from the copy's
+  extension —, or `images` · `video` · `mixed` written in `doc.json.source.type`, for a document made of files of its
+  own (`source.files`, copied under `files/`, `source.file` = `files`, `source.sha256` = the hash of their hashes). An
+  image or several images form a document as sections form a text, and a video is itself a set of images: no picture
+  is an attachment or an annex of another document any more. `docs.add` takes any of them; `docs.addFiles` makes one
+  document of the images picked together (`images: together`, titled « Images <date> » unless given) or one each
+  (`each`), one document per video and per text file; `media.add` / `media.remove` add or remove files of an images or
+  video document (it becomes `mixed` when it holds both). `lib/media.ts` owns the files, `lib/media-md.ts` writes
+  `doc.md`, `lib/media-pipeline.ts` converts.
+- **A text file** (`rag/convert-text.ts`): UTF-8 (BOM dropped), else Windows-1252; a `.md` keeps its headings, each
+  anchored by its number or its title's slug; a `.txt` is its text under one section titled by its file name (a line
+  starting with `#` is escaped, `<!--` defused).
+- **An images or video document's `doc.md` holds only what is verbatim**: each image's caption — its file name and
+  when it was taken — on its own line (`![IMG_0042.jpg — 2026-10-12 14:03](figures/img-1.jpg) <!-- img 1 -->`), in the
+  order the images were taken; each video under its own section (`## manoeuvre.mp4 · 02:40 <!-- § video-1 -->`) with
+  each transcript line (`[04:30] … <!-- t 04:30 -->`) and its key frames in time order (`![Image at 04:30](…) <!--
+  frame 04:30 -->`), all under the head section `§media`. What Claude read — an image's description, its visible text,
+  a video's chapters — lives in `figures.json` and `video/<n>.json`: searched (§6), shown, never quotable, as for a
+  figure. Only the caption and what was said are quotable.
+- **Observed or reference.** An images or video document shows what the real system does, not what it must do: it is
+  **observed** until the team marks it as the reference (`doc.json.reference`, `docs.set reference`, the page's
+  « Reference, not observed » button; a written document is always a reference). A source from an observed document
+  says *how* to do a step; an expected result backed only by observed documents is `observed-only` (mechanical check,
+  §9). Marking or unmarking re-checks the citing tests.
+- **Conversion of an images or video document** (`docs.convert`, `lib/media-pipeline.ts`, in a conversion slot like
+  any other): each image not prepared yet is normalised (sharp: jpg ≤ 2000 px, EXIF orientation applied, the EXIF date
+  kept as `takenAt`, a transparent PNG laid on white); each video goes through the steps below; Claude reads the
+  pictures not read yet, **20 a run** (`claude/media.ts`, read-only, effort low — images and key frames alike: a
+  description, every visible text verbatim, a kind); `doc.md` is written again. Each step is kept as it ends, so a
+  conversion stopped half-way goes on where it stopped; `--force` starts over. A file that cannot be read is
+  `failed` with its reason and the others go on; without Claude the pictures stay, unread.
+- **A video, all on this PC** (`lib/media-video.ts`, `lib/video-io.ts`, `lib/video-frames.ts`): `ffprobe` (length,
+  size, sound) → the sound at 16 kHz mono → **Whisper** (transformers.js, the catalog's `speech` entry, §6) → a timed
+  transcript; candidate frames by `ffmpeg` (a scene change, else one every 5 s, 640 px), near-duplicates dropped by
+  their difference hash (dHash, 64 bits, ≤ 6 bits apart = the same screen); **4 × 4 mosaics** of the candidates, each
+  tile numbered with its moment (at most 12 mosaics, taken evenly along a long video), read by Claude in one survey
+  run with the transcript → chapters and at most 40 moments worth seeing; each moment drawn from the video in full
+  (≤ 2000 px) as a key frame (`frame:`), then read with the images. Without Claude the key frames are 12 candidates
+  taken evenly; without the speech model the video has no transcript (a warning says how to install it); without
+  ffmpeg the video is kept unread (a warning). `media.transcript { doc, video?, from?, to? }` gives the timed lines and
+  `media.frame { doc, at, video? }` draws any moment (`.testimus/frames/`, a cache): read commands, so every Claude run
+  has them as MCP tools. `media.show` lists an images or video document's pictures, videos, chapters and key frames.
+- **ffmpeg** (`lib/ffmpeg.ts`, `models.pullFfmpeg`): downloaded on demand like llama.cpp — gyan.dev's essentials build
+  7.1.1 for win64, pinned by its SHA-256 in the code, into the runtimes folder, no admin rights; `ffmpeg.exe` and
+  `ffprobe.exe` registered in `models.json`. Processes only through `src/shared/run/`. Decided: no pinned build for
+  macOS or Linux (the release is win-x64), so there — development only — an `ffmpeg` and `ffprobe` found on the
+  PATH are taken; `models.pullFfmpeg` says so instead of downloading.
+- **Migration of the media batches** (2026-11-08; the batches were built on 2026-11-05: `doc.json.media`,
+  `media/<lot>/part.md` appended to `body.md`, anchors `§lot-<lot>.<item>` and `fig:lot-<lot>.<item>`).
+  `lib/media-migrate.ts` turns each batch into an images document of its own: id `<parent>-<batch>`, title the
+  batch's, kind `other`, its photos numbered in the order they were taken (`img:1`…), its pictures and what Claude read
+  kept, its context its `context.md`, its `reference` kept, `relatesTo: [parent]` — a link, never an amendment (the
+  photos were about that document; they amend nothing). The sources of the tests that cited the annex are rewritten
+  mechanically, line by line (`<parent>#§lot-<batch>.<item>` and `fig:lot-…` → `<new>#img:<n>`, `§lot-<batch>` →
+  `<new>#§media`, the quote and `@column` kept), and their mechanical check is redone — a quote taken from an annex's
+  description then reports `quote-not-found`, honestly: a description is not quotable any more. The parent goes back
+  to what it was before its first batch (`body.md` becomes `doc.md`, the batches' folders, pictures and figure entries
+  go). It is idempotent and runs by itself once per project and process, before the first command that names the
+  project (`commands/index.ts` → `migrateOnOpen`), writing its report to `.testimus/migrations/media-<time>.json`;
+  `media.migrate --dryRun` says what it would do.
 
 ## 6. Index and search (RAG)
 
@@ -280,7 +356,12 @@ docs/<docId>/
 **Index** (`rag.db`, one SQLite file: `chunks`, `chunks_fts`, `edges`, `docs`, `meta`, and one `vec_<id>` per space):
 - One chunk per lowest-level section (split above ~800 tokens, never across a heading), plus one chunk per figure
   (caption + description + `Visible text: …`, so a button label finds its screenshot). Chunk ids `docId#§x.y`,
-  `docId#§x.y~n`, `docId#fig:N`. A context header per chunk: deterministic, or one sentence by Claude when
+  `docId#§x.y~n`, `docId#fig:N`. An images or video document adds one chunk per image (`docId#img:3`) and per key
+  frame (`docId#frame:04:30`), built like a figure's, and its transcript cut into passages of whole lines under the
+  same budget, each anchored by its first line (`docId#t:00:02`); its picture and transcript lines are never a
+  section's text. **Every chunk has a `kind`**: `section` (a passage of text), `figure`, `image`, `transcript`,
+  `frame` — what search filters by kind of passage (Settings › Search) reads; decided: text chunks keep the name
+  `section` that the search filters already used. A context header per chunk: deterministic, or one sentence by Claude when
   `rag.claudeHeaders` is on (off by default: hundreds of runs on 900 pages; the indexer itself never calls Claude).
 - **Hybrid search**: FTS5 BM25 + `sqlite-vec`, fused by reciprocal rank fusion; an optional reranker reorders the
   candidates. A reranker failure leaves the fused ranking, with a warning — never an error. When vectors are missing or
@@ -381,7 +462,10 @@ above) and by naming only the wanted choice's models.
 **Models** (`models/catalog.json` + the user's entries in `models.json`):
 - An entry names one exact quantization, its sources (Hugging Face repo at a pinned revision with every file's
   SHA-256), runtimes, dims, pooling, instructions, `dtypeByDevice`, `rerankerKind`, sizes, tier, `lighter`/`heavier`,
-  `provenOn`. Licences that forbid commercial use are excluded.
+  `provenOn`. Licences that forbid commercial use are excluded. `kind` is `embedding`, `reranker` or `speech`: the
+  speech entry (`whisper-small-q8`, `onnx-community/whisper-small` at a pinned revision, MIT, multilingual, encoder and
+  merged decoder in 8 bits, 239 MB) transcribes a video's sound on this PC (§5); it belongs to no pack, is installed
+  like any model (`models pull whisper-small-q8`) and is never downloaded by a conversion on its own (P6).
 - **Packs** = a named intent each PC resolves for its hardware: Light (bge-m3 q8, CPU), Performance (Qwen3-Embedding
   0.6B), Balanced (4B + Qwen3-Reranker 0.6B), Quality (8B Q4_K_M + Reranker 4B …), plus Custom (hand-picked). A pack
   resolves to its first variant obtainable and fitting here (`resolveChoice`: `picked` first-fit · kept · fallback, and
@@ -530,10 +614,12 @@ after the frontmatter, so a review decision never makes findings stale.
 - **Mechanical pass** (`lib/check.ts`, no model): steps exist; Action and Expected filled (`empty-field`); no `raw`
   embed Xray cannot show; no duplicate step; an expected result has a source; every source resolves (document by id or
   code, anchor exists) and its quote is found **at its anchor** (`§x` = the section with its sub-sections, `fig:N` = the
-  caption paragraph only, `page:` = up to the next page; whitespace-normalised, case-sensitive, `*` and comments
-  ignored) → `quote-not-found`, `quote-not-at-anchor` (naming where it is), `quote-weak` (< 4 words or 20 chars, or
-  found twice); Reference-source columns (`column-unsourced`, `item-not-found`); `figure-not-embedded`;
-  `observed-only`.
+  caption paragraph only, `page:` = up to the next page, `img:N` = the image's caption, `t:mm:ss` = that transcript
+  line, `frame:mm:ss` = the key frame's caption; whitespace-normalised, case-sensitive, `*` and comments ignored) →
+  `quote-not-found`, `quote-not-at-anchor` (naming where it is — a picture or a transcript line first, the narrowest
+  place), `quote-weak` (< 4 words or 20 chars, or found twice); Reference-source columns (`column-unsourced`,
+  `item-not-found`); `figure-not-embedded`; `observed-only` (an expected result whose every source is in an images or
+  video document not marked as the reference, §5).
 - **Semantic pass** (`check-test` skill, one test per run, in parallel): `unsupported`, `contradicted`, smart column
   not as described, `wrong-object`, `negative-missing`, `case-missing`, `not-simulated-unsourced`, `vague-result`,
   `documents-conflict` (an amendment wins, a validated document wins over a draft), `figure-not-embedded`, `other`. It
@@ -739,6 +825,20 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   only to the tests it holds, and `tests/unit/ui/lib/names-parity.test.ts` keeps its copy equal to the core's (the page
   cannot import a value from the core). An id (job, `local-…`) stays visible only in a job's folded
   « Technical details », beside its name. `tests/e2e/ids.spec.ts` fails on a `local-<hex>` in any visible text.
+- **Images and videos on the Documents screen** (2026-11-08, design wave C « Media »): a list row carries a type badge
+  (Word · PDF · Text · Images · N · Video · mm:ss, a mixed document « Images · N · Video ») and an outline « Observed »
+  badge for an observed images or video document. « Add documents… » takes Word, PDF, text, images and videos; two or
+  more images added together ask « one document with the N images » (with its title) or « one per image » (a kit
+  Modal); a single image or a video goes straight in. An images or video document opens on its **Images** tab (a grid
+  of kit Cards: the picture, its anchor in mono, Claude's description; one opens large with its facts and « Remove
+  from the document… »), a **Video** tab (the kit's `Video` player — HTML5 `<video>` through `/files` with Range, a
+  `start`, a `seek` — with Claude's chapters and the timed transcript as kit Lists beside it: a click seeks, the line
+  being said is the selected row; the key frames under it) and the Text tab; its head has « Add images… » (`media.add`)
+  and « Reference, not observed » / « Observed, not the reference » (`docs.set reference`); the context stays in the
+  side panel, which also lists `relatesTo` (About). A source `doc#t:04:30` or `#frame:04:30` opens the Video tab at that
+  moment, `#img:3` that image large. « Observed » on a source chip is decided by its **document** (`useObserved()`
+  reads the cached `docs.list`), never by its anchor. Generation chooses these documents like any other. An import of a
+  folder shows the images of one folder as one row (« N images from <folder> »).
 - **Safety rules of the page**: a Jira write always shows its plan first; from the palette (Ctrl K, every command by
   name, a form from its schema) nothing runs blind — a command with `dryRun` shows its plan, one that loses something
   without a dry run asks first naming what goes; any Claude run on a test or the project **locks the editor**, the lock
@@ -757,7 +857,9 @@ present, and `POST` with `application/json` (else 415); `/api` and `/api/events`
 `X-Testimus-Project`) must match a known project, else 403. UNC and device paths are refused wherever the HTTP face
 reads a path itself (opening one would send the user's NTLM hash), and by a command that walks a folder it is given
 (`docs.scanFolder`, `docs.addFolder`), whichever face calls it (`src/shared/unc.ts`). `/files` serves only inside a known project, with a
-sandboxing CSP. The page's CSP: `default-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src
+sandboxing CSP, streamed; it answers one byte range (`Range: bytes=a-b`, `a-`, `-n` → 206 with `Content-Range`,
+`Accept-Ranges: bytes` always, past the end → 416, a malformed range → the whole file) so the page's video player can
+seek; the guard runs before it as for any request. The page's CSP: `default-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src
 'self' 'unsafe-inline'; connect-src 'self'` — no inline script, no `eval`. `system.setCredentials` accepts only
 `https://<tenant>.atlassian.net` and `*.getxray.app` unless `otherHost`. Scripts call the API by loading `/` first for
 the cookie (`tests/e2e/helpers.ts`).
@@ -831,7 +933,14 @@ first-class: every screen works without the bridge.
 - Not proven yet: signing and execution policy on a tester's PC (E0); live read-only checks of `xray.pull` and of the
   `issue` reads on the Windows PC; whether a custom field is cleared with `""` or `null`; the benchmark's gold set
   (bootstrap by Claude, to be validated by the testers — every figure above is provisional); measuring Performance,
-  Balanced and Quality on the reference document (`node scripts/refdoc.ts`); the `observed` colour token for annexes.
+  Balanced and Quality on the reference document (`node scripts/refdoc.ts`); the `observed` colour token for images
+  and videos. **Images and videos as documents, not proven on Windows** (built on a Mac, 2026-11-08): the pinned
+  ffmpeg win64 build was downloaded and its SHA-256 pinned, but never run on a Windows PC; the real pipeline (ffprobe,
+  the sound, scene detection, a frame at a moment) was run with the Mac's ffmpeg 7.1.1 on the fixture video; Whisper
+  (`whisper-small-q8` through transformers.js) was never run — its file list and hashes come from Hugging Face's API,
+  and the French quality of the small model on a real PCC recording is unmeasured; the mosaics' tile labels need a
+  font for librsvg (the prompt lists every tile's moment anyway); HEVC `.mov` from an iPhone may not play in the
+  page's player (Chromium has no HEVC on Windows without the system codec).
 - Test runs as pages (§9b) were designed from the description of the team's interactive test sheet
   (`D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\skills\testing\`: HTML + `data.json`, OK / NOK per line) and the
   design, on a Mac where that sheet is not: **the port was not compared with the original**. Not proven either:

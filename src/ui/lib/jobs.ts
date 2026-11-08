@@ -18,7 +18,6 @@ export const KIND: Record<string, string> = {
   "docs.add": "Add document",
   "docs.convert": "Convert document",
   "describe-figures": "Describe figures",
-  media: "Photos & videos",
   "rag-index": "Index documents",
   "rag-eval": "Measure search",
   pullModel: "Download model",

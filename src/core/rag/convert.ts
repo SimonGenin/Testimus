@@ -19,6 +19,8 @@ export type Converted = {
 
 export type ConvertOpts = {
   code: string;
+  /** the title a text file takes when it has no heading of its own (its file name, or the team's title) */
+  title?: string;
   reader?: DocConversion["reader"];
   numbers?: DocConversion["numbers"];
   pdfFigures?: Figure[];
@@ -108,15 +110,14 @@ const IMAGE_LINE = /^!\[[^\]]*\]\([^)]*\)(?: <!--[^>]*-->)?$/;
 const MARKER_LINE = /^(?:<!--(?:(?!-->)[\s\S])*-->\s*)+$/;
 
 // ponytail: a body in which the conversion recognised no heading becomes one section under the document's title — its
-// head line takes the anchor, a slug like any unnumbered heading (never lot-…, the annexes' prefix) — so its text is
+// head line takes the anchor, a slug like any unnumbered heading — so its text is
 // shown, indexed and quotable; a body with no text (a scan) stays as it is. The next conversion with headings drops it
 export function wholeSection(c: Converted, title: string, from: "docx" | "pdf"): Converted {
   const [head, ...rest] = c.md.split("\n");
   if (!head.startsWith("# ") || anchorsOf(c.md).sections.length) return c;
   const text = rest.some((l) => l.trim() && !IMAGE_LINE.test(l.trim()) && !MARKER_LINE.test(l.trim()));
   if (!text) return c;
-  const base = slug(title);
-  const anchor = base.startsWith("lot-") ? `doc-${base}` : base;
+  const anchor = slug(title);
   const [why, fix] =
     from === "docx"
       ? [

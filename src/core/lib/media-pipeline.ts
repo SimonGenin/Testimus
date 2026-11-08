@@ -1,103 +1,97 @@
-import { type AnalyseResult, analyseLot } from "../claude/media.ts";
+import { readPictures } from "../claude/media.ts";
 import type { JobRun } from "../claude/prompt.ts";
 import { claudeVersion } from "../claude/status.ts";
 import type { Ctx } from "../command.ts";
-import { normalizeAnchor } from "../rag/anchors.ts";
-import type { CitingTest } from "../types.ts";
-import { testsCiting } from "./check.ts";
-import { readDoc } from "./docs.ts";
+import { env } from "../env.ts";
+import { anchorsOf } from "../rag/convert.ts";
+import type { DocJson } from "../types.ts";
+import { readDoc, readDocMd, readFigures, writeDoc } from "./docs.ts";
 import { whileConverting } from "./docs-index.ts";
-import { type IndexOutcome, recheckCiting, withIndex } from "./docs-pipeline.ts";
-import { assemble, findLot, lotOfAnchor, preparePhoto, syncLotFigures, updateItem, writePart } from "./media.ts";
-import { readProject } from "./project.ts";
+import { filesOf, prepareImage, syncImageEntries, updateFile, updateFiles } from "./media.ts";
+import { writeMediaMd } from "./media-md.ts";
+import { processVideo } from "./media-video.ts";
 
-export type LotRun = JobRun & { index?: boolean };
-export type LotAftermath = { citedBy: CitingTest[]; index?: IndexOutcome };
+export const MEDIA_CONVERTER = "media 1";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-// ponytail: the steps a batch job shows; those that do not apply are skipped as it goes
-export function lotSteps(o: { copy?: boolean; read?: boolean; index?: boolean }) {
-  return [
-    ...(o.copy ? [{ id: "copy", label: "Copy the files" }] : []),
-    ...(o.read ? [{ id: "prepare", label: "Prepare the photos" }] : []),
-    ...(o.read ? [{ id: "read", label: "Claude reads the photos" }] : []),
-    { id: "annex", label: "Write the annex" },
-    { id: "cited", label: "Re-check the tests citing it" },
-    ...(o.index ? [{ id: "index", label: "Update the search index" }] : []),
-  ];
-}
+// ponytail: the steps a media document's conversion shows; those that do not apply are skipped as it goes
+export const MEDIA_STEPS = [
+  { id: "convert", label: "Prepare the images and videos" },
+  { id: "read", label: "Claude reads the pictures" },
+];
 
-// ponytail: each photo not prepared yet becomes its picture under figures/; one that cannot be read is marked failed
-// with the reason, and the others go on
-export async function prepareLot(ctx: Ctx, project: string, docId: string, lot: string, force = false): Promise<void> {
-  const todo = findLot(readDoc(project, docId), lot).items.filter((i) => force || i.state === "new");
-  for (const [n, it] of todo.entries()) {
-    if (ctx.signal.aborted) break;
-    ctx.progress({ message: `Preparing ${it.name}`, done: n, total: todo.length });
-    try {
-      const got = await preparePhoto(project, docId, lot, it);
-      updateItem(project, docId, lot, it.id, (i) => {
-        Object.assign(i, got, { state: i.state === "analysed" && !force ? "analysed" : "ready" });
-        delete i.error;
-      });
-    } catch (e) {
-      ctx.log("warn", `${it.name} could not be read as a picture: ${message(e)}`);
-      updateItem(project, docId, lot, it.id, (i) => {
-        i.state = "failed";
-        i.error = `Not a picture Testimus can read: ${message(e)}`;
-      });
-    }
-  }
-  syncLotFigures(project, docId, lot);
-}
-
-// ponytail: without Claude on this PC the photos stay in the annex with their pictures, unread — media.analyse reads
-// them later; a run that fails never undoes the batch
-export async function readLot(
+// ponytail: an images or video document is converted from its files — each image not prepared yet becomes its picture
+// (jpg ≤ 2000 px, EXIF orientation and date), each video goes through ffprobe, Whisper and its frames, Claude reads
+// the pictures 20 a run (read: the conversion's describeFigures), and doc.md is written again. A file that cannot be
+// read is marked failed with its reason and the others go on; without Claude the pictures stay, unread
+export function convertMedia(
   ctx: Ctx,
   project: string,
-  docId: string,
-  lot: string,
-  run: JobRun,
-  o: { items?: string[]; force?: boolean } = {},
-): Promise<AnalyseResult | null> {
-  const probe = await claudeVersion();
-  if (!probe.ok) {
-    ctx.log("info", `Claude is not available here (${probe.text}): the photos are kept, not read yet.`);
-    return null;
-  }
-  try {
-    return await analyseLot(project, docId, lot, ctx, { ...run, ...o });
-  } catch (e) {
-    if (ctx.signal.aborted) throw e;
-    ctx.log("warn", `Claude did not read the photos: ${message(e)}`);
-    return null;
-  }
-}
-
-// ponytail: the annex is written again from what the batch holds, then doc.md is assembled — as a conversion, so an
-// index run waits for it; true when doc.md changed
-export function writeAnnex(project: string, docId: string, lot?: string): Promise<boolean> {
+  id: string,
+  o: { read: boolean; force?: boolean; run: JobRun },
+): Promise<DocJson> {
   return whileConverting(project, async () => {
-    if (lot) writePart(project, docId, lot, readProject(project).language);
-    return assemble(project, docId);
+    const warnings: string[] = [];
+    if (o.force)
+      updateFiles(project, id, (files) => {
+        for (const f of files) f.state = "new";
+      });
+    const claude = o.read ? (await claudeVersion()).ok : false;
+    if (o.read && !claude) ctx.log("info", "Claude is not available here: the pictures are kept, not read yet.");
+    const todo = filesOf(readDoc(project, id)).filter((f) => f.kind === "image" && (f.state === "new" || !f.figure));
+    for (const [n, f] of todo.entries()) {
+      if (ctx.signal.aborted) break;
+      ctx.progress({ message: `Preparing ${f.name}`, done: n, total: todo.length });
+      try {
+        const got = await prepareImage(project, id, f);
+        updateFile(project, id, f.n, (x) => {
+          Object.assign(x, got, { state: x.state === "analysed" && !o.force ? "analysed" : "ready" });
+          delete x.error;
+        });
+      } catch (e) {
+        warnings.push(`${f.name} could not be read as a picture: ${message(e)}`);
+        updateFile(project, id, f.n, (x) => {
+          x.state = "failed";
+          x.error = `Not a picture Testimus can read: ${message(e)}`;
+        });
+      }
+    }
+    syncImageEntries(project, id);
+    for (const f of filesOf(readDoc(project, id)).filter((x) => x.kind === "video")) {
+      if (ctx.signal.aborted) break;
+      const r = await processVideo(ctx, project, id, f, { claude, force: o.force, run: o.run });
+      warnings.push(...r.warnings);
+    }
+    writeMediaMd(project, id);
+    if (claude && !ctx.signal.aborted) {
+      ctx.step?.("read");
+      try {
+        await readPictures(project, id, ctx, { ...o.run, force: o.force });
+      } catch (e) {
+        if (ctx.signal.aborted) throw e;
+        warnings.push(`Claude did not read the pictures: ${message(e)}`);
+      }
+    }
+    for (const f of filesOf(readDoc(project, id)))
+      if (f.state === "failed" && f.error && !warnings.some((w) => w.startsWith(f.name)))
+        warnings.push(`${f.name}: ${f.error}`);
+    const md = readDocMd(project, id);
+    const doc = readDoc(project, id);
+    const next: DocJson = {
+      ...doc,
+      converted: {
+        with: MEDIA_CONVERTER,
+        at: env.now().toISOString(),
+        warnings,
+        stats: {
+          sections: anchorsOf(md).sections.length,
+          figures: readFigures(project, id).filter((f) => f.file).length,
+          chars: md.length,
+        },
+      },
+    };
+    writeDoc(project, next);
+    return next;
   });
 }
-
-// ponytail: what a changed doc.md asks for, as after a conversion: the tests citing the document are checked again,
-// then the index follows in the same job
-export async function afterAnnex(
-  ctx: Ctx,
-  project: string,
-  docId: string,
-  changed: boolean,
-  run: LotRun,
-): Promise<LotAftermath> {
-  ctx.step?.("cited");
-  const citedBy = changed ? recheckCiting(ctx, project, readDoc(project, docId)) : [];
-  return { citedBy, ...(run.index !== false ? { index: await withIndex(ctx, project, run) } : {}) };
-}
-
-export const testsCitingLot = (project: string, docId: string, lot: string) =>
-  testsCiting(project, readDoc(project, docId), (anchor) => lotOfAnchor(normalizeAnchor(anchor)) === lot);

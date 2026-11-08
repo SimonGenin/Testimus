@@ -5,7 +5,6 @@ import { afterAll, describe, expect, it } from "vitest";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { loadCorpus, mechanicalFindings, scopeOf } from "../../../../src/core/lib/check.ts";
 import { sectionOf, tocOf } from "../../../../src/core/lib/docs.ts";
-import { lotOfAnchor } from "../../../../src/core/lib/media.ts";
 import { parseTest } from "../../../../src/core/lib/testfile.ts";
 import { writeZip } from "../../../../src/core/lib/zip.ts";
 import { chunkDoc } from "../../../../src/core/rag/chunk.ts";
@@ -93,20 +92,13 @@ describe("a Word file without any heading style", () => {
     expect(p.text).toContain("L'intégration est unidirectionnelle");
   });
 
-  it("keeps an included batch of photos out of it: the annex keeps its lot- anchor", async () => {
+  it("is the whole text when converted again: its scope holds every paragraph", async () => {
     const id = "SECIB";
-    mkdirSync(join(dirOf(id), "media", "photo"), { recursive: true });
-    writeFileSync(join(dirOf(id), "media", "photo", "context.md"), "Une photo de l'avocat.\n");
-    const doc = JSON.parse(readFileSync(join(dirOf(id), "doc.json"), "utf8"));
-    doc.media = [{ id: "photo", title: "Photo", included: true, added: "2026-11-05T00:00:00.000Z", items: [] }];
-    writeFileSync(join(dirOf(id), "doc.json"), JSON.stringify(doc, null, 2));
     await run("docs.convert", { id });
     const md = mdOf(id);
-    expect(tocOf(md).map((t) => t.anchor)).toEqual(["§symplicy-secib", "§lot-photo"]);
-    expect(lotOfAnchor("§symplicy-secib")).toBeNull();
+    expect(tocOf(md).map((t) => t.anchor)).toEqual(["§symplicy-secib"]);
     expect(scopeOf(md, "§symplicy-secib")).toContain("Règle 24.");
-    expect(scopeOf(md, "§symplicy-secib")).not.toContain("avocat");
-    expect(sectionOf(md, "§symplicy-secib")).not.toContain("Annexe");
+    expect(sectionOf(md, "§symplicy-secib")).toContain("unidirectionnelle");
     expect(docOf(id).converted?.stats?.sections).toBe(1);
   });
 
@@ -119,7 +111,7 @@ describe("a Word file without any heading style", () => {
     writeFileSync(join(dirOf(id), "source.docx"), plainDocx(PARAGRAPHS, ["Objectifs de l'intégration"]));
     await run("docs.convert", { id });
     expect(mdOf(id)).not.toContain("symplicy-secib");
-    expect(tocOf(mdOf(id)).map((t) => t.anchor)).toEqual(["§objectifs-de-l-integration", "§lot-photo"]);
+    expect(tocOf(mdOf(id)).map((t) => t.anchor)).toEqual(["§objectifs-de-l-integration"]);
     expect(docOf(id).converted?.warnings.join("\n")).not.toContain("No heading recognised");
     const findings = mechanicalFindings(test, loadCorpus(project));
     expect(findings.map((f) => [f.kind, f.severity])).toEqual([["source-missing", "error"]]);
@@ -148,12 +140,11 @@ describe("wholeSection", () => {
     convertedWith: "test",
   });
 
-  it("never takes an annex's lot- prefix, and says what to do for a PDF", () => {
+  it("takes the title's slug, and says what to do for a PDF", () => {
     const c = wholeSection(converted("# X — Lot 3\n\nTexte.\n"), "Lot 3 — Signalisation", "pdf");
-    expect(c.md).toBe("# Lot 3 — Signalisation <!-- § doc-lot-3-signalisation -->\n\nTexte.\n");
-    expect(lotOfAnchor("§doc-lot-3-signalisation")).toBeNull();
+    expect(c.md).toBe("# Lot 3 — Signalisation <!-- § lot-3-signalisation -->\n\nTexte.\n");
     expect(c.warnings[0]).toBe(
-      "No heading recognised in the document: all its text is one section « Lot 3 — Signalisation » (§doc-lot-3-signalisation). Add its .docx, or a PDF whose headings are numbered or tagged, and convert again to get sections.",
+      "No heading recognised in the document: all its text is one section « Lot 3 — Signalisation » (§lot-3-signalisation). Add its .docx, or a PDF whose headings are numbered or tagged, and convert again to get sections.",
     );
   });
 

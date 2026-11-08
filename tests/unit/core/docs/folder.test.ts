@@ -14,7 +14,15 @@ const FOLDER = resolve(import.meta.dirname, "../../../fixtures/folder");
 
 type Scan = {
   dir: string;
-  files: { rel: string; importable: boolean; id?: string; twin?: string; reason?: string; why?: string }[];
+  files: {
+    rel: string;
+    importable: boolean;
+    id?: string;
+    twin?: string;
+    group?: string;
+    reason?: string;
+    why?: string;
+  }[];
   documents: number;
   leftAside: number;
   truncated: boolean;
@@ -44,6 +52,11 @@ describe("docs.scanFolder", () => {
   it("says, file by file, what an import adds and why the rest is left aside", async () => {
     const P = fixtureCopy("scan");
     const dir = folderCopy();
+    mkdirSync(join(dir, "Photos PCC"));
+    writeFileSync(join(dir, "Photos PCC", "IMG_1.jpg"), "jpeg");
+    writeFileSync(join(dir, "Photos PCC", "IMG_2.JPG"), "jpeg");
+    writeFileSync(join(dir, "Essai PCC.mp4"), "mp4");
+    writeFileSync(join(dir, "Message.mp3"), "mp3");
     const s = await call<Scan>("docs.scanFolder", { dir }, P);
     const f = byRel(s);
     expect(f["SOSIE_300_D401-1_1_01_00.docx"]).toMatchObject({
@@ -58,9 +71,15 @@ describe("docs.scanFolder", () => {
     );
     expect(f["Notes de réunion.txt".normalize()] ?? f["Notes de réunion.txt".normalize("NFD")]).toMatchObject({
       importable: false,
-      reason: "not-supported",
-      why: "Testimus cannot convert .txt files yet",
+      reason: "in-project",
+      id: "Notes_de_reunion",
     });
+    expect([f["Photos PCC/IMG_1.jpg"], f["Photos PCC/IMG_2.JPG"]]).toMatchObject([
+      { importable: true, id: "Photos_PCC", group: "Photos PCC" },
+      { importable: true, id: "Photos_PCC", group: "Photos PCC" },
+    ]);
+    expect(f["Essai PCC.mp4"]).toMatchObject({ importable: true, id: "Essai_PCC" });
+    expect(f["Message.mp3"]).toMatchObject({ reason: "not-supported", why: "Testimus cannot convert .mp3 files yet" });
     expect(f["~$SIE_300_D401-1_1_01_00.docx"]).toMatchObject({ reason: "lock-file", why: "Word's lock file" });
     expect(f["Thumbs.db"]).toMatchObject({ reason: "not-a-document" });
     expect(f["desktop.ini"]).toMatchObject({ reason: "not-a-document" });
@@ -77,8 +96,8 @@ describe("docs.scanFolder", () => {
       why: "the same document code as SOSIE_300_D401-1_1_01_00.docx",
     });
     expect(s.files.some((x) => x.rel.startsWith(".svn/"))).toBe(false);
-    expect(s.documents).toBe(3);
-    expect(s.leftAside).toBe(s.files.length - 3 - 1);
+    expect(s.documents).toBe(5);
+    expect(s.leftAside).toBe(s.files.length - 6 - 1);
     expect(s.truncated).toBe(false);
   });
 
@@ -132,6 +151,38 @@ describe("docs.addFolder", () => {
     expect(r.rejected).toEqual([{ name: "Thumbs.db", why: "not a document", code: "left-aside" }]);
     expect(r.converted).toEqual([]);
     expect(existsSync(join(P, "docs", "SPEC_G"))).toBe(false);
+  });
+
+  it("makes the images of each folder one images document, each video and text file one document", async () => {
+    const P = fixtureCopy("addfolder-media");
+    const dir = mkdtempSync(join(tmpdir(), "testimus-Recette 12-10-"));
+    mkdirSync(join(dir, "Visite PCC"));
+    const sharp = (await import("sharp")).default;
+    const jpg = (g: number) =>
+      sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 10, g, b: 10 } } })
+        .jpeg()
+        .toBuffer();
+    writeFileSync(join(dir, "Visite PCC", "IMG_1.jpg"), await jpg(10));
+    writeFileSync(join(dir, "Visite PCC", "IMG_2.jpg"), await jpg(200));
+    writeFileSync(join(dir, "Synoptique.png"), await jpg(90));
+    writeFileSync(join(dir, "Essai.mp4"), JSON.stringify({ duration: 12 }));
+    writeFileSync(join(dir, "Compte rendu.txt"), "Le régulateur acquitte l'alarme.");
+    const r = await call<{ added: { id: string; title: string; source: { type?: string; files?: unknown[] } }[] }>(
+      "docs.addFolder",
+      { dir, convert: false },
+      P,
+    );
+    expect(r.added.map((d) => [d.id, d.title, d.source.type ?? "file", d.source.files?.length ?? 0])).toEqual([
+      ["Compte_rendu", "Compte rendu", "file", 0],
+      ["Essai", "Essai", "video", 1],
+      [
+        expect.stringMatching(/^testimus-Recette_12-10-/),
+        expect.stringMatching(/^testimus-Recette 12-10-/),
+        "images",
+        1,
+      ],
+      ["Visite_PCC", "Visite PCC", "images", 2],
+    ]);
   });
 
   it("converts and indexes each document in its own job", async () => {

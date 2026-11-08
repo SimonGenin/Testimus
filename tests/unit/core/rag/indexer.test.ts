@@ -39,7 +39,13 @@ describe("projectDocs", () => {
     const j = JSON.parse(readFileSync(docJson(D3), "utf8"));
     delete j.id;
     writeFileSync(docJson(D3), JSON.stringify(j));
-    expect(projectDocs(dir).map((d) => d.doc.id)).toEqual([D3, "SOSIE_211_D401-1_4"]);
+    expect(projectDocs(dir).map((d) => d.doc.id)).toEqual([
+      "Manoeuvre_d_un_sectionneur_au_PCC",
+      "Notes_de_reunion",
+      "RECETTE_TCO_12-10",
+      D3,
+      "SOSIE_211_D401-1_4",
+    ]);
   });
 });
 

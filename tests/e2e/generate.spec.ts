@@ -10,7 +10,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
   const docs = request.getByRole("list", { name: "Documents in scope" });
-  await expect(docs.getByRole("checkbox")).toHaveCount(2);
+  await expect(docs.getByRole("checkbox")).toHaveCount(5);
   for (const box of await docs.getByRole("checkbox").all()) await expect(box).toBeChecked();
   await expect(request.getByRole("button", { name: "Generate" })).toBeEnabled();
   await request.getByRole("button", { name: "Select none" }).click();
@@ -20,7 +20,11 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(result.getByText("Tests appear here as Claude writes them")).toBeVisible();
   await shoot(page, "generate");
 
-  await request.getByRole("button", { name: "Only some sections…" }).first().click();
+  await docs
+    .getByRole("listitem")
+    .filter({ hasText: "Traction" })
+    .getByRole("button", { name: "Only some sections…" })
+    .click();
   await request
     .getByRole("button", { name: /^Unfold/ })
     .first()
@@ -74,6 +78,14 @@ test("a request runs live, the tests land, and « Review these tests » opens th
 // ponytail: after a generation Generate opens on « Ask for changes »; « New request » brings the form back
 async function newRequest(page: Page) {
   const ask = page.getByRole("region", { name: "Ask for changes" });
+  const result = page.getByRole("region", { name: "Result" });
+  // ponytail: the last generation's result and its « Ask for changes » column come together, once its job is read —
+  // deciding before that saw the form, then the column replaced it
+  await expect(
+    result
+      .getByRole("heading", { name: /tests? written/ })
+      .or(result.getByText("Tests appear here as Claude writes them")),
+  ).toBeVisible();
   await expect(ask.or(page.getByRole("region", { name: "Request" }))).toBeVisible();
   if (await ask.isVisible()) await page.getByRole("button", { name: "New request" }).click();
 }

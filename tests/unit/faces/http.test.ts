@@ -158,6 +158,32 @@ describe("HTTP face handler", () => {
     expect(JSON.parse(bad.text).error).toBe("The file path is not valid URI encoding.");
   });
 
+  it("answers a byte range of a project file, so a video player can seek", async () => {
+    writeFileSync(join(project, "clip.mp4"), "0123456789");
+    const whole = await rawRequest(port, "/files/clip.mp4", { headers: { cookie } });
+    expect(whole.status).toBe(200);
+    expect(whole.headers["accept-ranges"]).toBe("bytes");
+    expect(whole.headers["content-type"]).toBe("video/mp4");
+    expect(whole.headers["content-length"]).toBe("10");
+    const part = await rawRequest(port, "/files/clip.mp4", { headers: { cookie, range: "bytes=2-5" } });
+    expect([part.status, part.text, part.headers["content-range"], part.headers["content-length"]]).toEqual([
+      206,
+      "2345",
+      "bytes 2-5/10",
+      "4",
+    ]);
+    expect(part.headers["content-security-policy"]).toContain("sandbox");
+    const open = await rawRequest(port, "/files/clip.mp4", { headers: { cookie, range: "bytes=7-" } });
+    expect([open.status, open.text]).toEqual([206, "789"]);
+    const tail = await rawRequest(port, "/files/clip.mp4", { headers: { cookie, range: "bytes=-3" } });
+    expect([tail.status, tail.text, tail.headers["content-range"]]).toEqual([206, "789", "bytes 7-9/10"]);
+    const past = await rawRequest(port, "/files/clip.mp4", { headers: { cookie, range: "bytes=20-" } });
+    expect([past.status, past.headers["content-range"]]).toEqual([416, "bytes */10"]);
+    const odd = await rawRequest(port, "/files/clip.mp4", { headers: { cookie, range: "lines=1-2" } });
+    expect([odd.status, odd.text]).toEqual([200, "0123456789"]);
+    expect((await rawRequest(port, "/files/clip.mp4", { headers: { range: "bytes=0-1" } })).status).toBe(403);
+  });
+
   it("serves the UI: index with the session, assets cached, unknown types as bytes, routes to index", async () => {
     const index = await rawRequest(port, "/");
     expect(index.text).toBe("<html>ui</html>");

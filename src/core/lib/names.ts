@@ -49,8 +49,3 @@ export function generationName(project: string | null, id: string): string {
   if (sections.length) return sections.length === 1 ? sections[0] : `${sections.length} sections`;
   return UNTITLED_GENERATION;
 }
-
-export function batchName(project: string | null, docId: string, lot: string): string {
-  const doc = project ? findDoc(project, docId) : null;
-  return `${docName(project, docId)} · ${doc?.media?.find((b) => b.id === lot)?.title.trim() || lot}`;
-}

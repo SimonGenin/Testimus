@@ -30,6 +30,9 @@ export function fieldViews(x: ColumnLayout, step?: Step): FieldView[] {
 
 export const sourcePlace = (anchor: string) => {
   if (anchor.startsWith("fig:")) return `Figure ${anchor.slice(4)}`;
+  if (anchor.startsWith("img:")) return `Image ${anchor.slice(4)}`;
+  if (anchor.startsWith("frame:")) return `Frame ${anchor.slice(6)}`;
+  if (anchor.startsWith("t:")) return anchor.slice(2);
   return anchor;
 };
 

@@ -27,22 +27,26 @@ describe("rag commands through the registry, each output checked against its sch
   it("rag.index builds the index, rag.status and rag.spaces describe it", async () => {
     const before = await call<{ exists: boolean; docs: { indexed: string }[] }>("rag.status", {}, dir);
     expect(before.exists).toBe(false);
-    expect(before.docs.map((d) => d.indexed)).toEqual(["missing", "missing"]);
+    expect(before.docs.map((d) => d.indexed)).toEqual(["missing", "missing", "missing", "missing", "missing"]);
     const r = await call<Index>("rag.index", {}, dir);
     expect(r.docs.map((d) => [d.docId, d.status])).toEqual([
+      ["Manoeuvre_d_un_sectionneur_au_PCC", "indexed"],
+      ["Notes_de_reunion", "indexed"],
+      ["RECETTE_TCO_12-10", "indexed"],
       [D3, "indexed"],
       [D4, "indexed"],
     ]);
     expect(r.chunks).toBeGreaterThan(0);
     const again = await call<Index>("rag.index", {}, dir);
-    expect(again.docs.map((d) => d.status)).toEqual(["unchanged", "unchanged"]);
+    expect(again.docs.every((d) => d.status === "unchanged")).toBe(true);
+    expect(again.docs).toHaveLength(5);
     const status = await call<{ exists: boolean; profileMatches: boolean; docs: { indexed: string }[] }>(
       "rag.status",
       {},
       dir,
     );
     expect(status).toMatchObject({ exists: true, profileMatches: true });
-    expect(status.docs.map((d) => d.indexed)).toEqual(["fresh", "fresh"]);
+    expect(status.docs.map((d) => d.indexed)).toEqual(["fresh", "fresh", "fresh", "fresh", "fresh"]);
     const spaces = await call<{ id: string; active: boolean; complete: boolean }[]>("rag.spaces", {}, dir);
     expect(spaces).toHaveLength(1);
     expect(spaces[0]).toMatchObject({ id: r.space, active: true, complete: true });

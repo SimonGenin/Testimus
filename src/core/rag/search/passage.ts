@@ -164,6 +164,36 @@ export function passage(project: string, ref: string, around?: string): PassageV
       doc: docInfo,
     };
   }
+  // ponytail: a picture of an images or video document reads like a figure (its caption, what Claude saw); a
+  // transcript line reads with the lines that follow it, up to the passage cap or the next section
+  if (anchor.startsWith("img:") || anchor.startsWith("frame:") || anchor.startsWith("t:")) {
+    const marker = `<!-- ${anchor.replace(":", " ")} -->`;
+    const at = ls.findIndex((l) => l.includes(marker));
+    if (at < 0) throw notFound();
+    const s = sectionAt(sections, at);
+    const base = { docId, anchor, path: s?.path ?? "", doc: docInfo };
+    if (!anchor.startsWith("t:")) {
+      const f = figures.find((x) => x.anchor === anchor);
+      const caption = f?.caption || /!\[([^\]]*)\]/.exec(ls[at])?.[1] || "";
+      const file = f?.file || /\]\(([^)\s]+)/.exec(ls[at])?.[1] || "";
+      return {
+        ...base,
+        title: caption,
+        text: [caption, f?.description ?? "", f?.labels?.length ? `Visible text: ${f.labels.join(" · ")}` : ""]
+          .filter(Boolean)
+          .join("\n"),
+        figures: [{ file, anchor, caption, description: f?.description ?? "" }],
+      };
+    }
+    const said: string[] = [];
+    for (let i = at; i < ls.length && !/^#{1,6} /.test(ls[i]); i++) {
+      const t = /<!--\s*t\s/.test(ls[i]) ? stripComments(ls[i]) : "";
+      if (!t) continue;
+      if (said.join("\n").length + t.length > max) break;
+      said.push(t);
+    }
+    return { ...base, title: s?.title ?? "", text: said.join("\n"), figures: [] };
+  }
   const s = sections.find((x) => x.anchor === anchor);
   if (!s) throw notFound();
   const end = sectionEnd(ls, sections, s);

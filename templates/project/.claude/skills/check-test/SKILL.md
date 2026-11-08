@@ -35,7 +35,7 @@ Not findings — leave them out:
   is `unsupported`);
 - cases outside the test's scope, or tested by another test;
 - what the mechanical pass covers (sources, quotes, empty or duplicated steps, a cited figure not
-  embedded, an expected result sourced from an annex only);
+  embedded, an expected result sourced from an observed images or video document only);
 - suggestions, improvements, « could also check » — none of these is an anomaly.
 
 One problem, one finding: the same gap across several steps is one finding about the test, not one
@@ -52,13 +52,15 @@ per step.
    - does it support the claim? It does when it states it, in its own words or in others. It does not
      when the step adds a value, a state, a timing, a condition or a consequence the passage does not
      state, or claims more than it (every type when the passage names one) — that is `unsupported`;
-   - an annex source (an anchor that starts with `lot-`: `§lot-…`, `fig:lot-…`) is a photo of the
-     real system, an observation: it supports **how** a step is done (where to click, the labels,
-     the screens in turn), never what is **expected**. An Expected Result whose only sources are
-     annexes is already reported by the mechanical pass (`observed-only`, unless the team marked the
-     batch as a reference) — do not repeat it. A claim in the Action an annex photo contradicts (a
-     label, a menu item, a screen that is not there) is `unsupported`; an expected result the body
-     of a document contradicts is `contradicted` even when a photo shows it;
+   - a source in an images or video document (`img:<n>`, `t:mm:ss`, `frame:mm:ss`; `docs_show` says
+     `source.type` images · video · mixed) is an observation of the real system: it supports **how** a
+     step is done (where to click, the labels, the screens in turn), never what is **expected**. An
+     Expected Result whose only sources are observed documents is already reported by the mechanical
+     pass (`observed-only`, unless the team marked the document `reference`) — do not repeat it. Look
+     at the picture (`media_show` gives its file, `Read` it; `media_frame` draws a video's moment) and
+     read the transcript around a `t:` line (`media_transcript`). A claim in the Action a picture or
+     what is said contradicts (a label, a menu item, a screen that is not there) is `unsupported`; an
+     expected result a written document contradicts is `contradicted` even when a picture shows it;
    - a `fig:<n>` source: `rag_figure <docId> <n>`, then **`Read` the image** at the path it gives
      (file names under `figures/` are not `fig-<n>.png`) before accepting the claim — the caption
      alone proves only that the figure exists. Never accept a `fig:` claim you have not looked at.

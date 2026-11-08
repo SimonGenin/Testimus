@@ -66,7 +66,7 @@ describe("an index run under way, as docs.list and rag.status say it", () => {
     expect(now[D3].indexed).toBe("missing");
     expect(now[D3].indexing).toEqual({ state: "running", percent: 0, done: 0, total: 0 });
     expect(now[D4].indexing).toEqual({ state: "waiting", percent: 0, done: 0, total: 0 });
-    expect((await status()).indexing).toEqual({ state: "running", doc: 1, docs: 2, done: 0, total: 0 });
+    expect((await status()).indexing).toEqual({ state: "running", doc: 1, docs: 5, done: 0, total: 0 });
     g.open();
     await run;
     const after = await list();
@@ -95,12 +95,14 @@ describe("an index run under way, as docs.list and rag.status say it", () => {
     });
     await g.at;
     const now = await byId();
-    expect(now[D3].indexing).toMatchObject({ state: "running", percent: 0, done: 0 });
-    expect(now[D3].indexing?.total).toBeGreaterThan(0);
+    const first = "Manoeuvre_d_un_sectionneur_au_PCC";
+    expect(now[first].indexing).toMatchObject({ state: "running", percent: 0, done: 0 });
+    expect(now[first].indexing?.total).toBeGreaterThan(0);
+    expect(now[D3].indexing).toMatchObject({ state: "waiting", done: 0 });
     expect(now[D4].indexing).toMatchObject({ state: "waiting", done: 0 });
     const st = (await status()) as { indexing: { state: string; docs: number; done: number; total: number } };
-    expect(st.indexing).toMatchObject({ state: "running", doc: 1, docs: 2, done: 0 });
-    expect(st.indexing.total).toBe((now[D3].indexing?.total ?? 0) + (now[D4].indexing?.total ?? 0));
+    expect(st.indexing).toMatchObject({ state: "running", doc: 1, docs: 5, done: 0 });
+    expect(st.indexing.total).toBe(Object.values(now).reduce((n, d) => n + (d.indexing?.total ?? 0), 0));
 
     const logs: [string, string][] = [];
     const hits = (await invoke(

@@ -1,0 +1,23 @@
+{
+  "code": "Notes_de_reunion",
+  "title": "Notes de réunion",
+  "version": "",
+  "date": "2026-10-14",
+  "kind": "minutes",
+  "status": "draft",
+  "source": {
+    "name": "D:\\Recette\\Notes de réunion.txt",
+    "file": "source.txt",
+    "sha256": "f25651fb45a2891c1f16f9f90b0e3c924b30a7ae460d0dbf2ec434f41b09f7cb"
+  },
+  "converted": {
+    "with": "text 1",
+    "at": "2026-11-05T10:00:00.000Z",
+    "warnings": [],
+    "stats": {
+      "sections": 1,
+      "figures": 0,
+      "chars": 470
+    }
+  }
+}

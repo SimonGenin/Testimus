@@ -1,12 +1,13 @@
 import {
   QueryClient,
+  QueryClientContext,
   type QueryKey,
   type UseQueryResult,
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { CallResult, CommandInput, CommandName, CommandOutput } from "../../../core/commands/index.ts";
 import { ApiError, call, project } from "./client.ts";
 
@@ -112,6 +113,9 @@ export function createQueryClient(): QueryClient {
 
 export type ReadOptions<T> = {
   enabled?: boolean;
+  /** read only where the page's data layer is mounted: a part drawn alone (a source chip in a component test) reads
+   * nothing and gets no data, instead of failing */
+  optional?: boolean;
   project?: string | null;
   keepPrevious?: boolean;
   select?: (data: T) => T;
@@ -124,15 +128,22 @@ export function useRead<N extends CommandName>(
 ): UseQueryResult<CommandOutput<N>, ApiError> {
   const p = options.project === undefined ? project() : options.project;
   const k = key(name, input, p);
-  return useQuery<CommandOutput<N>, ApiError, CommandOutput<N>, QueryKey>({
-    queryKey: k,
-    queryFn: ({ signal }) => reach(() => call<CommandOutput<N>>(name, input ?? {}, { signal, project: p })),
-    enabled: options.enabled ?? true,
-    placeholderData: options.keepPrevious ? (previous) => previous : undefined,
-    select: options.select,
-    ...tuning(name, input),
-  });
+  const mounted = useContext(QueryClientContext);
+  const client = options.optional && !mounted ? DETACHED : undefined;
+  return useQuery<CommandOutput<N>, ApiError, CommandOutput<N>, QueryKey>(
+    {
+      queryKey: k,
+      queryFn: ({ signal }) => reach(() => call<CommandOutput<N>>(name, input ?? {}, { signal, project: p })),
+      enabled: !client && (options.enabled ?? true),
+      placeholderData: options.keepPrevious ? (previous) => previous : undefined,
+      select: options.select,
+      ...tuning(name, input),
+    },
+    client,
+  );
 }
+
+const DETACHED = new QueryClient();
 
 export type Fetching = { key: string; name: CommandName; startedAt: string };
 

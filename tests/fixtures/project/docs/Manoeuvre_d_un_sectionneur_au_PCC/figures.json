@@ -1,0 +1,35 @@
+[
+  {
+    "file": "figures/frame-1-20.jpg",
+    "anchor": "frame:00:20",
+    "caption": "Image at 00:20",
+    "description": "Image simulée de Image at 00:20 : la fenêtre Propriétés d'un sectionneur est ouverte sur le TCO, son menu contextuel propose « Autoriser l'ouverture ».",
+    "kind": "screen",
+    "labels": [
+      "Propriétés",
+      "Autoriser l'ouverture"
+    ]
+  },
+  {
+    "file": "figures/frame-1-80.jpg",
+    "anchor": "frame:01:20",
+    "caption": "Image at 01:20",
+    "description": "Image simulée de Image at 01:20 : la fenêtre Propriétés d'un sectionneur est ouverte sur le TCO, son menu contextuel propose « Autoriser l'ouverture ».",
+    "kind": "screen",
+    "labels": [
+      "Propriétés",
+      "Autoriser l'ouverture"
+    ]
+  },
+  {
+    "file": "figures/frame-1-140.jpg",
+    "anchor": "frame:02:20",
+    "caption": "Image at 02:20",
+    "description": "Image simulée de Image at 02:20 : la fenêtre Propriétés d'un sectionneur est ouverte sur le TCO, son menu contextuel propose « Autoriser l'ouverture ».",
+    "kind": "screen",
+    "labels": [
+      "Propriétés",
+      "Autoriser l'ouverture"
+    ]
+  }
+]

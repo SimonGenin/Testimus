@@ -77,3 +77,12 @@ test("a card that folds opens and folds its body from its head", async ({ page }
   await expect(light.getByText("4 steps.")).toBeVisible();
   await expect(light.getByRole("button", { name: /^Sectionneur avec TK/ })).toHaveAttribute("aria-expanded", "true");
 });
+
+test("the Video component plays a project video through /files, which answers byte ranges", async ({ page }) => {
+  await boot(page, "#/kit/Video");
+  const light = page.getByRole("region", { name: "Video, Light" });
+  const player = light.getByLabel("Video manoeuvre.mp4", { exact: true });
+  await expect(player).toBeVisible();
+  await expect.poll(() => player.evaluate((v: HTMLVideoElement) => Math.round(v.duration))).toBe(160);
+  await expect(light.getByLabel("Video manoeuvre.mp4 at 01:20")).toHaveAttribute("src", /#t=80$/);
+});

@@ -6,8 +6,10 @@ export const searchMode = z
   .describe("hybrid = BM25 + vectors fused by RRF; bm25 or vector alone to compare");
 
 export const chunkKind = z
-  .enum(["section", "figure"])
-  .describe("section = a section's text; figure = a figure's caption and description");
+  .enum(["section", "figure", "image", "transcript", "frame"])
+  .describe(
+    "section = a section's text; figure = a figure's caption and description; image = a picture of an images document; transcript = timed speech of a video; frame = a key frame of a video",
+  );
 
 export const edgeKind = z
   .enum(["refers", "parent", "sibling", "shows", "amends"])

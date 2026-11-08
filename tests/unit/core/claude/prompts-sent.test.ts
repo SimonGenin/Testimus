@@ -6,7 +6,7 @@ import { checkOne } from "../../../../src/core/claude/check.ts";
 import { describeFigures } from "../../../../src/core/claude/figures.ts";
 import { fixTest } from "../../../../src/core/claude/fix.ts";
 import { claudeHeaders } from "../../../../src/core/claude/headers.ts";
-import { analyseLot } from "../../../../src/core/claude/media.ts";
+import { readPictures, surveyVideo } from "../../../../src/core/claude/media.ts";
 import { contextDir, docRunLines } from "../../../../src/core/claude/prompt.ts";
 import { checkSignedIn, resetProbe } from "../../../../src/core/claude/status.ts";
 import { checkConversion, studyDoc } from "../../../../src/core/claude/study.ts";
@@ -147,7 +147,24 @@ describe("the prompts the Claude runs send", () => {
       dir,
       { note: RUN.note },
     );
-    await analyseLot(dir, D3, "recette-tco-12-10", quietCtx(dir), { force: true, ...claude });
+    await readPictures(dir, "RECETTE_TCO_12-10", quietCtx(dir), { force: true, ...claude });
+    await surveyVideo(
+      dir,
+      "Manoeuvre_d_un_sectionneur_au_PCC",
+      quietCtx(dir),
+      { name: "manoeuvre.mp4", duration: 160 },
+      [
+        {
+          file: "video/1/mosaic-1.jpg",
+          tiles: [
+            { n: 1, at: 0 },
+            { n: 2, at: 20 },
+          ],
+        },
+      ],
+      "[00:02] Bonjour, on ouvre le poste.",
+      claude,
+    );
     await expect(sent()).toMatchFileSnapshot(file("documents"));
   });
 

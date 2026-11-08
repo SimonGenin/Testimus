@@ -36,6 +36,24 @@ function summary(s: Scan, inProject: number, aside: number): string {
 
 const note = (text: string) => <span {...stylex.props(type.small, styles.muted)}>{text}</span>;
 
+// ponytail: the images of one folder are one document — one row, ticked or not as a whole
+type Row = { key: string; files: Found[] };
+const keyOf = (f: Found) => (f.group ? `folder:${f.group}` : f.rel);
+function rowsOf(files: Found[]): Row[] {
+  const rows: Row[] = [];
+  for (const f of files) {
+    const row = rows.find((r) => r.key === keyOf(f));
+    if (row) row.files.push(f);
+    else rows.push({ key: keyOf(f), files: [f] });
+  }
+  return rows;
+}
+const folderName = (group: string, dir: string) =>
+  (group === "." ? dir : group)
+    .replace(/[\\/]+$/, "")
+    .split(/[\\/]/)
+    .pop() || group;
+
 // ponytail: a folder's documents, ticked by default, the files left aside with their reason under them — each document
 // ticked is copied, converted, then indexed (docs.addFolder); the desktop app hands the folder it picked, a browser types
 // its path
@@ -50,9 +68,10 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
   const read = useRead("docs.scanFolder", { dir, recursive: true }, { enabled: !!dir });
   const scan = dir && read.data ? read.data : null;
   const fresh = !!scan && typed.trim() === dir;
-  const docs = scan ? scan.files.filter((f) => f.importable || f.reason === "in-project") : [];
+  const docs = scan ? rowsOf(scan.files.filter((f) => f.importable || f.reason === "in-project")) : [];
   const aside = scan ? scan.files.filter((f) => !f.importable && f.reason !== "in-project" && f.reason !== "twin") : [];
-  const chosen = scan ? scan.files.filter((f) => f.importable && !off[f.rel]) : [];
+  const chosen = scan ? scan.files.filter((f) => f.importable && !off[keyOf(f)]) : [];
+  const units = new Set(chosen.map(keyOf)).size;
 
   const look = () => {
     setError(null);
@@ -74,27 +93,37 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
         ...(model ? { model } : {}),
         ...(effort ? { effort } : {}),
       });
-      jobToast(`Importing ${plural(chosen.length, "document")} — started`, r.jobId, app.navigate);
+      jobToast(`Importing ${plural(units, "document")} — started`, r.jobId, app.navigate);
       onClose();
     } catch (e) {
       setStarting(false);
       setError(message(e));
     }
   };
-  const item = (f: Found): ListItemProps => {
+  const item = (row: Row | Found): ListItemProps => {
+    if (!("files" in row))
+      return { title: row.rel, tooltip: row.rel, disabled: true, trail: note(row.why ?? "left aside") };
+    const f = row.files[0];
+    const label = f.group ? `${plural(row.files.length, "image")} from ${folderName(f.group, scan?.dir ?? "")}` : f.rel;
     if (f.importable)
       return {
         title: (
-          <Checkbox checked={!off[f.rel]} label={f.rel} onChange={(on) => setOff((o) => ({ ...o, [f.rel]: !on }))} />
+          <Checkbox
+            checked={!off[row.key]}
+            label={label}
+            onChange={(on) => setOff((o) => ({ ...o, [row.key]: !on }))}
+          />
         ),
-        trail: f.twin ? note("+ the .pdf of the same name, as its twin") : undefined,
+        trail: f.twin
+          ? note("+ the .pdf of the same name, as its twin")
+          : f.group
+            ? note("one images document")
+            : undefined,
       };
-    if (f.reason === "in-project")
-      return {
-        title: <Checkbox checked={false} label={f.rel} disabled={f.why ?? true} onChange={() => {}} />,
-        trail: <Badge size="sm" label="Already in the project" />,
-      };
-    return { title: f.rel, tooltip: f.rel, disabled: true, trail: note(f.why ?? "left aside") };
+    return {
+      title: <Checkbox checked={false} label={label} disabled={f.why ?? true} onChange={() => {}} />,
+      trail: <Badge size="sm" label="Already in the project" />,
+    };
   };
 
   const browser = !picked;
@@ -106,7 +135,7 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
         scan ? (
           <span {...stylex.props(type.mono, styles.path)}>{scan.dir}</span>
         ) : (
-          "Every Word and PDF file of a folder and its sub-folders becomes a document, converted then indexed."
+          "Every Word, PDF and text file of a folder and its sub-folders becomes a document, each video one, the images of a folder one; converted then indexed."
         )
       }
       onClose={onClose}
@@ -129,9 +158,9 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
             <Button
               variant="primary"
               type="submit"
-              label={`Import ${plural(chosen.length, "document")}`}
+              label={`Import ${plural(units, "document")}`}
               loading={starting}
-              disabled={chosen.length ? false : "Tick at least one document"}
+              disabled={units ? false : "Tick at least one document"}
             />
           )}
         </>
@@ -156,10 +185,10 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
             selection="none"
             divided
             items={[...docs, ...aside]}
-            getKey={(f) => f.rel}
+            getKey={(r) => ("files" in r ? r.key : r.rel)}
             renderItem={item}
             groups={[
-              { label: "Documents", head: false, keys: docs.map((f) => f.rel) },
+              { label: "Documents", head: false, keys: docs.map((r) => r.key) },
               ...(aside.length ? [{ label: `Left aside · ${aside.length}`, keys: aside.map((f) => f.rel) }] : []),
             ]}
           />

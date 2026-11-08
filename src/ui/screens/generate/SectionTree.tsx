@@ -7,7 +7,6 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { AppContext } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { isObserved } from "../../lib/media.ts";
 import { flip, parents, type TocEntry, tick } from "../../lib/scope.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 
@@ -29,7 +28,7 @@ const styles = stylex.create({
   empty: { margin: 0, padding: space.s3, color: color.textSubtle },
 });
 
-const number = (a: string) => (a.startsWith("§") && !isObserved(a) ? a.slice(1) : "");
+const number = (a: string) => (/^§\d+(\.\d+)*$/.test(a) ? a.slice(1) : "");
 
 export function SectionTree({
   docId,

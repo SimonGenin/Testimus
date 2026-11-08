@@ -1,0 +1,140 @@
+{
+  "duration": 160,
+  "audio": true,
+  "transcript": [
+    {
+      "at": 2,
+      "end": 14,
+      "text": "Bonjour, on ouvre le poste de commande et on se connecte avec le profil régulateur."
+    },
+    {
+      "at": 17,
+      "end": 29,
+      "text": "Sur le synoptique de traction, on repère le sectionneur S12 entre les deux sous-stations."
+    },
+    {
+      "at": 32,
+      "end": 44,
+      "text": "Là on fait clic droit sur le sectionneur, et on voit que seul Propriétés est proposé."
+    },
+    {
+      "at": 47,
+      "end": 59,
+      "text": "La fenêtre Propriétés indique un sectionneur sans télécommande, à l'état fermé."
+    },
+    {
+      "at": 62,
+      "end": 74,
+      "text": "On demande l'autorisation d'ouverture, le message de refus de manœuvre apparaît dans le bandeau d'alarmes."
+    },
+    {
+      "at": 77,
+      "end": 89,
+      "text": "On acquitte l'alarme, puis on ferme la fenêtre et on revient au synoptique."
+    },
+    {
+      "at": 92,
+      "end": 104,
+      "text": "Bonjour, on ouvre le poste de commande et on se connecte avec le profil régulateur."
+    },
+    {
+      "at": 107,
+      "end": 119,
+      "text": "Sur le synoptique de traction, on repère le sectionneur S12 entre les deux sous-stations."
+    },
+    {
+      "at": 122,
+      "end": 134,
+      "text": "Là on fait clic droit sur le sectionneur, et on voit que seul Propriétés est proposé."
+    },
+    {
+      "at": 137,
+      "end": 149,
+      "text": "La fenêtre Propriétés indique un sectionneur sans télécommande, à l'état fermé."
+    },
+    {
+      "at": 152,
+      "end": 160,
+      "text": "On demande l'autorisation d'ouverture, le message de refus de manœuvre apparaît dans le bandeau d'alarmes."
+    }
+  ],
+  "candidates": [
+    {
+      "at": 0,
+      "file": "video/1/frames/c-00001.jpg"
+    },
+    {
+      "at": 20,
+      "file": "video/1/frames/c-00005.jpg"
+    },
+    {
+      "at": 40,
+      "file": "video/1/frames/c-00009.jpg"
+    },
+    {
+      "at": 60,
+      "file": "video/1/frames/c-00013.jpg"
+    },
+    {
+      "at": 80,
+      "file": "video/1/frames/c-00017.jpg"
+    },
+    {
+      "at": 100,
+      "file": "video/1/frames/c-00021.jpg"
+    },
+    {
+      "at": 120,
+      "file": "video/1/frames/c-00025.jpg"
+    },
+    {
+      "at": 140,
+      "file": "video/1/frames/c-00029.jpg"
+    }
+  ],
+  "chapters": [
+    {
+      "at": 0,
+      "title": "Ouverture du poste et connexion"
+    },
+    {
+      "at": 40,
+      "title": "Sélection du sectionneur S12 sur le synoptique"
+    },
+    {
+      "at": 80,
+      "title": "Menu contextuel et fenêtre Propriétés"
+    },
+    {
+      "at": 120,
+      "title": "Refus de manœuvre, message d'alarme"
+    }
+  ],
+  "keyFrames": [
+    {
+      "at": 20,
+      "why": "Le synoptique avec le sectionneur S12",
+      "figure": "figures/frame-1-20.jpg"
+    },
+    {
+      "at": 80,
+      "why": "Le menu contextuel ouvert",
+      "figure": "figures/frame-1-80.jpg"
+    },
+    {
+      "at": 140,
+      "why": "Le message de refus",
+      "figure": "figures/frame-1-140.jpg"
+    }
+  ],
+  "width": 1280,
+  "height": 720,
+  "transcribed": {
+    "with": "Whisper small (mock)",
+    "at": "2026-11-05T10:00:00.000Z",
+    "language": "french"
+  },
+  "surveyed": {
+    "at": "2026-11-05T10:00:00.000Z"
+  }
+}

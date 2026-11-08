@@ -50,8 +50,8 @@ function positions(md: string): (anchor: string) => number {
   const ls = lines(md);
   const at = new Map<string, number>();
   ls.forEach((l, i) => {
-    for (const m of l.matchAll(/<!--\s*(§|fig)\s*(\S+?)\s*-->/g)) {
-      const key = m[1] === "§" ? `§${m[2]}` : `fig:${m[2]}`;
+    for (const m of l.matchAll(/<!--\s*(§|fig|img|frame|t)\s*(\S+?)\s*-->/g)) {
+      const key = m[1] === "§" ? `§${m[2]}` : `${m[1]}:${m[2]}`;
       if (!at.has(key)) at.set(key, i);
     }
   });
@@ -92,7 +92,7 @@ const baseAnchor = (anchor: string) => anchor.replace(/~\d+$/, "");
 
 export function chunkTitle(d: CorpusDoc, c: Chunk): string {
   const a = baseAnchor(c.anchor);
-  if (c.kind === "figure") return c.text.split("\n")[0] ?? "";
+  if (c.kind === "figure" || c.kind === "image" || c.kind === "frame") return c.text.split("\n")[0] ?? "";
   return d.titles.get(a) ?? "";
 }
 

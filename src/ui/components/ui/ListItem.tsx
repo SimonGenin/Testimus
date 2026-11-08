@@ -51,6 +51,8 @@ const styles = stylex.create({
   body: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: space.s1 },
   titleLine: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
   title: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  titleWrap: { overflow: "visible", whiteSpace: "normal", overflowWrap: "anywhere" },
+  wrapped: { alignItems: "flex-start" },
   titleOn: { fontWeight: fontWeight.medium },
   tip: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", minWidth: 0 },
   meta: {
@@ -103,6 +105,8 @@ export type ListItemProps = {
   danger?: boolean;
   /** the full title, on hover and focus */
   tooltip?: string;
+  /** the title wraps onto as many lines as it needs instead of ending with an ellipsis (a transcript line) */
+  wrap?: boolean;
   /** the catalogue only */
   debugState?: "hover" | "focus";
 };
@@ -139,6 +143,7 @@ export function ListItem({
   disabled = false,
   danger = false,
   tooltip,
+  wrap = false,
   debugState,
   role,
   selected = false,
@@ -167,7 +172,9 @@ export function ListItem({
     "aria-level": role === "treeitem" ? (depth ?? 0) + 1 : undefined,
     "aria-expanded": role === "treeitem" && typeof expanded === "boolean" ? expanded : undefined,
   };
-  const titleText = <span {...stylex.props(styles.title, selected && styles.titleOn)}>{title}</span>;
+  const titleText = (
+    <span {...stylex.props(styles.title, wrap && styles.titleWrap, selected && styles.titleOn)}>{title}</span>
+  );
   return (
     <li
       id={id}
@@ -199,6 +206,7 @@ export function ListItem({
         styles.item,
         interactive && !disabled && styles.pickable,
         two && styles.two,
+        wrap && styles.wrapped,
         divided && styles.divided,
         lit && !disabled && styles.hover,
         selected && styles.selected,

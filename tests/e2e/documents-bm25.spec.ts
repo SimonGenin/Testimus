@@ -10,7 +10,7 @@ test("documents indexed on words only still open and search, and indexing again 
   expect(hits.length).toBeGreaterThan(0);
   expect(hits.every((h) => h.degraded)).toBe(true);
 
-  await boot(page, "#/documents");
+  await boot(page, "#/documents/SOSIE_211_D401-1_3");
   const list = page.getByRole("region", { name: "Document list" });
   const rows = list.getByRole("option", { name: /SOSIE_/ });
   await expect(rows).toHaveCount(2);

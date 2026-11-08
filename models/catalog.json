@@ -858,6 +858,87 @@
       ],
       "tier": "quality",
       "lighter": "qwen3-reranker-4b-q8"
+    },
+    {
+      "id": "whisper-small-q8",
+      "kind": "speech",
+      "label": "Whisper small (8-bit, CPU)",
+      "family": "whisper",
+      "licence": "MIT",
+      "commercialUse": true,
+      "runtimes": [
+        "transformers"
+      ],
+      "source": {
+        "hf": {
+          "repo": "onnx-community/whisper-small",
+          "revision": "36050c46d777d46dc4b5f43f6d90574fc38f8732",
+          "files": [
+            {
+              "path": "config.json",
+              "sha256": "git:b0447377b1ade057f991a6a0870d2a91de762f7f",
+              "size": 2227
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "git:703dc78ee83e87fca3ace72170253cdfe4cd2d13",
+              "size": 3893
+            },
+            {
+              "path": "preprocessor_config.json",
+              "sha256": "git:91876762a536a746d268353c5cba57286e76b058",
+              "size": 339
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "git:1e95340ff836fad1b5932e800fb7b8c5e6d78a74",
+              "size": 2480466
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "git:d13b786c04765fb1a06492b53587752cd67665ea",
+              "size": 282683
+            },
+            {
+              "path": "special_tokens_map.json",
+              "sha256": "git:bf69932dca4b3719b59fdd8f6cc1978109509f6c",
+              "size": 2194
+            },
+            {
+              "path": "added_tokens.json",
+              "sha256": "git:e3d256c988462aa153dcabe2aa38b8e9b436c06f",
+              "size": 34604
+            },
+            {
+              "path": "onnx/encoder_model_quantized.onnx",
+              "sha256": "a43a83f3c5361cd591cfa7c36f14b43cf7cb22f47a415cc14a8d557be800fa92",
+              "size": 92326160
+            },
+            {
+              "path": "onnx/decoder_model_merged_quantized.onnx",
+              "sha256": "ec07c3cbb64172c39791e26ee870a65ac22b458c36722bfe2776b3dbf741e0c9",
+              "size": 156750845
+            }
+          ]
+        }
+      },
+      "quantization": "q8",
+      "dtypeByDevice": {
+        "cpu": "q8"
+      },
+      "dims": 0,
+      "maxInputTokens": 448,
+      "queryInstruction": "",
+      "docInstruction": "",
+      "size": {
+        "downloadMB": 239,
+        "ramMB": 900,
+        "vramMB": 0
+      },
+      "devices": [
+        "cpu"
+      ],
+      "tier": "light"
     }
   ],
   "packs": [

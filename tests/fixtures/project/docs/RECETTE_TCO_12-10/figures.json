@@ -1,0 +1,30 @@
+[
+  {
+    "file": "figures/img-1.jpg",
+    "anchor": "img:1",
+    "caption": "IMG_0042.jpg — 2026-10-12 14:03",
+    "description": "Le TCO de la ligne 3 montre le sectionneur S12 sur la ligne de traction ; son menu contextuel est ouvert à droite du symbole, l'item « Autoriser l'ouverture » est surligné et « Confirmer l'ouverture » est grisé.",
+    "labels": [
+      "TCO — Ligne 3 — Poste de commande centralisé",
+      "S12",
+      "Propriétés",
+      "Autoriser l'ouverture",
+      "Confirmer l'ouverture"
+    ],
+    "kind": "screen"
+  },
+  {
+    "file": "figures/img-2.jpg",
+    "anchor": "img:2",
+    "caption": "IMG_0043.jpg — 2026-10-12 14:05",
+    "description": "La fenêtre « Propriétés — Sectionneur S12 » est ouverte au milieu du TCO : elle indique un sectionneur sans télécommande (TK), à l'état fermé, dont l'ouverture est autorisée ; le bouton Fermer est en bas à droite.",
+    "labels": [
+      "Propriétés — Sectionneur S12",
+      "Type : sans télécommande (TK)",
+      "État : Fermé",
+      "Ouverture : autorisée",
+      "Fermer"
+    ],
+    "kind": "screen"
+  }
+]

@@ -65,8 +65,8 @@ function refOf(raw: string): { doc: string; anchor: string } {
   const m = raw.trim().match(/^([^#]+)#(.+)$/);
   if (!m) return { doc: raw.trim(), anchor: "" };
   let a = m[2].trim().replace(/~\d+$/, "");
-  const f = a.match(/^fig\s*[:\s]\s*(.+)$/i);
-  a = f ? `fig:${f[1].trim()}` : `§${a.replace(/^§\s*/, "")}`;
+  const f = a.match(/^(fig|img|frame|t)\s*[:\s]\s*(.+)$/i);
+  a = f ? `${f[1].toLowerCase()}:${f[2].trim()}` : `§${a.replace(/^§\s*/, "")}`;
   return { doc: m[1].trim(), anchor: a };
 }
 

@@ -1,15 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
-import type { DocRef, IndexRun } from "../../../core/types.ts";
+import type { DocRef, IndexRun, SourceType } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
-import { Icon } from "../../components/ui/Icon.tsx";
+import { Icon, type IconName } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { type } from "../../components/ui/type.ts";
-import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { indexRunLine, indexRunPercent } from "../../lib/format.ts";
-import { type Batch, batchLine } from "../../lib/media.ts";
+import { isObservedDoc, sourceType, typeLabel } from "../../lib/media.ts";
 import { conversionsLine, owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
@@ -36,56 +35,39 @@ const styles = stylex.create({
   lines: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.snug, minWidth: 0 },
   mono: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", color: color.textSubtle },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
-  batches: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s1,
-    alignSelf: "stretch",
-    minWidth: 0,
-    margin: 0,
-    padding: 0,
-    listStyle: "none",
-  },
-  batch: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, color: color.textMuted },
-  batchName: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  out: { color: color.textSubtle },
   run: { paddingBlock: space.s3, paddingInline: space.s6 },
   converting: { margin: 0, paddingTop: space.s3, paddingInline: space.s6, color: color.textMuted },
 });
 
-// ponytail: a document's batches under its row — what each holds, and whether it is in the document
-function BatchLines({ batches }: { batches: Batch[] }) {
-  if (!batches.length) return null;
-  return (
-    <ul aria-label="Photos and videos" {...stylex.props(styles.batches)}>
-      {batches.map((b) => (
-        <li key={b.id} {...stylex.props(type.small, styles.batch, !b.included && styles.out)}>
-          <Icon name="image" size="sm" />
-          <span {...stylex.props(styles.batchName)}>
-            {b.title} — {batchLine(b)}
-            {b.included ? "" : " · not in the document"}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 type Item = { key: string; doc?: DocRef; upload?: Upload };
 
-function docItem(d: DocRef, batches: Batch[]): ListItemProps {
+const LEAD: Record<SourceType, IconName> = {
+  docx: "documents",
+  pdf: "file",
+  txt: "text",
+  images: "image",
+  video: "play",
+  mixed: "image",
+};
+
+// ponytail: a document's row — its title, then what it is (Word · PDF · Text · Images · N · Video · mm:ss), Observed
+// for images and videos of the real system, its code, its state
+function docItem(d: DocRef): ListItemProps {
   const code = [d.code, d.version].filter(Boolean).join(" · ");
   return {
     title: d.title,
     tooltip: code ? `${code} — ${d.title}` : d.title,
-    lead: <Icon name={/\.pdf$/i.test(d.source.file) ? "file" : "documents"} />,
+    lead: <Icon name={LEAD[sourceType(d)]} />,
     meta: (
       <span {...stylex.props(styles.lines)}>
-        {code && <span {...stylex.props(type.mono, styles.mono)}>{code}</span>}
+        <span {...stylex.props(styles.badges)}>
+          <Badge size="sm" label={typeLabel(d)} />
+          {isObservedDoc(d) && <Badge size="sm" outline label="Observed" />}
+          {code && <span {...stylex.props(type.mono, styles.mono)}>{code}</span>}
+        </span>
         <span {...stylex.props(styles.badges)}>
           <DocBadges doc={d} />
         </span>
-        <BatchLines batches={batches} />
       </span>
     ),
   };
@@ -110,8 +92,6 @@ export function DocList({
   onOpen: (id: string) => void;
 }) {
   const cancel = useCancel();
-  const media = useRead("media.list", {}).data;
-  const batchesOf = (id: string) => (Array.isArray(media) ? media.filter((b) => b.doc === id) : []);
   const uploads = all.map((u) => {
     const d = u.job === "convert" ? docs?.find((x) => x.id === u.docId) : undefined;
     return d ? { ...u, name: baseName(d.source.name || d.source.file) || d.id } : u;
@@ -147,9 +127,7 @@ export function DocList({
           items={items}
           getKey={(i) => i.key}
           renderItem={(i) =>
-            i.upload && (!i.doc || !settled(i.upload))
-              ? uploadItem(i.upload, cancel)
-              : docItem(i.doc as DocRef, batchesOf((i.doc as DocRef).id))
+            i.upload && (!i.doc || !settled(i.upload)) ? uploadItem(i.upload, cancel) : docItem(i.doc as DocRef)
           }
           selected={activeId || null}
           onSelect={pick}

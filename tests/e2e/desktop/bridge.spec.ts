@@ -270,7 +270,31 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
     await count(3);
     expect((await main(app)).asked.at(-1)).toMatchObject({
       title: "Add documents",
-      filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
+      filters: [
+        {
+          name: "Documents, images and videos",
+          extensions: [
+            "docx",
+            "pdf",
+            "txt",
+            "md",
+            "jpg",
+            "jpeg",
+            "png",
+            "webp",
+            "mp4",
+            "mov",
+            "m4v",
+            "mkv",
+            "webm",
+            "avi",
+            "wmv",
+          ],
+        },
+        { name: "Word, PDF or text", extensions: ["docx", "pdf", "txt", "md"] },
+        { name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] },
+        { name: "Videos", extensions: ["mp4", "mov", "m4v", "mkv", "webm", "avi", "wmv"] },
+      ],
       properties: expect.arrayContaining(["multiSelections"]),
     });
     expect(bodies).toEqual([{ files: [{ path: picked }] }]);

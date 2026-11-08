@@ -319,9 +319,9 @@ export const nameOf = (p: Picked) => p.name || (p.path ? basename(p.path) : "");
 const stem = (n: string) => n.replace(/\.[^.]+$/, "").toLowerCase();
 
 // ponytail: of the files a person dropped or picked, each .docx is one document with the .pdf of the same name as
-// its rendering; a .pdf alone is one document; anything else is refused
+// its rendering; a .pdf or a text file alone is one document; anything else is refused
 export function pairFiles(files: Picked[]): { docs: { main: Picked; pdf?: Picked }[]; rejected: Picked[] } {
-  const ok = (p: Picked) => /\.(docx|pdf)$/i.test(nameOf(p)) && (p.path || p.dataBase64 !== undefined);
+  const ok = (p: Picked) => /\.(docx|pdf|txt|md)$/i.test(nameOf(p)) && (p.path || p.dataBase64 !== undefined);
   const words = files.filter((f) => ok(f) && /\.docx$/i.test(nameOf(f)));
   const pdfs = files.filter((f) => ok(f) && /\.pdf$/i.test(nameOf(f)));
   const paired = new Set<Picked>();
@@ -331,6 +331,7 @@ export function pairFiles(files: Picked[]): { docs: { main: Picked; pdf?: Picked
     return pdf ? { main, pdf } : { main };
   });
   for (const p of pdfs) if (!paired.has(p)) docs.push({ main: p });
+  for (const t of files.filter((f) => ok(f) && /\.(txt|md)$/i.test(nameOf(f)))) docs.push({ main: t });
   return { docs, rejected: files.filter((f) => !ok(f)) };
 }
 

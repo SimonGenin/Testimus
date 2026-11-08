@@ -1,4 +1,5 @@
 import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../../../../src/core/env.ts";
 import type { EvalReport } from "../../../../src/core/rag/eval.ts";
@@ -6,11 +7,14 @@ import { call, fixtureCopy } from "../registry.ts";
 
 // ponytail: the numbers rag.eval gave on the fixture project before the core-rag rewrite; the same
 // call must give the same numbers after it. bm25 is the lexical mode (no model); hybrid runs on the --mock runtime.
+// The corpus is the fixture's two written documents, as it was then (its images, video and text documents came after).
 let dir: string;
 const realMock = env.mock;
 
 beforeEach(() => {
   dir = fixtureCopy("eval-baseline");
+  for (const later of ["Manoeuvre_d_un_sectionneur_au_PCC", "Notes_de_reunion", "RECETTE_TCO_12-10"])
+    rmSync(join(dir, "docs", later), { recursive: true, force: true });
   env.mock = true;
 });
 
@@ -619,7 +623,7 @@ describe("rag.eval on the fixture project gives the numbers it gave before the r
           },
         ],
         "chunker": "3d49c9729806d737",
-        "corpus": "dd283020389bf770",
+        "corpus": "d5b8509deafc876e",
         "policies": [
           {
             "available": true,
@@ -1354,7 +1358,7 @@ describe("rag.eval on the fixture project gives the numbers it gave before the r
           },
         ],
         "chunker": "3d49c9729806d737",
-        "corpus": "dd283020389bf770",
+        "corpus": "d5b8509deafc876e",
         "policies": [
           {
             "available": true,

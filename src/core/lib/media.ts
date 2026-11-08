@@ -1,158 +1,167 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { UserError } from "../command.ts";
-import { env } from "../env.ts";
-import { slug, uniqueKey } from "../rag/convert.ts";
-import type { DocJson, FigureEntry, MediaItem, MediaLot } from "../types.ts";
+import type { DocJson, DocKind, FigureEntry, MediaFile, SourceType } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { docDir, readDoc, readFigures, writeDoc, writeFigures } from "./docs.ts";
 import { sha256 } from "./hash.ts";
-import { readJson } from "./project.ts";
 
-export const BODY = "body.md";
-export const PHOTO = /\.(jpe?g|png|webp)$/i;
-// ponytail: what a later phase reads (videos and sound need ffmpeg and Whisper, HEIC needs ffmpeg): refused for now
-// with that reason, never as « not a photo »
-export const LATER = /\.(heic|heif|mp4|mov|mkv|avi|webm|mp3|m4a|wav)$/i;
-const LOT_RE = /^[a-z0-9][a-z0-9-]*$/;
+export const IMAGE = /\.(jpe?g|png|webp)$/i;
+export const VIDEO = /\.(mp4|mov|m4v|mkv|webm|avi|wmv)$/i;
+export const TEXT = /\.(txt|md)$/i;
+// ponytail: what a later version reads (HEIC needs a decoder sharp does not ship, sound alone has no picture): refused
+// with that reason, never as « not a document »
+export const LATER = /\.(heic|heif|mp3|m4a|wav)$/i;
 const MAX_SIDE = 2000;
 
 export type Picked = { path?: string; name?: string; dataBase64?: string };
-export type Rejected = { name: string; why: string; code: "not-a-photo" | "later" | "duplicate" | "failed" };
+export type Rejected = { name: string; why: string; code: "not-media" | "later" | "duplicate" | "failed" };
 
-export const lotAnchor = (lot: string) => `§lot-${lot}`;
-export const itemAnchor = (lot: string, item: string) => `§lot-${lot}.${item}`;
-export const itemFigure = (lot: string, item: string) => `fig:lot-${lot}.${item}`;
-const figureFile = (lot: string, item: string) => `figures/lot-${lot}-${item}.jpg`;
+export const nameOf = (p: Picked) => basename((p.name || p.path || "").replace(/\\/g, "/"));
+export const isImage = (name: string) => IMAGE.test(name);
+export const isVideo = (name: string) => VIDEO.test(name);
 
-// ponytail: an annex's anchors all start with lot- — the body of a document never has one, so a source tells by its
-// anchor alone that it comes from an observation; the batch is the part up to the first dot
-export function lotOfAnchor(anchor: string): string | null {
-  return /^(?:§\s*|fig:)lot-([a-z0-9][a-z0-9-]*)(?:\.|$)/.exec(anchor.trim())?.[1] ?? null;
+// ponytail: the type a document's source has — written in doc.json for the files of its own, read from the copy's
+// extension for a Word, PDF or text document
+export function sourceType(doc: Pick<DocJson, "source">): SourceType {
+  if (doc.source.type) return doc.source.type;
+  const ext = extname(doc.source.file || doc.source.name || "").toLowerCase();
+  return ext === ".pdf" ? "pdf" : ext === ".txt" || ext === ".md" ? "txt" : "docx";
 }
 
-export function mediaDir(project: string, docId: string, lot?: string): string {
-  if (lot !== undefined && !LOT_RE.test(lot))
-    throw new UserError(`Invalid batch id "${lot}".`, "media.list gives the batches of a document.");
-  return join(docDir(project, docId), "media", ...(lot === undefined ? [] : [lot]));
+export const isMediaType = (t: SourceType) => t === "images" || t === "video" || t === "mixed";
+export const isMediaDoc = (doc: Pick<DocJson, "source">) => isMediaType(sourceType(doc));
+
+// ponytail: pictures and videos show what the real system does, not what it must do — a source from such a document
+// says how to do a step; the team may say one is the reference
+export const isObserved = (doc: Pick<DocJson, "source" | "reference">) => isMediaDoc(doc) && !doc.reference;
+
+export const filesOf = (doc: Pick<DocJson, "source">): MediaFile[] => doc.source.files ?? [];
+
+export function typeOfFiles(files: Pick<MediaFile, "kind">[]): SourceType {
+  const videos = files.filter((f) => f.kind === "video").length;
+  if (!videos) return "images";
+  return videos === files.length && videos === 1 ? "video" : "mixed";
 }
 
-export function findLot(doc: DocJson, lot: string): MediaLot {
-  const l = doc.media?.find((x) => x.id === lot);
-  if (!l)
-    throw new UserError(`${doc.id} has no batch ${lot}.`, `testimus media list --doc ${doc.id} gives its batches.`);
-  return l;
-}
-
-// ponytail: doc.json is read again right before every change of a batch, so two jobs on the same document never write
-// over each other's batches
-export function updateLot(project: string, docId: string, lot: string, change: (l: MediaLot) => void): MediaLot {
-  const doc = readDoc(project, docId);
-  const l = findLot(doc, lot);
-  change(l);
-  writeDoc(project, doc);
-  return l;
-}
-
-export function updateItem(
-  project: string,
-  docId: string,
-  lot: string,
-  item: string,
-  change: (i: MediaItem) => void,
-): void {
-  updateLot(project, docId, lot, (l) => {
-    const i = l.items.find((x) => x.id === item);
-    if (i) change(i);
-  });
-}
-
-export function newLot(project: string, docId: string, o: { title?: string; reference?: boolean; included?: boolean }) {
-  const doc = readDoc(project, docId);
-  const used = new Set((doc.media ?? []).map((l) => l.id));
-  const title = o.title?.trim() || `Photos ${env.now().toISOString().slice(0, 10)}`;
-  const base = slug(title).slice(0, 24).replace(/-+$/, "") || "lot";
-  const lot: MediaLot = {
-    id: uniqueKey(used, base),
-    title,
-    included: o.included ?? true,
-    ...(o.reference ? { reference: true } : {}),
-    added: env.now().toISOString(),
-    items: [],
+// ponytail: the source's own hash follows its files (their hashes in their numbers' order), so a document whose
+// files changed is read again by the index
+export function withFiles(doc: DocJson, files: MediaFile[]): DocJson {
+  const sorted = [...files].sort((a, b) => a.n - b.n);
+  return {
+    ...doc,
+    source: {
+      ...doc.source,
+      type: typeOfFiles(sorted),
+      file: "files",
+      sha256: sha256(sorted.map((f) => f.sha256).join("\n")),
+      files: sorted,
+      last: Math.max(doc.source.last ?? 0, ...sorted.map((f) => f.n), 0),
+    },
   };
-  writeDoc(project, { ...doc, media: [...(doc.media ?? []), lot] });
-  return lot;
 }
 
-export function readLotContext(project: string, docId: string, lot: string): string {
-  const file = join(mediaDir(project, docId, lot), "context.md");
-  return existsSync(file) ? readFileSync(file, "utf8").trim() : "";
-}
-
-export function writeLotContext(project: string, docId: string, lot: string, text: string): void {
-  const t = text.trim();
-  writeAtomic(join(mediaDir(project, docId, lot), "context.md"), t ? `${t}\n` : "");
-}
-
-export const nameOf = (p: Picked) => basename(p.name || p.path || "");
-
-// ponytail: each photo is copied as it is under files/ (its own name, made unique), the same picture twice in a batch is
-// refused, and what is not a photo is said why
-export function copyFiles(
-  project: string,
-  docId: string,
-  lot: string,
-  files: Picked[],
-): { items: MediaItem[]; rejected: Rejected[] } {
+// ponytail: doc.json is read again right before every change of its files, so two jobs on one document never write
+// over each other's work
+export function updateFiles(project: string, docId: string, change: (files: MediaFile[]) => MediaFile[] | undefined) {
   const doc = readDoc(project, docId);
-  const l = findLot(doc, lot);
-  const dir = join(mediaDir(project, docId, lot), "files");
-  const ids = new Set(l.items.map((i) => i.id));
-  const names = new Set(l.items.map((i) => basename(i.file).toLowerCase()));
-  const hashes = new Set(l.items.map((i) => i.sha256));
-  const items: MediaItem[] = [];
+  const files = filesOf(doc).map((f) => ({ ...f }));
+  const next = change(files) ?? files;
+  const out = withFiles(doc, next);
+  writeDoc(project, out);
+  return out;
+}
+
+export const updateFile = (project: string, docId: string, n: number, change: (f: MediaFile) => void) =>
+  updateFiles(project, docId, (files) => {
+    const f = files.find((x) => x.n === n);
+    if (f) change(f);
+  });
+
+function bytesOf(f: Picked, name: string): Buffer {
+  if (f.dataBase64 !== undefined) return Buffer.from(f.dataBase64, "base64");
+  if (f.path && existsSync(f.path)) return readFileSync(f.path);
+  throw new Error(`File not found: ${f.path ?? name}`);
+}
+
+// ponytail: each file is copied as it is under files/ (its own name, made unique) and numbered after the highest
+// number the document ever gave — a number is never reused, so an anchor img:<n> stays the picture it was; the same
+// file twice is refused, and what is neither an image nor a video is said why
+export function copyMediaFiles(project: string, docId: string, picked: Picked[]) {
+  const doc = readDoc(project, docId);
+  const dir = join(docDir(project, docId), "files");
+  const files = filesOf(doc);
+  const names = new Set(files.map((f) => basename(f.file).toLowerCase()));
+  const hashes = new Set(files.map((f) => f.sha256));
+  let next = Math.max(doc.source.last ?? 0, ...files.map((f) => f.n), 0) + 1;
+  const added: MediaFile[] = [];
   const rejected: Rejected[] = [];
-  for (const f of files) {
-    const name = nameOf(f);
+  for (const p of picked) {
+    const name = nameOf(p);
     if (LATER.test(name)) {
-      rejected.push({
-        name,
-        why: "Videos, sound and HEIC photos come in a later version: give JPEG, PNG or WebP photos for now.",
-        code: "later",
-      });
+      rejected.push({ name, why: "HEIC photos and sound files come in a later version.", code: "later" });
       continue;
     }
-    if (!PHOTO.test(name)) {
-      rejected.push({ name, why: "Only photos (JPEG, PNG, WebP) can be added to a batch.", code: "not-a-photo" });
+    const kind = isImage(name) ? "image" : isVideo(name) ? "video" : null;
+    if (!kind) {
+      rejected.push({ name, why: "Only images (JPEG, PNG, WebP) and videos can be added here.", code: "not-media" });
       continue;
     }
     let data: Buffer;
     try {
-      if (f.dataBase64 !== undefined) data = Buffer.from(f.dataBase64, "base64");
-      else if (f.path && existsSync(f.path)) data = readFileSync(f.path);
-      else throw new Error(`File not found: ${f.path ?? name}`);
+      data = bytesOf(p, name);
     } catch (e) {
       rejected.push({ name, why: e instanceof Error ? e.message : String(e), code: "failed" });
       continue;
     }
     const hash = sha256(data);
     if (hashes.has(hash)) {
-      rejected.push({ name, why: "This photo is already in the batch.", code: "duplicate" });
+      rejected.push({ name, why: "This file is already in the document.", code: "duplicate" });
       continue;
     }
     hashes.add(hash);
-    const stem = basename(name, extname(name));
-    const id = uniqueKey(ids, slug(stem).slice(0, 40).replace(/-+$/, "") || "photo");
+    const n = next++;
     let file = name.replace(/[\\/:*?"<>|]/g, "_");
-    if (names.has(file.toLowerCase())) file = `${id}${extname(name).toLowerCase()}`;
+    if (names.has(file.toLowerCase())) file = `${n}-${file}`;
     names.add(file.toLowerCase());
+    mkdirSync(dir, { recursive: true });
     writeAtomic(join(dir, file), data);
-    items.push({ id, name, file: `files/${file}`, kind: "photo", sha256: hash, state: "new" });
+    added.push({ n, name, file: `files/${file}`, kind, sha256: hash, state: "new" });
   }
-  updateLot(project, docId, lot, (x) => {
-    x.items.push(...items);
-  });
-  return { items, rejected };
+  if (added.length)
+    updateFiles(project, docId, (fs) => {
+      fs.push(...added);
+    });
+  return { added, rejected };
+}
+
+export function newMediaDoc(
+  project: string,
+  o: { id: string; title: string; kind?: DocKind; name: string; uploaded?: boolean; date?: string },
+): DocJson {
+  const dir = docDir(project, o.id);
+  if (existsSync(join(dir, "doc.json")))
+    throw new UserError(`Document ${o.id} already exists.`, "Give another id, or add the files to that document.");
+  mkdirSync(dir, { recursive: true });
+  const doc: DocJson = {
+    id: o.id,
+    code: o.id,
+    title: o.title,
+    version: "",
+    date: o.date ?? "",
+    kind: o.kind ?? "other",
+    status: "draft",
+    source: {
+      type: "images",
+      name: o.name,
+      file: "files",
+      sha256: "",
+      files: [],
+      ...(o.uploaded ? { uploaded: true } : {}),
+    },
+  };
+  writeDoc(project, doc);
+  return doc;
 }
 
 // ponytail: the earliest date written in the EXIF block (the shot, before any later edit), as local time
@@ -166,17 +175,18 @@ export function exifDate(exif: Uint8Array | undefined): string | undefined {
   return dates[0];
 }
 
+export const imageFigure = (n: number) => `figures/img-${n}.jpg`;
+export const imageAnchor = (n: number) => `img:${n}`;
+
 // ponytail: the picture Claude and the tester see — a JPEG of at most 2000 px a side, turned as the camera held it
 // (EXIF orientation), a transparent PNG laid on white; the original stays as it was under files/
-export async function preparePhoto(
+export async function prepareImage(
   project: string,
   docId: string,
-  lot: string,
-  item: MediaItem,
-): Promise<Pick<MediaItem, "figure" | "takenAt" | "width" | "height">> {
+  f: MediaFile,
+): Promise<Pick<MediaFile, "figure" | "takenAt" | "width" | "height">> {
   const { default: sharp } = await import("sharp");
-  const src = join(mediaDir(project, docId, lot), item.file);
-  const input = readFileSync(src);
+  const input = readFileSync(join(docDir(project, docId), f.file));
   const meta = await sharp(input, { failOn: "none" }).metadata();
   const out = await sharp(input, { failOn: "none" })
     .rotate()
@@ -184,192 +194,88 @@ export async function preparePhoto(
     .flatten({ background: "#ffffff" })
     .jpeg({ quality: 85 })
     .toBuffer({ resolveWithObject: true });
-  const figure = figureFile(lot, item.id);
+  const figure = imageFigure(f.n);
   writeAtomic(join(docDir(project, docId), figure), out.data);
   const takenAt = exifDate(meta.exif);
   return { figure, width: out.info.width, height: out.info.height, ...(takenAt ? { takenAt } : {}) };
 }
 
-// ponytail: a batch reads in the order the photos were taken; a photo without a date keeps its place after them
-export function ordered(items: MediaItem[]): MediaItem[] {
-  return items
-    .map((it, i) => ({ it, i }))
-    .sort((a, b) =>
-      a.it.takenAt && b.it.takenAt
-        ? a.it.takenAt.localeCompare(b.it.takenAt) || a.i - b.i
-        : a.it.takenAt
-          ? -1
-          : b.it.takenAt
-            ? 1
-            : a.i - b.i,
-    )
-    .map((x) => x.it);
+// ponytail: the pictures read in the order they were taken; one without a date keeps its number's place after them
+export function ordered<T extends Pick<MediaFile, "n" | "takenAt">>(files: T[]): T[] {
+  return [...files].sort((a, b) =>
+    a.takenAt && b.takenAt
+      ? a.takenAt.localeCompare(b.takenAt) || a.n - b.n
+      : a.takenAt
+        ? -1
+        : b.takenAt
+          ? 1
+          : a.n - b.n,
+  );
 }
 
-const WORDS = {
-  fr: {
-    annex: "Annexe",
-    photos: (n: number) => `${n} photo${n > 1 ? "s" : ""}`,
-    context: "Contexte du lot :",
-    observed:
-      "Photos du système réel : elles montrent comment il se comporte et comment faire, pas ce qu'il doit faire.",
-    labels: "Texte visible :",
-    illustrates: "Illustre",
-    when: (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)} ${d.slice(11, 16)}`,
-  },
-  en: {
-    annex: "Annex",
-    photos: (n: number) => `${n} photo${n > 1 ? "s" : ""}`,
-    context: "Batch context:",
-    observed:
-      "Photos of the real system: they show how it behaves and how to do things, not what it is required to do.",
-    labels: "Visible text:",
-    illustrates: "Illustrates",
-    when: (d: string) => `${d.slice(0, 10)} ${d.slice(11, 16)}`,
-  },
-};
+const when = (d: string) => `${d.slice(0, 10)} ${d.slice(11, 16)}`;
 
-const alt = (s: string) =>
-  s
+// ponytail: an image's caption is its file's name and when it was taken — what the team gave, so it is the image's
+// quotable text; what Claude read in it (description, visible text) never is
+export const imageCaption = (f: Pick<MediaFile, "name" | "takenAt">) =>
+  (f.takenAt ? `${f.name} — ${when(f.takenAt)}` : f.name)
     .replace(/[[\]()<>]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-// ponytail: part.md — the annex as doc.md carries it: a heading for the batch, its context, then a section per photo
-// (its picture, what Claude read in it, the text it shows, the sections of the body it illustrates); a photo Claude has
-// not read yet still has its section and its picture
-export function partMd(lot: MediaLot, context: string, figures: FigureEntry[], language: string): string {
-  const w = language.toLowerCase().startsWith("fr") ? WORDS.fr : WORDS.en;
-  const byAnchor = new Map(figures.map((f) => [f.anchor, f]));
-  const photos = ordered(lot.items).filter((i) => i.figure);
-  const out = [`# ${w.annex} — ${lot.title} <!-- § lot-${lot.id} -->`, ""];
-  if (context) out.push(`${w.context} ${context.replace(/\s*\n\s*/g, " ")}`, "");
-  out.push(`${w.photos(photos.length)}. ${w.observed}`, "");
-  for (const it of photos) {
-    const f = byAnchor.get(itemFigure(lot.id, it.id));
-    const caption = alt(it.takenAt ? `${it.name} — ${w.when(it.takenAt)}` : it.name);
-    out.push(`## ${alt(basename(it.name, extname(it.name)))} <!-- § lot-${lot.id}.${it.id} -->`, "");
-    out.push(`![${caption}](${it.figure}) <!-- fig lot-${lot.id}.${it.id} -->`, "");
-    if (f?.description.trim()) out.push(f.description.trim(), "");
-    if (f?.labels?.length) out.push(`${w.labels} ${f.labels.map((l) => `« ${l} »`).join(" · ")}`, "");
-    if (it.illustrates?.length) out.push(`${w.illustrates} ${it.illustrates.join(", ")}.`, "");
-  }
-  return `${out.join("\n").trimEnd()}\n`;
-}
-
-export function writePart(project: string, docId: string, lot: string, language: string): void {
-  const doc = readDoc(project, docId);
-  const l = findLot(doc, lot);
-  const md = partMd(l, readLotContext(project, docId, lot), readFigures(project, docId), language);
-  writeAtomic(join(mediaDir(project, docId, lot), "part.md"), md);
-}
-
-// ponytail: the figure entry of a photo — its caption is the picture's line in the annex, what Claude read stays
-export function photoFigure(lot: MediaLot, it: MediaItem, previous?: FigureEntry): FigureEntry {
+export function imageEntry(f: MediaFile, previous?: FigureEntry): FigureEntry {
   return {
-    file: it.figure ?? "",
-    anchor: itemFigure(lot.id, it.id),
-    caption: previous?.caption || it.name,
+    file: f.figure ?? "",
+    anchor: imageAnchor(f.n),
+    caption: imageCaption(f),
     description: previous?.description ?? "",
     ...(previous?.labels ? { labels: previous.labels } : {}),
     kind: previous?.kind ?? "photo",
   };
 }
 
-// ponytail: figures.json keeps an entry per photo of every batch (included or not), next to the document's own
-export function syncLotFigures(project: string, docId: string, lot: string): void {
+// ponytail: figures.json keeps an entry per prepared image (img:<n>), what Claude read kept; the key frames of the
+// videos (frame:…) are written by the video pipeline and kept here
+export function syncImageEntries(project: string, docId: string): FigureEntry[] {
   const doc = readDoc(project, docId);
-  const l = findLot(doc, lot);
-  const prefix = `fig:lot-${lot}.`;
   const all = readFigures(project, docId);
-  const mine = new Map(all.filter((f) => f.anchor.startsWith(prefix)).map((f) => [f.anchor, f]));
-  const kept = all.filter((f) => !f.anchor.startsWith(prefix));
-  const photos = ordered(l.items)
-    .filter((i) => i.figure)
-    .map((i) => photoFigure(l, i, mine.get(itemFigure(lot, i.id))));
-  writeFigures(project, docId, [...kept, ...photos]);
-}
-
-// ponytail: the converted text without its annexes — body.md, else doc.md cut where the first annex starts (a document
-// converted before batches existed); null while the document is not converted
-export function bodyOf(dir: string): string | null {
-  const body = join(dir, BODY);
-  if (existsSync(body)) return readFileSync(body, "utf8");
-  const doc = join(dir, "doc.md");
-  if (!existsSync(doc)) return null;
-  const md = readFileSync(doc, "utf8");
-  const at = md.search(/^# .*<!-- § lot-/m);
-  return at < 0 ? md : `${md.slice(0, at).trimEnd()}\n`;
-}
-
-// ponytail: doc.md = the body, then the part.md of each included batch in the order of the batches — assembled, never
-// edited by hand; true when doc.md changed
-export function assembleDir(dir: string): boolean {
-  const body = bodyOf(dir);
-  if (body === null) return false;
-  if (!existsSync(join(dir, BODY))) writeAtomic(join(dir, BODY), body);
-  const doc = readJson<Partial<DocJson>>(join(dir, "doc.json"), {});
-  const parts = (doc.media ?? [])
-    .filter((l) => l.included && LOT_RE.test(l.id))
-    .map((l) => join(dir, "media", l.id, "part.md"))
-    .filter((f) => existsSync(f))
-    .map((f) => readFileSync(f, "utf8").trim())
-    .filter(Boolean);
-  const md = parts.length ? `${body.trimEnd()}\n\n${parts.join("\n\n")}\n` : body;
-  const file = join(dir, "doc.md");
-  if (existsSync(file) && readFileSync(file, "utf8") === md) return false;
-  writeAtomic(file, md);
-  return true;
-}
-
-export const assemble = (project: string, docId: string) => assembleDir(docDir(project, docId));
-
-// ponytail: a batch goes with everything it put in the document's folder — its folder, its pictures, their entries
-export function dropLot(project: string, docId: string, lot: string): void {
-  const doc = readDoc(project, docId);
-  findLot(doc, lot);
-  rmSync(mediaDir(project, docId, lot), { recursive: true, force: true });
-  const figs = join(docDir(project, docId), "figures");
-  if (existsSync(figs)) for (const f of readdirSync(figs)) if (f.startsWith(`lot-${lot}-`)) rmSync(join(figs, f));
-  writeFigures(
-    project,
-    docId,
-    readFigures(project, docId).filter((f) => !f.anchor.startsWith(`fig:lot-${lot}.`)),
+  const mine = new Map(all.filter((f) => f.anchor.startsWith("img:")).map((f) => [f.anchor, f]));
+  const kept = all.filter((f) => !f.anchor.startsWith("img:"));
+  const images = ordered(filesOf(doc).filter((f) => f.kind === "image" && f.figure)).map((f) =>
+    imageEntry(f, mine.get(imageAnchor(f.n))),
   );
-  writeDoc(project, { ...doc, media: (doc.media ?? []).filter((l) => l.id !== lot) });
+  const out = [...images, ...kept];
+  writeFigures(project, docId, out);
+  return out;
 }
 
-export function dropItem(project: string, docId: string, lot: string, item: string): MediaItem {
+// ponytail: a file goes with everything it put in the document's folder — its copy, its picture, its entries, a
+// video's own folder and key frames
+export function dropMediaFile(project: string, docId: string, n: number): MediaFile {
   const doc = readDoc(project, docId);
-  const l = findLot(doc, lot);
-  const it = l.items.find((i) => i.id === item);
-  if (!it)
+  const f = filesOf(doc).find((x) => x.n === n);
+  if (!f) throw new UserError(`${docId} has no file ${n}.`, `testimus media show ${docId} lists its files.`);
+  if (filesOf(doc).length === 1)
     throw new UserError(
-      `The batch ${lot} has no item ${item}.`,
-      `testimus media show ${docId} ${lot} lists its items.`,
+      `${f.name} is the last file of ${docId}.`,
+      `Remove the document instead: testimus docs remove ${docId}.`,
     );
-  rmSync(join(mediaDir(project, docId, lot), it.file), { force: true });
-  if (it.figure) rmSync(join(docDir(project, docId), it.figure), { force: true });
+  const dir = docDir(project, docId);
+  rmSync(join(dir, f.file), { force: true });
+  if (f.figure) rmSync(join(dir, f.figure), { force: true });
+  rmSync(join(dir, "video", String(n)), { recursive: true, force: true });
+  rmSync(join(dir, "video", `${n}.json`), { force: true });
+  const frames = n === 1 ? /^frame:(?!\d+\/)/ : new RegExp(`^frame:${n}/`);
   writeFigures(
     project,
     docId,
-    readFigures(project, docId).filter((f) => f.anchor !== itemFigure(lot, item)),
+    readFigures(project, docId).filter((e) => e.anchor !== imageAnchor(n) && !frames.test(e.anchor)),
   );
-  l.items = l.items.filter((i) => i.id !== item);
-  writeDoc(project, doc);
-  return it;
+  updateFiles(project, docId, (files) => files.filter((x) => x.n !== n));
+  return f;
 }
 
-// ponytail: a batch's state as a list shows it — what is still to prepare or to read, what failed
-export function lotCounts(l: MediaLot) {
-  return {
-    photos: l.items.length,
-    videos: 0,
-    analysed: l.items.filter((i) => i.state === "analysed").length,
-    failed: l.items.filter((i) => i.state === "failed").length,
-  };
-}
-
-export function ensureMediaDir(project: string, docId: string, lot: string): void {
-  mkdirSync(mediaDir(project, docId, lot), { recursive: true });
+export function titleOfFiles(names: string[]): string {
+  if (names.length === 1) return basename(names[0], extname(names[0]));
+  return `${names.length} images`;
 }

@@ -154,9 +154,7 @@ export async function describeFigures(
   const entries = readFigures(project, docId);
   const sections = parseSections(md);
   const all = docFigures(md, entries);
-  // ponytail: the photos of a batch are read by the batch's own analysis (claude/media.ts), with its context
   const todo: FigureTodo[] = all
-    .filter((f) => !f.anchor.startsWith("fig:lot-"))
     .filter((f) => f.file && (opts.anchors ? opts.anchors.includes(f.anchor) : opts.force || !f.description.trim()))
     .map((f) => ({
       anchor: f.anchor,

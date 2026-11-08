@@ -88,7 +88,9 @@ function migrateChunks(db: DatabaseSync): void {
     .filter((n) => !CHUNK_COLUMNS.has(n));
   if (!extra.length) return;
   transaction(db, () => {
-    const stale = db.prepare("select rowid from chunks where kind not in ('section', 'figure')").all() as {
+    const stale = db
+      .prepare("select rowid from chunks where kind not in ('section', 'figure', 'image', 'transcript', 'frame')")
+      .all() as {
       rowid: number;
     }[];
     for (const r of stale) deleteChunk(db, Number(r.rowid));

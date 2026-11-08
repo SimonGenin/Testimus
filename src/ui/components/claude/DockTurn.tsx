@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { nameTests, useTestNames } from "../../lib/labels.ts";
-import { isObserved } from "../../lib/media.ts";
+import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Answer } from "../ui/Answer.tsx";
 import { Ask } from "../ui/Ask.tsx";
@@ -50,6 +50,7 @@ export function UserTurn({ turn }: { turn: Turn }) {
 // ponytail: Claude's side of a turn — what it does as it goes (DockActivity), the answer with its sources, and the run's card:
 // what changed, the numbers, Show changes, Revert, the raw output; a failure says what happened and offers Retry
 export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnActions }) {
+  const observed = useObserved();
   const failed = !t.running && !!(t.again || t.trouble);
   const words = t.text || (t.running && !t.tools.some((x) => !x.done));
   const names = useTestNames();
@@ -132,8 +133,8 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
                   key={i}
                   reference={sourceLabel(s)}
                   quote={s.quote}
-                  figure={s.anchor.startsWith("fig:")}
-                  observed={isObserved(s.anchor)}
+                  figure={isPictureAnchor(s.anchor)}
+                  observed={observed(s.docId)}
                   onOpen={() => a.onOpenSource(s)}
                 />
               ))}

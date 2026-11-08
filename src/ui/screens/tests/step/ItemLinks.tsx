@@ -3,7 +3,7 @@ import type { Source } from "../../../../core/types.ts";
 import { SourceChip } from "../../../components/ui/SourceChip.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { type ItemLink, sourceLabel } from "../../../lib/fields.ts";
-import { isObserved } from "../../../lib/media.ts";
+import { isPictureAnchor, useObserved } from "../../../lib/media.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
 import { StepSource } from "./StepSource.tsx";
 
@@ -25,6 +25,7 @@ export function ItemLinks({
   links: ItemLink[];
   onOpen?: (s: Source) => void;
 }) {
+  const observed = useObserved();
   return (
     <div data-column={column} {...stylex.props(styles.links)}>
       {links.map((l, i) => {
@@ -37,8 +38,8 @@ export function ItemLinks({
               compact
               reference={`${l.item} · ${sourceLabel(s)}`}
               quote={s.quote || undefined}
-              figure={s.anchor.startsWith("fig:")}
-              observed={isObserved(s.anchor)}
+              figure={isPictureAnchor(s.anchor)}
+              observed={observed(s.docId)}
               onOpen={onOpen && (() => onOpen(s))}
             />
           );

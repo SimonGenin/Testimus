@@ -11,13 +11,12 @@ import { GroupSelect } from "../../components/ui/GroupSelect.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
-import { invalidate, useRead } from "../../lib/data/query.ts";
+import { invalidate } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
-import { type Batch, batchLine } from "../../lib/media.ts";
+import { isMediaDoc } from "../../lib/media.ts";
 import { jobToast } from "../../lib/toast.ts";
 import { convertDoc, importClaude, setImportClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { NewBatch } from "./NewBatch.tsx";
 
 const styles = stylex.create({
   wrap: { padding: space.s5, overflowY: "auto", flex: 1, minHeight: 0 },
@@ -80,46 +79,6 @@ export function ClaudeChoice() {
   );
 }
 
-// ponytail: the batches of the document for this conversion — ticked, each becomes an annex of the converted text;
-// « Add photos & videos… » makes a new one first (it comes ticked)
-function Batches({
-  doc,
-  picked,
-  onPick,
-}: {
-  doc: DocJson;
-  picked: (b: Batch) => boolean;
-  onPick: (b: Batch, on: boolean) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const list = useRead("media.list", { doc: doc.id }).data;
-  const batches = Array.isArray(list) ? list : [];
-  return (
-    <div {...stylex.props(styles.group)}>
-      <h3 {...stylex.props(type.small, type.strong, styles.caption)}>Photos & videos</h3>
-      {batches.length === 0 && (
-        <p {...stylex.props(type.small, styles.text)}>
-          Photos of the real system become an annex of the document, read by Claude: they say how to do a step, never
-          what is expected.
-        </p>
-      )}
-      {batches.map((b) => (
-        <Checkbox
-          key={b.id}
-          checked={picked(b)}
-          onChange={(on) => onPick(b, on)}
-          label={b.title}
-          hint={`${batchLine(b)} · an annex of the document when ticked`}
-        />
-      ))}
-      <span>
-        <Button size="sm" icon="image" label="Add photos & videos…" onClick={() => setAdding(true)} />
-      </span>
-      {adding && <NewBatch doc={doc} onClose={() => setAdding(false)} />}
-    </div>
-  );
-}
-
 function Options({
   doc,
   again,
@@ -138,6 +97,20 @@ function Options({
   onStudy: (on: boolean) => void;
 }) {
   const noFigures = again && doc.converted?.stats?.figures === 0;
+  if (isMediaDoc(doc))
+    return (
+      <div {...stylex.props(styles.group)}>
+        <h3 {...stylex.props(type.small, type.strong, styles.caption)}>While preparing</h3>
+        <Checkbox
+          checked={figures && !offline}
+          disabled={offline}
+          onChange={onFigures}
+          label={again ? "Claude reads the pictures not read yet" : "Claude reads the pictures and surveys the videos"}
+          hint="Claude opens each picture (20 a run) and writes what it shows and the text it reads in it; a video is first surveyed from its mosaics (chapters, moments to see). What Claude reads is searched, never quoted."
+        />
+        <ClaudeChoice />
+      </div>
+    );
   return (
     <div {...stylex.props(styles.group)}>
       <h3 {...stylex.props(type.small, type.strong, styles.caption)}>While converting</h3>
@@ -180,10 +153,7 @@ export function ConvertDoc({
   const client = useQueryClient();
   const [figures, setFigures] = useState(app.info?.project?.rag.describeFigures !== false);
   const [study, setStudy] = useState(false);
-  const [pick, setPick] = useState<Record<string, boolean>>({});
-  const listed = useRead("media.list", { doc: doc.id }).data;
-  const batches = Array.isArray(listed) ? listed : [];
-  const picked = (b: Batch) => pick[b.id] ?? b.included;
+  const media = isMediaDoc(doc);
   const offline = useClaudeOffline();
   const settled = doc.conversion ? optionsOf(doc.conversion) : "";
   const go = () => {
@@ -192,8 +162,7 @@ export function ConvertDoc({
       baseName(doc.source.name || doc.source.file),
       {
         describeFigures: figures && !offline,
-        study: study && !offline,
-        ...(batches.length ? { media: batches.filter(picked).map((b) => b.id) } : {}),
+        study: study && !offline && !media,
       },
       () => {
         void invalidate(client, [["docs.list"], ["docs.show", { id: doc.id }], ["rag.status"]]);
@@ -204,18 +173,15 @@ export function ConvertDoc({
     onClose?.();
   };
   const options = (
-    <>
-      <Batches doc={doc} picked={picked} onPick={(b, on) => setPick((p) => ({ ...p, [b.id]: on }))} />
-      <Options
-        doc={doc}
-        again={again}
-        figures={figures}
-        study={study}
-        offline={offline}
-        onFigures={setFigures}
-        onStudy={setStudy}
-      />
-    </>
+    <Options
+      doc={doc}
+      again={again}
+      figures={figures}
+      study={study}
+      offline={offline}
+      onFigures={setFigures}
+      onStudy={setStudy}
+    />
   );
   if (again) {
     const stats = doc.converted?.stats;
@@ -263,11 +229,12 @@ export function ConvertDoc({
   return (
     <div {...stylex.props(styles.wrap)}>
       <section aria-label="Convert and index">
-        <Card title="Not converted yet">
+        <Card title={media ? "Not prepared yet" : "Not converted yet"}>
           <div {...stylex.props(styles.body)}>
             <p {...stylex.props(type.body, styles.text)}>
-              Set the status and the Claude context first if you know them: Claude reads them while it converts.
-              Converting reads the file into text with anchors and figures, then search indexes it.
+              {media
+                ? "Set the Claude context first if you know it: Claude reads it with the pictures. Preparing makes each picture (and reads a video: its length, its speech, its frames), Claude reads them, then search indexes the document."
+                : "Set the status and the Claude context first if you know them: Claude reads them while it converts. Converting reads the file into text with anchors and figures, then search indexes it."}
             </p>
             {settled && (
               <p title={doc.conversion?.notes} {...stylex.props(type.body, styles.text)}>
@@ -276,7 +243,7 @@ export function ConvertDoc({
             )}
             {options}
             <div {...stylex.props(styles.acts)}>
-              <Button variant="primary" label="Convert and index" onClick={go} />
+              <Button variant="primary" label={media ? "Prepare and read" : "Convert and index"} onClick={go} />
             </div>
           </div>
         </Card>

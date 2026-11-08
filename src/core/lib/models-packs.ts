@@ -122,7 +122,7 @@ export async function packRows(
       ? entriesOf(v).map((e) => ({
           id: e.id,
           label: e.label,
-          kind: e.kind,
+          kind: e.kind as PackModel["kind"],
           installed: !!resolveInstalled(e.id, queryTask),
         }))
       : [];

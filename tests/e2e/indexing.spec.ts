@@ -26,14 +26,15 @@ test("while an index run goes no index warning shows — its progress does; the 
   expect(jobId).toBeTruthy();
   const bar = list.getByRole("progressbar", { name: "Index" });
   await expect(bar).toBeVisible();
-  await expect(list).toContainText(/Indexing 1 of 2 documents · 0 of \d+ passages/);
-  await expect(rows.first()).toContainText("Indexing · 0 %");
+  await expect(list).toContainText(/Indexing 1 of 5 documents · 0 of \d+ passages/);
+  await expect(list.getByRole("option").first()).toContainText("Indexing · 0 %");
+  await expect(rows.first()).toContainText("Waiting to index");
   await expect(rows.nth(1)).toContainText("Waiting to index");
   await expect(list).not.toContainText("Not up to date");
   await expect(screen.getByText("Search on words only")).toHaveCount(0);
   const status = await api<Status>(server.url, "rag.status");
   expect(status.degraded).not.toBeNull();
-  expect(status.indexing).toMatchObject({ state: "running", docs: 2 });
+  expect(status.indexing).toMatchObject({ state: "running", docs: 5 });
   await shoot(page, "documents-indexing-e2e");
 
   await page.goto("/#/settings/search");

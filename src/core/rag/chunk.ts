@@ -117,8 +117,8 @@ export function docFigures(md: string, entries: FigureEntry[]): DocFigure[] {
   for (const e of entries) {
     const n = e.anchor.replace(/^fig:/, "");
     const known = out.get(n);
-    // ponytail: the photos of a batch left out of the document are not its figures (they stay in figures.json)
-    if (!known && n.startsWith("lot-")) continue;
+    // ponytail: an images or video document's pictures (img:, frame:) are not figures of a text
+    if (!e.anchor.startsWith("fig:")) continue;
     const file = e.file || known?.file || "";
     out.set(n, {
       n,
@@ -202,11 +202,19 @@ function split(body: string): string[] {
   return parts;
 }
 
+// ponytail: a line of an images or video document — a picture (img, frame) or a transcript line — is chunked by its
+// own kind, never as a section's text
+const MEDIA_LINE = /<!--\s*(img|frame|t)\s+(\S+?)\s*-->/;
+
 export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[]): Chunk[] {
   const sections = parseSections(md);
   const chunks: Chunk[] = [];
   for (const s of sections) {
-    const parts = split(s.body).filter((p) => stripComments(p));
+    const body = s.body
+      .split("\n")
+      .filter((l) => !MEDIA_LINE.test(l))
+      .join("\n");
+    const parts = split(body).filter((p) => stripComments(p));
     parts.forEach((raw, i) => {
       chunks.push({
         id: `${doc.id}#${s.anchor}${parts.length > 1 ? `~${i + 1}` : ""}`,
@@ -233,7 +241,58 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[]): Chun
       kind: "figure",
     });
   }
+  chunks.push(...mediaChunks(doc, md, entries, sections));
   return chunks;
+}
+
+// ponytail: an image or a key frame is a chunk like a figure (caption, what Claude saw, the text it shows); the
+// transcript of a video is cut into passages of whole lines under the token budget, each anchored by its first line
+function mediaChunks(doc: DocJson, md: string, entries: FigureEntry[], sections: Section[]): Chunk[] {
+  const byAnchor = new Map(entries.map((e) => [e.anchor, e]));
+  const out: Chunk[] = [];
+  let run: { anchor: string; text: string[]; s?: Section } | null = null;
+  const head = (s?: Section) => (s ? defaultHeader(doc, s) : `${doc.code} ${doc.title}`);
+  const flush = () => {
+    if (!run) return;
+    out.push({
+      id: `${doc.id}#${run.anchor}`,
+      docId: doc.id,
+      anchor: run.anchor,
+      path: run.s?.path ?? "",
+      figureIds: [],
+      header: head(run.s),
+      text: run.text.join("\n"),
+      kind: "transcript",
+    });
+    run = null;
+  };
+  lines(md).forEach((line, i) => {
+    const m = MEDIA_LINE.exec(line);
+    if (!m) return;
+    const anchor = `${m[1]}:${m[2]}`;
+    const s = sectionAt(sections, i);
+    if (m[1] === "t") {
+      const text = stripComments(line);
+      if (run && (run.s !== s || approxTokens([...run.text, text].join("\n")) > MAX_TOKENS)) flush();
+      run ??= { anchor, text: [], s };
+      run.text.push(text);
+      return;
+    }
+    const e = byAnchor.get(anchor);
+    const caption = e?.caption || /!\[([^\]]*)\]/.exec(line)?.[1] || "";
+    out.push({
+      id: `${doc.id}#${anchor}`,
+      docId: doc.id,
+      anchor,
+      path: s?.path ?? "",
+      figureIds: [],
+      header: head(s),
+      text: figureText({ caption, description: e?.description ?? "", labels: e?.labels }),
+      kind: m[1] === "img" ? "image" : "frame",
+    });
+  });
+  flush();
+  return out;
 }
 
 // ponytail: the words visible in the picture (descriptions v2) go into the figure chunk so BM25 finds a button or a

@@ -13,7 +13,7 @@ const chatsDir = (project: string) => join(project, ".testimus", "chats");
 const chatFile = (project: string, id: string) => join(chatsDir(project), `${id}.json`);
 
 const REF =
-  /([A-Za-z0-9][\w.-]*)#((?:§|fig:|page:)[^\s"“”«»\]]+)\s*[:,]?\s*(?:"([^"\n]+)"|“([^”\n]+)”|«\s*([^»\n]+?)\s*»)/g;
+  /([A-Za-z0-9][\w.-]*)#((?:§|fig:|page:|img:|t:|frame:)[^\s"“”«»\]]+)\s*[:,]?\s*(?:"([^"\n]+)"|“([^”\n]+)”|«\s*([^»\n]+?)\s*»)/g;
 
 export function sourceRefs(text: string): Source[] {
   const out: Source[] = [];

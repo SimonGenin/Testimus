@@ -7,7 +7,7 @@ import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { AppContext } from "../../lib/app.ts";
 import { parseSourceRef, sourceLabel } from "../../lib/fields.ts";
-import { isObserved } from "../../lib/media.ts";
+import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 
 export type SkippedItem = { item: string; category?: string; why: string; sources?: string[] };
@@ -54,6 +54,7 @@ export function byCategory(skipped: SkippedItem[]): SkippedGroup[] {
 
 function Item({ s }: { s: SkippedItem }) {
   const openSource = useContext(AppContext)?.openSource;
+  const observed = useObserved();
   const sources = (s.sources ?? []).map(parseSourceRef).filter((x): x is Source => !!x);
   return (
     <li {...stylex.props(styles.item)}>
@@ -73,8 +74,8 @@ function Item({ s }: { s: SkippedItem }) {
               key={`${x.docId}#${x.anchor} ${x.quote}`}
               reference={sourceLabel(x)}
               quote={x.quote || undefined}
-              figure={x.anchor.startsWith("fig:")}
-              observed={isObserved(x.anchor)}
+              figure={isPictureAnchor(x.anchor)}
+              observed={observed(x.docId)}
               onOpen={openSource && (() => openSource(x))}
             />
           ))}

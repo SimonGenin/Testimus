@@ -13,16 +13,23 @@ import { useApp } from "../../lib/app.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles, pickFolder } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
-import { isPhoto } from "../../lib/media.ts";
-import { addDocFiles, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
+import { DOC_ACCEPT, DOC_EXTENSIONS, IMAGE_EXTENSIONS, isImage, VIDEO_EXTENSIONS } from "../../lib/media.ts";
+import {
+  addDocs,
+  forgetSettled,
+  type Picked,
+  pickedOfFiles,
+  pickedOfPaths,
+  settled,
+  useUploads,
+} from "../../lib/uploads.ts";
 import { border, color, radius, space, z } from "../../styles/tokens.stylex.ts";
-import { type PickedFile, pickedOf } from "./BatchFiles.tsx";
 import { DocDetail } from "./DocDetail.tsx";
 import { DocList } from "./DocList.tsx";
 import { DocLoading } from "./DocLoading.tsx";
+import { ImagesChoice } from "./ImagesChoice.tsx";
 import { ImportFolder } from "./ImportFolder.tsx";
 import { useDocsLayout } from "./layout.ts";
-import { NewBatch } from "./NewBatch.tsx";
 
 const styles = stylex.create({
   screen: {
@@ -89,8 +96,6 @@ const styles = stylex.create({
   veilText: { color: color.textMuted },
 });
 
-const ACCEPT = ".docx,.pdf";
-
 // ponytail: #/documents/<id>#<anchor> "<quote>" from [review ]<test> step <n> — the document, the place in it, the
 // line to mark and the test that cited it, read in Review or in Tests (the last part is optional)
 function target(arg: string) {
@@ -131,8 +136,8 @@ export function DocumentsScreen() {
   const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
   const { fold, panes } = useDocsLayout(width);
   const [listOpen, setListOpen] = useState(false);
-  const [drag, setDrag] = useState<"docs" | "photos" | false>(false);
-  const [dropped, setDropped] = useState<PickedFile[] | null>(null);
+  const [drag, setDrag] = useState(false);
+  const [choosing, setChoosing] = useState<Picked[] | null>(null);
   const [folder, setFolder] = useState<{ picked: string | null } | null>(null);
 
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
@@ -171,7 +176,10 @@ export function DocumentsScreen() {
     app.refreshInfo();
     if (id) app.navigate("documents", id);
   };
-  const addFiles = (files: File[]) => void addDocFiles(files, added);
+  // ponytail: two images or more picked together ask whether they are one document or one each
+  const add = (picked: Picked[]) =>
+    picked.filter((p) => isImage(p.name)).length > 1 ? setChoosing(picked) : void addDocs(picked, added);
+  const addFiles = (files: File[]) => add(pickedOfFiles(files));
   const native = desktop();
   const addButton = (big = false) => (
     <Button
@@ -179,13 +187,23 @@ export function DocumentsScreen() {
       size={big ? "lg" : "md"}
       icon="plus"
       label="Add documents"
-      pick={native ? undefined : { accept: ACCEPT, multiple: true, onFiles: addFiles }}
+      pick={native ? undefined : { accept: DOC_ACCEPT, multiple: true, onFiles: addFiles }}
       onClick={
         native
           ? () =>
-              void pickFiles("Add documents", [{ name: "Word or PDF", extensions: ["docx", "pdf"] }], true).then((p) =>
-                addDocPaths(p, added),
-              )
+              void pickFiles(
+                "Add documents",
+                [
+                  {
+                    name: "Documents, images and videos",
+                    extensions: [...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS],
+                  },
+                  { name: "Word, PDF or text", extensions: DOC_EXTENSIONS },
+                  { name: "Images", extensions: IMAGE_EXTENSIONS },
+                  { name: "Videos", extensions: VIDEO_EXTENSIONS },
+                ],
+                true,
+              ).then((p) => p.length && add(pickedOfPaths(p)))
           : undefined
       }
     />
@@ -212,9 +230,7 @@ export function DocumentsScreen() {
   const onDragOver = (e: DragEvent) => {
     if (!e.dataTransfer.types.includes("Files")) return;
     e.preventDefault();
-    // ponytail: photos dropped while a document is open become a batch of it; the browser names their type while dragging
-    const items = Array.from(e.dataTransfer.items ?? []);
-    setDrag(active && items.length > 0 && items.every((i) => i.type.startsWith("image/")) ? "photos" : "docs");
+    setDrag(true);
   };
 
   return (
@@ -229,11 +245,7 @@ export function DocumentsScreen() {
         if (!e.dataTransfer.files.length) return;
         e.preventDefault();
         setDrag(false);
-        const all = Array.from(e.dataTransfer.files);
-        const photos = active ? all.filter((f) => isPhoto(f.name)) : [];
-        if (photos.length) setDropped(pickedOf(photos));
-        const rest = all.filter((f) => !photos.includes(f));
-        if (rest.length) addFiles(rest);
+        addFiles(Array.from(e.dataTransfer.files));
       }}
     >
       <ScreenHeader
@@ -273,7 +285,7 @@ export function DocumentsScreen() {
           <EmptyState
             icon="documents"
             title="No document yet"
-            text="Add the specifications your tests come from: .docx (preferred) or .pdf. Drop files anywhere on this screen or pick them."
+            text="Add the specifications your tests come from (.docx preferred, .pdf, .txt) and the photos or videos of the real system. Drop files anywhere on this screen or pick them."
             actions={
               <>
                 {folderButton(true)}
@@ -375,27 +387,21 @@ export function DocumentsScreen() {
           <span {...stylex.props(styles.veilMark)}>
             <Icon name="upload" size="lg" />
           </span>
-          {drag === "photos" && active ? (
-            <>
-              <span {...stylex.props(type.title, styles.veilTitle)}>Drop photos to add them to {active.code}</span>
-              <span {...stylex.props(type.compact, styles.veilText)}>
-                They become a batch of the document: Claude reads them with the context you give, and the batch is an
-                annex at the end of the document.
-              </span>
-            </>
-          ) : (
-            <>
-              <span {...stylex.props(type.title, styles.veilTitle)}>Drop Word or PDF files to add them</span>
-              <span {...stylex.props(type.compact, styles.veilText)}>
-                .docx is preferred — structure and pictures stay intact; .pdf is the fallback. Each file is copied into
-                the project, ready to convert. Photos dropped on an open document become a batch of it.
-              </span>
-            </>
-          )}
+          <span {...stylex.props(type.title, styles.veilTitle)}>Drop files to add them as documents</span>
+          <span {...stylex.props(type.compact, styles.veilText)}>
+            Word (.docx is preferred: structure and pictures stay intact), PDF, text, images or videos. Each is copied
+            into the project, ready to convert; images dropped together can be one document.
+          </span>
         </div>
       )}
       {folder && <ImportFolder picked={folder.picked} onClose={() => setFolder(null)} />}
-      {dropped && active && <NewBatch doc={active} files={dropped} onClose={() => setDropped(null)} />}
+      {choosing && (
+        <ImagesChoice
+          count={choosing.filter((p) => isImage(p.name)).length}
+          onChoose={(choice) => void addDocs(choosing, added, choice)}
+          onClose={() => setChoosing(null)}
+        />
+      )}
     </div>
   );
 }

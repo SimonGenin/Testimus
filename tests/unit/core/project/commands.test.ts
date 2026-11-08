@@ -65,7 +65,7 @@ describe("project.* through the registry, each output against its schema", () =>
       p,
     );
     expect(info.project.jiraProject).toBe("LFRPS12");
-    expect(info.counts).toMatchObject({ tests: 3, docs: 2 });
+    expect(info.counts).toMatchObject({ tests: 3, docs: 5 });
     await expect(call("project.info", {}, null)).rejects.toThrow(/No project is open/);
   });
 

@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
-import { isObserved } from "../../lib/media.ts";
+import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { SourceChip } from "../ui/SourceChip.tsx";
 import { type } from "../ui/type.ts";
@@ -25,7 +25,8 @@ const styles = stylex.create({
   },
 });
 
-const REF = /\[?([A-Za-z0-9][A-Za-z0-9_.-]*)#((?:§|fig:)[^\s"),;\]]*[^\s"),;.\]])\]?(?:\s+"([^"\n]*)"\]?)?/g;
+const REF =
+  /\[?([A-Za-z0-9][A-Za-z0-9_.-]*)#((?:§|fig:|img:|frame:|t:)[^\s"),;\]]*[^\s"),;.\]])\]?(?:\s+"([^"\n]*)"\]?)?/g;
 
 export function parseAnswer(text: string): Array<string | Source> {
   const out: Array<string | Source> = [];
@@ -62,6 +63,7 @@ export function AnswerText({
   listed?: Source[];
   onOpenSource: (s: Source) => void;
 }) {
+  const observed = useObserved();
   const paras = text.split(/\n{2,}/);
   return (
     <div {...stylex.props(type.body, styles.answer)}>
@@ -80,8 +82,8 @@ export function AnswerText({
               reference={sourceLabel(x)}
               quote={x.quote}
               compact
-              figure={x.anchor.startsWith("fig:")}
-              observed={isObserved(x.anchor)}
+              figure={isPictureAnchor(x.anchor)}
+              observed={observed(x.docId)}
               onOpen={() => onOpenSource(x)}
             />
           ),

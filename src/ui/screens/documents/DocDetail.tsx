@@ -1,18 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { CommandOutput } from "../../../core/commands/index.ts";
-import type { DocJson } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
-import { key, useCommand, useRead } from "../../lib/data/query.ts";
+import { invalidate, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
-import { isObserved } from "../../lib/media.ts";
-import { errorToast } from "../../lib/toast.ts";
+import { isMediaDoc, isObservedDoc } from "../../lib/media.ts";
+import { addMedia } from "../../lib/media-uploads.ts";
 import { settled, useUploads } from "../../lib/uploads.ts";
 import { border, color, duration, easing, space } from "../../styles/tokens.stylex.ts";
-import { BatchDetail } from "./BatchDetail.tsx";
 import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocFigures } from "./DocFigures.tsx";
 import { DocHead, type View } from "./DocHead.tsx";
@@ -23,8 +20,10 @@ import { DocSide } from "./DocSide.tsx";
 import { DocToc } from "./DocToc.tsx";
 import { DocUnreadable } from "./DocUnreadable.tsx";
 import { COLS, type Fold, type Pane } from "./layout.ts";
-import { NewBatch } from "./NewBatch.tsx";
+import { MediaImages } from "./MediaImages.tsx";
+import { MediaVideo } from "./MediaVideo.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
+import { useDocSet } from "./useDocSet.ts";
 
 const fadeIn = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
 
@@ -59,7 +58,6 @@ const styles = stylex.create({
   view: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
 });
 
-type Shown = CommandOutput<"docs.show">;
 type Drawer = "sections" | "details" | null;
 
 // ponytail: one document — its head, its contents, the part being read (or its figures, or the conversion going on),
@@ -95,12 +93,11 @@ export function DocDetail({
   const meta = useRead("docs.show", { id, brief: true });
   const listed = useRead("docs.list", {}).data?.find?.((d) => d.id === id);
   const running = useUploads().find((u) => u.docId === id && u.job === "convert" && !settled(u));
-  const [view, setView] = useState<View>("text");
+  const [chosen, setView] = useState<View | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [ask, setAsk] = useState(false);
   const [again, setAgain] = useState(false);
   const [figure, setFigure] = useState<string>();
-  const [batch, setBatch] = useState<string | "new" | null>(null);
   const [opened, setOpened] = useState(false);
   const wasRunning = useRef(false);
   const sideFolded = fold === "small" || fold === "tiny";
@@ -110,8 +107,24 @@ export function DocDetail({
   const sections = shown?.toc ?? [];
   const converted = !!shown?.doc.converted?.at;
   const reading = !!shown && !running && converted;
+  const media = !!shown && isMediaDoc(shown.doc);
+  const files = shown?.doc.source.files ?? [];
+  // ponytail: an images or video document opens on its pictures or its player — on its player when a link names a
+  // moment (t:, frame:), on its pictures for an image (img:), on its text for a section
+  const view: View =
+    chosen ??
+    (!media
+      ? "text"
+      : /^(t|frame):/.test(anchor) && files.some((f) => f.kind === "video")
+        ? "video"
+        : anchor.startsWith("§")
+          ? "text"
+          : files.some((f) => f.kind === "image")
+            ? "images"
+            : "video");
+  const pictures = useRead("media.show", { doc: id }, { enabled: reading && media });
   const target = anchor || sections.find((t) => t.level > 1)?.anchor || sections[0]?.anchor || "";
-  const fig = target.startsWith("fig:") ? target : "";
+  const fig = target.startsWith("fig:") || /^(img|frame|t):/.test(target) ? target : "";
   const holder = useRead("docs.show", { id, anchor: fig, brief: true }, { enabled: reading && !!fig });
   const read = fig ? holder.data?.section || (holder.isFetched ? fig : "") : target;
   const part = useRead("docs.show", read ? { id, anchor: read } : { id }, {
@@ -119,15 +132,7 @@ export function DocDetail({
     keepPrevious: true,
   });
 
-  const status = useCommand("docs.set", {
-    invalidates: [["docs.list"]],
-    optimistic: (c, input) => {
-      const k = key("docs.show", { id, brief: true }) as unknown as readonly unknown[];
-      const before = c.getQueryData<Shown>(k);
-      if (before && input.status) c.setQueryData<Shown>(k, { ...before, doc: { ...before.doc, status: input.status } });
-      return () => c.setQueryData(k, before);
-    },
-  });
+  const settings = useDocSet(id);
 
   useEffect(() => {
     if (running) wasRunning.current = true;
@@ -186,27 +191,8 @@ export function DocDetail({
     setDrawer(null);
     onAnchor(a);
   };
-  const setStatus = (s: DocJson["status"]) =>
-    status.mutate(
-      { id, status: s },
-      {
-        onSuccess: (doc) =>
-          client.setQueryData<Shown>(key("docs.show", { id, brief: true }) as unknown as readonly unknown[], (old) =>
-            old ? { ...old, doc } : old,
-          ),
-        onError: (e) => errorToast(e, "Could not save the document"),
-      },
-    );
   const toc = (head: boolean) => <DocToc sections={sections} current={current} head={head} onGo={go} />;
-  const side = (
-    <DocSide
-      shown={shown}
-      running={!!running}
-      onStatus={setStatus}
-      onOpenBatch={(lot) => setBatch(lot)}
-      onAddBatch={() => setBatch("new")}
-    />
-  );
+  const side = <DocSide shown={shown} running={!!running} onStatus={settings.status} />;
 
   return (
     <section
@@ -233,9 +219,21 @@ export function DocDetail({
           onDrawer={(w) => setDrawer((o) => (o === w ? null : w))}
           onConvertAgain={() => setAgain(true)}
           onDelete={() => setAsk(true)}
+          onAddMedia={
+            media
+              ? (picked) =>
+                  void addMedia(
+                    id,
+                    d.title || d.code,
+                    picked,
+                    () => void invalidate(client, [["docs.list"], ["docs.show", { id }], ["media.show", { doc: id }]]),
+                  )
+              : undefined
+          }
+          onReference={media ? settings.reference : undefined}
         />
         <div {...stylex.props(styles.body)}>
-          {reading && !tocFolded && (
+          {reading && !tocFolded && view === "text" && (sections.length > 1 || !media) && (
             <>
               <div {...stylex.props(styles.toc, styles.width(panes?.toc.value ?? COLS.toc))}>{toc(true)}</div>
               {panes && <ResizeHandle label="Resize the sections" {...panes.toc} />}
@@ -249,6 +247,10 @@ export function DocDetail({
           <div {...stylex.props(styles.view)}>
             {running && <DocReading docId={id} upload={running} />}
             {!running && !converted && <ConvertDoc doc={d} />}
+            {reading && view === "images" && (
+              <MediaImages docId={id} shown={pictures.data} focus={anchor.startsWith("img:") ? anchor : undefined} />
+            )}
+            {reading && view === "video" && <MediaVideo docId={id} shown={pictures.data} anchor={anchor} />}
             {reading && view === "figures" && (
               <DocFigures docId={id} figures={shown.figures} focus={figure} onOpen={go} />
             )}
@@ -262,6 +264,7 @@ export function DocDetail({
                 focus={quote || undefined}
                 target={anchor && !quote ? anchor : undefined}
                 quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
+                observed={isObservedDoc(d)}
                 onGo={go}
                 onFigure={(a) => {
                   setFigure(a);
@@ -287,15 +290,11 @@ export function DocDetail({
         <ConvertDoc
           doc={d}
           again
-          described={shown.figures.filter((f) => f.description.trim() && !isObserved(f.anchor)).length}
+          described={shown.figures.filter((f) => f.description.trim()).length}
           onClose={() => setAgain(false)}
         />
       )}
       {ask && <RemoveDoc doc={d} onClose={() => setAsk(false)} onRemoved={onRemoved} />}
-      {batch === "new" && <NewBatch doc={d} onClose={() => setBatch(null)} />}
-      {batch && batch !== "new" && (
-        <BatchDetail doc={d} lot={batch} onClose={() => setBatch(null)} onOpenAnchor={converted ? go : undefined} />
-      )}
     </section>
   );
 }

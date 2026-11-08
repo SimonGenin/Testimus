@@ -1,0 +1,38 @@
+{
+  "code": "Manoeuvre_d_un_sectionneur_au_PCC",
+  "title": "Manœuvre d'un sectionneur au PCC",
+  "version": "",
+  "date": "",
+  "kind": "other",
+  "status": "draft",
+  "source": {
+    "type": "video",
+    "name": "D:\\Recette\\manoeuvre.mp4",
+    "file": "files",
+    "sha256": "e194d803ac6715d254dd3db987b81d2ff85eddfa06f00903b1f846fdaeee9faa",
+    "files": [
+      {
+        "n": 1,
+        "name": "manoeuvre.mp4",
+        "file": "files/manoeuvre.mp4",
+        "kind": "video",
+        "sha256": "3b2aea445f2b35170bd3829da1226a0509cb91ad138f17fa642c52b81bcff172",
+        "state": "ready",
+        "duration": 160,
+        "width": 1280,
+        "height": 720
+      }
+    ],
+    "last": 1
+  },
+  "converted": {
+    "with": "media 1",
+    "at": "2026-11-05T10:00:00.000Z",
+    "warnings": [],
+    "stats": {
+      "sections": 2,
+      "figures": 3,
+      "chars": 1546
+    }
+  }
+}

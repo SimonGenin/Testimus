@@ -132,7 +132,12 @@ describe("generation prompt", () => {
   it("refuses a scope search cannot find, and names what changed since the last index", () => {
     rmSync(join(dir, "index"), { recursive: true, force: true });
     expect(() => indexGate(dir, { request: "x" })).toThrow(/The index does not exist yet/);
-    markIndexed(dir, ["SOSIE_211_D401-1_3"]);
+    markIndexed(dir, [
+      "SOSIE_211_D401-1_3",
+      "Manoeuvre_d_un_sectionneur_au_PCC",
+      "Notes_de_reunion",
+      "RECETTE_TCO_12-10",
+    ]);
     expect(() => indexGate(dir, { request: "x" })).toThrow(/Not indexed: SOSIE_211_D401-1_4\. Search cannot find it/);
     expect(() => indexGate(dir, { request: "", sections: ["SOSIE_211_D401-1_4#§1"] })).toThrow(/Not indexed/);
     expect(indexGate(dir, { request: "", docs: ["SOSIE_211_D401-1_3"] })).toEqual([]);

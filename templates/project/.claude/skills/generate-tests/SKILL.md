@@ -146,15 +146,19 @@ skill once per planned test.
   `- <docId>#<anchor> "<short quote>" @<column> "<item>"`. The tester clicks the item to open that
   passage; the check reports `column-unsourced` once per step, naming each filled column with no such line, and
   `item-not-found` for an item the cell does not hold.
-- **Annexes say how, never what is expected.** A document may end with annexes of photos taken
-  on the real system (`# Annexe — … <!-- § lot-… -->`; their anchors all start with `lot-`:
-  `§lot-<batch>.<photo>`, `fig:lot-<batch>.<photo>`). They show what the system *does*, not what
+- **Images and videos say how, never what is expected.** Some documents are photos or videos of
+  the real system (`docs_show`: `source.type` images · video · mixed). Their anchors: `img:<n>` an
+  image (its quotable text is its caption, file name and date), `t:mm:ss` a line of a video's
+  transcript (quotable verbatim: what was said), `frame:mm:ss` a key frame (`media_show` lists them,
+  `media_transcript` gives the timed lines, `media_frame` draws any moment; `Read` the picture before
+  you use it — what Claude saw in it is never quotable). They show what the system *does*, not what
   it *must do*. Use them to write **how** to do a step — where to click, the exact labels, the
-  sequence of screens — and cite them for that (a source line on the step, or the photo embedded in
-  the Action with `tests_addImage` like any figure). Every Expected Result still needs a source in
-  the **body** of a document; one whose only sources are annexes is reported `observed-only` by the
-  check, unless the batch is marked as a reference. When the body says nothing and only a photo
-  shows the result, report the gap instead.
+  sequence of screens — and cite them for that (a source line on the step, or the picture embedded in
+  the Action with `tests_addImage` `figure: "<docId>#img:3"` or `"<docId>#frame:04:30"`). Every
+  Expected Result still needs a source in a written document; one whose only sources are images or
+  videos is reported `observed-only` by the check, unless the team marked that document
+  `reference`. When no written document says it and only a picture shows the result, report the gap
+  instead.
 - **No source → search, then decide.** A step that needs a passage you have not opened yet:
   `rag_mentions` its object, `rag_search` the behavior, open what they find. Still nothing → do not
   write the step and report the gap (section 4). Never fill a gap from general knowledge of the
@@ -189,7 +193,7 @@ that step:
    finding it reports, warnings included: `quote-not-found` — open `doc.md` and copy the quote again;
    `quote-weak` — quote more words, until the quote points at one place; `figure-not-embedded` —
    embed the figure it names; `observed-only` — find the passage of the document's body that
-   specifies that result and cite it (keep the annex source for how to do the step), or remove the
+   specifies that result and cite it (keep the picture's source for how to do the step), or remove the
    expected result and report the gap. Run it again until it reports nothing you can fix. Testimus runs the
    full check (check-test) on the new tests itself once you are done.
 2. **Searches, once more.** For each test: did every object, screen and message it names have its

@@ -67,6 +67,9 @@ export const section: KitSection = {
       <Cell label="long title (ellipsis, full title as tooltip)" column>
         <One label="long" item={{ title: LONG, tooltip: LONG, meta: "LFRPS12-1420" }} />
       </Cell>
+      <Cell label="wrap (a transcript line: the whole title, on several lines)" column>
+        <One label="wrap" item={{ title: LONG, wrap: true, lead: <Icon name="play" /> }} />
+      </Cell>
     </States>
   ),
 };

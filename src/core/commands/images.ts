@@ -1,12 +1,14 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 import { command, projectOf, UserError } from "../command.ts";
 import { fieldOrder } from "../lib/columns.ts";
+import { docDir, readFigures } from "../lib/docs.ts";
 import { readXray } from "../lib/project.ts";
 import { addImage, readTest, testExists, writeTest } from "../lib/store.ts";
 import { imageRef } from "../lib/test-blocks.ts";
 import { fieldName } from "../lib/testfile.ts";
+import { normalizeAnchor } from "../rag/anchors.ts";
 import { figure as docFigure } from "../rag/search/passage.ts";
 import { BUILTIN_FIELDS, type StepImage } from "../types.ts";
 
@@ -33,7 +35,21 @@ function sourceFile(project: string, file: string): string {
   return abs;
 }
 
+// ponytail: a picture of an images or video document (img:<n>, frame:<moment>) is embedded like a figure
+function pictureFile(project: string, docId: string, anchor: string): { path: string; figure: string } {
+  const a = normalizeAnchor(anchor);
+  const e = readFigures(project, docId).find((f) => f.anchor === a);
+  if (!e?.file)
+    throw new UserError(`${docId} has no picture ${a}.`, `testimus media show ${docId} lists its pictures.`);
+  const path = join(docDir(project, docId), e.file);
+  if (!existsSync(path))
+    throw new UserError(`The file of ${docId}#${a} is missing (${e.file}).`, "Convert the document again.");
+  return { path, figure: `${docId}#${a}` };
+}
+
 function figureFile(project: string, ref: string): { path: string; figure: string } {
+  const pic = /^([^#\s]+)#\s*((?:img|frame)\s*:\s*\S+)$/i.exec(ref.trim());
+  if (pic) return pictureFile(project, pic[1], pic[2]);
   const m = ref.trim().match(/^([^#\s]+)#\s*(?:fig[:\s]*)?(\S+)$/i);
   if (!m) throw new UserError(`"${ref}" is not a figure reference.`, "Write it docId#fig:40.");
   const f = docFigure(project, m[1], m[2]);
@@ -109,7 +125,12 @@ export const commands = [
         .string()
         .optional()
         .describe("Picture to copy: a path inside the project, or an absolute path the user chose"),
-      figure: z.string().optional().describe("Document figure to copy instead of a file: docId#fig:40"),
+      figure: z
+        .string()
+        .optional()
+        .describe(
+          "Document figure to copy instead of a file: docId#fig:40, or a picture of an images or video document: docId#img:3, docId#frame:04:30",
+        ),
     }),
     output: z.object({
       id: z.string().describe("The test"),

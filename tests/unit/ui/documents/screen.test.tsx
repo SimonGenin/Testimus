@@ -352,7 +352,7 @@ describe("Documents screen", () => {
     api.routes["docs.list"] = () => [];
     mountDocs(<DocumentsScreen />);
     await screen.findByText("No document yet");
-    expect(screen.getByText(/\.docx \(preferred\) or \.pdf/)).toBeInTheDocument();
+    expect(screen.getByText(/\.docx preferred, \.pdf, \.txt\) and the photos or videos/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Add documents" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /from a path/ })).toBeNull();
   });
@@ -405,7 +405,7 @@ describe("Documents screen", () => {
     expect(veil(container)).toBeNull();
     fireEvent.dragOver(z, { dataTransfer: { types: ["Files"] } });
     expect(veil(container)).not.toBeNull();
-    expect(veil(container)).toHaveTextContent(/Drop Word or PDF files to add them\.docx is preferred/);
+    expect(veil(container)).toHaveTextContent(/Drop files to add them as documentsWord \(\.docx is preferred/);
     fireEvent.dragLeave(listOf());
     expect(veil(container)).not.toBeNull();
     fireEvent.dragLeave(z);
@@ -414,10 +414,10 @@ describe("Documents screen", () => {
       added: [],
       rejected: [{ name: "notes.txt", why: "not a document", code: "not-a-document" }],
     });
-    refuse("docs.addFiles", (i) => !(i.files as { name: string }[])[0].name.endsWith(".txt"), { error: "not read" });
+    refuse("docs.addFiles", (i) => !(i.files as { name: string }[])[0].name.endsWith(".zip"), { error: "not read" });
     fireEvent.drop(z, { dataTransfer: { files: [] } });
-    fireEvent.drop(z, { dataTransfer: { files: [new File(["x"], "notes.txt")] } });
-    expect(await screen.findByText("Only Word (.docx) and PDF files can be added")).toBeInTheDocument();
+    fireEvent.drop(z, { dataTransfer: { files: [new File(["x"], "notes.zip")] } });
+    expect(await screen.findByText("Only Word, PDF, text, image and video files can be added")).toBeInTheDocument();
     fireEvent.drop(z, { dataTransfer: { files: [new File(["x"], "spec.docx")] } });
     expect(await screen.findByText(/Adding spec.docx stopped/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss spec.docx" }));
@@ -461,7 +461,10 @@ describe("Documents screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add documents" }));
     expect(click).toHaveBeenCalled();
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(input).toHaveAttribute("accept", ".docx,.pdf");
+    expect(input).toHaveAttribute(
+      "accept",
+      ".docx,.pdf,.txt,.md,.jpg,.jpeg,.png,.webp,.mp4,.mov,.m4v,.mkv,.webm,.avi,.wmv",
+    );
     expect(input).toHaveAttribute("multiple");
     fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
     expect((await within(listOf()).findAllByText("a.txt")).length).toBeGreaterThan(0);
@@ -612,7 +615,31 @@ describe("Documents screen on the desktop", () => {
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(d.pickFiles).toHaveBeenCalledWith({
       title: "Add documents",
-      filters: [{ name: "Word or PDF", extensions: ["docx", "pdf"] }],
+      filters: [
+        {
+          name: "Documents, images and videos",
+          extensions: [
+            "docx",
+            "pdf",
+            "txt",
+            "md",
+            "jpg",
+            "jpeg",
+            "png",
+            "webp",
+            "mp4",
+            "mov",
+            "m4v",
+            "mkv",
+            "webm",
+            "avi",
+            "wmv",
+          ],
+        },
+        { name: "Word, PDF or text", extensions: ["docx", "pdf", "txt", "md"] },
+        { name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] },
+        { name: "Videos", extensions: ["mp4", "mov", "m4v", "mkv", "webm", "avi", "wmv"] },
+      ],
       multiple: true,
     });
     expect(named("docs.addFiles")[0].input).toEqual({ files: [{ path: "C:\\specs\\SOSIE_3.docx" }] });
