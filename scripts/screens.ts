@@ -82,7 +82,7 @@ const scenarios = SCENARIOS(essai)
 
 if (values.list) {
   for (const sc of scenarios) {
-    process.stdout.write(`\n${sc.id} — ${sc.note}\n`);
+    process.stdout.write(`\n${sc.id} — ${sc.note}${sc.skip ? ` (skipped: ${sc.skip})` : ""}\n`);
     for (const sh of sc.shots)
       process.stdout.write(`  ${sh.id.padEnd(34)} ${areaOf(sc.id, sh.id).padEnd(10)} ${sh.note}\n`);
   }
@@ -105,6 +105,7 @@ type Entry = {
 };
 const manifest: Entry[] = [];
 const failures: string[] = [];
+const skipped: string[] = [];
 
 function log(line: string): void {
   process.stdout.write(`${line}\n`);
@@ -297,6 +298,11 @@ async function runShot(browser: Browser, server: Server, sc: Scenario, sh: Shot,
 }
 
 async function runScenario(browser: Browser, sc: Scenario): Promise<void> {
+  if (sc.skip) {
+    skipped.push(`${sc.id}: ${sc.skip}`);
+    log(`– ${sc.id} skipped: ${sc.skip}`);
+    return;
+  }
   log(`▶ ${sc.id} — ${sc.note}`);
   let child: ChildProcess | null = null;
   try {
@@ -354,6 +360,6 @@ await browser.close();
 writeIndex();
 const images = manifest.reduce((n, e) => n + e.files.length, 0);
 log(
-  `\n${manifest.length} shots, ${images} images in ${out}${failures.length ? `\n${failures.length} failed:\n  ${failures.join("\n  ")}` : ""}`,
+  `\n${manifest.length} shots, ${images} images in ${out}${skipped.length ? `\n${skipped.length} skipped:\n  ${skipped.join("\n  ")}` : ""}${failures.length ? `\n${failures.length} failed:\n  ${failures.join("\n  ")}` : ""}`,
 );
 process.exit(failures.length ? 1 : 0);

@@ -25,13 +25,18 @@ npm run screens -- --list                         # le catalogue, sans rien lanc
 | `--sizes lg,md,sm`    | Tailles (défaut les trois). `xs` (740 × 800) est en plus, sur demande.                                 |
 | `--themes light,dark` | Thèmes (défaut les deux).                                                                              |
 | `--only a,b`          | Garde les scénarios ou les captures dont l'identifiant (`scénario/capture`) contient un de ces textes. |
-| `--essai <dir>`       | Le vrai projet copié dans le scénario `essai` (défaut `~/Testimus/Projects/Essai`).                    |
+| `--essai <dir>`       | Le vrai projet copié dans le scénario `essai` (défaut `~/Testimus/Projects/Essai`). Absent : sauté.    |
 | `--jobs <n>`          | Scénarios en parallèle (défaut 3). Chacun a son serveur et son bac à sable.                            |
 | `--no-build`          | Ne relance pas `vite build` (`dist/ui` doit être à jour).                                              |
 | `--headed`            | Montre le navigateur.                                                                                  |
 
 Il faut Microsoft Edge (canal `msedge` de Playwright, le même que l'e2e). Le scénario `desktop` lance aussi
 `npm run desktop:build` pour avoir les pages du shell Electron.
+
+Le scénario `essai` copie un vrai projet de ce PC. Si son dossier n'existe pas (une autre machine, un autre
+compte), il est **sauté** et ne compte pas comme un échec : le journal le dit par une ligne
+`– essai skipped: no essai project at <dossier> — pass --essai <dir>`, le bilan final la répète sous « skipped »,
+et `--list` marque le scénario « (skipped: …) ».
 
 Une capture qui échoue est reprise une fois (le journal le dit par une ligne `↻`) : une machine chargée ou une page
 prise pendant un rechargement ne coûte pas une capture. Le code de sortie vaut 1 si une capture échoue encore à la

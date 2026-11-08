@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -40,6 +40,8 @@ export type Scenario = {
   note: string;
   env: Record<string, string>;
   noServer?: boolean;
+  // ponytail: why the scenario cannot run on this machine (data it copies is not here); skipped, not a failure
+  skip?: string;
   before?: (s: Server) => Promise<void>;
   shots: Shot[];
 };
@@ -1645,6 +1647,7 @@ export function SCENARIOS(essai: string): Scenario[] {
       id: "essai",
       note: "A copy of the Essai project of this PC (not production) with the fake Jira",
       env: { TESTIMUS_MOCK_SEED: `${essai},fixture` },
+      skip: existsSync(essai) ? undefined : `no essai project at ${essai} — pass --essai <dir>`,
       before: async (s) => {
         await s.api("project.set", { jiraProject: "LFRPS12" }).catch(() => {});
       },

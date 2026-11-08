@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { kitSectionNames, SCENARIOS } from "../../../scripts/screens-catalog.ts";
 import { readPace } from "../../../src/core/mock/index.ts";
@@ -108,5 +111,22 @@ describe("npm run screens: the catalog", () => {
         expect(MOCK_VALUES[k](v), `${s.id} ${k}=${v}`).toBe(true);
       }
     expect(scenarios.find((s) => s.id === "essai")?.env.TESTIMUS_MOCK_SEED).toBe(`${ESSAI},fixture`);
+  });
+
+  it("skips the essai scenario, with where it looked and how to point elsewhere, when that project is not here", () => {
+    const missing = join(tmpdir(), "testimus-no-essai-here");
+    const away = SCENARIOS(missing).find((s) => s.id === "essai");
+    expect(away?.skip).toBe(`no essai project at ${missing} — pass --essai <dir>`);
+    const here = mkdtempSync(join(tmpdir(), "testimus-essai-"));
+    try {
+      expect(SCENARIOS(here).find((s) => s.id === "essai")?.skip).toBeUndefined();
+    } finally {
+      rmSync(here, { recursive: true, force: true });
+    }
+    expect(
+      SCENARIOS(here)
+        .filter((s) => s.skip)
+        .map((s) => s.id),
+    ).toEqual(["essai"]);
   });
 });
