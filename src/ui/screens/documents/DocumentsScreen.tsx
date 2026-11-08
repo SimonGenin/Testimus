@@ -262,6 +262,13 @@ export function DocumentsScreen() {
     >
       <ScreenHeader
         title="Documents"
+        back={
+          from
+            ? { to: from.test, away: true, onClick: () => app.navigate(from.screen, from.test) }
+            : quote && active
+              ? { away: true, onClick: () => window.history.back() }
+              : undefined
+        }
         crumbs={onOverview ? [OVERVIEW_TITLE] : active ? [`${active.id} · ${active.title || active.id}`] : []}
         meta={busy ? `${busy} in progress` : undefined}
       >
@@ -336,7 +343,6 @@ export function DocumentsScreen() {
               quote={quote}
               from={from}
               onClearQuote={() => app.navigate("documents", `${activeId}#${anchor}`)}
-              onBack={() => (from ? app.navigate(from.screen, from.test) : window.history.back())}
               fold={fold}
               panes={panes}
               listOpen={listOpen}
@@ -362,13 +368,6 @@ export function DocumentsScreen() {
                         label="Show the document list"
                         expanded={listOpen}
                         onClick={() => setListOpen(true)}
-                      />
-                    )}
-                    {from && (
-                      <Button
-                        icon="arrow-left"
-                        label="Back to the test"
-                        onClick={() => app.navigate(from.screen, from.test)}
                       />
                     )}
                     <Button

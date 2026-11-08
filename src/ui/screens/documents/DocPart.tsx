@@ -31,32 +31,21 @@ export type QuoteFrom = { test: string; step?: number };
 
 const sectionLabel = (anchor: string) => (anchor.startsWith("§") ? `§ ${anchor.slice(1)}` : anchor);
 
-// ponytail: a quote (or a passage with none) opened from a test: which test cited it (when the link says so), the way
-// back, and Clear to read on without the mark
+// ponytail: a quote (or a passage with none) opened from a test: which test cited it (when the link says so), and Clear
+// to read on without the mark; the way back to the test is in the top bar
 function QuoteBar({
   under,
   quoted,
   from,
-  onBack,
   onClear,
 }: {
   under: string;
   quoted: boolean;
   from?: QuoteFrom;
-  onBack: () => void;
   onClear: () => void;
 }) {
   return (
-    <Banner
-      tone="neutral"
-      icon="quote"
-      actions={
-        <>
-          <Button size="sm" icon="arrow-left" label={from ? "Back to the test" : "Back"} onClick={onBack} />
-          <Button size="sm" variant="quiet" label="Clear" onClick={onClear} />
-        </>
-      }
-    >
+    <Banner tone="neutral" icon="quote" actions={<Button size="sm" variant="quiet" label="Clear" onClick={onClear} />}>
       {from ? (
         <>
           {quoted ? "The quote" : "The passage"} cited by <span {...stylex.props(type.code)}>{from.test}</span>
@@ -96,7 +85,7 @@ export function DocPart({
   loading: boolean;
   focus?: string;
   target?: string;
-  quote?: { from?: QuoteFrom; onBack: () => void; onClear: () => void };
+  quote?: { from?: QuoteFrom; onClear: () => void };
   /** the document shows the real system (images or a video not marked as the reference) */
   observed?: boolean;
   onGo: (anchor: string) => void;

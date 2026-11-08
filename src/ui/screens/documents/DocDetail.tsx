@@ -68,7 +68,6 @@ export function DocDetail({
   quote = "",
   from,
   onClearQuote,
-  onBack,
   fold = "wide",
   panes,
   listOpen = false,
@@ -81,7 +80,6 @@ export function DocDetail({
   quote?: string;
   from?: QuoteFrom;
   onClearQuote?: () => void;
-  onBack?: () => void;
   fold?: Fold;
   panes?: Record<"toc" | "side", Pane>;
   listOpen?: boolean;
@@ -263,7 +261,7 @@ export function DocDetail({
                 loading={!part.data && !part.isError}
                 focus={quote || undefined}
                 target={anchor && !quote ? anchor : undefined}
-                quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
+                quote={onClearQuote ? { from, onClear: onClearQuote } : undefined}
                 observed={d.observed}
                 onGo={go}
                 onFigure={(a) => {

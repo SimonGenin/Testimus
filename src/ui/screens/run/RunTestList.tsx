@@ -76,7 +76,7 @@ function itemOf(t: RunTestView, n: number) {
 }
 
 // ponytail: the run's tests beside the one being played — the run's body is a container of Review's width rule (three
-// panes beside the dock, the same squeeze): under it the list goes and the bar's back button stays — how far the run is, the tests by folder with their result
+// panes beside the dock, the same squeeze): under it the list goes and the top bar's way back stays — how far the run is, the tests by folder with their result
 // and their step marks, the same filters and sort as the run's table (one view, kept while the tester moves on)
 export function RunTestList({
   run,
@@ -85,7 +85,6 @@ export function RunTestList({
   onView,
   onOpen,
   me,
-  onBack,
 }: {
   /** who records results here (runs.list): « Only tests I ran » */
   me: string;
@@ -94,7 +93,6 @@ export function RunTestList({
   view: TestView;
   onView: (v: TestView) => void;
   onOpen: (testId: string) => void;
-  onBack: () => void;
 }) {
   const c = run.counts;
   const total = run.tests.length || 1;
@@ -107,9 +105,6 @@ export function RunTestList({
   return (
     <nav aria-label="Tests of the run" {...stylex.props(styles.side)}>
       <div {...stylex.props(styles.head)}>
-        <span>
-          <Button variant="link" size="sm" icon="arrow-left" label="The run" onClick={onBack} />
-        </span>
         <h2 title={run.name} {...stylex.props(type.titleSm, styles.name)}>
           {run.name}
         </h2>

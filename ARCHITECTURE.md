@@ -966,6 +966,13 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   deletes or shows a project in Explorer; reached from the app (its route says so, `#/setup/project/app`: the project
   menu, the palette, an empty screen's « Open a project… »), opening one there goes back to the app; on the first
   launch it walks on to Search, even once a first project is open.
+- **Navigation is the top bar's**: a screen that went down a level — a test being run (`Run › <run> › Test n of m`),
+  a test edited in Review (`Review › <key> › Editing`), a document read from a test — puts the way back in the top bar,
+  through `ScreenHeader`: an arrow before the title, then the trail, where a crumb that is a level is a link to it. The
+  arrow alone when it goes up within the screen (its tooltip says where), with its words when it leaves the screen
+  (« Back to LFRPS12-1420 »: the trail does not hold the place it goes to). A screen's panes, bars and banners hold no
+  « Back »; a list beside a detail (Review's queue, Tests, Jobs, Settings) is a choice, not a level, and has none.
+  Modals and First launch keep their own steps.
 - **Names, never internal ids**: a label is what speaks to the user — a test's summary (its Jira key beside it in mono
   when it has one; a local test carries a « Local » badge), a document's title (and its code), the project's name, a
   context's or column's name; a missing one is « Untitled test / document / context », never the id

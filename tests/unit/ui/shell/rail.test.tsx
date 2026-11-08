@@ -162,6 +162,51 @@ describe("Rail, system status, theme and headers", () => {
     const crumb = within(h1).getByTitle("SOSIE_211_D401-1_3 · Traction");
     expect(crumb.querySelector("svg")).not.toBeNull();
   });
+
+  it("a screen down a level puts its way back before the title, and a crumb that is a place goes there", () => {
+    const up = vi.fn();
+    const away = vi.fn();
+    const { rerender } = withData(
+      <Shell>
+        <ScreenHeader
+          title="Run"
+          back={{ to: "the run", onClick: up }}
+          crumbs={[{ label: "Recette J5", onClick: up }, "Test 2 of 3"]}
+        />
+      </Shell>,
+    );
+    const bar = screen.getByRole("banner");
+    const h1 = within(bar).getByRole("heading", { level: 1 });
+    const back = within(bar).getByRole("button", { name: "Back to the run" });
+    expect(h1).not.toContainElement(back);
+    expect(back.compareDocumentPosition(h1) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(back).not.toHaveTextContent("Back to the run");
+    expect(h1).toHaveTextContent("RunRecette J5Test 2 of 3");
+    fireEvent.click(back);
+    fireEvent.click(within(h1).getByRole("button", { name: "Recette J5" }));
+    expect(up).toHaveBeenCalledTimes(2);
+    expect(within(h1).queryByRole("button", { name: "Test 2 of 3" })).toBeNull();
+    expect(within(screen.getByRole("main")).queryByRole("button")).toBeNull();
+    rerender(
+      <DataProvider>
+        <Shell>
+          <ScreenHeader title="Documents" back={{ to: "LFRPS12-1420", away: true, onClick: away }} />
+        </Shell>
+      </DataProvider>,
+    );
+    const leave = within(screen.getByRole("banner")).getByRole("button", { name: "Back to LFRPS12-1420" });
+    expect(leave).toHaveTextContent("Back to LFRPS12-1420");
+    fireEvent.click(leave);
+    expect(away).toHaveBeenCalled();
+    rerender(
+      <DataProvider>
+        <Shell>
+          <ScreenHeader title="Documents" />
+        </Shell>
+      </DataProvider>,
+    );
+    expect(within(screen.getByRole("banner")).queryByRole("button", { name: /^Back/ })).toBeNull();
+  });
 });
 
 describe("Rail memory", () => {

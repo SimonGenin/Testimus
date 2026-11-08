@@ -140,9 +140,21 @@ export function ReviewScreen() {
     });
   };
 
+  const editing =
+    view.editing && data
+      ? {
+          name: data.test.key ?? data.id,
+          done: () => void act.flush(data.id).then(() => view.patch({ editing: false })),
+        }
+      : null;
+
   return (
     <div {...stylex.props(styles.screen)}>
-      <ScreenHeader title="Review" />
+      <ScreenHeader
+        title="Review"
+        back={editing ? { to: "review", onClick: editing.done } : undefined}
+        crumbs={editing ? [{ label: editing.name, onClick: editing.done }, "Editing"] : []}
+      />
       <div {...stylex.props(styles.review)}>
         <ReviewQueue
           items={items}
@@ -193,12 +205,8 @@ export function ReviewScreen() {
         </div>
         <QueueStrip at={at} total={items?.length ?? 0} shown={queueOver} onShow={setQueueOver} onMove={move} />
         <section aria-label="Test under review" {...stylex.props(styles.main)}>
-          {view.editing && data ? (
-            <ReviewEdit
-              id={data.id}
-              onBack={() => void act.flush(data.id).then(() => view.patch({ editing: false }))}
-              onOpen={(id) => app.navigate("tests", id)}
-            />
+          {editing && data ? (
+            <ReviewEdit id={data.id} onBack={editing.done} onOpen={(id) => app.navigate("tests", id)} />
           ) : d.loadError ? (
             <div {...stylex.props(styles.notice)}>
               <Banner tone="danger" title="This test could not be opened">

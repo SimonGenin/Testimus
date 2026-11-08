@@ -253,6 +253,20 @@ describe("running a test like a test of the editor", () => {
     expect(within(test).getByRole("article", { name: "Step 1" })).toHaveAttribute("data-folded");
   });
 
+  it("goes back up to the run from the header — the arrow or the run's crumb — and nowhere else", async () => {
+    const { state } = withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
+    const list = await screen.findByRole("navigation", { name: "Tests of the run" });
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("RunRecette J5 — SectionneursTest 3 of 3");
+    expect(within(list).queryByRole("button", { name: /^(The run|Back)/ })).toBeNull();
+    expect(within(screen.getByRole("toolbar", { name: "Test" })).queryByRole("button", { name: /^Back/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the run" }));
+    expect(state.navigate).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(h1).getByRole("button", { name: "Recette J5 — Sectionneurs" }));
+    expect(state.navigate).toHaveBeenCalledTimes(2);
+    expect(state.navigate).toHaveBeenLastCalledWith("run", RUN);
+  });
+
   it("lists the run's tests beside it, filters them, and shows the same test in the other runs", async () => {
     const { state } = withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
     const list = await screen.findByRole("navigation", { name: "Tests of the run" });

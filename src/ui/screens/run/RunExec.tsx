@@ -163,7 +163,11 @@ export function RunExec({
 
   return (
     <>
-      <ScreenHeader title="Run" crumbs={[run.name, `Test ${at + 1} of ${run.tests.length}`]} />
+      <ScreenHeader
+        title="Run"
+        back={{ to: "the run", onClick: onBack }}
+        crumbs={[{ label: run.name, onClick: onBack }, `Test ${at + 1} of ${run.tests.length}`]}
+      />
       <div {...stylex.props(styles.body)}>
         <RunTestList
           run={run}
@@ -172,7 +176,6 @@ export function RunExec({
           onView={onView}
           me={me}
           onOpen={(id) => id !== test.id && onGo(id)}
-          onBack={onBack}
         />
         <section aria-label={`Test ${test.summary}`} {...stylex.props(styles.center)}>
           <RunExecBar
@@ -184,7 +187,6 @@ export function RunExec({
             onNext={next ? () => onGo(next.id) : undefined}
             onAsk={() => askClaude("test")}
             onOpenTest={() => app.navigate("tests", test.id)}
-            onBack={onBack}
           />
           <div {...stylex.props(styles.scroll)}>
             <div {...stylex.props(styles.col)}>

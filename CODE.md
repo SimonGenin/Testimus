@@ -109,6 +109,8 @@ tests/fixtures/       the LFRPS12 sample project (two Word documents, an images,
 
 - A screen assembles kit components; it holds no data logic and no bare control. Missing control → extend the kit:
   an option first, a wrapper second, a new component last (with its reason, in the catalogue). Never copy JSX.
+- A screen that goes down a level gives `ScreenHeader` its `back` and its `crumbs` (a crumb `{ label, onClick }` is a
+  link): the way back is in the top bar, never a « Back » in a pane (ARCHITECTURE.md §12 « Navigation »).
 - Styles: `stylex.create` in the component's own file, values from `tokens.stylex.ts`, text through `type.ts`. No
   literal colour, no px size, no constant inline style, no `.css`, no `dangerouslySetInnerHTML`. A framed box is a
   `Card`. Markdown and Claude's answers render to React elements, never an HTML string.

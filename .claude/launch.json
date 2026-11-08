@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "testimus-mock-mac",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4383", "--no-open"],
+      "port": 4383,
+      "url": "http://127.0.0.1:4383"
+    },
+    {
       "name": "testimus-mock",
       "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
       "runtimeArgs": [

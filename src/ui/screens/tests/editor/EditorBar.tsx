@@ -67,7 +67,7 @@ export function EditorBar({
   onRetry,
   onAsk,
   onPush,
-  onBack,
+  editing = false,
 }: {
   lead?: ReactNode;
   testKey?: string;
@@ -85,10 +85,10 @@ export function EditorBar({
   onRetry: () => void;
   onAsk: () => void;
   onPush: () => void;
-  /** Review › Edit: the bar says « Editing » and leads back to the review, without folder, push or ⋯ */
-  onBack?: () => void;
+  /** Review › Edit: the bar says « Editing », without folder, push or ⋯ (the way back to the review is in the top bar) */
+  editing?: boolean;
 }) {
-  if (onBack)
+  if (editing)
     return (
       <div role="toolbar" aria-label="Editing in Review" {...stylex.props(styles.bar)}>
         {lead}
@@ -99,7 +99,6 @@ export function EditorBar({
         <TestSave status={status} activity={activity} claude={claude} onRetry={onRetry} />
         <span {...stylex.props(styles.grow)} />
         <Button size="sm" variant="claude-quiet" icon="claude" label="Ask Claude" onClick={onAsk} />
-        <Button size="sm" variant="primary" icon="arrow-left" label="Back to review" onClick={onBack} />
       </div>
     );
   return (

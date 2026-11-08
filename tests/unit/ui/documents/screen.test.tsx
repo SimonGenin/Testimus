@@ -207,7 +207,7 @@ describe("Documents screen", () => {
     );
     await waitFor(() => expect(document.querySelector("[data-focus]")?.textContent).toBe("ligne citée"));
     expect(document.querySelector("[data-target]")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Back to the test" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to LFRPS12-1420" }));
     expect(a.navigate).toHaveBeenCalledWith("tests", "LFRPS12-1420");
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(a.navigate).toHaveBeenCalledWith("documents", "D1#§1");
@@ -222,7 +222,7 @@ describe("Documents screen", () => {
       "The passage cited by LFRPS12-1420 · step 2, under § 1",
     );
     expect(document.querySelector("[data-focus]")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Back to the test" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to LFRPS12-1420" }));
     expect(a.navigate).toHaveBeenCalledWith("review", "LFRPS12-1420");
     cleanup();
     open("D1#§1");

@@ -3,7 +3,7 @@ import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
-import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { day, folderOf, NO_FOLDER, type RunTestView } from "./runs.ts";
 
 const styles = stylex.create({
@@ -27,7 +27,6 @@ const styles = stylex.create({
   grow: { flex: 1 },
   pos: { color: color.textMuted, whiteSpace: "nowrap" },
   nav: { display: "inline-flex", alignItems: "center", gap: space.s1 },
-  back: { display: { default: "none", [container.reviewQueue]: "inline-flex" } },
 });
 
 // ponytail: the test bar of a test being run, as the editor's — which test (its key or id, its folder, frozen when),
@@ -41,7 +40,6 @@ export function RunExecBar({
   onNext,
   onAsk,
   onOpenTest,
-  onBack,
 }: {
   test: RunTestView;
   at: number;
@@ -51,14 +49,10 @@ export function RunExecBar({
   onNext?: () => void;
   onAsk: () => void;
   onOpenTest: () => void;
-  onBack: () => void;
 }) {
   const folder = folderOf(test);
   return (
     <div role="toolbar" aria-label="Test" {...stylex.props(styles.bar)}>
-      <span {...stylex.props(styles.back)}>
-        <Button variant="quiet" size="sm" icon="arrow-left" iconOnly label="Back to the run" onClick={onBack} />
-      </span>
       <span {...stylex.props(type.small, type.mono, styles.key)}>{test.key ?? test.id}</span>
       {folder !== NO_FOLDER && (
         <span title={folder} {...stylex.props(type.compact, styles.folder)}>

@@ -23,9 +23,7 @@ vi.mock("../../../../src/ui/screens/tests/TestEditor.tsx", () => ({
   }) => (
     <div>
       <span>Editor for {testId}</span>
-      <button type="button" onClick={onBack}>
-        Back to review
-      </button>
+      {onBack && <span>editing in Review</span>}
       <button type="button" onClick={() => onOpen("OTHER")}>
         Open other
       </button>
@@ -531,6 +529,13 @@ describe("Review screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open other" }));
     expect(a.navigate).toHaveBeenCalledWith("tests", "OTHER");
     expect(screen.queryByRole("button", { name: "Ask Claude" })).toBeNull();
+    expect(screen.getByText("editing in Review")).toBeInTheDocument();
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("ReviewK-1Editing");
+    fireEvent.click(within(h1).getByRole("button", { name: "K-1" }));
+    expect(await screen.findByRole("heading", { name: "Summary K-1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Review$/);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "Back to review" }));
     expect(await screen.findByRole("heading", { name: "Summary K-1" })).toBeInTheDocument();
   });

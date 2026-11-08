@@ -93,7 +93,7 @@ export function TestEditor({
   onOpen: (id: string) => void;
   /** before the key in the bar (the list toggle of a narrow window) */
   lead?: React.ReactNode;
-  /** opened from Review: the bar leads back there instead of offering folder, push and ⋯ */
+  /** opened from Review (the top bar leads back there): the bar says « Editing » instead of offering folder, push and ⋯ */
   onBack?: () => void;
 }) {
   const app = useApp();
@@ -377,7 +377,7 @@ export function TestEditor({
         onRetry={() => void doc.doc.retry()}
         onAsk={() => app.askClaude("test")}
         onPush={() => void actions.askPush()}
-        onBack={onBack}
+        editing={!!onBack}
       />
       <EditorColumn
         width={width}
