@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
+import { OpenByKey } from "../../components/shell/OpenByKey.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Disclosure } from "../../components/ui/Disclosure.tsx";
@@ -43,6 +44,7 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
   const f = useNewProject(p.root);
   const jira = useJiraChoice();
   const [path, setPath] = useState("");
+  const [byKey, setByKey] = useState(false);
   const create = async () => {
     if (f.dir && (await p.create(f.input))) f.clear();
   };
@@ -86,8 +88,8 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
         )
       )}
       <NewProject f={f} busy={p.busy} first={p.known?.length === 0} jira={jira} />
-      {desktop() ? (
-        <div {...stylex.props(styles.more)}>
+      <div {...stylex.props(styles.more)}>
+        {desktop() && (
           <Button
             variant="quiet"
             icon="folder-open"
@@ -95,8 +97,10 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
             disabled={p.busy}
             onClick={() => void openFolder()}
           />
-        </div>
-      ) : (
+        )}
+        <Button variant="quiet" icon="key" label="Open by Jira key…" disabled={p.busy} onClick={() => setByKey(true)} />
+      </div>
+      {!desktop() && (
         <Disclosure summary="Open a project folder shared with you" quiet>
           <form
             aria-label="Open a project folder"
@@ -125,6 +129,7 @@ export function ProjectStep({ onBack, onOpened }: { onBack: () => void; onOpened
           {p.error}
         </Banner>
       )}
+      {byKey && <OpenByKey onClose={() => setByKey(false)} onOpened={p.afterOpen} />}
     </StepCard>
   );
 }

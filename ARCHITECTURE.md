@@ -468,6 +468,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   for keys and anchors; a state is always icon + word; every pair at WCAG AA. UI text in English.
 - **Layout**: left rail (Documents · Generate · Tests · Review · Jobs, then Settings and the system check), main pane,
   Claude dock on the right everywhere (folded in Review; floats over the screen below 1300 px). Minimum width 520 px.
+  The project at the top of the rail opens a menu of the known projects (a quick switch) and one action, « All
+  projects… », to First launch › Project — the one place that opens a folder, opens by Jira key, creates, hides,
+  deletes or shows a project in Explorer; reached with a project open, opening one there goes back to the app.
 - **Safety rules of the page**: a Jira write always shows its plan first; from the palette (Ctrl K, every command by
   name, a form from its schema) nothing runs blind — a command with `dryRun` shows its plan, one that loses something
   without a dry run asks first naming what goes; any Claude run on a test or the project **locks the editor**, the lock

@@ -9,7 +9,6 @@ import { CommandForm, lossOf } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
 import { OpenByKey } from "../components/shell/OpenByKey.tsx";
 import { Palette } from "../components/shell/Palette.tsx";
-import { useOpenFolder } from "../components/shell/ProjectButton.tsx";
 import { firstSentence, hasInput } from "../components/shell/paletteEntries.tsx";
 import { Rail } from "../components/shell/Rail.tsx";
 import { ServerLost } from "../components/shell/ServerLost.tsx";
@@ -32,6 +31,7 @@ import { ScreenGuard } from "./ScreenGuard.tsx";
 import { Screens } from "./Screens.tsx";
 import { useClaudeLock } from "./useClaudeLock.ts";
 import { useDock } from "./useDock.ts";
+import { useOpenFolder } from "./useOpenFolder.ts";
 import { useProject } from "./useProject.ts";
 import { useShellEvents } from "./useShellEvents.ts";
 

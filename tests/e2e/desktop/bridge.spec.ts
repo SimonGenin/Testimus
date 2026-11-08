@@ -149,9 +149,11 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     const dir = projectCopy("Desktop proof", "DESK");
     await pick(app, [dir]);
     await page.getByRole("button", { name: /^Project LFRPS12/ }).click();
-    await expect(page.getByRole("menuitem", { name: "Open a folder…" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "All projects…" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Open a folder…" })).toHaveCount(0);
     await shoot(page, "desktop-project-menu");
-    await page.getByRole("menuitem", { name: "Open a folder…" }).click();
+    await page.getByRole("menuitem", { name: "All projects…" }).click();
+    await page.getByRole("button", { name: "Open a project folder…" }).click();
     await expect(page.getByRole("button", { name: /^Project DESK Desktop proof/ })).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => title(app)).toBe("Testimus — Desktop proof");
     expect((await main(app)).asked[0]).toMatchObject({
@@ -160,9 +162,12 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
     });
 
     await page.getByRole("button", { name: /^Project DESK/ }).click();
+    await page.getByRole("menuitem", { name: "All projects…" }).click();
+    await page.getByRole("button", { name: "More actions for Desktop proof" }).click();
     await page.getByRole("menuitem", { name: "Show in Explorer" }).click();
     await expect.poll(async () => (await main(app)).revealed).toEqual([dir]);
 
+    await page.getByRole("button", { name: "Back to the app" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
     const folded = page.getByRole("button", { name: "Show the document list" });
     await expect(folded.or(page.getByRole("region", { name: "Document list" })).first()).toBeVisible();

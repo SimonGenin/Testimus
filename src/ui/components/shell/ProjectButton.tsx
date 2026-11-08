@@ -1,15 +1,14 @@
-import { type ReactElement, useEffect, useState } from "react";
-import { type AppState, useApp } from "../../lib/app.ts";
+import { type ReactElement, useEffect } from "react";
+import { useApp } from "../../lib/app.ts";
 import { project, setProject } from "../../lib/data/client.ts";
-import { useCommand, useRead } from "../../lib/data/query.ts";
-import { baseName, desktop, pickFolder, reveal, showProject } from "../../lib/desktop.ts";
+import { useRead } from "../../lib/data/query.ts";
+import { baseName } from "../../lib/desktop.ts";
 import { initials } from "../../lib/format.ts";
 import { writePref } from "../../lib/prefs.ts";
 import { errorToast } from "../../lib/toast.ts";
 import type { ButtonProps } from "../ui/Button.tsx";
 import { Menu, type MenuEntry } from "../ui/Menu.tsx";
 import { RailItem } from "../ui/RailItem.tsx";
-import { OpenByKey } from "./OpenByKey.tsx";
 
 type Known = { dir: string; name?: string; jiraProject?: string };
 
@@ -18,28 +17,11 @@ const asKnown = (v: unknown): Known[] =>
     typeof p === "string" ? [{ dir: p }] : p && typeof p === "object" && "dir" in p ? [p as Known] : [],
   );
 
-// ponytail: « Open a folder… » — the desktop's folder picker, then that folder becomes the open project (the rail and
-// the palette both); in a browser there is no picker, so First launch › Project asks for the folder
-export function useOpenFolder(app: Pick<AppState, "navigate" | "refreshInfo" | "testsChanged">): () => Promise<void> {
-  const open = useCommand("project.open", { invalidates: [["project.list"]] });
-  return async () => {
-    if (!desktop()) return app.navigate("setup", "project");
-    const dir = await pickFolder("Open a project folder");
-    if (!dir) return;
-    await open
-      .mutateAsync({ dir })
-      .then((r) => showProject(app, r.dir))
-      .catch((e) => errorToast(e, "Could not open the project"));
-  };
-}
-
-// ponytail: the project at the top of the rail — its initials and Jira key; its menu switches to a known project,
-// opens a folder (desktop) or a Jira key, starts a new one, shows the folder in Explorer (desktop)
+// ponytail: the project at the top of the rail — its initials and Jira key; its menu switches to a known project, and
+// « All projects… » goes to First launch › Project, where a folder, a Jira key or a new project is opened
 export function ProjectButton() {
   const app = useApp();
-  const [byKey, setByKey] = useState(false);
   const list = useRead("project.list", {});
-  const browse = useOpenFolder(app);
   useEffect(() => {
     if (list.error) errorToast(list.error, "Could not list the projects");
   }, [list.error]);
@@ -54,7 +36,6 @@ export function ProjectButton() {
     app.refreshInfo();
     app.testsChanged();
   };
-  const d = desktop();
   const entries: MenuEntry[] = [
     { group: "Projects" },
     ...(known.length
@@ -67,12 +48,7 @@ export function ProjectButton() {
         }))
       : [{ label: "No other project known yet", disabled: true, onSelect: () => {} }]),
     "separator",
-    ...(d ? [{ label: "Open a folder…", icon: "folder-open" as const, onSelect: () => void browse() }] : []),
-    { label: "Open by Jira key…", icon: "key", onSelect: () => setByKey(true) },
-    { label: "New project…", icon: "plus", onSelect: () => app.navigate("setup", "project") },
-    "separator",
-    ...(d && here ? [{ label: "Show in Explorer", icon: "external" as const, onSelect: () => void reveal(here) }] : []),
-    { note: "« Don't show » and « Delete » for a project are in First launch › Project." },
+    { label: "All projects…", icon: "list", onSelect: () => app.navigate("setup", "project") },
   ];
   const trigger = (
     <RailItem
@@ -83,10 +59,5 @@ export function ProjectButton() {
       onClick={() => void list.refetch()}
     />
   ) as unknown as ReactElement<ButtonProps>;
-  return (
-    <>
-      {byKey && <OpenByKey onClose={() => setByKey(false)} />}
-      <Menu label="Projects" align="beside" trigger={trigger} entries={entries} />
-    </>
-  );
+  return <Menu label="Projects" align="beside" trigger={trigger} entries={entries} />;
 }

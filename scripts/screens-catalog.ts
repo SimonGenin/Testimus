@@ -625,9 +625,10 @@ function fixtureShots(): Shot[] {
     {
       id: "open-by-key-dialog",
       note: "Open a project by its Jira key",
-      hash: "#/tests",
+      hash: "#/setup/project",
+      setup: true,
+      ready: heading1,
       prep: async (p) => {
-        await tap(p, /^Project /);
         await tap(p, /^Open by Jira key/);
         await dialog(p);
       },

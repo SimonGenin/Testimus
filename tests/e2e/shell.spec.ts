@@ -23,6 +23,26 @@ test("the rail shows the project and moves between screens", async ({ page }) =>
   await expect(list.getByRole("tab", { name: /^Jira/ })).toHaveAttribute("aria-selected", "true");
 });
 
+test("the project menu lists the projects and « All projects… » goes to the project selection", async ({ page }) => {
+  await boot(page);
+  await page.getByRole("button", { name: /^Project LFRPS12/ }).click();
+  const menu = page.getByRole("menu", { name: "Projects" });
+  await expect(menu.getByRole("menuitemcheckbox", { name: /RATP Sosie/ })).toHaveAttribute("aria-checked", "true");
+  await expect(menu.getByRole("menuitem")).toHaveText(["All projects…"]);
+  for (const gone of ["Open a folder…", "Open by Jira key…", "New project…", "Show in Explorer"])
+    await expect(page.getByRole("menuitem", { name: gone })).toHaveCount(0);
+  await menu.getByRole("menuitem", { name: "All projects…" }).click();
+  await expect(page).toHaveURL(/#\/setup\/project$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Choose a project" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Known projects" })).toContainText("RATP Sosie");
+  await page.getByRole("button", { name: "Open by Jira key…" }).click();
+  await expect(page.getByRole("dialog", { name: "Open a project by its Jira key" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Open again" }).click();
+  await expect(page).toHaveURL(/#\/documents$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
+});
+
 test("the system status opens the system check", async ({ page }) => {
   await boot(page);
   await page.getByRole("button", { name: /^System: / }).click();

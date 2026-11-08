@@ -24,7 +24,7 @@ function useSettled(value: string, ms: number): string {
 
 // ponytail: Xray Editor opens a project from its Jira code (its top bar's « Go ») — a known project with that key,
 // else a new project folder named after it beside the current one; the dialog says which before the button does it
-export function OpenByKey({ onClose }: { onClose: () => void }) {
+export function OpenByKey({ onClose, onOpened }: { onClose: () => void; onOpened?: () => void }) {
   const app = useApp();
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,6 +45,7 @@ export function OpenByKey({ onClose }: { onClose: () => void }) {
       showProject(app, r.dir);
       if (r.created) toast({ tone: "success", title: `Project ${k} created`, detail: r.dir });
       onClose();
+      onOpened?.();
     } catch (e) {
       errorToast(e, `Could not open ${k}`);
     } finally {

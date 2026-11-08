@@ -33,10 +33,11 @@ export function useProjects(onOpened?: () => void) {
   const [error, setError] = useState("");
   const [failed, setFailed] = useState("");
 
+  const afterOpen = () => (onOpened ? onOpened() : app.navigate("documents"));
+
   const opened = (a: AppState, dir: string) => {
     showProject(a, dir);
-    if (onOpened) onOpened();
-    else a.navigate("documents");
+    afterOpen();
   };
 
   const open = async (dir: string) => {
@@ -106,6 +107,7 @@ export function useProjects(onOpened?: () => void) {
     error,
     /** what failed, the banner's title (« Could not open the project ») */
     failed,
+    afterOpen,
     open,
     create,
     hide,

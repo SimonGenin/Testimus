@@ -114,6 +114,17 @@ describe("First launch screen", () => {
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("setup", "pack"));
   });
 
+  it("reached from the project menu (« All projects… »), opening a project goes back to the app", async () => {
+    settingsWith();
+    projects = [{ dir: "C:/q", name: "Q", jiraProject: "Q1", exists: true }];
+    net.routes["project.open"] = (i) => ({ dir: i.dir });
+    const { state } = withApp(<FirstRunScreen />, { route: { screen: "setup", arg: "project" } });
+    expect(screen.getByRole("button", { name: "Back to the app" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
+    expect(state.navigate).not.toHaveBeenCalledWith("setup", "pack");
+  });
+
   it("with Jira left out, the Claude step and the project step skip Jira & Xray", async () => {
     settingsWith({ skipJira: true });
     net.routes["claude.status"] = () => ({ installed: false, signedIn: false, detail: "claude: not found" });
@@ -515,6 +526,34 @@ describe("First launch › Project", () => {
     fireEvent.click(more("Current"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Show in Explorer" }));
     await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p"));
+  });
+
+  it("opens a project by its Jira key, then the documents", async () => {
+    projects = known();
+    net.routes["project.openKey"] = (i) => ({
+      dir: "D:WorkBHPTCC",
+      name: "BHPTCC",
+      jiraProject: "BHPTCC",
+      created: true,
+      key: i.key,
+    });
+    const { state } = withApp(<ProjectStep onBack={() => {}} />);
+    await list();
+    fireEvent.click(screen.getByRole("button", { name: "Open by Jira key…" }));
+    const dlg = screen.getByRole("dialog", { name: "Open a project by its Jira key" });
+    fireEvent.change(within(dlg).getByLabelText("Jira project key"), { target: { value: "bhptcc" } });
+    expect(within(dlg).getByLabelText("Jira project key")).toHaveValue("BHPTCC");
+    expect(await within(dlg).findByText("D:WorkBHPTCC")).toBeInTheDocument();
+    expect(within(dlg).getByText(/No project here has this key: Testimus will create/)).toBeInTheDocument();
+    expect(callsOf("project.openKey").map((c) => c.input)).toEqual([{ key: "BHPTCC", dryRun: true }]);
+    expect(state.navigate).not.toHaveBeenCalled();
+    fireEvent.click(within(dlg).getByRole("button", { name: "Create and open" }));
+    await waitFor(() => expect(callsOf("project.openKey")[1]?.input).toEqual({ key: "BHPTCC" }));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
+    expect(state.refreshInfo).toHaveBeenCalled();
+    expect(titles()).toContain("Project BHPTCC created");
+    expect(callsOf("project.open")).toEqual([]);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Open a project by its Jira key" })).toBeNull());
   });
 
   it("without the bridge: text fields only, and a shared folder opened by its path", async () => {

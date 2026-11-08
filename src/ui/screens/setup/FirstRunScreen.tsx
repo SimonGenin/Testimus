@@ -91,7 +91,10 @@ export function FirstRunScreen() {
         ) : step === "access" ? (
           <AccessStep onBack={() => go("claude")} onContinue={() => go("project")} />
         ) : step === "project" ? (
-          <ProjectStep onBack={() => go(noJira ? "claude" : "access")} onOpened={() => go("pack")} />
+          <ProjectStep
+            onBack={() => go(noJira ? "claude" : "access")}
+            onOpened={() => (app.info ? app.navigate("documents") : go("pack"))}
+          />
         ) : step === "pack" ? (
           <PackStep onBack={() => go("project")} onDone={() => go("ready")} />
         ) : (
