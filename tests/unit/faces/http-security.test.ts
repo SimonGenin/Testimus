@@ -1,10 +1,11 @@
-import fs, { cpSync, mkdtempSync, readFileSync } from "node:fs";
+import fs, { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, request, type Server } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { Readable } from "node:stream";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { handler, type ServeState, UI_CSP } from "../../../src/faces/http.ts";
 import { uncPath } from "../../../src/shared/unc.ts";
 
@@ -286,5 +287,45 @@ describe("no disk access on a path from a request before it is known", () => {
       expect(uncPath(p)).toBe(true);
     for (const p of [String.raw`C:\Users\x`, "D:/p", String.raw`relative\x`, String.raw`\single\root`])
       expect(uncPath(p)).toBe(false);
+  });
+});
+
+describe("project files", () => {
+  it("close when the player drops a range request, and a read that fails never stops the server", async () => {
+    const real = fs.createReadStream;
+    const opened: { destroyed: boolean }[] = [];
+    (fs as { createReadStream: unknown }).createReadStream = (...a: Parameters<typeof real>) => {
+      if (String(a[0]).endsWith("broken.mp4"))
+        return new Readable({
+          read() {
+            this.destroy(new Error("EIO: i/o error, read"));
+          },
+        });
+      const stream = real(...a);
+      opened.push(stream);
+      return stream;
+    };
+    syncBuiltinESMExports();
+    try {
+      writeFileSync(join(project, "long.mp4"), Buffer.alloc(8 * 1024 * 1024, 1));
+      await new Promise<void>((ok) => {
+        const r = request(`${base}/files/long.mp4`, { headers: { cookie, range: "bytes=0-" } }, (res) =>
+          res.once("data", () => {
+            r.destroy();
+            ok();
+          }),
+        );
+        r.end();
+      });
+      await vi.waitFor(() => expect(opened.at(-1)?.destroyed).toBe(true));
+      writeFileSync(join(project, "broken.mp4"), "0123456789");
+      await fetch(`${base}/files/broken.mp4`, { headers: { cookie } })
+        .then((r) => r.arrayBuffer())
+        .catch(() => null);
+      expect((await fetch(`${base}/files/project.json`, { headers: { cookie } })).status).toBe(200);
+    } finally {
+      (fs as { createReadStream: unknown }).createReadStream = real;
+      syncBuiltinESMExports();
+    }
   });
 });

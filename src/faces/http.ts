@@ -3,6 +3,7 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeF
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import { pipeline } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { UserError } from "../core/command.ts";
@@ -86,6 +87,8 @@ export function rangeOf(header: string | undefined, size: number): { start: numb
   return start >= size || start > end ? "bad" : { start, end };
 }
 
+// ponytail: a player that seeks drops its request: pipeline closes the file then, and a read that fails ends that
+// answer only, never the server
 function sendProjectFile(req: IncomingMessage, res: ServerResponse, file: string): void {
   const size = statSync(file).size;
   const type = TYPES[extname(file).toLowerCase()] ?? "application/octet-stream";
@@ -98,7 +101,7 @@ function sendProjectFile(req: IncomingMessage, res: ServerResponse, file: string
   }
   if (!range) {
     res.writeHead(200, { ...base, "content-length": String(size) });
-    createReadStream(file).pipe(res);
+    pipeline(createReadStream(file), res, () => {});
     return;
   }
   res.writeHead(206, {
@@ -106,7 +109,7 @@ function sendProjectFile(req: IncomingMessage, res: ServerResponse, file: string
     "content-length": String(range.end - range.start + 1),
     "content-range": `bytes ${range.start}-${range.end}/${size}`,
   });
-  createReadStream(file, { start: range.start, end: range.end }).pipe(res);
+  pipeline(createReadStream(file, { start: range.start, end: range.end }), res, () => {});
 }
 
 function inside(root: string, rel: string): string | null {
