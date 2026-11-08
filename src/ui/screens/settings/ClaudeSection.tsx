@@ -7,6 +7,7 @@ import { AgentsField } from "./AgentsField.tsx";
 import { ClaudeProgram } from "./ClaudeProgram.tsx";
 import { DefaultContexts } from "./DefaultContexts.tsx";
 import { DockDefaults } from "./DockDefaults.tsx";
+import { OverviewSetting } from "./OverviewSetting.tsx";
 import { useInfo } from "./project.ts";
 import { QuickAsks } from "./QuickAsks.tsx";
 import { Anchor, Column, Columns, Section } from "./Section.tsx";
@@ -71,6 +72,9 @@ export function ClaudeSection() {
             </Anchor>
             <Anchor id="claude-contexts">
               <DefaultContexts chosen={claude.contexts ?? []} />
+            </Anchor>
+            <Anchor id="claude-overview">
+              <OverviewSetting overview={claude.overview} />
             </Anchor>
           </Column>
         )}

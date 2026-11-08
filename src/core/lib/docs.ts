@@ -156,7 +156,7 @@ const contents = fileMemo<string>(500);
 
 // ponytail: what the index last read of a document is compared with all of doc.md hashed — once per version of the
 // files it hashes, not at every docs.list and rag.status (4 MB read and hashed per call on 20 documents)
-function contentOf(project: string, doc: DocJson): string {
+export function contentOf(project: string, doc: DocJson): string {
   const dir = docDir(project, doc.id);
   const files = [join(dir, "doc.md"), join(dir, "figures.json"), join(dir, "doc.json")];
   return contents(dir, files, () => docContent(dir, doc));

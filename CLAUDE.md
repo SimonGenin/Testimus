@@ -101,4 +101,4 @@ Answer in French. Plain words first; code on request.
 Dev skills in `.claude/skills/`: `xray-cloud-api` (Jira / Xray API facts, read-only checks), `port-from-xray-editor`,
 `docx-ingest` (document conversion), `rag-eval` (measuring retrieval). The runtime skills the app ships to every
 project are product code, in `templates/project/.claude/skills/` (generate-tests, plan-tests, check-test, fix-test,
-edit-test, ask-docs, define-columns, study-document, draft-comment).
+edit-test, ask-docs, define-columns, study-document, draft-comment, overview-documents).

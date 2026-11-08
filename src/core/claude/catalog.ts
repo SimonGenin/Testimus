@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { prompts as doctor } from "../lib/doctor.ts";
+import { OVERVIEW_PATH, overviewOption } from "../lib/overview.ts";
 import { shipSkills } from "../lib/shipped.ts";
 import { prompts as actions } from "./actions.ts";
 import { prompts as chat } from "./chat.ts";
@@ -12,6 +13,7 @@ import { prompts as fix } from "./fix.ts";
 import { prompts as generate } from "./generate.ts";
 import { prompts as headers } from "./headers.ts";
 import { prompts as media } from "./media.ts";
+import { prompts as overview } from "./overview.ts";
 import {
   contextDir,
   contextsTemplate,
@@ -58,6 +60,7 @@ export const BUILT: PromptTemplate[] = [
   ...figures,
   ...headers,
   ...media,
+  ...overview,
   ...study,
   ...chat,
   ...columns,
@@ -138,6 +141,24 @@ function rules(project: string): Given[] {
   ];
 }
 
+// ponytail: how the documents fit together, while it is given to every run — the file itself, as Claude reads it
+function overviewFile(project: string): Given[] {
+  const file = join(project, "docs", "OVERVIEW.md");
+  if (!overviewOption(project).inEveryRun || !existsSync(file)) return [];
+  return [
+    {
+      id: "file:docs/OVERVIEW.md",
+      name: "How the documents fit together",
+      group: EVERY_RUN,
+      origin: "file",
+      path: OVERVIEW_PATH,
+      file,
+      usedBy: ["Every Claude run is told to read it first (Settings › Claude: Give it to every Claude run)"],
+      text: read(file),
+    },
+  ];
+}
+
 function defaults(project: string): Given[] {
   return effectiveContexts(project).map((id) => {
     const dir = contextDir(project, id);
@@ -160,7 +181,7 @@ function defaults(project: string): Given[] {
 
 export function listPrompts(project: string): Given[] {
   const built = BUILT.map((t): Given => ({ ...t, origin: "built", text: t.text() }));
-  const all = [...skills(project, built), ...rules(project), ...built, ...defaults(project)];
+  const all = [...skills(project, built), ...rules(project), ...overviewFile(project), ...built, ...defaults(project)];
   const at = (g: string) => (GROUPS.includes(g) ? GROUPS.indexOf(g) : GROUPS.length);
   return all
     .map((g, i) => ({ g, i }))

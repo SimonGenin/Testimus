@@ -86,3 +86,13 @@ test("the Video component plays a project video through /files, which answers by
   await expect.poll(() => player.evaluate((v: HTMLVideoElement) => Math.round(v.duration))).toBe(160);
   await expect(light.getByLabel("Video manoeuvre.mp4 at 01:20")).toHaveAttribute("src", /#t=80$/);
 });
+
+test("TextDiff marks each line added or removed in words and folds the unchanged ones", async ({ page }) => {
+  await boot(page, "#/kit/TextDiff");
+  const light = page.getByRole("region", { name: "TextDiff, Light" });
+  const diff = light.getByRole("list", { name: "Changes of the last update" });
+  await expect(diff.getByRole("img", { name: "Added" }).first()).toBeVisible();
+  await expect(diff.getByRole("img", { name: "Removed" }).first()).toBeVisible();
+  await expect(diff.getByText(/^\d+ unchanged lines?$/).first()).toBeVisible();
+  await expect(light.getByText("No difference.")).toBeVisible();
+});

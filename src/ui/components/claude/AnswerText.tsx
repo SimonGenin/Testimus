@@ -56,17 +56,20 @@ export function AnswerText({
   text,
   running,
   listed = [],
+  reading = false,
   onOpenSource,
 }: {
   text: string;
   running?: boolean;
   listed?: Source[];
+  /** in the reading face (a page Claude wrote to be read, as How the documents fit together), not the interface's */
+  reading?: boolean;
   onOpenSource: (s: Source) => void;
 }) {
   const observed = useObserved();
   const paras = text.split(/\n{2,}/);
   return (
-    <div {...stylex.props(type.body, styles.answer)}>
+    <div {...stylex.props(reading ? type.reading : type.body, styles.answer)}>
       {paras.map((p, i) => {
         const bits = parseAnswer(p);
         const parts: ReactNode[] = bits.map((x, k) =>

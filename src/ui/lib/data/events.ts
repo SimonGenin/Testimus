@@ -49,9 +49,11 @@ const PATHS: Rule[] = [
     /^tests\/([^/]+)(\/|$)/,
     (m) => [["tests.show", { id: m[1] }], ["tests.list"], ["review.queue"], ["project.info"], ["gen.preview"]],
   ],
+  [/^docs\/OVERVIEW\.md$/, () => [["docs.overviewShow"], ["claude.prompts"]]],
   [
     /^docs\/([^/]+)\/doc\.json$/,
     (m) => [
+      ["docs.overviewShow"],
       ["docs.list"],
       ["docs.show", { id: m[1] }],
       ["rag.status"],
@@ -81,7 +83,10 @@ const PATHS: Rule[] = [
       ["docs.show", { id: m[1] }],
     ],
   ],
-  [/^docs\/([^/]+)(\/|$)/, () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"]]],
+  [
+    /^docs\/([^/]+)(\/|$)/,
+    () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"], ["docs.overviewShow"]],
+  ],
   [
     /^project\.json$/,
     () => [
@@ -94,6 +99,7 @@ const PATHS: Rule[] = [
       ["rag.status"],
       ["system.doctor"],
       ["claude.prompts"],
+      ["docs.overviewShow"],
     ],
   ],
   [/^(xray|columns)\.json$/, () => [["project.info"], ["columns.list"]]],
@@ -128,6 +134,7 @@ const KINDS: Rule[] = [
     /^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/,
     () => [["docs.list"], ["docs.show"], ["media.show"], ["media.transcript"], ["rag.status"]],
   ],
+  [/^docs\.overview$/, () => [["docs.overviewShow"], ["claude.prompts"]]],
   [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"], ["gen.show"], ["actions.list"]]],
   [/^chat$/, () => [["chat.list"], ["chat.show"]]],
   [

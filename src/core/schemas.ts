@@ -169,6 +169,17 @@ export const PRESET = z.object({
   prompt: z.string().describe("The request it sends to Claude"),
 });
 
+export const OVERVIEW_OPTION = z.object({
+  enabled: z
+    .boolean()
+    .optional()
+    .describe("Claude writes docs/OVERVIEW.md and updates it after each import or conversion (off when absent)"),
+  inEveryRun: z
+    .boolean()
+    .optional()
+    .describe("Every Claude run is told to read docs/OVERVIEW.md first (only while enabled; off when absent)"),
+});
+
 export const PROJECT_JSON = z.object({
   name: z.string().describe("Display name"),
   jiraProject: z.string().describe("Jira project key"),
@@ -192,6 +203,9 @@ export const PROJECT_JSON = z.object({
       effort: z.enum(["low", "medium", "high", "xhigh", "max"]).describe("Default effort"),
       presets: z.array(PRESET).describe("Quick asks offered in the dock"),
       contexts: z.array(z.string()).describe("Context ids attached to every run"),
+      overview: OVERVIEW_OPTION.optional().describe(
+        "How the documents fit together (docs/OVERVIEW.md): off when absent",
+      ),
     })
     .describe("Claude defaults"),
   glossary: z.record(z.string(), z.string()).optional().describe("Acronyms and their long forms"),

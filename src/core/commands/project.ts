@@ -19,7 +19,7 @@ import { projectOverview } from "../lib/project-info.ts";
 import { initProject } from "../lib/project-init.ts";
 import { retrievalOverride } from "../rag/schemas.ts";
 import type { RetrievalOverride } from "../rag/search/filter.ts";
-import { IF_MTIME, PRESET, PROJECT_JSON, RAG_CHOICE, STEP_COLUMN, XRAY_JSON } from "../schemas.ts";
+import { IF_MTIME, OVERVIEW_OPTION, PRESET, PROJECT_JSON, RAG_CHOICE, STEP_COLUMN, XRAY_JSON } from "../schemas.ts";
 import type { ProjectJson } from "../types.ts";
 
 const opened = z.object({
@@ -315,9 +315,14 @@ export const commands = [
             .array(z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -"))
             .optional()
             .describe("Context ids attached to every run"),
+          overview: OVERVIEW_OPTION.optional().describe(
+            "How the documents fit together: { enabled, inEveryRun } (only the keys given change)",
+          ),
         })
         .optional()
-        .describe("Claude defaults: { model, effort, presets: [{label, prompt}], contexts: [ids] }."),
+        .describe(
+          "Claude defaults: { model, effort, presets: [{label, prompt}], contexts: [ids], overview: { enabled, inEveryRun } }.",
+        ),
     }),
     output: PROJECT_JSON.describe("project.json as written"),
     mutates: true,
@@ -354,6 +359,9 @@ export const commands = [
           effort: input.claude?.effort ?? cur.claude.effort,
           presets: input.claude?.presets ?? cur.claude.presets,
           contexts: input.claude?.contexts ?? cur.claude.contexts,
+          ...((input.claude?.overview ?? cur.claude.overview) && {
+            overview: { ...cur.claude.overview, ...input.claude?.overview },
+          }),
         },
       };
       if (input.rag?.reference === null) delete next.rag.reference;

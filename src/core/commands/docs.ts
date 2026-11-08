@@ -43,6 +43,7 @@ import { addMediaDocs } from "../lib/media-add.ts";
 import { writeMediaMd } from "../lib/media-md.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
+import { overviewAfterImport } from "../lib/overview-after.ts";
 import { chunksOf, withIndex } from "../rag/db.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import { renderPage } from "../rag/pdf.ts";
@@ -907,6 +908,7 @@ export const commands = [
           project,
           cited.map((t) => t.id),
         );
+      overviewAfterImport(project);
       return { removed: input.id, folder, unlinked, citedBy: cited, passages, dryRun: false };
     },
   }),

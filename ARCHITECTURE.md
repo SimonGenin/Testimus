@@ -163,15 +163,17 @@ rebuilt; they are never hand-edited.
   CLAUDE.md            project rules for Claude (template, then the team's)
   .mcp.json            declares `testimus mcp` (rewritten by every run)
   .claude/skills/      shipped skills (generate-tests, plan-tests, check-test, fix-test, edit-test, ask-docs,
-                         define-columns, study-document, draft-comment) + the team's own
+                         define-columns, study-document, draft-comment, overview-documents) + the team's own
   project.json         { name, jiraProject, jiraOffline?, language, labelPrefix, folders, rag: { reference?,
                          queryTask?, passageMaxChars?, retrieval?, claudeHeaders?, describeFigures? },
-                         claude: { model, effort, presets, contexts }, glossary? }
+                         claude: { model, effort, presets, contexts, overview?: { enabled?, inEveryRun? } },
+                         glossary? }
   columns.json         the step columns, in display order (below)
   xray.json            derived: Xray's step fields as Xray last gave them
   contexts/<id>/       context.md (frontmatter name, paths) + files/ — reference material attached to runs;
                          the shared library every project sees is <data dir>/contexts/<id>/ (an own id wins)
   docs/<docId>/        one document (§5)
+  docs/OVERVIEW.md     how the documents fit together, written by Claude, the team's to edit (§5)
   tests/<id>/          test.md (§7), images/, local.json { contexts?, columns? } (the test's own settings, never
                          part of the test), .remote.md (derived: Jira's last copy), check.json (derived: last
                          check), .state.json (derived: { remoteChangedAt?, generatedPrint? })
@@ -181,7 +183,8 @@ rebuilt; they are never hand-edited.
   index/rag.db         derived: chunks, full text, vectors per space, graph, last index state; per machine, not shared
   .testimus/           derived, not shared: jobs/, runs/<runId>/ (snapshots), gen/<generation>.json (ledger),
                          chats/, actions/, eval/ (reports), pages/, frames/ (media.frame), uploads/, migrations/
-                         (what a migration changed), shipped.json (above), jira-project.json
+                         (what a migration changed), overview/last.json (the last update's before and after),
+                         shipped.json (above), jira-project.json
 ```
 
 - **`columns.json`** `[{ name, id?, description?, mode: open|filled|collapsed|hidden, referenceSource? }]`. With `id`
@@ -330,6 +333,42 @@ docs/<docId>/
   `ffprobe.exe` registered in `models.json`. Processes only through `src/shared/run/`. Decided: no pinned build for
   macOS or Linux (the release is win-x64), so there — development only — an `ffmpeg` and `ffprobe` found on the
   PATH are taken; `models.pullFfmpeg` says so instead of downloading.
+- **How the documents fit together** (2026-11-08, `docs/OVERVIEW.md`, design wave C « Overview »). A page Claude
+  writes on the project's documents: a `##` section per document (its heading ends `<!-- doc <docId> -->`, so the core
+  knows whose it is), then the sections across them — the corpus, the links, the amendments, what contradicts — in the
+  project's language, with `docId#anchor` references. Background, never a source. Its frontmatter is the core's:
+  `updatedAt`, `updatedAfter` (« Import of « Traction » », « Conversion of 2 documents », « A rewrite from scratch »),
+  `basis` (per document, 12 hex of the SHA-256 of what the index compares — `doc.md`, what was read of its pictures,
+  code and title — and of `version`, `date`, `kind`, `status`, `amends`, `relatesTo`, `reference`), and what the last
+  update changed (`modified`, `added`, `removed`: section titles). The rest is plain markdown a person edits
+  (`docs.overviewSave`, the page's Edit) — the next update merges into it. **Optional**: `project.json`
+  `claude.overview { enabled, inEveryRun }`, both off when absent (decided: off by default — every import would
+  otherwise cost a Claude run on a colleague's subscription; the team turns it on in Settings › Claude or on its page);
+  off, the file is neither written nor given to a run, and what is in it stays.
+  - **Written by Claude only in its own run** (`docs.overview { mode: auto | full }`, a job, skill
+    `overview-documents`, `claude/overview.ts`): run kind `overview`, Edit/Write with `docs/*/**` refused instead of
+    `docs/**` (every other kind keeps `docs/**` refused), read-only MCP tools; `docs.overview` and `docs.overviewSave`
+    are off the `action` kind too. *auto*: the core compares `basis` with the documents now (added, converted again or
+    changed in `doc.json`, removed) — nothing changed, no run; otherwise Claude gets the exact list, the card and
+    outline (headings to level 2, the first 30) of each document added or converted — never the whole corpus — and is
+    told to Read the file and Edit in place only those documents' sections and the cross sections they touch, keeping
+    the rest word for word and merging into hand edits. After the run the core compares the sections: a document's
+    section whose document did not change must come back identical (whitespace aside), an added document needs one, a
+    removed one loses its own — anything else is a warning in the job and its result. *full* (Rewrite from scratch, or
+    the first writing): Claude writes it whole from every document's card. Then the core rewrites the frontmatter
+    (new `basis`, the sections changed) and keeps the text before and after in `.testimus/overview/last.json` (this
+    PC's; « Show changes »).
+  - **After each import, one update per batch** (`lib/overview-after.ts`): `withIndex` asks for it once its index run
+    ended (or failed) — and `docs.remove` too —, when the option is on and `claude --version` answers. The update is
+    a job of its own, nobody's child (`jobs.ts outsideJobs`); the asks that come while it waits join it, so a folder
+    of 10 documents (one index run) makes one update. The job waits for the project's conversions, its index run
+    (`docs-index.ts indexWork`) and every `generate` job (`jobs.ts runningOf`) to end — never written under a
+    generation reading it — then for the update before it.
+  - **Given to every run** while `inEveryRun` is on (`lib/overview.ts withOverview`, applied by `runClaude`): one line
+    at the end of the prompt — « Before you start, read docs/OVERVIEW.md: … » —, a pointer and not the text (decided:
+    the soberest in tokens — the file grows with the corpus, Claude reads it once when the run needs it, and the line
+    costs ~40 tokens); not to the runs that only describe pictures or passages (figures, headers, media) nor to the
+    overview's own run. Settings › Context shows the line (« Every run ») and the file itself while it is given.
 - **Migration of the media batches** (2026-11-08; the batches were built on 2026-11-05: `doc.json.media`,
   `media/<lot>/part.md` appended to `body.md`, anchors `§lot-<lot>.<item>` and `fig:lot-<lot>.<item>`).
   `lib/media-migrate.ts` turns each batch into an images document of its own: id `<parent>-<batch>`, title the
@@ -740,6 +779,8 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   run, Jira writes and the machine. Everything else goes to `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
   `.mcp.json`, `CLAUDE.md`, `test-runs/**`; the writes of `runs.*` are off every run kind, `action` included (§9b).
+  The `overview` kind (§5) is the one run that may write a file under `docs/`: `docs/OVERVIEW.md`, its rule being
+  `docs/*/**` instead of `docs/**`.
 - **Snapshots and Revert** (`claude/snapshot.ts`): a run that may edit records `.testimus/runs/<runId>/run.json` (who,
   model, effort, job) and copies of what it may change (tests, and for actions project.json, xray.json and the document
   folder). Revert works from the run id, also after a restart, refuses when a test changed after the run
@@ -864,6 +905,13 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   moment, `#img:3` that image large. « Observed » on a source chip is decided by its **document** (`useObserved()`
   reads the cached `docs.list`), never by its anchor. Generation chooses these documents like any other. An import of a
   folder shows the images of one folder as one row (« N images from <folder> »).
+- **How the documents fit together on the Documents screen** (design wave C « Overview »): the list's first row
+  (`~overview`, a route no document id can take; « By Claude », what it was last updated after), then the documents
+  under a « Documents » group head; its page renders the text as React elements (headings, Claude's words with their
+  source chips, in the reading face; never HTML), the Switch « Give it to every Claude run », Edit (the kit's Text,
+  autosave against the file's mtime), Update now (Claude, violet), ⋯ › Rewrite from scratch… (a confirmation), a
+  compact Claude banner saying what the last update changed with « Show changes » (the kit's new `TextDiff`, a line
+  diff of before and after), the documents changed since. Settings › Claude has the two switches.
 - **Safety rules of the page**: a Jira write always shows its plan first; from the palette (Ctrl K, every command by
   name, a form from its schema) nothing runs blind — a command with `dryRun` shows its plan, one that loses something
   without a dry run asks first naming what goes; any Claude run on a test or the project **locks the editor**, the lock

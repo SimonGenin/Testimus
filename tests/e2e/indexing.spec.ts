@@ -27,7 +27,7 @@ test("while an index run goes no index warning shows — its progress does; the 
   const bar = list.getByRole("progressbar", { name: "Index" });
   await expect(bar).toBeVisible();
   await expect(list).toContainText(/Indexing 1 of 5 documents · 0 of \d+ passages/);
-  await expect(list.getByRole("option").first()).toContainText("Indexing · 0 %");
+  await expect(list.getByRole("option", { name: /^Manœuvre d'un sectionneur au PCC/ })).toContainText("Indexing · 0 %");
   await expect(rows.first()).toContainText("Waiting to index");
   await expect(rows.nth(1)).toContainText("Waiting to index");
   await expect(list).not.toContainText("Not up to date");

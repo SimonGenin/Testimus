@@ -20,7 +20,8 @@ src/core/lib/         the domain modules:
                         doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
                         exported as pages and imported back);
                         docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index; docs-folder: what
-                        a folder import adds);
+                        a folder import adds); overview (docs/OVERVIEW.md: its format, basis, changes, the section
+                        check, the line every run gets; + overview-after: one update per import batch, in line);
                         media (an images or video document's files; + media-add, media-md: its doc.md,
                         media-pipeline: its conversion, media-video: a video's steps, media-migrate: the 2026-11-05
                         batches into documents), video-io (the ffmpeg / Whisper seam), video-frames (dHash, mosaics),
@@ -39,7 +40,8 @@ src/core/search/      search.all (Ctrl K and the tests list): query, match (acce
                       codes), tests corpus, vectors (index/tests-vectors.json)
 src/core/claude/      run (claude -p), access (tool access per run kind), stream, snapshot/revert, diagnose, status,
                       chat, generate (+ gen-prompt, gen-reply), check, fix, review, columns, actions, figures, headers,
-                      prompt, limits, ledger, schemas, media, study, comment, scoped (claude.run), catalog (everything
+                      prompt, limits, ledger, schemas, media, study, comment, overview (how the documents fit
+                      together: its prompt and run), scoped (claude.run), catalog (everything
                       Claude is given: each module that runs claude -p exports its `prompts` templates)
 src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates,
                       video (ffmpeg and Whisper made up)
@@ -63,7 +65,7 @@ src/ui/
 models/catalog.json   the model catalog (entries, packs, measured figures)
 templates/project/    copied into every project by `project init`: CLAUDE.md, .mcp.json, the runtime skills
                       (generate-tests, plan-tests, check-test, fix-test, edit-test, ask-docs, define-columns,
-                      study-document, draft-comment) — product code; every Claude run refreshes the skills first
+                      study-document, draft-comment, overview-documents) — product code; every Claude run refreshes the skills first
                       (lib/shipped.ts)
 templates/reference/  the Syntec reference document (pack quality on every PC)
 templates/run-pages/  a test run as pages (index.html, serve.mjs, start.cmd / start.sh, README) — runs.export copies it

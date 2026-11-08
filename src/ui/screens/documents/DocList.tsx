@@ -9,6 +9,7 @@ import { type } from "../../components/ui/type.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { indexRunLine, indexRunPercent } from "../../lib/format.ts";
 import { isObservedDoc, sourceType, typeLabel } from "../../lib/media.ts";
+import { OVERVIEW_ROUTE, OVERVIEW_TITLE, type OverviewShown, overviewMeta } from "../../lib/overview.ts";
 import { conversionsLine, owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
@@ -35,11 +36,13 @@ const styles = stylex.create({
   lines: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: space.snug, minWidth: 0 },
   mono: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", color: color.textSubtle },
   badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
+  one: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, maxWidth: "100%" },
+  clip: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   run: { paddingBlock: space.s3, paddingInline: space.s6 },
   converting: { margin: 0, paddingTop: space.s3, paddingInline: space.s6, color: color.textMuted },
 });
 
-type Item = { key: string; doc?: DocRef; upload?: Upload };
+type Item = { key: string; doc?: DocRef; upload?: Upload; overview?: OverviewShown };
 
 const LEAD: Record<SourceType, IconName> = {
   docx: "documents",
@@ -73,6 +76,20 @@ function docItem(d: DocRef): ListItemProps {
   };
 }
 
+// ponytail: How the documents fit together, at the head of the list — by Claude, and what it was last updated after
+function overviewItem(o: OverviewShown): ListItemProps {
+  return {
+    title: OVERVIEW_TITLE,
+    lead: <Icon name="layers" />,
+    meta: (
+      <span {...stylex.props(styles.one)}>
+        <Badge size="sm" tone="claude" label="By Claude" />
+        <span {...stylex.props(styles.clip)}>· {overviewMeta(o)}</span>
+      </span>
+    ),
+  };
+}
+
 // ponytail: the documents and the files being added or converted, as one list; an index run is each document's badge
 // and the bar under the list; what failed is said under it — a conversion is named by its document's file
 export function DocList({
@@ -81,6 +98,7 @@ export function DocList({
   activeId,
   head = true,
   run = null,
+  overview = null,
   onOpen,
 }: {
   docs: DocRef[] | undefined;
@@ -89,6 +107,8 @@ export function DocList({
   head?: boolean;
   /** the index run under way (rag.status): its bar and its words under the list */
   run?: IndexRun | null;
+  /** How the documents fit together (docs.overviewShow), its row at the head once read */
+  overview?: OverviewShown | null;
   onOpen: (id: string) => void;
 }) {
   const cancel = useCancel();
@@ -97,7 +117,9 @@ export function DocList({
     return d ? { ...u, name: baseName(d.source.name || d.source.file) || d.id } : u;
   });
   const listed = (u: Upload) => !!docs?.some((d) => (u.docId ? d.id === u.docId : owns(u, d)));
+  const lead: Item[] = overview && docs?.length ? [{ key: OVERVIEW_ROUTE, overview }] : [];
   const items: Item[] = [
+    ...lead,
     ...(docs ?? []).map((d) => ({ key: d.id, doc: d, upload: uploads.find((u) => owns(u, d)) })),
     ...uploads.filter((u) => !listed(u) && u.job !== "index").map((u) => ({ key: `upload-${u.key}`, upload: u })),
   ];
@@ -105,7 +127,7 @@ export function DocList({
   const failures = uploads.filter((u) => u.phase === "failed" || u.phase === "index-failed");
   const pick = (key: string) => {
     const it = items.find((i) => i.key === key);
-    const id = it?.doc?.id ?? it?.upload?.docId;
+    const id = it?.overview ? OVERVIEW_ROUTE : (it?.doc?.id ?? it?.upload?.docId);
     if (id) onOpen(id);
   };
   return (
@@ -127,7 +149,19 @@ export function DocList({
           items={items}
           getKey={(i) => i.key}
           renderItem={(i) =>
-            i.upload && (!i.doc || !settled(i.upload)) ? uploadItem(i.upload, cancel) : docItem(i.doc as DocRef)
+            i.overview
+              ? overviewItem(i.overview)
+              : i.upload && (!i.doc || !settled(i.upload))
+                ? uploadItem(i.upload, cancel)
+                : docItem(i.doc as DocRef)
+          }
+          groups={
+            lead.length
+              ? [
+                  { label: OVERVIEW_TITLE, keys: [OVERVIEW_ROUTE], head: false },
+                  { label: "Documents", keys: items.slice(1).map((i) => i.key) },
+                ]
+              : undefined
           }
           selected={activeId || null}
           onSelect={pick}

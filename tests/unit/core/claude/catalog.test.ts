@@ -172,9 +172,26 @@ describe("claude.prompts lists everything Claude is given", () => {
     ]);
     expect(out.filter((p) => p.group === "Every run").map((p) => p.id)).toEqual([
       "file:CLAUDE.md",
+      "overview-line",
       "contexts",
       "context:glossary",
     ]);
+  });
+
+  it("how the documents fit together: its skill, its two prompts, and the file while it is given to every run", async () => {
+    const P = project();
+    writeFileSync(join(P, "docs", "OVERVIEW.md"), "---\nbasis:\n---\n## Traction <!-- doc A -->\n");
+    const p = readProject(P);
+    writeProject(P, { ...p, claude: { ...p.claude, overview: { enabled: true, inEveryRun: true } } });
+    const out = await call<Given[]>("claude.prompts", {}, P);
+    const docs = out.filter((g) => g.group === "Documents").map((g) => g.id);
+    expect(docs).toEqual(expect.arrayContaining(["skill:overview-documents", "overview-update", "overview-full"]));
+    const every = out.filter((g) => g.group === "Every run").map((g) => g.id);
+    expect(every.slice(0, 3)).toEqual(["file:CLAUDE.md", "file:docs/OVERVIEW.md", "overview-line"]);
+    expect(out.find((g) => g.id === "file:docs/OVERVIEW.md")?.text).toContain("<!-- doc A -->");
+    writeProject(P, { ...p, claude: { ...p.claude, overview: { enabled: true, inEveryRun: false } } });
+    const off = await call<Given[]>("claude.prompts", {}, P);
+    expect(off.some((g) => g.id === "file:docs/OVERVIEW.md")).toBe(false);
   });
 
   it("a project whose team deleted the skills, without CLAUDE.md, still lists what Testimus builds", async () => {

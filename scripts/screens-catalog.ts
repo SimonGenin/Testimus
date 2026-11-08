@@ -252,6 +252,57 @@ function imageShots(): Shot[] {
   ];
 }
 
+// ponytail: How the documents fit together — written whole, then updated after a document changed (its banner)
+async function overviewWritten(s: Server): Promise<void> {
+  await s.api("project.set", { claude: { overview: { enabled: true, inEveryRun: true } } });
+  const full = await s.api<{ jobId: string }>("docs.overview", { mode: "full" });
+  await s.waitJob(full.jobId);
+  await s.api("docs.set", { id: "SOSIE_211_D401-1_4", status: "validated" });
+  const auto = await s.api<{ jobId: string }>("docs.overview", { mode: "auto" });
+  await s.waitJob(auto.jobId);
+}
+
+function overviewShots(): Shot[] {
+  const pane = (p: Page) => p.getByRole("region", { name: "How the documents fit together" });
+  return [
+    {
+      id: "overview",
+      note: "How the documents fit together: the list's head, the text, the switch, what the last update changed",
+      hash: "#/documents/~overview",
+      ready: (p) => pane(p).getByText(/^Last update changed/),
+    },
+    {
+      id: "overview-changes",
+      note: "Show changes: the last update, before and after",
+      hash: "#/documents/~overview",
+      prep: async (p) => {
+        await tap(pane(p), "Show changes");
+        await dialog(p, "Changes of the last update");
+      },
+    },
+    {
+      id: "overview-edit",
+      note: "Edited by hand (autosave)",
+      hash: "#/documents/~overview",
+      prep: async (p) => {
+        await tap(pane(p), "Edit");
+        await see(p, "Saved as you type. Claude keeps what you write: the next update merges into it.");
+      },
+    },
+    {
+      id: "overview-rewrite",
+      note: "Rewrite from scratch asks first",
+      hash: "#/documents/~overview",
+      prep: async (p) => {
+        await tap(pane(p), "More");
+        await tap(p, /Rewrite from scratch/);
+        await dialog(p, "Rewrite it from scratch?");
+      },
+    },
+    { id: "overview-setting", note: "Settings › Claude: the option", hash: "#/settings/claude-overview" },
+  ];
+}
+
 function videoShots(): Shot[] {
   return [
     { id: "video", note: "A video document: player, chapters, transcript, key frames", hash: `#/documents/${FILM}` },
@@ -1572,6 +1623,13 @@ export function SCENARIOS(essai: string): Scenario[] {
       note: "Images as documents: the fixture's images document, a text document, the choice when images are added",
       env: { TESTIMUS_MOCK_SEED: "fixture" },
       shots: imageShots(),
+    },
+    {
+      id: "docs-overview",
+      note: "How the documents fit together: written by Claude, updated after a change, shown, compared, edited, its option",
+      env: { TESTIMUS_MOCK_SEED: "fixture" },
+      before: overviewWritten,
+      shots: overviewShots(),
     },
     {
       id: "doc-video",

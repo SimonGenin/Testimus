@@ -18,6 +18,7 @@ import { recheckMechanical, testsCiting } from "./check.ts";
 import { docDir, readDoc, writeDoc } from "./docs.ts";
 import { addDoc, convertedCopy, reconvertDoc, setConversion, twinOf } from "./docs-convert.ts";
 import { conversionSlot, indexAfterConversions, whileConverting } from "./docs-index.ts";
+import { overviewAfterImport } from "./overview-after.ts";
 
 // ponytail: the Claude runs a conversion starts are built by the modules it calls (tests/unit/core/claude/catalog.test.ts)
 export const promptsUsed = ["figures", "triage-doc"];
@@ -101,10 +102,12 @@ export async function withIndex(ctx: Ctx, project: string, claude: JobRun): Prom
   try {
     const waiting = (m: string) => ctx.progress({ message: m });
     const r = await indexAfterConversions(project, run, { signal: ctx.signal, waiting });
+    overviewAfterImport(project, claude);
     return { chunks: r.chunks, ...(r.degraded ? { degraded: r.degraded } : {}) };
   } catch (e) {
     if (ctx.signal.aborted) throw e;
     ctx.log("warn", `The search index was not updated: ${message(e)}`);
+    overviewAfterImport(project, claude);
     return { error: message(e) };
   }
 }

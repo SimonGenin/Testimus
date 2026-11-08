@@ -453,6 +453,20 @@ export function clearJobs(project: string | null, ids?: string[]): number {
   return n;
 }
 
+// ponytail: the jobs of a kind running on a project — what work that must not overlap them waits for
+export function runningOf(project: string, kind: string): Promise<unknown>[] {
+  const here = resolve(project);
+  return [...live.values()]
+    .filter((l) => l.job.status === "running" && l.job.kind === kind && !!l.project && resolve(l.project) === here)
+    .map((l) => l.done);
+}
+
+// ponytail: a job started from here is nobody's child — work a batch asks for once (the overview after an import)
+// would otherwise hang under whichever conversion asked first
+export function outsideJobs<T>(fn: () => T): T {
+  return current.exit(fn);
+}
+
 export function runsIn(project: string): boolean {
   return [...live.values()].some((l) => l.job.status === "running" && !!l.project && resolve(l.project) === project);
 }

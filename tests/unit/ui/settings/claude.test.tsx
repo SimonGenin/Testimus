@@ -425,3 +425,23 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     expect(await screen.findByText("No context yet.")).toBeInTheDocument();
   });
 });
+
+describe("Settings › Claude › How the documents fit together", () => {
+  it("turns it on and off, and gives it to every run only while on", async () => {
+    const { app } = mountSettings(<ClaudeSection />);
+    const on = await screen.findByRole("switch", { name: /Claude writes it and updates it after each import/ });
+    expect(on).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: /Give it to every Claude run/ })).toBeDisabled();
+    fireEvent.click(on);
+    await waitFor(() =>
+      expect(inputs("project.set").at(-1)).toEqual({ claude: { overview: { enabled: true, inEveryRun: true } } }),
+    );
+    await waitFor(() => expect(screen.getByRole("switch", { name: /Give it to every Claude run/ })).toBeChecked());
+    fireEvent.click(screen.getByRole("switch", { name: /Give it to every Claude run/ }));
+    await waitFor(() =>
+      expect(inputs("project.set").at(-1)).toEqual({ claude: { overview: { enabled: true, inEveryRun: false } } }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open it" }));
+    expect(app.navigate).toHaveBeenCalledWith("documents", "~overview");
+  });
+});

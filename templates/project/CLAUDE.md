@@ -32,6 +32,10 @@ project is in **Team notes** at the end.
   chapters in `video/<n>.json` (`media_show`, `media_transcript`, `media_frame`). Such a document is
   **observed** — it says how the system behaves and how to do a step, never what is required —
   unless the team marked it as the reference (`doc.json` `reference: true`).
+- `docs/OVERVIEW.md` — how the documents fit together: a section per document and the links,
+  amendments and contradictions across them, written by Claude after each import (when the team
+  turned it on) and edited by the team. Background to find your way, never a source: cite the
+  documents themselves. A run told to read it reads it before it starts.
 - `tests/<id>/test.md` — one test (format below); `images/` its pictures; `check.json` its last
   check's findings; `local.json` the test's own settings (its contexts, how its columns fold), never
   part of the test. `<id>` is the Jira key once pushed (`PROJ-123`), `local-<hex>` before.
@@ -67,10 +71,12 @@ Testimus starts you for one job, with only the tools that job needs. The prompt 
 | Study a document / check its conversion | `study-document` | nothing; may propose actions |
 | Look at a document's warnings or a failed job | — | nothing; may propose actions |
 | Propose the step columns | `define-columns` | nothing (the team saves the proposal) |
+| Write how the documents fit together | `overview-documents` | `docs/OVERVIEW.md` only (not its frontmatter) |
 | A Claude action (see below) | — | what the action's plan says, through the app's commands |
 
-Files outside `tests/` are never edited directly in a run: `docs/`, `test-runs/`, `index/`, `.testimus/`,
-`contexts/`, `.claude/`, `project.json`, `xray.json`, `columns.json`, `.mcp.json` and this file are refused. What the
+Files outside `tests/` are never edited directly in a run: `docs/` (but `docs/OVERVIEW.md` in its own
+run), `test-runs/`, `index/`, `.testimus/`, `contexts/`, `.claude/`, `project.json`, `xray.json`,
+`columns.json`, `.mcp.json` and this file are refused. What the
 app lets a run change there (a document's status, a column's description, a context) goes through
 its command, like a button would.
 

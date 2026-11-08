@@ -38,7 +38,8 @@ export type RunKind =
   | "action"
   | "columns"
   | "study"
-  | "media";
+  | "media"
+  | "overview";
 
 export const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
@@ -53,6 +54,7 @@ export const TOOLS: Record<RunKind, string[]> = {
   action: EDIT_TOOLS,
   columns: READ_TOOLS,
   study: READ_TOOLS,
+  overview: EDIT_TOOLS,
 };
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
@@ -70,6 +72,7 @@ const EXTRA: Record<RunKind, string[]> = {
   action: [],
   columns: [],
   study: ["actions.propose"],
+  overview: [],
 };
 
 export type CommandInfo = { name: string; mutates: boolean; job?: string };
@@ -100,9 +103,10 @@ export function readOnlyCommands(): string[] {
 
 // ponytail: an action runs with the app's whole command set (what the CLI and the buttons do), minus another
 // Claude run, Jira writes (the user pushes, moves, assigns and comments), what changes the machine or which
-// project is open, and a test run's results (a tester's findings: Claude reads runs, never marks one)
+// project is open, a test run's results (a tester's findings: Claude reads runs, never marks one) and the overview of the
+// documents (written by its own run only)
 const NOT_IN_ACTION =
-  /^runs\.(?!list$|show$)|^(claude\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|chat\.ask|review\.fix|rag\.eval|jobs\.(cancel|rerun))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
+  /^runs\.(?!list$|show$)|^(claude\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|chat\.ask|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
 
 export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
   const ro = readOnlyCommands();
@@ -137,7 +141,10 @@ export function absRule(dir: string): string {
   return `/${m ? `/${m[1].toLowerCase()}${m[2]}` : p}`.replace(/\/+$/, "");
 }
 
-export function protectedRules(addDirs: string[] = []): string[] {
-  const paths = [...PROTECTED, ...addDirs.map((d) => `${absRule(d)}/**`)];
+// ponytail: only the overview's own run may write docs/OVERVIEW.md — for it every document's folder stays closed
+// (docs/*/**), for every other run all of docs/ does
+export function protectedRules(addDirs: string[] = [], kind?: RunKind): string[] {
+  const own = kind === "overview" ? PROTECTED.map((p) => (p === "docs/**" ? "docs/*/**" : p)) : PROTECTED;
+  const paths = [...own, ...addDirs.map((d) => `${absRule(d)}/**`)];
   return paths.flatMap((p) => [`Edit(${p})`, `Write(${p})`]);
 }

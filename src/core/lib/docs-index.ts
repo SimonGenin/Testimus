@@ -142,6 +142,13 @@ async function vectorsComplete(project: string): Promise<boolean> {
   });
 }
 
+// ponytail: the conversions and the index run going on or waiting for a project — work that reads every document
+// (the overview after an import) waits for all of them
+export function indexWork(project: string): Promise<unknown>[] {
+  const q = queues.get(resolve(project).toLowerCase());
+  return q ? [q.running, q.waiting, ...q.converting].filter((p): p is Promise<unknown> => !!p) : [];
+}
+
 // ponytail: whether an index run is going on for the project (running) or asked for and waiting its turn
 export function indexRunState(project: string): IndexRun["state"] | null {
   const q = queues.get(resolve(project).toLowerCase());

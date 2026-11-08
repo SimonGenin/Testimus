@@ -7,12 +7,14 @@ import { describeFigures } from "../../../../src/core/claude/figures.ts";
 import { fixTest } from "../../../../src/core/claude/fix.ts";
 import { claudeHeaders } from "../../../../src/core/claude/headers.ts";
 import { readPictures, surveyVideo } from "../../../../src/core/claude/media.ts";
+import { OVERVIEW_MARKER } from "../../../../src/core/claude/overview.ts";
 import { contextDir, docRunLines } from "../../../../src/core/claude/prompt.ts";
 import { checkSignedIn, resetProbe } from "../../../../src/core/claude/status.ts";
 import { checkConversion, studyDoc } from "../../../../src/core/claude/study.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { readDoc } from "../../../../src/core/lib/docs.ts";
 import { claudeLoginCheck } from "../../../../src/core/lib/doctor.ts";
+import { overviewFile } from "../../../../src/core/lib/overview.ts";
 import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
 import type { Chunk } from "../../../../src/core/types.ts";
 import { writeContextMd } from "../../helpers/context.ts";
@@ -192,6 +194,22 @@ describe("the prompts the Claude runs send", () => {
       claude,
     );
     await expect(sent()).toMatchFileSnapshot(file("documents"));
+  });
+
+  it("how the documents fit together: written whole, updated after a change, told to every run", async () => {
+    setup();
+    const p = readProject(dir);
+    writeProject(dir, { ...p, claude: { ...p.claude, overview: { enabled: true, inEveryRun: true } } });
+    fake((s) =>
+      s.stdin.startsWith(OVERVIEW_MARKER)
+        ? { during: (x) => writeFileSync(overviewFile(x.cwd), `## Traction <!-- doc ${D3} -->\n\nTraction.\n`) }
+        : {},
+    );
+    await call("docs.overview", { mode: "full" }, dir);
+    await call("docs.set", { id: D3, status: "submitted" }, dir);
+    await call("docs.overview", { mode: "auto" }, dir);
+    await call("chat.ask", { question: "Quels documents parlent du sectionneur ?" }, dir);
+    await expect(sent()).toMatchFileSnapshot(file("overview"));
   });
 
   it("the sign-in checks", async () => {

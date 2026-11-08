@@ -31,7 +31,14 @@ describe("which reads a changed file refreshes", () => {
 
   it("a document's context refreshes the document only; another file of its folder refreshes the lists", () => {
     expect(keysOfPaths(["docs/D-1/context.md"])).toEqual([["docs.show", { id: "D-1" }]]);
-    expect(names(["docs/D-1/original.docx"])).toEqual(["docs.list", "rag.status", "project.info", "gen.preview"]);
+    expect(names(["docs/D-1/original.docx"])).toEqual([
+      "docs.list",
+      "rag.status",
+      "project.info",
+      "gen.preview",
+      "docs.overviewShow",
+    ]);
+    expect(names(["docs/OVERVIEW.md"])).toEqual(["docs.overviewShow", "claude.prompts"]);
   });
 
   it("the columns and Xray's step schema refresh the project and the columns", () => {

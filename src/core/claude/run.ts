@@ -7,6 +7,7 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { withProcess } from "../jobs.ts";
 import { perfScope, recordPerf } from "../lib/models-perf.ts";
+import { withOverview } from "../lib/overview.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { shipSkills } from "../lib/shipped.ts";
 import type { ClaudeEvent, ClaudeResult, ClaudeScope, Effort } from "../types.ts";
@@ -182,7 +183,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     mcpConfig: ensureMcpJson(project),
     tools: TOOLS[o.kind],
     mcpTools: mcp.allow,
-    disallowedTools: [...mcp.deny, ...protectedRules(external)],
+    disallowedTools: [...mcp.deny, ...protectedRules(external, o.kind)],
     addDirs,
     resume: o.resume,
   });
@@ -209,7 +210,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
           exe: shell.exe,
           args: shell.args,
           cwd: project,
-          stdin: o.prompt,
+          stdin: withOverview(project, o.kind, o.prompt),
           signal: o.signal,
           onLine: (l) => live.push(`${l}\n`),
           onSpawn: pid,

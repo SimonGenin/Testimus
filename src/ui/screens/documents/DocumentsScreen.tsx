@@ -14,6 +14,7 @@ import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles, pickFolder } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
 import { DOC_ACCEPT, DOC_EXTENSIONS, IMAGE_EXTENSIONS, isImage, VIDEO_EXTENSIONS } from "../../lib/media.ts";
+import { OVERVIEW_ROUTE, OVERVIEW_TITLE } from "../../lib/overview.ts";
 import {
   addDocs,
   forgetSettled,
@@ -30,6 +31,7 @@ import { DocLoading } from "./DocLoading.tsx";
 import { ImagesChoice } from "./ImagesChoice.tsx";
 import { ImportFolder } from "./ImportFolder.tsx";
 import { useDocsLayout } from "./layout.ts";
+import { OverviewPane } from "./OverviewPane.tsx";
 
 const styles = stylex.create({
   screen: {
@@ -131,6 +133,7 @@ export function DocumentsScreen() {
   const client = useQueryClient();
   const list = useRead("docs.list", {});
   const rag = useRead("rag.status", {});
+  const overview = useRead("docs.overviewShow", {});
   const uploads = useUploads();
   const body = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
@@ -149,7 +152,8 @@ export function DocumentsScreen() {
   const named = routeId ? (docs?.find((d) => d.id === routeId) ?? docs?.find((d) => d.code === routeId)) : undefined;
   const activeId = named?.id || routeId || docs?.[0]?.id || "";
   const active = activeId ? docs?.find((d) => d.id === activeId) : undefined;
-  const unknown = !!docs && !!routeId && !active;
+  const onOverview = routeId === OVERVIEW_ROUTE;
+  const unknown = !!docs && !!routeId && !active && !onOverview;
   const busy = uploads.filter((u) => !settled(u)).length;
   const hasBody = !(docs && !docs.length && !uploads.length);
   const folded = fold !== "wide";
@@ -225,7 +229,15 @@ export function DocumentsScreen() {
     app.navigate("documents", id);
   };
   const listPane = (head: boolean) => (
-    <DocList docs={docs} uploads={uploads} activeId={activeId} head={head} run={run} onOpen={open} />
+    <DocList
+      docs={docs}
+      uploads={uploads}
+      activeId={activeId}
+      head={head}
+      run={run}
+      overview={overview.data ?? null}
+      onOpen={open}
+    />
   );
   const onDragOver = (e: DragEvent) => {
     if (!e.dataTransfer.types.includes("Files")) return;
@@ -250,7 +262,7 @@ export function DocumentsScreen() {
     >
       <ScreenHeader
         title="Documents"
-        crumbs={active ? [`${active.id} · ${active.title || active.id}`] : []}
+        crumbs={onOverview ? [OVERVIEW_TITLE] : active ? [`${active.id} · ${active.title || active.id}`] : []}
         meta={busy ? `${busy} in progress` : undefined}
       >
         {folderButton()}
@@ -314,6 +326,8 @@ export function DocumentsScreen() {
               fold={fold}
               widths={{ toc: panes.toc.value, side: panes.side.value }}
             />
+          ) : onOverview ? (
+            <OverviewPane onShowList={folded ? () => setListOpen((o) => !o) : undefined} listOpen={listOpen} />
           ) : active ? (
             <DocDetail
               key={`${activeId} ${active.converted?.at ?? ""}`}
