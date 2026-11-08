@@ -86,9 +86,13 @@ test("a run exported as pages is played in the browser on its own server, then i
   await expect(row).toContainText("1 question");
   await expect(row).toContainText("PM");
 
-  const shown = await api<{ tests: { id: string; result: { steps: { note?: string }[] } }[] }>(server.url, "runs.show", {
-    run: RUN,
-  });
+  const shown = await api<{ tests: { id: string; result: { steps: { note?: string }[] } }[] }>(
+    server.url,
+    "runs.show",
+    {
+      run: RUN,
+    },
+  );
   expect(shown.tests.find((t) => t.id === "LFRPS12-1398")?.result.steps[0].note).toBe("Le disjoncteur reste fermé.");
 });
 
@@ -116,8 +120,12 @@ test("without Node the page keeps the results in the browser and saves a run.jso
   await expect(imp).toContainText("1 test with a new result");
   await imp.getByRole("button", { name: /^Import/ }).click();
   await expect(imp).toBeHidden();
-  const shown = await api<{ tests: { id: string; result: { steps: { ok: boolean | null }[] } }[] }>(server.url, "runs.show", {
-    run: RUN,
-  });
+  const shown = await api<{ tests: { id: string; result: { steps: { ok: boolean | null }[] } }[] }>(
+    server.url,
+    "runs.show",
+    {
+      run: RUN,
+    },
+  );
   expect(shown.tests[0].result.steps[0].ok).toBe(true);
 });
