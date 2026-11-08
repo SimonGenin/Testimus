@@ -6,8 +6,8 @@ import { Modal } from "../../../components/ui/Modal.tsx";
 import { useCancel } from "../jobs.ts";
 import { Hint, Stack } from "../Section.tsx";
 import type { PackRow } from "./data.ts";
+import { ModelPair } from "./ModelPair.tsx";
 import { OpLine } from "./OpLine.tsx";
-import { Models } from "./PackCard.tsx";
 
 const styles = stylex.create({ plain: { margin: 0 } });
 
@@ -65,7 +65,7 @@ export function BenchDialog({
           items={[
             !!pack.embedding && {
               label: "Models",
-              value: <Models embedding={pack.embedding} reranker={pack.reranker} label={label} />,
+              value: <ModelPair embedding={pack.embedding} reranker={pack.reranker} label={label} />,
             },
             running && {
               label: "Progress",

@@ -13,8 +13,9 @@ import type {
   RuntimeId,
 } from "../types.ts";
 import { deviceFor, deviceOf, isGguf } from "./fit/placement.ts";
-import { fitOf, gb } from "./fit/verdict.ts";
-import { knownMachine, machineProfile } from "./machine/profile.ts";
+import { unsupportedOn } from "./fit/support.ts";
+import { fitOf, gb, releaseOurs } from "./fit/verdict.ts";
+import { knownMachine, machineProfile, platformOf, systemName } from "./machine/profile.ts";
 import { catalogEntry, pack } from "./models-catalog.ts";
 import { filesFor, filesPresent } from "./models-download.ts";
 import { budgets, downloadsAllowed, modelsDir, readRegistry } from "./models-registry.ts";
@@ -24,13 +25,19 @@ export const DEFAULT_QUERY_TASK =
   "Given a question about a railway simulator specification, retrieve the passages that answer it";
 
 export type ModelSource = "registered" | "found" | "download" | "unavailable";
+/** a variant of a pack left aside on this PC, with the one reason */
+export type Aside = { variant: number; models: string; reason: string };
+/** how the variant was picked: the first that fits, one already here that fits without the margin, or none fits
+ * comfortably and this one runs */
+export type Picked = "first-fit" | "kept" | "fallback";
 export type Resolution = {
   choice: RagChoice;
   variant: PackVariant | null;
   variantIndex: number | null;
   embedding: ResolvedModel | null;
   reranker: ResolvedModel | null;
-  skipped: string[];
+  aside: Aside[];
+  picked: Picked | null;
   missing: string[];
   fit?: Fit | null;
   sources?: Record<string, ModelSource>;
@@ -155,6 +162,44 @@ function entriesOf(v: PackVariant): CatalogEntry[] {
     .filter((e): e is CatalogEntry => !!e);
 }
 
+type Tried = { v: PackVariant; i: number; one: Record<string, One>; fit: Fit | null; ok: boolean; slow: boolean };
+
+// The one reason a variant is left aside on this PC, as a clause: no runtime here, cannot be downloaded, the memory it needs
+// against what this PC has (with the numbers), never run on this system, or llama.cpp on the processor; "" = none
+function asideReason(t: Tried, machine: MachineProfile | null, headroom: number): string {
+  const entries = entriesOf(t.v);
+  const off = machine ? [...new Set(entries.map((e) => unsupportedOn(e, machine)).filter((w) => !!w))] : [];
+  if (off.length) return `no runtime here: ${off.join("; ")}`;
+  const gone = Object.values(t.one).find((o) => o.source === "unavailable");
+  if (gone) return gone.reason;
+  const f = t.fit;
+  if (!f || f.verdict === "fits")
+    return t.slow ? "llama.cpp would run on the processor here, several times slower" : "";
+  const keep = 1 - headroom;
+  if (f.verdict === "gpu-too-small")
+    return `needs ${gb(f.needMB.vram)} of GPU memory, this PC has ${gb(f.totalMB.vram ?? 0)}`;
+  if (f.verdict === "ram-too-small") return `needs ${gb(f.needMB.ram)} of memory, this PC has ${gb(f.totalMB.ram)}`;
+  if (f.verdict === "unknown") return "the free memory of the GPU cannot be read";
+  if (f.verdict === "untested")
+    return `never run on ${systemName(platformOf(machine as MachineProfile))} ${machine?.system?.arch ?? "x64"} yet`;
+  const gpuShort = f.device === "gpu" && f.freeMB.vram !== null && f.needMB.vram > f.freeMB.vram * keep;
+  return gpuShort
+    ? `needs ${gb(f.needMB.vram)} of GPU memory, ${gb((f.freeMB.vram ?? 0) * keep)} usable now`
+    : `needs ${gb(f.needMB.ram)} of memory, ${gb(f.freeMB.ram * keep)} usable now`;
+}
+
+/** this PC can run the variant at all: a runtime for it and the memory to load it (a tight fit runs) */
+export function runsHere(v: PackVariant, machine: MachineProfile | null): boolean {
+  if (!machine) return true;
+  const verdict = fitOf(entriesOf(v), releaseOurs(machine), { headroom: budgets().headroom }).verdict;
+  return verdict !== "unsupported" && verdict !== "ram-too-small";
+}
+
+export const variantName = (v: PackVariant): string =>
+  entriesOf(v)
+    .map((e) => e.label)
+    .join(" + ");
+
 export async function resolveChoice(
   choice: RagChoice,
   queryTask = DEFAULT_QUERY_TASK,
@@ -165,53 +210,38 @@ export async function resolveChoice(
   const variants: PackVariant[] = isPack
     ? (p?.variants ?? [])
     : [{ embedding: choice.embedding, reranker: choice.reranker }];
-  const machine = isPack || deps.machine ? await (deps.machine ?? (() => machineProfile()))() : knownMachine();
+  const read = isPack || deps.machine ? await (deps.machine ?? (() => machineProfile()))() : knownMachine();
+  // ponytail: the models Testimus itself holds are let go when another choice is used — a variant is judged on the
+  // memory they would give back, so a model in use never makes another variant « too big »
+  const machine = read ? releaseOurs(read) : null;
   const headroom = budgets().headroom;
-  const tried: {
-    v: PackVariant;
-    i: number;
-    one: Record<string, One>;
-    fit: Fit | null;
-    ok: boolean;
-    slow: boolean;
-    why: string;
-  }[] = [];
+  const tried: Tried[] = [];
   for (const [i, v] of variants.entries()) {
     const one: Record<string, One> = {};
     for (const id of [v.embedding, v.reranker].filter((m): m is string => !!m)) one[id] = resolveOne(id, queryTask);
     const fit = machine ? fitOf(entriesOf(v), machine, { headroom, lines: deps.lines }) : null;
-    const blocked =
-      fit?.verdict === "unsupported"
-        ? { reason: fit.message }
-        : Object.values(one).find((o) => o.source === "unavailable");
-    const labels = entriesOf(v)
-      .map((e) => e.label)
-      .join(" + ");
+    const ok = fit?.verdict !== "unsupported" && !Object.values(one).some((o) => o.source === "unavailable");
     // ponytail: llama.cpp on the processor indexes several times slower; a later variant without it is preferred
     const slow = isPack && !!machine && entriesOf(v).some((e) => isGguf(e) && deviceFor(e, machine) === "cpu");
-    const why = blocked
-      ? blocked.reason
-      : fit?.verdict === "untested"
-        ? `${labels}: never run on this system (untested)`
-        : fit && fit.verdict !== "fits"
-          ? `${labels}: ${fit.verdict === "unknown" ? "cannot check the GPU" : `${gb(fit.device === "gpu" ? fit.needMB.vram : fit.needMB.ram)} needed, ${usableOf(fit, headroom)}`} (${fit.verdict})`
-          : slow
-            ? `${labels}: llama.cpp would run on the processor (slow)`
-            : "";
-    tried.push({ v, i, one, fit, ok: !blocked, slow, why });
-    if (!blocked && !slow && (!fit || fit.verdict === "fits")) break;
+    tried.push({ v, i, one, fit, ok, slow });
+    if (ok && !slow && (!fit || fit.verdict === "fits")) break;
   }
-  const fits = (t: (typeof tried)[number]) => t.ok && (!t.fit || t.fit.verdict === "fits");
+  const fits = (t: Tried) => t.ok && (!t.fit || t.fit.verdict === "fits");
   const fitting = tried.find((t) => fits(t) && !t.slow) ?? tried.find(fits);
   const fallback = [...tried].reverse().find((t) => t.ok && t.fit?.verdict !== "ram-too-small");
   // ponytail: a variant already on this PC that fits the free memory without the margin beats a later one to
   // download, so the pack does not change with what other programs hold at the moment it is chosen
-  const onPc = (t: (typeof tried)[number]) => Object.values(t.one).every((o) => o.source !== "download");
+  const onPc = (t: Tried) => Object.values(t.one).every((o) => o.source !== "download");
   const kept =
     isPack && fitting && !onPc(fitting)
       ? tried.find((t) => t.i < fitting.i && t.ok && t.fit && withoutMargin(t.fit) && onPc(t))
       : undefined;
   const pick = kept ?? fitting ?? (isPack ? fallback : tried[0]);
+  const asideOf = (t: Tried): Aside => ({
+    variant: t.i,
+    models: variantName(t.v),
+    reason: asideReason(t, machine, headroom) || "a variant above was preferred",
+  });
   if (!pick)
     return {
       choice,
@@ -219,7 +249,8 @@ export async function resolveChoice(
       variantIndex: null,
       embedding: null,
       reranker: null,
-      skipped: tried.map((t) => t.why).filter(Boolean),
+      aside: tried.map(asideOf),
+      picked: null,
       missing: [],
       fit: tried.at(-1)?.fit ?? null,
       sources: {},
@@ -233,7 +264,8 @@ export async function resolveChoice(
     variantIndex: isPack ? pick.i : null,
     embedding: emb?.model ?? null,
     reranker: rr?.model ?? null,
-    skipped: tried.filter((t) => t.i < pick.i).map((t) => t.why || `variant ${t.i + 1} skipped`),
+    aside: tried.filter((t) => t.i < pick.i).map(asideOf),
+    picked: pick === kept ? "kept" : pick === fitting ? "first-fit" : "fallback",
     missing: Object.entries(pick.one)
       .filter(([, o]) => !o.model)
       .map(([k]) => k),
@@ -250,12 +282,4 @@ export async function resolveChoice(
 function withoutMargin(fit: Fit): boolean {
   if (fit.verdict !== "tight" || fit.needMB.ram > fit.freeMB.ram) return false;
   return fit.device === "cpu" || (fit.freeMB.vram !== null && fit.needMB.vram <= fit.freeMB.vram);
-}
-
-function usableOf(fit: Fit, headroom: number): string {
-  const free = fit.device === "gpu" ? fit.freeMB.vram : fit.freeMB.ram;
-  if (free === null) return "free memory unknown";
-  if (fit.verdict === "gpu-too-small") return `${gb(fit.totalMB.vram ?? 0)} on the GPU`;
-  if (fit.verdict === "ram-too-small") return `${gb(fit.totalMB.ram)} of memory`;
-  return `${gb(free * (1 - headroom))} usable`;
 }

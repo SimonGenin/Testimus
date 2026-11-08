@@ -3,8 +3,8 @@ import { api, expect, mockServer, shoot, test } from "./helpers.ts";
 
 type Pack = { id: string; active: boolean };
 
-test.describe("a 16 GB GPU", () => {
-  const server = mockServer(4370);
+test.describe("a 16 GB GPU, no pack chosen on this PC yet", () => {
+  const server = mockServer(4370, { TESTIMUS_MOCK_ADVICE: "none" });
 
   test("the project step leads to the pack step, which suggests the heaviest pack that fits", async ({ page }) => {
     await page.goto("/#/setup/project");
@@ -39,6 +39,23 @@ test.describe("a 16 GB GPU", () => {
     await page.getByRole("radio", { name: /^Light\b/ }).check();
     await page.getByRole("button", { name: /for now$/ }).click();
     await expect(page).toHaveURL(/#\/setup\/ready$/);
+  });
+});
+
+test.describe("a 16 GB GPU, Light chosen on this PC", () => {
+  mockServer(4372);
+
+  test("the pack this PC chose stays picked; the heavier one is only suggested", async ({ page }) => {
+    await page.goto("/#/setup/pack");
+    const packs = page.getByRole("radiogroup", { name: "Search packs" });
+    const card = (name: string) =>
+      packs.locator("label").filter({ has: page.getByRole("radio", { name: new RegExp(`^${name}\\b`) }) });
+    await expect(card("Quality")).toContainText("Suggested for this PC");
+    await expect(packs.getByRole("radio", { name: /^Light\b/ })).toBeChecked();
+    await expect(packs.getByRole("radio", { name: /^Quality\b/ })).not.toBeChecked();
+    await expect(card("Light")).toContainText("In use");
+    await expect(page.getByRole("button", { name: "Use Light" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Keep Light for now" })).toBeVisible();
   });
 });
 

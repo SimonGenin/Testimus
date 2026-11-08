@@ -134,7 +134,8 @@ describe("packs (§7.12)", () => {
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => devPc() });
     expect(r.variantIndex).toBe(0);
     expect(r.variant).toEqual({ embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" });
-    expect(r.skipped).toEqual([]);
+    expect(r.aside).toEqual([]);
+    expect(r.picked).toBe("first-fit");
     expect(r.fit?.verdict).toBe("fits");
     expect(r.missing.sort()).toEqual(["qwen3-embedding-8b-q4", "qwen3-reranker-4b-q8"]);
   });
@@ -144,10 +145,13 @@ describe("packs (§7.12)", () => {
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => busy });
     expect(r.variantIndex).toBe(1);
     expect(r.variant).toEqual({ embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-4b-q8" });
-    expect(r.skipped).toHaveLength(1);
-    expect(r.skipped[0]).toMatch(
-      /Qwen3 Embedding 8B \(4-bit\) \+ Qwen3 Reranker 4B .*: 11\.4 GB needed, 10\.6 GB usable \(tight\)/,
-    );
+    expect(r.aside).toEqual([
+      {
+        variant: 0,
+        models: "Qwen3 Embedding 8B (4-bit) + Qwen3 Reranker 4B (8-bit, GGUF)",
+        reason: "needs 11.4 GB of GPU memory, 10.6 GB usable now",
+      },
+    ]);
     expect(r.fit?.verdict).toBe("fits");
   });
 
@@ -165,7 +169,8 @@ describe("packs (§7.12)", () => {
     expect(kept.variant).toEqual({ embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" });
     expect(kept.fit?.verdict).toBe("tight");
     expect(kept.missing).toEqual([]);
-    expect(kept.skipped).toEqual([]);
+    expect(kept.aside).toEqual([]);
+    expect(kept.picked).toBe("kept");
 
     // too full to hold it even without the margin: the variant on this PC gives way to the first one that fits
     const full = devPc({ gpus: [{ ...devPc().gpus[0], vramUsedMB: 6000 }] } as Partial<MachineProfile>);
@@ -184,7 +189,12 @@ describe("packs (§7.12)", () => {
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => small });
     expect(r.variantIndex).toBe(3);
     expect(r.fit?.verdict).toBe("tight");
-    expect(r.skipped).toHaveLength(3);
+    expect(r.picked).toBe("fallback");
+    expect(r.aside.map((a) => a.reason)).toEqual([
+      "needs 12.1 GB of memory, 5.0 GB usable now",
+      "needs 9.8 GB of memory, 5.0 GB usable now",
+      "needs 8.3 GB of memory, 5.0 GB usable now",
+    ]);
   });
 
   it("without a GPU, Balanced skips llama.cpp on the processor for its transformers.js variant", async () => {
@@ -192,7 +202,10 @@ describe("packs (§7.12)", () => {
     expect(r.variantIndex).toBe(2);
     expect(r.variant).toEqual({ embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: "bge-reranker-v2-m3-q8" });
     expect(r.fit?.verdict).toBe("fits");
-    expect(r.skipped[0]).toMatch(/Qwen3 Embedding 4B .*: llama\.cpp would run on the processor \(slow\)/);
+    expect(r.aside[0]).toMatchObject({
+      models: expect.stringMatching(/^Qwen3 Embedding 4B /),
+      reason: "llama.cpp would run on the processor here, several times slower",
+    });
     const quality = await resolveChoice({ pack: "quality" }, "task", { machine: async () => cpuLaptop });
     expect(quality.variant).not.toBeNull();
     expect(quality.fit?.verdict).toBe("fits");
@@ -202,7 +215,7 @@ describe("packs (§7.12)", () => {
     const tiny: MachineProfile = { ...cpuLaptop, ramTotalMB: 2000, ramFreeMB: 1500 };
     const r = await resolveChoice({ pack: "quality" }, "task", { machine: async () => tiny });
     expect(r.variant).toBeNull();
-    expect(r.skipped.join(" ")).toMatch(/ram-too-small/);
+    expect(r.aside[0].reason).toMatch(/^needs 1\d\.\d GB of memory, this PC has 2\.0 GB$/);
   });
 
   it("P8 — every pack resolves with transformers.js and llama.cpp, on every kind of PC; Light and Performance with transformers.js only", async () => {

@@ -16,13 +16,12 @@ import {
   onDrive,
   type PackRow,
   size,
-  suggestPack,
 } from "../../../../src/ui/screens/settings/models/data.ts";
-import { FitChip } from "../../../../src/ui/screens/settings/models/FitChip.tsx";
 import { FitConfirm, fitNumbers, fitTitle } from "../../../../src/ui/screens/settings/models/FitConfirm.tsx";
 import { FolderDialog } from "../../../../src/ui/screens/settings/models/FolderDialog.tsx";
 import { ModelsTable } from "../../../../src/ui/screens/settings/models/ModelsTable.tsx";
 import { OpLine } from "../../../../src/ui/screens/settings/models/OpLine.tsx";
+import { PackActions } from "../../../../src/ui/screens/settings/models/PackActions.tsx";
 import { PackCard } from "../../../../src/ui/screens/settings/models/PackCard.tsx";
 import { PackPlanDialog } from "../../../../src/ui/screens/settings/models/PackPlanDialog.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
@@ -51,12 +50,16 @@ const pack = (id: string, over: Partial<PackRow> = {}): PackRow => ({
   label: id[0].toUpperCase() + id.slice(1),
   intent: "",
   active: false,
+  chosen: false,
   available: true,
   variant: 0,
   embedding: "e",
   reranker: null,
+  models: [{ id: "e", label: "Embed", kind: "embedding", installed: true }],
+  device: "cpu",
+  installed: "all",
   fit: fitOf("fits"),
-  skipped: [],
+  notes: [],
   downloadMB: 0,
   quality: "q",
   measuredHere: false,
@@ -92,26 +95,6 @@ describe("models data helpers", () => {
     expect(onDrive("D:\\m", "D:\\")).toBe(true);
     expect(onDrive("/Volumes/X/m", "/Volumes/X")).toBe(true);
     expect(onDrive("/Users/m", "/Volumes/X")).toBe(false);
-  });
-
-  it("suggestPack skips GGUF on the CPU, unavailable and non-fitting packs", () => {
-    const hw = { ramTotalMB: 16000, drives: [], gpus: [] } as never;
-    const cat = [row("g", { runtimes: ["llamacpp"] }), row("t")];
-    expect(
-      suggestPack(
-        [
-          pack("quality", { available: false }),
-          pack("balanced", { fit: fitOf("tight") }),
-          pack("performance", { embedding: "t", reranker: "g", fit: fitOf("fits", "", { device: "cpu" }) }),
-          pack("light", { embedding: null, fit: fitOf("fits", "", { device: "cpu" }) }),
-        ],
-        hw,
-        cat,
-      ),
-    ).toBe("light");
-    expect(suggestPack([pack("balanced", { embedding: "g" })], hw, cat)).toBe("balanced");
-    expect(suggestPack([], hw, cat)).toBe("light");
-    expect(suggestPack([pack("balanced")], null, cat)).toBe("light");
   });
 
   it("folderPicker uses the bridge when there is one", async () => {
@@ -160,14 +143,6 @@ describe("models data helpers", () => {
 });
 
 describe("small model widgets", () => {
-  it("FitChip is empty without a fit, and says « Processor only » when made for a GPU", () => {
-    const { container, rerender } = render(<FitChip fit={null} />);
-    expect(container).toBeEmptyDOMElement();
-    rerender(<FitChip fit={fitOf("fits")} processorOnly />);
-    expect(screen.getByText("Processor only")).toBeInTheDocument();
-    expect(screen.getByText("Fits")).toBeInTheDocument();
-  });
-
   it("OpLine shows the job's progress and cancels it; without a job, no cancel", async () => {
     const j = fakeJob({ id: "models-pull-00000001", kind: "models-pull", message: "Starting" });
     net.routes["jobs.cancel"] = () => ({ cancelled: true });
@@ -308,37 +283,90 @@ describe("small model widgets", () => {
     expect(fitTitle("x", "X", fitOf("unsupported"), true)).toBe("X cannot run on this PC");
   });
 
-  it("PackCard: a variant beyond the first, measured speed, nothing left, unavailable, a job running", async () => {
-    const onUse = vi.fn();
-    const r = mountSettings(
+  it("PackCard says what the core says: models and where they run, installed, in use, the notes", () => {
+    const { rerender } = render(
       <PackCard
-        pack={pack("balanced", { variant: 2, reranker: "r", speed: "fast", skipped: ["x"] })}
-        label={(x) => x}
-        op={null}
-        busy={false}
-        onUse={onUse}
+        pack={pack("quality", {
+          active: true,
+          models: [
+            { id: "e", label: "Embed 8B", kind: "embedding", installed: true },
+            { id: "r", label: "Rerank 4B", kind: "reranker", installed: true },
+          ],
+          device: "gpu",
+          notes: [
+            "Chosen here: the first variant that fits (12.0 GB GPU).",
+            "Variant « big » not chosen: needs 16 GB.",
+          ],
+        })}
       />,
     );
-    const card = screen.getByRole("article", { name: "Balanced pack" });
-    expect(within(card).getByText("On this PC (its third choice)")).toBeInTheDocument();
-    expect(within(card).getByText("fast")).toBeInTheDocument();
+    const card = screen.getByRole("article", { name: "Quality pack" });
+    expect(card).toHaveTextContent("Embed 8B + Rerank 4B · GPU");
+    expect(within(card).getByText("In use")).toBeInTheDocument();
     expect(within(card).getByText("Installed")).toBeInTheDocument();
-    expect(within(card).getByText("Skipped: x")).toBeInTheDocument();
-    fireEvent.click(within(card).getByRole("button", { name: "Use this pack" }));
-    expect(onUse).toHaveBeenCalled();
-    r.unmount();
-    mountSettings(
+    expect(within(card).queryByText("Not in use")).toBeNull();
+    expect(within(within(card).getByRole("list", { name: "On this PC" })).getAllByRole("listitem")).toHaveLength(2);
+    rerender(<PackCard pack={pack("light", { processorOnly: true, fit: fitOf("tight", "Tight: close programs.") })} />);
+    const light = screen.getByRole("article", { name: "Light pack" });
+    expect(within(light).getByText("Not in use")).toBeInTheDocument();
+    expect(within(light).getByText("Processor only")).toBeInTheDocument();
+    expect(within(light).getByText("Tight")).toBeInTheDocument();
+    rerender(
       <PackCard
-        pack={pack("quality", { available: false, embedding: null, skipped: ["y"] })}
-        label={(x) => x}
+        pack={pack("light", { installed: "none", downloadMB: 560, notes: ["Fits this PC · 560 MB to download."] })}
+        judged={false}
+      />,
+    );
+    expect(screen.getByText("Not installed")).toBeInTheDocument();
+    expect(screen.getByText("560 MB to download")).toBeInTheDocument();
+    expect(screen.queryByText("Fits this PC · 560 MB to download.")).toBeNull();
+    rerender(
+      <PackCard
+        pack={pack("quality", {
+          available: false,
+          models: [],
+          device: null,
+          notes: ["Not available on this PC: no runtime here."],
+        })}
+      />,
+    );
+    expect(screen.getByText("Not available on this PC: no runtime here.")).toBeInTheDocument();
+    expect(screen.queryByText("Installed")).toBeNull();
+  });
+
+  it("PackCard as a radio among packs, suggested; its actions in Settings: use, measure, a job running", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(<PackCard pack={pack("balanced")} pick={{ checked: false, onSelect }} suggested />);
+    expect(screen.getByText("Suggested for this PC")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio"));
+    expect(onSelect).toHaveBeenCalledWith("balanced");
+    const onUse = vi.fn();
+    rerender(
+      <PackCard
+        pack={pack("balanced", { speed: "fast" })}
+        facts
+        footer={<PackActions pack={pack("balanced")} op={null} busy={false} onUse={onUse} />}
+      />,
+    );
+    expect(screen.getByText("fast")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use this pack" }));
+    expect(onUse).toHaveBeenCalled();
+    rerender(<PackActions pack={pack("balanced", { active: true })} op={null} busy={false} onUse={onUse} />);
+    expect(screen.queryByRole("button", { name: "Use this pack" })).toBeNull();
+  });
+
+  it("PackActions: a job on the pack shows its progress instead of the buttons", () => {
+    mountSettings(
+      <PackActions
+        pack={pack("quality")}
         op={{ key: "quality", jobId: "j", label: "Installing", kind: "models-usePack" }}
         busy={false}
-        onUse={onUse}
+        onUse={() => {}}
+        onMeasure={() => {}}
       />,
     );
-    expect(screen.getByText("Not available on this PC")).toBeInTheDocument();
-    expect(screen.getByText("y")).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Installing" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Measure" })).toBeNull();
   });
 
   it("PackPlanDialog: downloads into a folder not chosen yet, a reranker, nothing to reindex", () => {

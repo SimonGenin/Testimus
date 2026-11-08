@@ -1,14 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
+import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Table } from "../../../components/ui/Table.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
 import type { CatalogRow, Installed } from "./data.ts";
-import { isInstalled, size } from "./data.ts";
-import { FitChip } from "./FitChip.tsx";
+import { FIT, isInstalled, STATE, size } from "./data.ts";
 import { OpLine } from "./OpLine.tsx";
 import type { Op } from "./ops.tsx";
-import { StateChip } from "./StateChip.tsx";
 
 const styles = stylex.create({
   name: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
@@ -80,10 +79,14 @@ export function ModelsTable({
         {
           key: "state",
           label: "State",
-          render: (r) => <StateChip state={inUse.includes(r.id) ? "active" : r.state} />,
+          render: (r) => <Badge {...STATE[inUse.includes(r.id) ? "active" : r.state]} size="sm" />,
         },
         { key: "size", label: "Size", numeric: true, render: (r) => size(instOf(r)?.sizeMB ?? r.sizeMB) },
-        { key: "fit", label: "Fit here", render: (r) => <FitChip fit={r.fit} /> },
+        {
+          key: "fit",
+          label: "Fit here",
+          render: (r) => r.fit && <Badge {...FIT[r.fit.verdict]} size="sm" tooltip={r.fit.message} />,
+        },
         {
           key: "actions",
           label: "Actions",

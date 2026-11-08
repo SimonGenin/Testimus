@@ -7,7 +7,7 @@ import { advise, PACK_ORDER } from "./models-advice.ts";
 import { catalog, catalogEntry } from "./models-catalog.ts";
 import { NO_DIR, NO_DIR_CODE, needEntry, verify } from "./models-install.ts";
 import { pull } from "./models-install-pull.ts";
-import { type PackRow, planOf, type UsePlan } from "./models-packs.ts";
+import { type PackContext, type PackRow, planOf, type UsePlan } from "./models-packs.ts";
 import { readPerf } from "./models-perf.ts";
 import { budgets, readRegistry, runtimesDir, updateRegistry } from "./models-registry.ts";
 import { resolveChoice } from "./models-resolve.ts";
@@ -45,6 +45,23 @@ export async function currentVariant(project: string): Promise<{ choice: RagChoi
   return {
     choice: plainChoice(a.choice),
     variant: { embedding: a.embedding.entry.id, reranker: a.reranker?.entry.id ?? null },
+  };
+}
+
+// ponytail: what the pack cards are written against — this PC's choice, what search runs with now, the team reference
+export async function packContext(project: string): Promise<PackContext> {
+  const a = await modelsDeps.activeModels(project);
+  const using =
+    a.embedding && a.choice
+      ? {
+          pack: "pack" in a.choice ? a.choice.pack : null,
+          variant: a.choice.variant ?? { embedding: a.embedding.entry.id, reranker: a.reranker?.entry.id ?? null },
+        }
+      : null;
+  return {
+    chosen: await modelsDeps.activeChoice(project),
+    using,
+    reference: readProject(project).rag.reference ?? null,
   };
 }
 
@@ -204,7 +221,7 @@ export async function planPack(project: string, id: string): Promise<PackPlan & 
   const r = await resolveChoice({ pack: id }, await modelsDeps.queryTask(project));
   if (!r.variant || r.variantIndex === null)
     throw new UserError(
-      `The ${id} pack is not available on this PC: ${r.skipped.join("; ") || "unknown pack"}.`,
+      `The ${id} pack is not available on this PC: ${r.aside.map((a) => `${a.models}: ${a.reason}`).join("; ") || "unknown pack"}.`,
       "testimus models packs shows each pack and why.",
     );
   const models = [r.variant.embedding, r.variant.reranker].filter((m): m is string => !!m);

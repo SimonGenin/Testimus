@@ -15,8 +15,6 @@ export type Hardware = CommandOutput<"models.hardware">;
 export type RagStatus = CommandOutput<"rag.status">;
 export type Activation = RagStatus["activation"];
 
-export const PACK_ORDER = ["quality", "balanced", "performance", "light"];
-
 export function size(mb: number): string {
   if (mb >= 1024 * 1024) return `${(mb / 1024 / 1024).toFixed(1)} TB`;
   if (mb >= 1024) return `${(mb / 1024).toFixed(mb >= 10240 ? 0 : 1)} GB`;
@@ -71,25 +69,40 @@ export function gpuFacts(hw: Hardware): { label: string; value: string }[] {
   return main ? rows : [{ label: "GPU", value: machineSummary(hw)[3] }, ...rows];
 }
 
-export const FIT: Record<FitVerdict, { tone: BadgeTone; icon: IconName; word: string }> = {
-  fits: { tone: "success", icon: "check-circle", word: "Fits" },
-  tight: { tone: "warning", icon: "alert-triangle", word: "Tight" },
-  "gpu-too-small": { tone: "warning", icon: "cpu", word: "Partly on the processor" },
-  "ram-too-small": { tone: "danger", icon: "alert-circle", word: "RAM too small" },
-  unknown: { tone: "info", icon: "info", word: "Not measured" },
-  untested: { tone: "warning", icon: "circle-dashed", word: "Untested here" },
-  unsupported: { tone: "neutral", icon: "x-circle", word: "Not supported here" },
+type Vocab = { tone: BadgeTone; icon: IconName; label: string };
+
+// ponytail: the closed vocabularies the core's states are shown with — a word, a tone and an icon each, spread on a
+// Badge; the sentences come from the core
+export const FIT: Record<FitVerdict, Vocab> = {
+  fits: { tone: "success", icon: "check-circle", label: "Fits" },
+  tight: { tone: "warning", icon: "alert-triangle", label: "Tight" },
+  "gpu-too-small": { tone: "warning", icon: "cpu", label: "Partly on the processor" },
+  "ram-too-small": { tone: "danger", icon: "alert-circle", label: "RAM too small" },
+  unknown: { tone: "info", icon: "info", label: "Not measured" },
+  untested: { tone: "warning", icon: "circle-dashed", label: "Untested here" },
+  unsupported: { tone: "neutral", icon: "x-circle", label: "Not supported here" },
 };
 
-export const STATE: Record<ModelState, { tone: BadgeTone; icon: IconName; word: string }> = {
-  available: { tone: "neutral", icon: "download", word: "Not installed" },
-  downloading: { tone: "info", icon: "download", word: "Downloading" },
-  installed: { tone: "neutral", icon: "check", word: "Installed" },
-  verified: { tone: "success", icon: "check-circle", word: "Verified" },
-  active: { tone: "success", icon: "circle-dot", word: "In use" },
-  broken: { tone: "danger", icon: "x-circle", word: "Broken" },
-  outdated: { tone: "warning", icon: "clock", word: "Outdated" },
+export const STATE: Record<ModelState, Vocab> = {
+  available: { tone: "neutral", icon: "download", label: "Not installed" },
+  downloading: { tone: "info", icon: "download", label: "Downloading" },
+  installed: { tone: "neutral", icon: "check", label: "Installed" },
+  verified: { tone: "success", icon: "check-circle", label: "Verified" },
+  active: { tone: "success", icon: "circle-dot", label: "In use" },
+  broken: { tone: "danger", icon: "x-circle", label: "Broken" },
+  outdated: { tone: "warning", icon: "clock", label: "Outdated" },
 };
+
+export const INSTALLED: Record<PackRow["installed"], Vocab> = {
+  all: { tone: "success", icon: "check", label: "Installed" },
+  some: { tone: "warning", icon: "download", label: "Partly installed" },
+  none: { tone: "neutral", icon: "download", label: "Not installed" },
+};
+
+export const NOT_IN_USE: Vocab = { tone: "neutral", icon: "circle-dashed", label: "Not in use" };
+export const IN_USE: Vocab = { tone: "success", icon: "check", label: "In use" };
+export const PROCESSOR_ONLY: Vocab = { tone: "warning", icon: "cpu", label: "Processor only" };
+export const SUGGESTED: Vocab = { tone: "neutral", icon: "target", label: "Suggested for this PC" };
 
 export const ORIGIN: Record<Activation, string> = {
   machine: "This PC's choice",
@@ -104,23 +117,6 @@ export function choiceLabel(c: RagChoice | undefined | null, label: (id: string)
   if (!c) return "Not set";
   if ("pack" in c) return `${c.pack.charAt(0).toUpperCase()}${c.pack.slice(1)} pack`;
   return c.reranker ? `${label(c.embedding)} + ${label(c.reranker)}` : label(c.embedding);
-}
-
-// ponytail: decision n°11 — the heaviest pack that fits without a GGUF or a reranker on the processor; Light when the
-// hardware is unknown (no profile, or no RAM figure)
-export function suggestPack(rows: PackRow[], hw: Hardware | null, catalog: CatalogRow[]): string {
-  if (!hw?.ramTotalMB) return "light";
-  const gguf = (id: string | null) => {
-    const e = id ? catalog.find((c) => c.id === id) : undefined;
-    return !!e && !e.runtimes.includes("transformers");
-  };
-  for (const id of PACK_ORDER) {
-    const r = rows.find((p) => p.id === id);
-    if (!r?.available || r.fit?.verdict !== "fits" || r.processorOnly) continue;
-    if (r.fit.device === "cpu" && (gguf(r.embedding) || r.reranker)) continue;
-    return r.id;
-  }
-  return "light";
 }
 
 type Picker = { pickFolder?: (o: { title: string; defaultPath?: string }) => Promise<string | null> };

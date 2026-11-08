@@ -5,8 +5,10 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { env } from "../../../../src/core/env.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry } from "../../../../src/core/lib/models-catalog.ts";
 import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
+import { mockMachine } from "../../../../src/core/mock/machine.ts";
 import { activeModels, projectKey, resolveModel, setActiveChoice } from "../../../../src/core/rag/activation.ts";
 import { indexFile, nearest, openDb, transaction, vecTable } from "../../../../src/core/rag/db.ts";
 import { embedWith, probeWith, rerankerFor, rerankFor, runtimes } from "../../../../src/core/rag/embed.ts";
@@ -41,9 +43,11 @@ beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "testimus-cov-rm-")), "P");
   cpSync(FIXTURE, dir, { recursive: true });
   env.mock = true;
+  pinMachineProfile(mockMachine("gpu16"));
 });
 
 afterEach(() => {
+  pinMachineProfile(null);
   env.mock = realMock;
   Object.assign(runtimes, realRuntimes);
   runtimes.mock = realRuntimes.mock;

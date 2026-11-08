@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 import type { CatalogEntry, Fit, FitVerdict, LoadedModel, MachineProfile, PerfLine } from "../../types.ts";
-import { platformOf, systemName } from "../machine/profile.ts";
-import { catalogEntry } from "../models-catalog.ts";
+import { mainGpu, platformOf, systemName } from "../machine/profile.ts";
+import { catalog, catalogEntry } from "../models-catalog.ts";
 import { needOf } from "./need.ts";
 import { deviceFor, gpuPool } from "./placement.ts";
 import { unsupportedOn, untestedOn } from "./support.ts";
@@ -16,6 +16,22 @@ function isOurs(l: LoadedModel, entries: CatalogEntry[]): boolean {
   return entries.some(
     (e) => name === e.id || (!!e.source.hf?.path && name === basename(e.source.hf.path).toLowerCase()),
   );
+}
+
+// ponytail: this PC as it would be once Testimus lets go of the models it holds in llama.cpp — what any choice of models
+// is judged on, since using one unloads the others
+export function releaseOurs(machine: MachineProfile): MachineProfile {
+  const ours = machine.loaded.filter((l) => isOurs(l, catalog().entries));
+  if (!ours.length) return machine;
+  const held = ours.reduce((a, l) => a + l.vramMB, 0);
+  const main = mainGpu(machine);
+  return {
+    ...machine,
+    loaded: machine.loaded.filter((l) => !ours.includes(l)),
+    gpus: machine.gpus.map((g) =>
+      g === main && g.vramUsedMB !== null ? { ...g, vramUsedMB: Math.max(0, g.vramUsedMB - held) } : g,
+    ),
+  };
 }
 
 const heldBy = (l: LoadedModel) => `llama.cpp holds ${catalogEntry(l.name)?.label ?? l.name}, ${gb(l.vramMB)}`;

@@ -24,6 +24,7 @@ import { MachineCard } from "./models/MachineCard.tsx";
 import { ModelsTable } from "./models/ModelsTable.tsx";
 import { OpLine } from "./models/OpLine.tsx";
 import { MEASURE, type Op, packLabel, useOps } from "./models/ops.tsx";
+import { PackActions } from "./models/PackActions.tsx";
 import { PackCard } from "./models/PackCard.tsx";
 import { PackPlanDialog } from "./models/PackPlanDialog.tsx";
 import { Anchor, Hint, Section, Stack } from "./Section.tsx";
@@ -190,15 +191,20 @@ export function ModelsSection() {
                   <PackCard
                     key={p.id}
                     pack={p}
-                    label={label}
-                    op={ops.find((o) => o.key === p.id) ?? null}
-                    measure={measuring(p.id)}
-                    busy={packBusy}
-                    onUse={() => a.choosePack(p)}
-                    onMeasure={() => {
-                      showBench(p.id);
-                      if (!measuring(p.id)) void a.measure(p);
-                    }}
+                    facts
+                    footer={
+                      <PackActions
+                        pack={p}
+                        op={ops.find((o) => o.key === p.id) ?? null}
+                        measure={measuring(p.id)}
+                        busy={packBusy}
+                        onUse={() => a.choosePack(p)}
+                        onMeasure={() => {
+                          showBench(p.id);
+                          if (!measuring(p.id)) void a.measure(p);
+                        }}
+                      />
+                    }
                   />
                 ))}
                 <CustomCard

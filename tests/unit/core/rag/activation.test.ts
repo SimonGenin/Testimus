@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "../../../../src/core/env.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { readProject, readSettings, writeProject } from "../../../../src/core/lib/project.ts";
+import { mockMachine } from "../../../../src/core/mock/machine.ts";
 import {
   activeChoice,
   activeModels,
@@ -41,7 +43,8 @@ vi.mock("../../../../src/core/lib/models-resolve.ts", async (importOriginal) => 
       variantIndex: null,
       embedding: null,
       reranker: null,
-      skipped: [],
+      aside: [],
+      picked: null,
       missing: [],
     }),
   };
@@ -61,10 +64,12 @@ beforeEach(() => {
   dir = join(root, "Projet");
   cpSync(FIXTURE, dir, { recursive: true });
   installed.clear();
+  pinMachineProfile(mockMachine("gpu16"));
 });
 
 afterEach(() => {
   setActiveChoice(dir, null);
+  pinMachineProfile(null);
   env.mock = false;
   rmSync(root, { recursive: true, force: true });
 });

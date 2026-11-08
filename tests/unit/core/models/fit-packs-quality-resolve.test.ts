@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fitOf, worst } from "../../../../src/core/lib/fit/verdict.ts";
 import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry, registryFile, SHIPPED } from "../../../../src/core/lib/models-catalog.ts";
-import { downloadMBOf, packRows, planOf } from "../../../../src/core/lib/models-packs.ts";
+import { packRows, planOf } from "../../../../src/core/lib/models-packs.ts";
 import { adviceQuality, evalReports, type Measured, measuredRecall } from "../../../../src/core/lib/models-quality.ts";
 import { readRegistry, writeRegistry } from "../../../../src/core/lib/models-registry.ts";
 import {
@@ -93,13 +93,13 @@ describe("packs", () => {
     variantIndex: null,
     embedding: null,
     reranker: null,
-    skipped: [],
+    aside: [],
+    picked: null,
     missing: [],
     ...over,
   });
 
   it("a missing model unknown to the catalog weighs nothing", () => {
-    expect(downloadMBOf(res({ missing: ["nope"] }))).toBe(0);
     expect(planOf(res({ missing: ["nope"] }), null)).toMatchObject({
       download: [{ model: "nope", sizeMB: 0 }],
       reindex: true,
@@ -115,8 +115,16 @@ describe("packs", () => {
 
   it("rows of a hand-picked choice mark no pack active", async () => {
     pinMachineProfile(devPc);
-    const rows = await packRows({ embedding: "bge-m3-q8", reranker: null }, undefined, {}, undefined, []);
-    expect(rows.every((r) => !r.active)).toBe(true);
+    const custom = { embedding: "bge-m3-q8", reranker: null };
+    const rows = await packRows(
+      { chosen: custom, using: { pack: null, variant: custom }, reference: null },
+      undefined,
+      {},
+      undefined,
+      [],
+    );
+    expect(rows.every((r) => !r.active && !r.chosen)).toBe(true);
+    expect(rows.find((r) => r.id === "performance")?.notes).toContain("Fits this PC · 1.1 GB to download.");
   });
 });
 
@@ -179,7 +187,7 @@ describe("resolve", () => {
       "own-nohf": "own-nohf has no download source",
     });
     const unknownPack = await resolveChoice({ pack: "nope" }, undefined, { machine: async () => devPc });
-    expect(unknownPack).toMatchObject({ variant: null, fit: null, skipped: [] });
+    expect(unknownPack).toMatchObject({ variant: null, fit: null, aside: [], picked: null });
   });
 
   it("a llama.cpp install keeps its own device when no machine is known", () => {
@@ -224,10 +232,10 @@ describe("resolve", () => {
   it("the reasons of a skipped variant: GPU too small, free memory unknown", async () => {
     const small: MachineProfile = { ...devPc, gpus: [{ ...devPc.gpus[0], vramTotalMB: 2000, vramUsedMB: 100 }] };
     const r = await resolveChoice({ pack: "quality" }, undefined, { machine: async () => small });
-    expect(r.skipped.join(" | ")).toMatch(/GB on the GPU \(gpu-too-small\)/);
+    expect(r.aside[0].reason).toBe("needs 11.4 GB of GPU memory, this PC has 2.0 GB");
     const blind: MachineProfile = { ...devPc, ramFreeMB: 600, gpus: [{ ...devPc.gpus[0], vramTotalMB: null }] };
     const b = await resolveChoice({ pack: "balanced" }, undefined, { machine: async () => blind });
-    expect(b.skipped.join(" | ")).toMatch(/free memory unknown|cannot check the GPU/);
+    expect(b.aside[0].reason).toBe("the free memory of the GPU cannot be read");
   });
 
   it("the shipped catalog is what the registry adds to", () => {

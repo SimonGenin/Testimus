@@ -48,7 +48,7 @@ export async function measureRefdoc(ctx: Ctx, choice: RagChoice): Promise<EvalRe
   if (!r.variant)
     throw new UserError(
       "pack" in choice ? `The ${choice.pack} pack has no variant this PC can run.` : "These models cannot run here.",
-      r.skipped.join("; ") || "See Settings › Models.",
+      r.aside.map((a) => `${a.models}: ${a.reason}`).join("; ") || "See Settings › Models.",
     );
   return measureVariant(ctx, r.variant, "pack" in choice ? pack(choice.pack)?.retrieval : undefined);
 }

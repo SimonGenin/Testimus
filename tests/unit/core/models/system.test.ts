@@ -70,7 +70,9 @@ describe("what this system runs", () => {
       ["balanced", 2, true, "qwen3-embedding-0.6b-onnx-q8", "fits", true],
       ["quality", null, false, null, "unsupported", false],
     ]);
-    expect(rows[3].skipped[0]).toMatch(/^Not supported on macOS/);
+    expect(rows[3].notes).toEqual([
+      "Not available on this PC: no runtime here: runs on llama.cpp, which Testimus ships for Windows only.",
+    ]);
   });
 
   it("without a GPU the suggestion is Light: a pack made for a GPU falls to the processor, several times slower", () => {
@@ -87,7 +89,9 @@ describe("what this system runs", () => {
       ["balanced", 2, "untested"],
       ["quality", null, "unsupported"],
     ]);
-    expect(rows[1].skipped).toEqual([expect.stringMatching(/DirectML/)]);
+    expect(rows[1].notes[1]).toBe(
+      "Variant « Qwen3 Embedding 0.6B (16-bit, DirectML) » not chosen: no runtime here: is made for DirectML, which exists only on Windows.",
+    );
   });
 
   it("the profile says which system it was measured on", async () => {

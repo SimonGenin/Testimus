@@ -1,17 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Fit } from "../../../../core/types.ts";
+import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Modal } from "../../../components/ui/Modal.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { space } from "../../../styles/tokens.stylex.ts";
 import { Hint, Stack } from "../Section.tsx";
-import { size } from "./data.ts";
-import { FitChip, PROCESSOR_ONLY } from "./FitChip.tsx";
+import { FIT, PROCESSOR_ONLY, size } from "./data.ts";
 
 const styles = stylex.create({
   plain: { margin: 0 },
   badges: { display: "flex", flexWrap: "wrap", gap: space.s2 },
 });
+
+const ON_PROCESSOR = "Made for a GPU: here it runs on the processor, several times slower.";
 
 const WHY: Record<Fit["verdict"], string> = {
   fits: "",
@@ -89,11 +91,12 @@ export function FitConfirm({
     >
       <Stack>
         <span {...stylex.props(styles.badges)}>
-          <FitChip fit={fit} processorOnly={processorOnly} />
+          {processorOnly && <Badge {...PROCESSOR_ONLY} size="sm" tooltip={ON_PROCESSOR} />}
+          <Badge {...FIT[fit.verdict]} size="sm" tooltip={fit.message} />
         </span>
         <p {...stylex.props(styles.plain)}>{fit.message}</p>
         {processorOnly && fit.verdict === "fits" ? (
-          <Hint>{PROCESSOR_ONLY}</Hint>
+          <Hint>{ON_PROCESSOR}</Hint>
         ) : (
           !(fit.verdict === "gpu-too-small" && /processor/.test(fit.message)) && <Hint>{WHY[fit.verdict]}</Hint>
         )}

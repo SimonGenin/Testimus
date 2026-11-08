@@ -7,7 +7,7 @@ import { type } from "../../../components/ui/type.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
 import type { PackRow, UsePackOut } from "./data.ts";
 import { size } from "./data.ts";
-import { Models } from "./PackCard.tsx";
+import { ModelPair } from "./ModelPair.tsx";
 
 const styles = stylex.create({
   list: { display: "flex", flexDirection: "column", gap: space.s2, margin: 0, padding: 0, listStyle: "none" },
@@ -81,7 +81,7 @@ export function PackPlanDialog({
       <Facts
         divided
         items={[
-          { label: "Models", value: <Models embedding={out.embedding} reranker={out.reranker} label={label} /> },
+          { label: "Models", value: <ModelPair embedding={out.embedding} reranker={out.reranker} label={label} /> },
           {
             label: "Downloads",
             value: p.download.length ? (

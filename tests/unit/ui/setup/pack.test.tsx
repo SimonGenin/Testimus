@@ -50,12 +50,16 @@ const pack = (over: Record<string, unknown>) => ({
   label: "Light",
   intent: "Small",
   active: false,
+  chosen: false,
   available: true,
   variant: 0,
   embedding: "e1",
   reranker: null,
+  models: [{ id: "e1", label: "Embed One", kind: "embedding", installed: true }],
+  device: "cpu",
+  installed: "all",
   fit,
-  skipped: [],
+  notes: [],
   downloadMB: 0,
   quality: "",
   ...over,
@@ -69,12 +73,25 @@ const packPlan = (download: { sizeMB: number }[], dir: string | null) => (i: Rec
 });
 
 describe("First launch › Search pack", () => {
-  it("describes each pack: suggested, in use, models, download, unavailable", async () => {
+  it("describes each pack as the core says it: suggested, this PC's choice kept picked, models, download, unavailable", async () => {
+    const off = { available: false, embedding: null, models: [], device: null };
     net.routes["models.packs"] = () => [
-      pack({ id: "quality", label: "Quality", available: false, embedding: null, skipped: ["needs a GPU"] }),
-      pack({ id: "balanced", label: "Balanced", available: false, skipped: [] }),
-      pack({ id: "performance", label: "Performance", suggested: true, reranker: "r1", downloadMB: 2048 }),
-      pack({ id: "light", active: true }),
+      pack({ id: "quality", label: "Quality", ...off, notes: ["Not available on this PC: needs a GPU."] }),
+      pack({ id: "balanced", label: "Balanced", ...off, notes: ["Not available on this PC."] }),
+      pack({
+        id: "performance",
+        label: "Performance",
+        suggested: true,
+        reranker: "r1",
+        models: [
+          { id: "e1", label: "Embed One", kind: "embedding", installed: false },
+          { id: "r1", label: "r1", kind: "reranker", installed: false },
+        ],
+        installed: "none",
+        downloadMB: 2048,
+        notes: ["Fits this PC · 2.0 GB to download."],
+      }),
+      pack({ id: "light", active: true, chosen: true }),
     ];
     net.routes["models.catalog"] = () => [{ id: "e1", label: "Embed One", runtimes: ["transformers"] }];
     net.routes["models.hardware"] = () => ({
@@ -88,13 +105,19 @@ describe("First launch › Search pack", () => {
     await screen.findByRole("radiogroup", { name: "Search packs" });
     expect(await screen.findByText("RTX, 8.0 GB (7.0 GB free)")).toBeInTheDocument();
     expect(screen.getByText("Windows")).toBeInTheDocument();
-    expect(radio("Performance")).toBeChecked();
+    await waitFor(() => expect(callsOf("models.hardware")).toHaveLength(1));
+    expect(radio("Light")).toBeChecked();
+    expect(radio("Performance")).not.toBeChecked();
     expect(card("Performance")).toHaveTextContent("Suggested for this PC");
-    expect(screen.getByText("Not available on this PC: needs a GPU")).toBeInTheDocument();
-    expect(screen.getByText("Not available on this PC")).toBeInTheDocument();
-    expect(card("Performance")).toHaveTextContent("2.0 GB to download · Embed One + r1");
-    expect(card("Light")).toHaveTextContent("Nothing to download · Embed One");
+    expect(screen.getByText("Not available on this PC: needs a GPU.")).toBeInTheDocument();
+    expect(screen.getByText("Not available on this PC.")).toBeInTheDocument();
+    expect(card("Performance")).toHaveTextContent("Embed One + r1 · CPU");
+    expect(card("Performance")).toHaveTextContent("Not installed");
+    expect(card("Performance")).toHaveTextContent("Fits this PC · 2.0 GB to download.");
+    expect(card("Light")).toHaveTextContent("Embed One · CPU");
+    expect(card("Light")).toHaveTextContent("Installed");
     expect(card("Light")).toHaveTextContent("In use");
+    expect(screen.getByRole("button", { name: "Keep Light for now" })).toBeInTheDocument();
     expect(radio("Quality")).toBeDisabled();
     fireEvent.click(radio("Light"));
     expect(screen.getByRole("button", { name: "Use Light" })).toBeEnabled();
@@ -196,12 +219,16 @@ const row = (id: string, label: string, embedding: string, device: "gpu" | "cpu"
   label,
   intent: `${label} intent`,
   active: false,
+  chosen: false,
   available: true,
   variant: 0,
   embedding,
   reranker: null,
+  models: [{ id: embedding, label: embedding, kind: "embedding", installed: !downloadMB }],
+  device,
+  installed: downloadMB ? "none" : "all",
   fit: fits(device),
-  skipped: [],
+  notes: [],
   downloadMB,
   quality: "quality not measured yet",
 });
@@ -209,7 +236,7 @@ const row = (id: string, label: string, embedding: string, device: "gpu" | "cpu"
 function base(hw: unknown) {
   net.routes["models.packs"] = () => [
     row("light", "Light", "bge-m3-q8", "cpu"),
-    row("performance", "Performance", "qwen3-onnx-fp16", "gpu", 1160),
+    { ...row("performance", "Performance", "qwen3-onnx-fp16", "gpu", 1160), suggested: true },
     row("balanced", "Balanced", "qwen3-4b-gguf", "cpu", 4600),
   ];
   net.routes["models.catalog"] = () => [
@@ -235,7 +262,7 @@ const show = (withProject = true) =>
   });
 
 describe("First launch › Search pack, as the third step", () => {
-  it("reads the machine on arrival, then picks the heaviest pack that fits without a GGUF on the CPU", async () => {
+  it("reads the machine on arrival, then picks the pack the core suggests", async () => {
     base({
       system: { platform: "darwin", arch: "arm64" },
       ramTotalMB: 32768,
@@ -251,8 +278,7 @@ describe("First launch › Search pack, as the third step", () => {
     expect(iconsIn(screen.getByRole("button", { name: "Analyse again" }))).toEqual(["refresh"]);
     expect(callsOf("models.hardware").map((c) => c.input)).toEqual([{ refresh: true }]);
     expect(screen.getByText("Suggested for this PC")).toBeInTheDocument();
-    expect(screen.getAllByText("Fits")).toHaveLength(3);
-    for (const b of screen.getAllByText("Fits")) expect(b.querySelector("svg")).not.toBeNull();
+    expect(screen.queryByText("Fits")).toBeNull();
     const facts = screen.getByLabelText("This machine");
     expect(facts).toHaveTextContent("macOS · arm64");
     expect(facts).toHaveTextContent("Apple M2 Pro, 12 threads");
@@ -292,10 +318,16 @@ describe("First launch › Search pack, as the third step", () => {
     });
     net.routes["models.packs"] = () => [
       { ...row("light", "Light", "bge-m3-q8", "cpu"), suggested: true },
-      { ...row("performance", "Performance", "qwen3-onnx-fp16", "cpu", 600), variant: 1, processorOnly: true },
+      {
+        ...row("performance", "Performance", "qwen3-onnx-fp16", "cpu", 600),
+        variant: 1,
+        processorOnly: true,
+        notes: ["Made for a GPU: here it runs on the processor, several times slower."],
+      },
       {
         ...row("balanced", "Balanced", "qwen3-onnx-fp16", "cpu", 1100),
         fit: { ...fits("cpu"), verdict: "untested", message: "Not proven on macOS x64." },
+        notes: ["Not proven on macOS x64: never run on this system yet, Testimus tries it after the download."],
       },
       {
         ...row("quality", "Quality", "qwen3-8b-gguf", "cpu", 4000),
@@ -309,7 +341,9 @@ describe("First launch › Search pack, as the third step", () => {
     expect(screen.getAllByText("Processor only")).toHaveLength(1);
     expect(screen.getByText(/Made for a GPU: here it runs on the processor, several times slower/)).toBeInTheDocument();
     expect(within(card("Balanced")).getByText("Untested here")).toBeInTheDocument();
-    expect(screen.getByText(/Never run on this system yet: Testimus tries it after the download/)).toBeInTheDocument();
+    expect(
+      within(card("Balanced")).getByText(/never run on this system yet, Testimus tries it after the download/),
+    ).toBeInTheDocument();
     const badge = (where: string, word: string) =>
       within(card(where)).getByText(word).closest("span")?.getAttribute("class");
     expect(badge("Balanced", "Untested here")).toBe(badge("Performance", "Processor only"));

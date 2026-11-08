@@ -33,10 +33,13 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     const light = models.getByRole("article", { name: "Light pack" });
     await expect(light).toContainText("In use");
     await expect(light).toContainText("Installed");
+    await expect(light).not.toContainText("Not in use");
     const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("Qwen3 Embedding 8B (4-bit) + Qwen3 Reranker 4B (8-bit, GGUF)");
-    await expect(quality).toContainText("Fits");
-    await expect(quality.getByRole("list", { name: "Skipped variants" })).toHaveCount(0);
+    await expect(quality).toContainText("Qwen3 Embedding 8B (4-bit) + Qwen3 Reranker 4B (8-bit, GGUF) · GPU");
+    const said = quality.getByRole("list", { name: "On this PC" });
+    await expect(said).toContainText("Chosen here: the first variant that fits (16.0 GB GPU).");
+    await expect(said).not.toContainText("not chosen");
+    await expect(quality).toContainText("Partly installed");
     await expect(models.getByRole("article", { name: "Custom pack" })).toBeVisible();
     const advice = models.getByRole("region", { name: "Advice" });
     await expect(advice).toContainText("Performance pack");
@@ -82,7 +85,11 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
       .getByRole("button", { name: "Use Performance" })
       .click();
     await expect(card).toContainText("In use", { timeout: 30_000 });
-    await expect(models.getByRole("article", { name: "Light pack" })).not.toContainText("In use");
+    await expect(card.getByRole("list", { name: "On this PC" })).not.toContainText("not chosen");
+    const light = models.getByRole("article", { name: "Light pack" });
+    await expect(light).not.toContainText("In use");
+    await expect(light).toContainText("Not in use");
+    await expect(light).toContainText("Installed, not in use: the Performance pack does not need it.");
   });
 
   test("the model table is folded, then lists the catalog with what is on this PC", async ({ page }) => {
@@ -114,10 +121,13 @@ test.describe("a 4 GB GPU", () => {
     const models = await openModels(page);
     const quality = models.getByRole("article", { name: "Quality pack" });
     await expect(quality).toContainText("Partly on the processor");
-    await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("gpu-too-small");
+    await expect(quality.getByRole("list", { name: "On this PC" })).toContainText(
+      "not chosen: needs 11.4 GB of GPU memory, this PC has 4.0 GB.",
+    );
     const balancedCard = models.getByRole("article", { name: "Balanced pack" });
-    await expect(balancedCard).toContainText("its third choice");
-    await expect(balancedCard.getByRole("list", { name: "Skipped variants" })).toContainText("4.0 GB on the GPU");
+    const balancedSaid = balancedCard.getByRole("list", { name: "On this PC" });
+    await expect(balancedSaid).toContainText("Chosen here: the first variant that fits (on the processor");
+    await expect(balancedSaid).toContainText("not chosen: needs 6.1 GB of GPU memory, this PC has 4.0 GB.");
     await quality.getByRole("button", { name: "Use this pack" }).click();
     const ask = page.getByRole("dialog", { name: "Use the Quality pack anyway?" });
     await expect(ask).toContainText("Partly on the processor");
@@ -138,12 +148,15 @@ test.describe("a 4 GB GPU", () => {
 test.describe("no GPU and 6 GB of memory", () => {
   mockServer(4362, { TESTIMUS_MOCK_MACHINE: "cpu-only" });
 
-  test("variants too big for the memory are skipped, and a model too big is refused", async ({ page }) => {
+  test("variants too big for the memory are left aside with the numbers, and a model too big is refused", async ({
+    page,
+  }) => {
     const models = await openModels(page);
     const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("its fourth choice");
+    const said = quality.getByRole("list", { name: "On this PC" });
+    await expect(said).toContainText("Chosen here: no variant fits comfortably, this one runs with the least trouble.");
     await expect(quality).toContainText("Tight");
-    await expect(quality.getByRole("list", { name: "Skipped variants" })).toContainText("ram-too-small");
+    await expect(said).toContainText("of memory, this PC has 6.0 GB.");
     await models.getByRole("button", { name: "Model catalog" }).click();
     const table = models.getByRole("table", { name: "Model catalog" });
     await table

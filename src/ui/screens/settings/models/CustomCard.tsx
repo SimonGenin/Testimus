@@ -4,7 +4,7 @@ import { Button } from "../../../components/ui/Button.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { border, color, space } from "../../../styles/tokens.stylex.ts";
-import { Models } from "./PackCard.tsx";
+import { ModelPair } from "./ModelPair.tsx";
 
 const styles = stylex.create({
   card: { display: "flex", flexDirection: "column", minWidth: 0 },
@@ -57,7 +57,7 @@ export function CustomCard({
           <div {...stylex.props(styles.variant)}>
             <span {...stylex.props(type.small, styles.small)}>On this PC</span>
             {active && embedding ? (
-              <Models embedding={embedding} reranker={reranker} label={label} />
+              <ModelPair embedding={embedding} reranker={reranker} label={label} />
             ) : (
               <span {...stylex.props(type.small, styles.small)}>Not chosen</span>
             )}

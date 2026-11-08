@@ -5,10 +5,9 @@ import { invalidate, read, useRead } from "../../lib/data/query.ts";
 import { errorToast, jobToast } from "../../lib/toast.ts";
 import { useModelActions } from "../settings/models/actions.ts";
 import type { CatalogRow, Hardware, PackRow } from "../settings/models/data.ts";
-import { suggestPack } from "../settings/models/data.ts";
 
 // ponytail: the Search pack step — the packs of the project on this PC, the machine read on arrival (no pack is said to
-// fit before) and the suggested pack picked, then « Use » goes the way Settings › Models goes: does it fit
+// fit before); the pack this PC already chose for the project stays picked, else the core's suggestion, then « Use » goes the way Settings › Models goes: does it fit
 // (FitConfirm), a models folder when a download has nowhere to go, the plan (PackPlanDialog), and the job — downloaded
 // and used at once; the page says it started and moves on
 export function usePackStep(hasProject: boolean, onDone?: () => void) {
@@ -29,10 +28,10 @@ export function usePackStep(hasProject: boolean, onDone?: () => void) {
       const hw = (await read(client, "models.hardware", { refresh: true })) as Hardware;
       await invalidate(client, [["models.packs"]]);
       const p = ((await read(client, "models.packs", {})) ?? []) as PackRow[];
-      const s = p.find((x) => x.suggested)?.id ?? suggestPack(p, hw, catalog);
+      const s = p.find((x) => x.suggested)?.id ?? null;
       setMachine(hw);
       setSuggested(s);
-      setChosen((c) => c || s);
+      if (!p.some((x) => x.chosen)) setChosen((c) => c || (s ?? ""));
     } catch (e) {
       errorToast(e, "Could not analyse this machine");
     } finally {
@@ -47,8 +46,9 @@ export function usePackStep(hasProject: boolean, onDone?: () => void) {
     void analyse();
   });
 
-  const pack = packs?.find((p) => p.id === chosen);
   const active = packs?.find((p) => p.active);
+  const picked = chosen || packs?.find((p) => p.chosen)?.id || "";
+  const pack = packs?.find((p) => p.id === picked);
   const done = () => (onDone ? onDone() : app.navigate("documents"));
   const a = useModelActions({
     packs: packs ?? undefined,
@@ -75,7 +75,7 @@ export function usePackStep(hasProject: boolean, onDone?: () => void) {
     error: packsRead.error?.message ?? "",
     catalog,
     label: (id: string) => catalog.find((c) => c.id === id)?.label ?? id,
-    chosen,
+    chosen: picked,
     setChosen,
     pack,
     active,

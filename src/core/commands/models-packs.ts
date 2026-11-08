@@ -5,7 +5,7 @@ import { machineProfile } from "../lib/machine/profile.ts";
 import { packRows, suggestPack } from "../lib/models-packs.ts";
 import { readPerf } from "../lib/models-perf.ts";
 import { refdocScore, refdocText } from "../lib/models-quality.ts";
-import { adviceList, lighterPack, modelsDeps, planPack, useModels, usePack } from "../lib/models-use.ts";
+import { adviceList, lighterPack, modelsDeps, packContext, planPack, useModels, usePack } from "../lib/models-use.ts";
 import { readSettings, writeSettings } from "../lib/project.ts";
 import { measureRefdoc } from "../rag/refdoc.ts";
 import type { RagChoice } from "../types.ts";
@@ -60,13 +60,43 @@ export const commands = [
           id: z.string().describe("Pack id"),
           label: z.string().describe("Its name in words"),
           intent: z.string().describe("What it is for, in one line"),
-          active: z.boolean().describe("The open project uses it on this PC"),
+          active: z
+            .boolean()
+            .describe(
+              "Search runs with it for the open project on this PC now (this PC's choice, the reference, or Light)",
+            ),
+          chosen: z.boolean().describe("It is this PC's choice for the open project (its models may be missing)"),
           available: z.boolean().describe("One of its variants can run on this PC"),
-          variant: z.number().nullable().describe("Index of the variant that applies here (null = none fits)"),
+          variant: z
+            .number()
+            .nullable()
+            .describe(
+              "Index of the variant shown: the one in use when active, else the one it resolves to (null = none)",
+            ),
           embedding: z.string().nullable().describe("That variant's embedding"),
           reranker: z.string().nullable().describe("That variant's reranker (null = none)"),
+          models: z
+            .array(
+              z
+                .object({
+                  id: modelId,
+                  label: z.string().describe("Its name in words"),
+                  kind: z.enum(["embedding", "reranker"]).describe("What it does"),
+                  installed: z.boolean().describe("It is on this PC"),
+                })
+                .describe("One model of the variant"),
+            )
+            .describe("The variant's models, each installed here or not"),
+          device: z.enum(["gpu", "cpu"]).nullable().describe("Where the variant runs here (null = not available)"),
+          installed: z
+            .enum(["all", "some", "none"])
+            .describe("How many of the variant's models are on this PC: all · some · none"),
           fit: fit.nullable(),
-          skipped: z.array(z.string()).describe("Why the variants above were skipped, with the numbers"),
+          notes: z
+            .array(z.string())
+            .describe(
+              "What the pack is on this PC, one true sentence each: the variant chosen and how, why each variant before it was left aside (with the numbers), the fit, what is left to download, who uses it",
+            ),
           downloadMB: z.number().describe("What is left to download, in MB"),
           speed: z.string().optional().describe("Speed measured on this PC, when the journal knows it"),
           quality: z
@@ -97,12 +127,7 @@ export const commands = [
     mutates: false,
     async run(ctx) {
       const project = projectOf(ctx);
-      const rows = await packRows(
-        await modelsDeps.activeChoice(project),
-        await modelsDeps.queryTask(project),
-        {},
-        project,
-      );
+      const rows = await packRows(await packContext(project), await modelsDeps.queryTask(project), {}, project);
       const suggested = suggestPack(await machineProfile(), readPerf());
       return rows.map((r) => ({ ...r, suggested: r.id === suggested, lighter: lighterPack(rows, r.id) }));
     },

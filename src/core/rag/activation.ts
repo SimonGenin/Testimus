@@ -1,8 +1,9 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { env } from "../env.ts";
+import { machineProfile } from "../lib/machine/profile.ts";
 import { catalogEntry, pack as packOf } from "../lib/models-catalog.ts";
-import { DEFAULT_QUERY_TASK, resolveChoice, resolveInstalled } from "../lib/models-resolve.ts";
+import { DEFAULT_QUERY_TASK, resolveChoice, resolveInstalled, runsHere } from "../lib/models-resolve.ts";
 import { readProject, readSettings, writeSettings } from "../lib/project.ts";
 import type { ActiveChoice, Pack, PackVariant, RagChoice, ResolvedModel, RetrievalSettings } from "../types.ts";
 
@@ -70,13 +71,20 @@ function resolvePair(v: PackVariant, queryTask: string): Resolved {
   };
 }
 
-async function resolveAny(choice: RagChoice, queryTask: string): Promise<Resolved> {
+// ponytail: a pack keeps the variant set up when it was chosen while its models are on this PC and it can run here — what
+// other programs hold at the moment never switches the models in use, nor drops the project to Light
+async function resolveAny(choice: ActiveChoice, queryTask: string): Promise<Resolved> {
   const variants = "pack" in choice ? (packOf(choice.pack)?.variants ?? []) : [choice];
+  const machine = "pack" in choice ? await machineProfile().catch(() => null) : null;
+  const runs = (v: PackVariant) => runsHere(v, machine);
+  const kept =
+    "pack" in choice && choice.variant && runs(choice.variant) ? resolvePair(choice.variant, queryTask) : null;
+  if (kept?.embedding && (!kept.variant?.reranker || kept.reranker)) return kept;
   if (!env.mock) {
     const r = await resolveChoice(choice, queryTask);
     if (r.embedding || r.variant) return { embedding: r.embedding, reranker: r.reranker, variant: r.variant };
   }
-  for (const v of variants) {
+  for (const v of variants.filter(runs)) {
     const r = resolvePair(v, queryTask);
     if (r.embedding) return r;
   }
@@ -86,7 +94,7 @@ async function resolveAny(choice: RagChoice, queryTask: string): Promise<Resolve
 export async function activeModels(project: string): Promise<ActiveModels> {
   const rag = readProject(project).rag;
   const queryTask = queryTaskOf(project);
-  const steps: [ActivationSource, RagChoice | null][] = [
+  const steps: [ActivationSource, ActiveChoice | null][] = [
     ["machine", activeChoice(project)],
     ["reference", rag.reference ?? null],
     ["light", { pack: "light" }],

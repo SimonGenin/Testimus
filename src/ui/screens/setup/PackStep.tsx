@@ -13,8 +13,8 @@ import type { Hardware } from "../settings/models/data.ts";
 import { machineSummary } from "../settings/models/data.ts";
 import { FitConfirm } from "../settings/models/FitConfirm.tsx";
 import { FolderDialog } from "../settings/models/FolderDialog.tsx";
+import { PackCard } from "../settings/models/PackCard.tsx";
 import { PackPlanDialog } from "../settings/models/PackPlanDialog.tsx";
-import { PackCard } from "./PackCard.tsx";
 import { StepCard } from "./StepCard.tsx";
 import { usePackStep } from "./usePackStep.ts";
 
@@ -134,11 +134,9 @@ export function PackStep({ onBack, onDone }: { onBack: () => void; onDone?: () =
             <PackCard
               key={p.id}
               pack={p}
-              chosen={s.chosen === p.id}
+              pick={{ checked: s.chosen === p.id, onSelect: s.setChosen }}
               suggested={p.id === s.suggested}
-              analysed={!!s.machine}
-              label={s.label}
-              onChoose={s.setChosen}
+              judged={!!s.machine}
             />
           ))}
         </div>

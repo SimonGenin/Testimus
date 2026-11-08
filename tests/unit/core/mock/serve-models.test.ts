@@ -17,7 +17,7 @@ type Pack = {
   embedding: string | null;
   reranker: string | null;
   fit: { verdict: string; message: string } | null;
-  skipped: string[];
+  notes: string[];
   downloadMB: number;
 };
 
@@ -70,7 +70,8 @@ describe("serve --mock models", () => {
     expect(p.find((x) => x.id === "light")).toMatchObject({ active: true, downloadMB: 0 });
     const q = p.find((x) => x.id === "quality");
     expect(q).toMatchObject({ variant: 0, embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" });
-    expect(q?.skipped).toEqual([]);
+    expect(q?.notes[0]).toBe("Chosen here: the first variant that fits (16.0 GB GPU).");
+    expect(q?.notes.filter((n) => /not chosen/.test(n))).toEqual([]);
     const advice = (await invoke("models.advice", {}, { project })) as { direction: string; to: unknown }[];
     expect(advice).toEqual([expect.objectContaining({ direction: "upgrade", to: { pack: "performance" } })]);
     const perf = (await invoke("models.perf", {}, { project: null })) as { op: string; count: number }[];
@@ -144,15 +145,17 @@ describe("serve --mock models", () => {
       embedding: "qwen3-embedding-0.6b-onnx-q8",
       fit: { verdict: "fits" },
     });
-    expect(balanced?.skipped[0]).toMatch(
-      /Qwen3 Embedding 4B \(4-bit\) .*: 6\.1 GB needed, 4\.0 GB on the GPU \(gpu-too-small\)/,
-    );
-    expect(balanced?.skipped[1]).toMatch(/Qwen3 Embedding 0\.6B .*: 3\.6 GB needed, 3\.2 GB usable \(tight\)/);
+    expect(balanced?.notes.slice(1, 3)).toEqual([
+      "Variant « Qwen3 Embedding 4B (4-bit) + Qwen3 Reranker 0.6B (8-bit, GGUF) » not chosen: needs 6.1 GB of GPU memory, this PC has 4.0 GB.",
+      "Variant « Qwen3 Embedding 0.6B (8-bit, GGUF) + Qwen3 Reranker 0.6B (8-bit, GGUF) » not chosen: needs 3.6 GB of GPU memory, 3.2 GB usable now.",
+    ]);
     await replay({ machine: "cpu-only" });
     p = await packs();
     const quality = p.find((x) => x.id === "quality");
     expect(quality).toMatchObject({ available: true, variant: 3, fit: { verdict: "tight" } });
-    expect(quality?.skipped[0]).toMatch(/of memory \(ram-too-small\)$/);
+    expect(quality?.notes[1]).toMatch(
+      /^Variant « Qwen3 Embedding 8B .* not chosen: needs \d+\.\d GB of memory, this PC has 6\.0 GB\.$/,
+    );
     const plan = (await invoke("models.planPack", { pack: "quality" }, { project })) as {
       variant: number;
     };

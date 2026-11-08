@@ -86,12 +86,16 @@ const pack = (id: string, over: Partial<PackRow> = {}): PackRow => ({
   label: id[0].toUpperCase() + id.slice(1),
   intent: `${id} intent`,
   active: false,
+  chosen: false,
   available: true,
   variant: 0,
   embedding: "emb-s",
   reranker: null,
+  models: [{ id: "emb-s", label: "M emb-s", kind: "embedding", installed: true }],
+  device: "cpu",
+  installed: "all",
   fit: fitOf("fits"),
-  skipped: [],
+  notes: [],
   downloadMB: 0,
   quality: "q",
   measuredHere: false,
@@ -244,7 +248,7 @@ describe("Settings › Models", () => {
     expect(await screen.findByRole("article", { name: "Light pack" })).toBeInTheDocument();
   });
 
-  it("shows the pack cards, the active one marked, skipped variants, Custom, and the folder", async () => {
+  it("shows the pack cards, the active one marked, the core's notes, Custom, and the folder", async () => {
     base({
       packs: [
         pack("light", { active: true, speed: "query 40 ms, index 6 passages/s" }),
@@ -252,9 +256,23 @@ describe("Settings › Models", () => {
           variant: 1,
           reranker: "rr",
           downloadMB: 3100,
-          skipped: ["Qwen3 Embedding 4B (8-bit) + Qwen3 Reranker 0.6B: 9.2 GB needed, 7.0 GB usable (tight)"],
+          installed: "none",
+          notes: [
+            "Variant « Qwen3 Embedding 4B (8-bit) + Qwen3 Reranker 0.6B » not chosen: needs 9.2 GB of GPU memory, 7.0 GB usable now.",
+            "Fits this PC · 3.0 GB to download.",
+          ],
         }),
-        pack("quality", { available: false, embedding: null, fit: null, variant: null }),
+        pack("quality", {
+          available: false,
+          embedding: null,
+          fit: null,
+          variant: null,
+          models: [],
+          device: null,
+          notes: [
+            "Not available on this PC: no runtime here: runs on llama.cpp, which Testimus ships for Windows only.",
+          ],
+        }),
       ],
     });
     mountSettings(<ModelsSection />);
@@ -265,12 +283,15 @@ describe("Settings › Models", () => {
     expect(within(light).getByText("Installed")).toBeInTheDocument();
     expect(within(light).getByText("query 40 ms, index 6 passages/s")).toBeInTheDocument();
     const balanced = card("Balanced");
-    expect(within(balanced).getByText(/its second choice/)).toBeInTheDocument();
-    expect(within(balanced).getByText(/9.2 GB needed, 7.0 GB usable/)).toBeInTheDocument();
-    expect(within(balanced).getByText("3.0 GB")).toBeInTheDocument();
+    expect(
+      within(balanced).getByText(/not chosen: needs 9\.2 GB of GPU memory, 7\.0 GB usable now\.$/),
+    ).toBeInTheDocument();
+    expect(within(balanced).getByText("Fits this PC · 3.0 GB to download.")).toBeInTheDocument();
+    expect(within(balanced).getByText("Not installed")).toBeInTheDocument();
+    expect(within(balanced).getByRole("button", { name: /^Measure/ })).toBeDisabled();
     expect(within(balanced).getByText("Not measured on this PC yet")).toBeInTheDocument();
     const quality = card("Quality");
-    expect(within(quality).getByText("Not available on this PC")).toBeInTheDocument();
+    expect(within(quality).getByText(/^Not available on this PC: no runtime here/)).toBeInTheDocument();
     expect(within(quality).getByRole("button", { name: "Use this pack" })).toBeDisabled();
     expect(card("Custom")).toBeInTheDocument();
     expect(screen.getByText("D:\\m")).toBeInTheDocument();
@@ -381,7 +402,7 @@ describe("Settings › Models", () => {
   });
 
   it("a pack with downloads is only downloaded; another pack stays choosable meanwhile", async () => {
-    base({ packs: [pack("balanced", { downloadMB: 300 }), pack("light")] });
+    base({ packs: [pack("balanced", { downloadMB: 300, installed: "some" }), pack("light")] });
     net.routes["models.planPack"] = (i) => ({
       pack: i.pack,
       variant: 0,
@@ -912,7 +933,7 @@ describe("Settings › Models › measuring a pack", () => {
   const measureOf = (name: string) => within(card(name)).getByRole("button", { name: /^Measur/ });
 
   it("starts models.measure on the pack, follows it, keeps it running when closed, reopens it, cancels it", async () => {
-    base({ packs: [pack("light", { active: true }), pack("balanced", { downloadMB: 10 })] });
+    base({ packs: [pack("light", { active: true }), pack("balanced", { downloadMB: 10, installed: "some" })] });
     mountSettings(<ModelsSection />);
     await screen.findByRole("article", { name: "Light pack" });
     expect(measureOf("Light")).toHaveTextContent(/^Measure$/);
@@ -998,7 +1019,7 @@ describe("Settings › Models › measuring a pack", () => {
   });
 
   it("picks up a measure already running when the screen opens", async () => {
-    base({ packs: [pack("light", { active: true }), pack("balanced", { downloadMB: 10 })] });
+    base({ packs: [pack("light", { active: true }), pack("balanced", { downloadMB: 10, installed: "some" })] });
     const ev = srv.start({ kind: "models-measure", subject: "light" });
     srv.start({ kind: "rag-eval", subject: "eval" });
     mountSettings(<ModelsSection />);

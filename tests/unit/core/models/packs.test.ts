@@ -93,7 +93,7 @@ afterEach(() => {
 });
 
 describe("pack cards (models.packs)", () => {
-  it("each pack with the variant it resolves to here, why the ones above were skipped, what is left to download", async () => {
+  it("each pack with the variant it resolves to here, why the ones above were left aside, what is left to download", async () => {
     const rows = await packRows(null, "task", { machine: async () => devPc });
     expect(rows.map((r) => [r.id, r.variant, r.available])).toEqual([
       ["light", 0, true],
@@ -102,7 +102,10 @@ describe("pack cards (models.packs)", () => {
       ["quality", 0, true],
     ]);
     const q = rows[3];
-    expect(q.skipped).toEqual([]);
+    expect(q.notes).toEqual([
+      "Chosen here: the first variant that fits (15.9 GB GPU).",
+      "Fits this PC · 8.3 GB to download.",
+    ]);
     expect(q.downloadMB).toBe(
       (catalogEntry("qwen3-embedding-8b-q4") as CatalogEntry).size.downloadMB +
         (catalogEntry("qwen3-reranker-4b-q8") as CatalogEntry).size.downloadMB,
@@ -111,13 +114,21 @@ describe("pack cards (models.packs)", () => {
     const busy: MachineProfile = { ...devPc, gpus: [{ ...devPc.gpus[0], vramUsedMB: 3500 }] };
     const qb = (await packRows(null, "task", { machine: async () => busy }))[3];
     expect([qb.variant, qb.available]).toEqual([1, true]);
-    expect(qb.skipped[0]).toMatch(/11\.4 GB needed, 10\.6 GB usable/);
+    expect(qb.notes[1]).toBe(
+      "Variant « Qwen3 Embedding 8B (4-bit) + Qwen3 Reranker 4B (8-bit, GGUF) » not chosen: needs 11.4 GB of GPU memory, 10.6 GB usable now.",
+    );
     expect(qb.downloadMB).toBe(
       (catalogEntry("qwen3-embedding-4b-q4") as CatalogEntry).size.downloadMB +
         (catalogEntry("qwen3-reranker-4b-q8") as CatalogEntry).size.downloadMB,
     );
-    const marked = await packRows({ pack: "light" }, "task", { machine: async () => devPc });
+    const light = { embedding: "bge-m3-q8", reranker: null };
+    const marked = await packRows(
+      { chosen: { pack: "light" }, using: { pack: "light", variant: light }, reference: null },
+      "task",
+      { machine: async () => devPc },
+    );
     expect(marked.filter((r) => r.active).map((r) => r.id)).toEqual(["light"]);
+    expect(marked.filter((r) => r.chosen).map((r) => r.id)).toEqual(["light"]);
   });
 
   it("the command answers for the open project", async () => {
@@ -201,7 +212,7 @@ describe("models.usePack", () => {
   it("a pack with no variant that fits here is refused with the reason", async () => {
     pinMachineProfile({ ...cpuLaptop, ramTotalMB: 2000, ramFreeMB: 1500 });
     await expect(invoke("models.usePack", { pack: "quality" }, { project })).rejects.toThrow(
-      /not available on this PC: .*ram-too-small/,
+      /not available on this PC: Qwen3 Embedding 8B .*: needs \d+\.\d GB of memory, this PC has 2\.0 GB/,
     );
   });
 });

@@ -277,7 +277,8 @@ docs/<docId>/
   at each step of an index job (`lib/data/events.ts`, a read in flight is not restarted).
 - Activation (`rag/activation.ts`): this PC's choice (`settings.json.rag.byProject[<real path>]`) > the team reference
   (`project.json.rag.reference`, a pack or a pair) > the Light pack. Only installed models are taken; none → lexical
-  index only, saying why.
+  index only, saying why. A pack keeps the variant stored with the choice while its models are here and this PC can
+  run it (not unsupported, not RAM too small): what other programs hold at the moment never switches the models in use.
 
 **Models** (`models/catalog.json` + the user's entries in `models.json`):
 - An entry names one exact quantization, its sources (Hugging Face repo at a pinned revision with every file's
@@ -285,8 +286,19 @@ docs/<docId>/
   `provenOn`. Licences that forbid commercial use are excluded.
 - **Packs** = a named intent each PC resolves for its hardware: Light (bge-m3 q8, CPU), Performance (Qwen3-Embedding
   0.6B), Balanced (4B + Qwen3-Reranker 0.6B), Quality (8B Q4_K_M + Reranker 4B …), plus Custom (hand-picked). A pack
-  resolves to its first variant obtainable and fitting here, and says why each skipped variant was skipped. A unit test
-  proves every pack resolves with transformers.js and llama.cpp alone, and Light/Performance with transformers.js alone.
+  resolves to its first variant obtainable and fitting here (`resolveChoice`: `picked` first-fit · kept · fallback, and
+  `aside` = each variant before it with its one reason — no runtime here, cannot be downloaded, the memory it needs
+  against what this PC has, never run on this system, llama.cpp on the processor). Memory is judged with the models
+  Testimus holds in llama.cpp given back (`releaseOurs`): using one choice unloads the others, so a model in use never
+  makes a variant « too big ». **One place says what a pack is on this PC**: `packRows` (`lib/models-packs.ts`) gives,
+  per pack, the variant in use (when the project uses it) or the one it resolves to, each model installed or not,
+  `installed` all · some · none, `active` (search runs with it) and `chosen` (this PC's choice), and `notes` — one true
+  sentence each, written by `lib/models-pack-notes.ts` (« Chosen here: … », « Variant « X » not chosen: <reason> »,
+  « Fits this PC · 5.1 GB to download. », « Kept as the team reference; the Quality pack does not need it. »). The page
+  draws them with one `PackCard` (Settings › Models and the first launch) and a closed vocabulary of badges; it decides
+  nothing. The first launch keeps the pack this PC chose for the project picked; the core's `suggested` is only a badge
+  until nothing is chosen. A unit test proves every pack resolves with transformers.js and llama.cpp alone, and
+  Light/Performance with transformers.js alone; `tests/unit/core/models/pack-notes.test.ts` checks every sentence.
 - **Runtimes** behind one seam (`probe`, `embed`, `rerank`): **transformers.js** in-process (CPU, DirectML; q8 models
   embed one text per call because their dynamic quantization makes a vector depend on its batch-mates; Qwen3-Reranker
   through the `yes-no-lm` export), and **llama.cpp** for GGUF (`llama-server.exe` per loaded model on 127.0.0.1 with a
