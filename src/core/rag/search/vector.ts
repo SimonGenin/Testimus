@@ -6,7 +6,8 @@ import { spaceOf } from "../fingerprint.ts";
 import { keep, type SearchOpts } from "./filter.ts";
 import { CANDIDATES } from "./lexical.ts";
 
-export type VectorResult = { ids: number[]; degraded: string | null };
+// ponytail: unbuilt — the fallback is only that the vectors are missing or incomplete (an index run's work)
+export type VectorResult = { ids: number[]; degraded: string | null; unbuilt?: true };
 
 export async function vector(
   db: DatabaseSync,
@@ -17,11 +18,17 @@ export async function vector(
   const m = (await activeModels(project)).embedding;
   if (!m) return { ids: [], degraded: "No embedding model is installed on this PC: lexical search only." };
   const space = spaceOf(db, m);
-  if (!space) return { ids: [], degraded: `No vectors for ${m.entry.id} yet: lexical search until rag index ends.` };
+  if (!space)
+    return {
+      ids: [],
+      degraded: `No vectors for ${m.entry.id} yet: lexical search until rag index ends.`,
+      unbuilt: true,
+    };
   if (!space.complete)
     return {
       ids: [],
       degraded: `The vectors of ${m.entry.id} are incomplete (${vectorCount(db, space.id)}/${chunkCount(db)}): lexical search until rag index ends.`,
+      unbuilt: true,
     };
   let q: Float32Array;
   try {

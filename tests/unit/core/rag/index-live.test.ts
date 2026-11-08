@@ -119,4 +119,22 @@ describe("an index run under way, as docs.list and rag.status say it", () => {
     expect((await list()).every((d) => !d.indexing)).toBe(true);
     expect((await status()).indexing).toBeNull();
   });
+
+  it("during a run, a search falling back to words for another cause says that cause, as a warning", async () => {
+    await indexProject(dir, quietCtx(dir), { model: resolveModel("bge-m3-q8") });
+    runtimes.mock = {
+      ...mockRuntime,
+      embed: async (m, texts, mode) => {
+        if (mode === "query") throw new Error("the model does not load");
+        return mockRuntime.embed(m, texts, mode);
+      },
+    };
+    const g = gate();
+    const run = indexAfterConversions(dir, () => g.opened);
+    const logs: [string, string][] = [];
+    await invoke("rag.search", { query: "sectionneur" }, { project: dir, onLog: (level, m) => logs.push([level, m]) });
+    expect(logs).toEqual([["warn", expect.stringContaining("the model does not load")]]);
+    g.open();
+    await run;
+  });
 });

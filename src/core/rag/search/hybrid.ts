@@ -61,7 +61,8 @@ async function vectorOf(db: DatabaseSync, project: string, query: string, o: Sea
   const m = o.model;
   if (!m) return vector(db, project, query, o);
   const space = spaceOf(db, m);
-  if (!space?.complete) return { ids: [], degraded: `No complete vectors for ${m.entry.id}: run its index first.` };
+  if (!space?.complete)
+    return { ids: [], degraded: `No complete vectors for ${m.entry.id}: run its index first.`, unbuilt: true };
   let q: Float32Array;
   try {
     [q] = await embedWith(m, [query], "query");
@@ -133,6 +134,7 @@ async function ranked(
   return withDb(file, async (db) => {
     const lists: number[][] = [];
     let degraded: string | null = null;
+    let unbuilt = false;
     if (mode !== "vector") {
       const t = performance.now();
       const ids = bm25(db, query, o);
@@ -153,9 +155,11 @@ async function ranked(
         });
       lists.push(v.ids);
       degraded = v.degraded;
+      unbuilt = !!v.unbuilt;
     }
-    // ponytail: vectors an index run is still embedding are its work in progress — said as such, not as a problem
-    const building = !!degraded && !opts.dbFile && !!indexRunState(project);
+    // ponytail: vectors an index run is still embedding are its work in progress — said as such, not as a problem;
+    // any other fallback (the model does not load, the query fails) is said as it is, run or not
+    const building = unbuilt && !opts.dbFile && !!indexRunState(project);
     if (building) degraded = "An index run is under way: search matches words until it ends.";
     let ranked = rrf(lists, settings.rrfK);
     const byId = chunksByRowid(

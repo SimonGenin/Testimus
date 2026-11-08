@@ -270,7 +270,9 @@ docs/<docId>/
   sums the run (document n of m, passages done of total); the indexer keeps that tally as it goes
   (`rag/indexer.ts` `liveIndex`). Until the run ends, the page shows « Indexing · n % » / « Waiting to index » and the
   run's bar instead of any index warning (Not up to date, Not indexed, Search on words only, Words only, the space
-  Incomplete), the system check skips the vectors row, and a search that falls back to words logs it as info. A
+  Incomplete), the system check skips the vectors row, and a search that falls back to words because the vectors are
+  missing or incomplete logs it as info (any other cause — the model does not load, the query fails — stays a
+  warning, said as it is). A
   warning comes back only if it is still true once the run ended. The page reads `docs.list` and `rag.status` again
   at each step of an index job (`lib/data/events.ts`, a read in flight is not restarted).
 - Activation (`rag/activation.ts`): this PC's choice (`settings.json.rag.byProject[<real path>]`) > the team reference
