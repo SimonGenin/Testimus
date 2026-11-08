@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Job, JobEvent } from "../../../core/types.ts";
+import type { GenTestProgress, Job, JobEvent } from "../../../core/types.ts";
 import { useJobEvents } from "../../lib/data/events.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { type GenOutput, landedIds, passagesRead } from "./GenResult.tsx";
@@ -12,9 +12,19 @@ export type Generation = {
   result: GenOutput | null;
   stopped: GenOutput | null;
   ids: string[];
+  /** the tests the job writes and where each one is (its last progress line that says so) */
+  writing: GenTestProgress[];
   read: number;
   follow: (jobId: string) => void;
 };
+
+// ponytail: a job written before the progress said which test it writes (or none said yet) is read from the ids it
+// named, the last one being written
+function writingOf(events: JobEvent[], ids: string[]): GenTestProgress[] {
+  const said = events.findLast((e) => e.type === "progress" && !!e.gen);
+  if (said?.type === "progress" && said.gen) return said.gen;
+  return ids.map((id, k) => ({ id, state: k === ids.length - 1 ? "writing" : "written" }));
+}
 
 // ponytail: the generation this screen shows — the one started here, else the project's last one; its log is read
 // once (jobs.show, read again on each status) and the events streamed since are added after it
@@ -45,6 +55,7 @@ export function useGeneration(): Generation {
     result,
     stopped,
     ids: landedIds(events, result),
+    writing: writingOf(events, landedIds(events, null)),
     read: passagesRead(events),
     follow: (id) => {
       setLive({ id, list: [] });

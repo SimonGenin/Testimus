@@ -64,3 +64,15 @@ test("the page follows the explicit theme and the system one", async ({ page }) 
   await page.emulateMedia({ colorScheme: "light" });
   await expect.poll(canvas).toBe("rgb(247, 247, 248)");
 });
+
+test("a card that folds opens and folds its body from its head", async ({ page }) => {
+  await boot(page, "#/kit/Card");
+  const light = page.getByRole("region", { name: "Card, Light" });
+  const head = light.getByRole("button", { name: /^Sectionneur sans TK — menu contextuel/ });
+  await expect(head).toHaveAttribute("aria-expanded", "false");
+  await expect(light.getByText("4 steps.")).toHaveCount(0);
+  await head.click();
+  await expect(head).toHaveAttribute("aria-expanded", "true");
+  await expect(light.getByText("4 steps.")).toBeVisible();
+  await expect(light.getByRole("button", { name: /^Sectionneur avec TK/ })).toHaveAttribute("aria-expanded", "true");
+});

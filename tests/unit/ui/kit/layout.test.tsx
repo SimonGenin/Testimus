@@ -332,6 +332,20 @@ function Packs() {
   );
 }
 
+function Folded() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card
+      title="Sectionneur avec TK"
+      actions={<span>Writing</span>}
+      footer={<span>foot</span>}
+      fold={{ open, onOpenChange: setOpen }}
+    >
+      Step 1
+    </Card>
+  );
+}
+
 describe("Card", () => {
   it("with a title is a section named by it, with actions, body and foot", () => {
     render(
@@ -386,6 +400,40 @@ describe("Card", () => {
     );
     const [c, d] = screen.getAllByRole("radio").map((r) => cls(r.closest("label") as Element));
     expect(c).not.toBe(d);
+  });
+
+  it("folds behind its head: one button with the title and the badges opens the body and the foot", () => {
+    render(<Folded />);
+    const head = screen.getByRole("button", { name: /Sectionneur avec TK.*Writing/ });
+    expect(head).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("region", { name: "Sectionneur avec TK" })).toBeInTheDocument();
+    expect(screen.queryByText("Step 1")).toBeNull();
+    expect(screen.queryByText("foot")).toBeNull();
+    fireEvent.click(head);
+    expect(head).toHaveAttribute("aria-expanded", "true");
+    expect(head).toHaveAttribute("aria-controls", screen.getByText("Step 1").id);
+    expect(screen.getByText("foot")).toBeInTheDocument();
+    fireEvent.click(head);
+    expect(screen.queryByText("Step 1")).toBeNull();
+  });
+
+  it("a folding card's hover and focus are drawn for the catalogue", () => {
+    const fold = { open: false, onOpenChange: () => {} };
+    render(
+      <>
+        <Card title="a" fold={fold}>
+          a
+        </Card>
+        <Card title="b" fold={fold} debugState="hover">
+          b
+        </Card>
+        <Card title="c" fold={fold} debugState="focus">
+          c
+        </Card>
+      </>,
+    );
+    const looks = screen.getAllByRole("button").map(cls);
+    expect(new Set(looks).size).toBe(3);
   });
 });
 

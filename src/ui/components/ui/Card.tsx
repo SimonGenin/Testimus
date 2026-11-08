@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useId } from "react";
 import { border, color, duration, easing, focus, radius, shadow, size, space } from "../../styles/tokens.stylex.ts";
+import { Icon } from "./Icon.tsx";
 import { type } from "./type.ts";
 
 const styles = stylex.create({
@@ -108,6 +109,32 @@ const styles = stylex.create({
   },
   footCompact: { paddingBlock: space.s3, paddingInline: space.s5 },
   footTight: { paddingBlock: space.s2, paddingInline: space.s3 },
+  foldHead: {
+    width: "100%",
+    margin: 0,
+    borderWidth: 0,
+    borderRadius: radius.r3,
+    backgroundColor: "transparent",
+    color: { default: "inherit", ":hover": color.textLink },
+    fontFamily: "inherit",
+    textAlign: "start",
+    cursor: "pointer",
+    outline: { default: "none", ":focus-visible": `${border.widthStrong} solid ${color.focusRing}` },
+    outlineOffset: focus.offset,
+  },
+  foldHeadOpen: { paddingBlockEnd: space.s3 },
+  foldHover: { color: color.textLink },
+  foldFocus: { outline: `${border.widthStrong} solid ${color.focusRing}` },
+  chevron: {
+    display: "inline-flex",
+    flex: "none",
+    color: color.textSubtle,
+    transitionProperty: "transform",
+    transitionDuration: duration.fast,
+    transitionTimingFunction: easing.standard,
+  },
+  chevronOpen: { transform: "rotate(90deg)" },
+  foldTitle: { flex: 1, minWidth: 0 },
   radio: {
     flex: "none",
     width: size.iconMd,
@@ -162,7 +189,10 @@ export type CardProps = {
   /** the card is a choice among cards (packs, drives): a radio in the head, the whole card picks it, arrows move between
    * the cards of the same name; put the cards in an element with role radiogroup */
   radio?: { name: string; value: string; checked: boolean; onSelect: (value: string) => void; disabled?: boolean };
-  /** the catalogue only (a radio card, a card that opens) */
+  /** the card folds behind its head (a test Claude is writing, among others): the head is one button with a chevron
+   * that opens or folds the body; actions then hold no control (badges only) and the foot shows only when open */
+  fold?: { open: boolean; onOpenChange: (open: boolean) => void };
+  /** the catalogue only (a radio card, a card that opens or folds) */
   debugState?: "hover" | "focus";
 };
 
@@ -184,9 +214,11 @@ export function Card({
   fill = false,
   sunken = false,
   radio,
+  fold,
   debugState,
 }: CardProps) {
   const id = useId();
+  const bodyId = useId();
   const frame = [
     styles.card,
     dashed && styles.dashed,
@@ -278,6 +310,38 @@ export function Card({
           <span {...stylex.props(styles.foot, compact && styles.footCompact, tight && styles.footTight)}>{footer}</span>
         )}
       </button>
+    );
+  if (fold)
+    return (
+      <section aria-labelledby={id} {...stylex.props(frame)}>
+        <button
+          type="button"
+          aria-expanded={fold.open}
+          aria-controls={fold.open ? bodyId : undefined}
+          onClick={() => fold.onOpenChange(!fold.open)}
+          {...stylex.props(
+            headLook,
+            styles.foldHead,
+            fold.open && styles.foldHeadOpen,
+            debugState === "hover" && styles.foldHover,
+            debugState === "focus" && styles.foldFocus,
+          )}
+        >
+          <span {...stylex.props(styles.chevron, fold.open && styles.chevronOpen)}>
+            <Icon name="chevron-right" size="sm" />
+          </span>
+          <span id={id} {...stylex.props(type.titleSm, styles.title, styles.foldTitle)}>
+            {title}
+          </span>
+          {actions && <span {...stylex.props(styles.actions)}>{actions}</span>}
+        </button>
+        {fold.open && (
+          <div id={bodyId} {...stylex.props(bodyLook)}>
+            {children}
+          </div>
+        )}
+        {fold.open && foot}
+      </section>
     );
   const head = (title || actions) && (
     <div {...stylex.props(headLook)}>

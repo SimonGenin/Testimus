@@ -6,7 +6,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 
 ## 1. Génération
 
-- [ ] **Voir le test en cours d'écriture.** Pendant une génération, la page Génération montre le test que Claude est en
+- [x] **Voir le test en cours d'écriture.** Pendant une génération, la page Génération montre le test que Claude est en
       train d'écrire : celui en cours est déplié, il se replie quand il est fini, et on peut déplier / replier ceux
       qu'on veut. Lecture seule, aucune édition. Uniquement sur la page Génération, pas en Review.
 - [x] **Plus de refus au-delà de 15 pas.** Des tests ont été refusés parce qu'ils dépassaient 15 pas. Aucun prompt ne

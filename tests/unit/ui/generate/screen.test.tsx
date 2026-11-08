@@ -490,7 +490,7 @@ describe("Generate screen", () => {
     expect(screen.getByText("Claude is starting.")).toBeInTheDocument();
     expect(screen.getByLabelText("What should be tested?")).toHaveAttribute("readonly");
     const landing = screen.getByRole("region", { name: "Tests written" });
-    expect(landing).toHaveTextContent("they land here as Claude writes them");
+    expect(landing).toHaveTextContent("Read only while Claude writes");
     expect(within(landing).getByText("No test written yet")).toBeInTheDocument();
     expect(screen.getByRole("timer", { name: "Time since it started" })).toBeInTheDocument();
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
@@ -500,9 +500,9 @@ describe("Generate screen", () => {
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-bbbbbbbb" });
     emit({ jobId: "j1", at, type: "progress", message: "Writing local-cccccccc" });
     emit({ jobId: "j1", at, type: "changed", paths: ["tests/local-aaaaaaaa/test.md", "tests/local-bbbbbbbb/test.md"] });
-    expect(await screen.findByRole("region", { name: /^First/ })).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Claude is writing a test" })).toBeInTheDocument();
-    expect(screen.getAllByText("Checking…").length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("region", { name: /^First/ })).length).toBeGreaterThan(0);
+    expect(within(landing).getAllByText("Written")).toHaveLength(2);
+    expect(within(landing).getAllByText("Writing")).toHaveLength(1);
     expect(go(/^Claude is writing/)).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(await screen.findByText("Could not cancel the job")).toBeInTheDocument();
@@ -675,13 +675,50 @@ describe("Generate › the tests land from the job events (was ui-screens)", () 
     await screen.findByRole("heading", { name: "Getting ready" });
 
     const now = new Date().toISOString();
-    emit({ jobId: "job-gen", at: now, type: "progress", message: "Writing local-aaaaaaaa (1)" });
-    expect(await screen.findByLabelText("Claude is writing a test")).toBeInTheDocument();
-    written.push("local-aaaaaaaa");
-    emit({ jobId: "job-gen", at: now, type: "changed", paths: ["tests/local-aaaaaaaa/test.md"] });
-    emit({ jobId: "job-gen", at: now, type: "progress", message: "Writing local-bbbbbbbb (2)" });
-    expect(await screen.findByRole("region", { name: /^Premier test/ })).toBeInTheDocument();
-    expect(named("tests.show").map((c) => c.input.id)).not.toContain("local-bbbbbbbb");
+    const A = "local-aaaaaaaa";
+    const B = "local-bbbbbbbb";
+    const head = (name: RegExp) => screen.getByRole("button", { name });
+    emit({
+      jobId: "job-gen",
+      at: now,
+      type: "progress",
+      message: `Writing ${A} (1)`,
+      gen: [
+        { id: A, state: "writing" },
+        { summary: "Le test prévu", state: "waiting" },
+      ],
+    });
+    written.push(A);
+    await waitFor(() => expect(head(/^Premier test/)).toHaveAttribute("aria-expanded", "true"));
+    const premier = screen.getByRole("region", { name: /^Premier test/ });
+    expect(within(premier).getByText("Writing")).toBeInTheDocument();
+    expect(within(premier).getByText("Step 1")).toBeInTheDocument();
+    const fields = within(premier).getAllByRole("textbox");
+    expect(fields.length).toBeGreaterThan(0);
+    for (const f of fields) expect(f).toHaveAttribute("readonly");
+    expect(head(/^Le test prévu/)).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("region", { name: /^Le test prévu/ })).toHaveTextContent("Waiting");
+
+    emit({
+      jobId: "job-gen",
+      at: now,
+      type: "progress",
+      message: `Writing ${B} (2)`,
+      gen: [
+        { id: A, state: "written" },
+        { id: B, summary: "Le test prévu", state: "writing" },
+      ],
+    });
+    await waitFor(() => expect(head(/^Premier test/)).toHaveAttribute("aria-expanded", "false"));
+    await waitFor(() => expect(head(/^Second test/)).toHaveAttribute("aria-expanded", "true"));
+    expect(named("tests.show").map((c) => c.input.id)).toContain(B);
+    fireEvent.click(head(/^Premier test/));
+    emit({ jobId: "job-gen", at: now, type: "changed", paths: [`tests/${B}/test.md`] });
+    expect(head(/^Premier test/)).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
+    expect(head(/^Premier test/)).toHaveAttribute("aria-expanded", "false");
+    expect(head(/^Second test/)).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Fold all" })).toBeNull();
 
     written.push("local-bbbbbbbb");
     emit({ jobId: "job-gen", at: now, type: "changed", paths: ["tests/local-bbbbbbbb/test.md"] });

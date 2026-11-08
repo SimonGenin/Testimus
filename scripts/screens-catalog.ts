@@ -1323,6 +1323,26 @@ export function SCENARIOS(essai: string): Scenario[] {
       shots: slowShots(),
     },
     {
+      id: "writing",
+      note: "Generate while Claude writes, every line of the fake Claude 2.5 s apart",
+      env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_CLAUDE_STEP_MS: "2500" },
+      shots: [
+        {
+          id: "generate-writing",
+          note: "Generate › the test Claude is writing open, the one before it folded",
+          hash: "#/generate",
+          prep: async (p) => {
+            await generate(p);
+            await p
+              .getByRole("region", { name: "Tests written" })
+              .getByRole("button", { name: /^Sectionneur avec TK/, expanded: true })
+              .waitFor({ timeout: 90_000 });
+          },
+          settle: 300,
+        },
+      ],
+    },
+    {
       id: "push-stopped",
       note: "A push stopped by an attachment Jira refuses",
       env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_MAX_ATTACHMENT: "100" },

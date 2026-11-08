@@ -203,6 +203,7 @@ export function startJob(
         total: p.total,
         ...(p.pull ? { pull: p.pull } : {}),
         ...(p.test ? { test: p.test } : {}),
+        ...(p.gen ? { gen: p.gen } : {}),
         ...where(),
       });
     },

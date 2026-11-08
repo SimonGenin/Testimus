@@ -432,6 +432,13 @@ after the frontmatter, so a review decision never makes findings stale.
   planned test a cancel or a failed run left is « Stopped before it was written ». The page groups the items by
   category, the largest group first (`screens/generate/SkippedList.tsx`); every category wears the warning tone, since
   the code cannot tell a gap from a choice.
+- **The test being written** (2026-11-08): a generation job's progress lines carry `gen: [{ id?, summary?, state:
+  waiting | writing | written | missed }]` (`claude/gen-board.ts`), from the run's own tool calls — the test a run is on
+  is `writing`, the one it left `written`, a planned test not started `waiting` with its plan summary, a planned run
+  that wrote nothing `missed`. While the job runs, Generate draws each test as a folding card, read only
+  (`WritingTests`, `WritingCard`): the page reads it with `tests.show`, read again whenever the watcher says its
+  `test.md` changed — no other stream. The test Claude is on opens, folds when done; one opened or folded by hand stays
+  so; « Fold all ». Only on Generate: Review and Tests show a generation's tests once it has ended.
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
   of `doc.md` mapped to sections, figure images) and what it searched. Review shows it (`review.evidence`); `gen.bench`

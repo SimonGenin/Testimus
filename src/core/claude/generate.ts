@@ -17,6 +17,7 @@ import {
 } from "../lib/store.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Tokens } from "../types.ts";
 import { checkTests } from "./check.ts";
+import { genBoard, type Lane } from "./gen-board.ts";
 import { checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
 import { type GenReport, parseGenReport, parsePlan, type Skipped, type TestPlan } from "./gen-reply.ts";
 import { ledgerOf, readLedger, type Searched, writeLedger } from "./ledger.ts";
@@ -101,7 +102,7 @@ async function genRun(
   ctx: Ctx,
   project: string,
   input: GenInput,
-  o: { runId: string; by: string; contexts: string[]; prompt: string; label: string; title?: string },
+  o: { runId: string; by: string; contexts: string[]; prompt: string; label: string; title?: string; lane: Lane },
 ): Promise<GenRun> {
   const p = readProject(project);
   let reads = 0;
@@ -124,12 +125,14 @@ async function genRun(
       if (e.type === "text") texts.push(e.text);
       const s = toolStep(e);
       if (s?.kind === "read") ctx.progress({ message: `Reading passages (${++reads})` });
-      if (s?.kind === "write" && !written.includes(s.testId)) {
-        written.push(s.testId);
-        ctx.progress({ message: `Writing ${s.testId} (${written.length})` });
+      if (s?.kind === "write") {
+        const fresh = !written.includes(s.testId);
+        if (fresh) written.push(s.testId);
+        if (o.lane.wrote(s.testId) || fresh) ctx.progress({ message: `Writing ${s.testId} (${written.length})` });
       }
     },
   });
+  o.lane.end();
   const before = readRun(project, run.runId).before;
   // ponytail: a test is this generation's only when it did not exist before the run, a call of this run
   // wrote it, and no other generation stamped it — a test made by hand meanwhile is never claimed
@@ -184,7 +187,17 @@ export async function generateTests(project: string, asked: GenInput, ctx: Ctx):
   }
 }
 
-async function generate(project: string, asked: GenInput, ctx: Ctx): Promise<GenResult> {
+async function generate(project: string, asked: GenInput, outer: Ctx): Promise<GenResult> {
+  let said = "";
+  const board = genBoard((gen) => outer.progress({ message: said, gen }));
+  const ctx: Ctx = {
+    ...outer,
+    progress: (p) => {
+      said = p.message;
+      const gen = board.tests();
+      outer.progress({ ...p, ...(gen.length ? { gen } : {}) });
+    },
+  };
   const prior = asked.resume?.trim() ? readPrior(project, asked.resume.trim()) : null;
   const input = prior
     ? { ...prior.input, model: asked.model || prior.input.model, effort: asked.effort || prior.input.effort }
@@ -220,11 +233,13 @@ async function generate(project: string, asked: GenInput, ctx: Ctx): Promise<Gen
         prompt: genPrompt(project, input, contexts, runId),
         label: "generate",
         title: "read and write",
+        lane: board.run(),
       });
   const plan = prior?.plan ?? (first && !first.tests.length && first.run.ok ? parsePlan(first.run.summary) : null);
   const of = plan?.found ? plan.tests.length : 0;
   const done = new Set(prior?.done ?? []);
   const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k }) => !done.has(k)) : [];
+  const slots = board.plan(todo.map(({ t }) => t.summary));
   if (todo.length) ctx.step?.("write");
   if (prior) ctx.log("info", `Resuming the plan: ${todo.length} of ${of} test(s) left.`);
   const set = agentsSetting();
@@ -241,7 +256,7 @@ async function generate(project: string, asked: GenInput, ctx: Ctx): Promise<Gen
   // ponytail: a failed run stops the runs not started yet (a credit or login failure would fail them all); a planned
   // test counts as written once its run wrote a test, so a resume never writes it twice
   const parts = await Promise.all(
-    todo.map(({ t, k }) =>
+    todo.map(({ t, k }, n) =>
       pool.run(async () => {
         if (stop || ctx.signal.aborted) return null;
         ctx.progress({
@@ -258,6 +273,7 @@ async function generate(project: string, asked: GenInput, ctx: Ctx): Promise<Gen
           prompt: genPrompt(project, part, contexts, id, { n: k + 1, of, request: input.request.trim() }),
           label: `generate ${k + 1}/${of}`,
           title: t.summary,
+          lane: board.start(slots[n]),
         });
         absorbRun(project, runId, id);
         finished++;

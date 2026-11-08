@@ -25,7 +25,8 @@ let sessions = 0;
 
 export type MockStream = {
   texts: string[];
-  tools?: { name: string; input: Record<string, unknown> }[];
+  /** each call is streamed with what it `does`: a file the tool writes appears at that point of the run, not at its end */
+  tools?: { name: string; input: Record<string, unknown>; does?: () => void }[];
   result: string;
   isError?: boolean;
   costUsd?: number;
@@ -43,21 +44,21 @@ export async function mockStream(spawn: ClaudeSpawn, s: MockStream): Promise<Cla
     const line = JSON.stringify(m);
     lines.push(line);
     spawn.onLine?.(line);
-    return await pause(s.delayMs ?? 150, spawn.signal);
+    return await pause(s.delayMs ?? (Number(process.env.TESTIMUS_MOCK_CLAUDE_STEP_MS) || 150), spawn.signal);
   };
   const cancelled = (): ClaudeOut => ({ code: 130, stdout: `${lines.join("\n")}\n`, stderr: "" });
   const started = Date.now();
   if (!(await emit({ type: "system", subtype: "init", session_id: sessionId, model: "mock", tools: [] })))
     return cancelled();
-  for (const t of s.tools ?? [])
-    if (
-      !(await emit({
-        type: "assistant",
-        session_id: sessionId,
-        message: { content: [{ type: "tool_use", id: `tu-${lines.length}`, name: t.name, input: t.input }] },
-      }))
-    )
-      return cancelled();
+  for (const t of s.tools ?? []) {
+    const line = {
+      type: "assistant",
+      session_id: sessionId,
+      message: { content: [{ type: "tool_use", id: `tu-${lines.length}`, name: t.name, input: t.input }] },
+    };
+    t.does?.();
+    if (!(await emit(line))) return cancelled();
+  }
   s.edit?.();
   for (const text of s.texts)
     if (!(await emit({ type: "assistant", session_id: sessionId, message: { content: [{ type: "text", text }] } })))

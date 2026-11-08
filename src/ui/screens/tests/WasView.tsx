@@ -5,13 +5,11 @@ import { Badge, DIFF } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
-import { collapsible, columnsOf, splitTracks } from "../../lib/columns.ts";
+import { columnsOf } from "../../lib/columns.ts";
 import { border, color, radius, space } from "../../styles/tokens.stylex.ts";
-import { ColumnField } from "./ColumnField.tsx";
-import { FieldBlocks } from "./FieldBlocks.tsx";
 import type { StepLayout } from "./StepCard.tsx";
-import { FieldRow, StepFields } from "./step/StepFields.tsx";
 import { GoneFrame } from "./step/StepFrame.tsx";
+import { StepRead } from "./step/StepRead.tsx";
 import { firstLine } from "./step/stepText.ts";
 import { WAS, type WasFrom, WasToggle } from "./step/WasToggle.tsx";
 
@@ -57,8 +55,6 @@ const styles = stylex.create({
   },
 });
 
-const none = () => {};
-
 // The snapshot of a step, drawn by the very same field blocks as the live card (same layout, same
 // screenshots) — only read-only: no insert strips, no grip, no ✕, and its images still open in the lightbox
 export function WasView({
@@ -82,7 +78,6 @@ export function WasView({
   onOpenImage: (file: string, images: StepImage[]) => void;
   onRestore?: () => void;
 }) {
-  const shown = columnsOf(xray, step).filter((c) => !collapsible(c) || (step.fields[c.name] ?? "").trim());
   const n = index + 1;
   const split = layout === "split";
   return (
@@ -99,35 +94,15 @@ export function WasView({
         {onRestore && <Button size="sm" icon="undo" label={restoreLabel} onClick={onRestore} />}
       </div>
       <div {...stylex.props(styles.body)}>
-        <StepFields split={split} tracks={splitTracks(shown)}>
-          {shown.map((c) => {
-            const value = step.fields[c.name] ?? "";
-            return (
-              <FieldRow key={c.name} name={c.name} split={split}>
-                {c.kind === "blocks" ? (
-                  <FieldBlocks
-                    readOnly
-                    idBase={`${from === "claude" ? "before" : "was"}${index}-${c.name.replace(/\W+/g, "")}`}
-                    name={c.name}
-                    label={c.name}
-                    text={value}
-                    images={step.images}
-                    url={url}
-                    stepNumber={n}
-                    onText={none}
-                    onAddFiles={none}
-                    onFieldText={none}
-                    onDropBlock={none}
-                    onRemove={none}
-                    onOpen={(file) => onOpenImage(file, step.images)}
-                  />
-                ) : (
-                  <ColumnField column={c} value={value} stepNumber={n} readOnly onChange={none} />
-                )}
-              </FieldRow>
-            );
-          })}
-        </StepFields>
+        <StepRead
+          idBase={`${from === "claude" ? "before" : "was"}${index}`}
+          step={step}
+          xray={xray}
+          split={split}
+          n={n}
+          url={url}
+          onOpenImage={onOpenImage}
+        />
       </div>
     </section>
   );

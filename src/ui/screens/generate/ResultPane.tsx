@@ -4,7 +4,6 @@ import type { LocalTestRef } from "../../../core/types.ts";
 import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
-import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
@@ -12,10 +11,11 @@ import { type } from "../../components/ui/type.ts";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { color, container, space } from "../../styles/tokens.stylex.ts";
 import { LandedCard } from "./GenCard.tsx";
 import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
+import { WritingTests } from "./WritingTests.tsx";
 
 const styles = stylex.create({
   pane: {
@@ -38,9 +38,6 @@ const styles = stylex.create({
     alignItems: "start",
   },
   col: { minWidth: 0 },
-  colHead: { display: "flex", alignItems: "center", gap: space.s2, minHeight: size.controlSm },
-  colTitle: { margin: 0 },
-  grow: { flex: 1 },
 });
 
 // ponytail: « Fold all » folds everything the pane folds — what Claude did and what was not covered; all starts folded;
@@ -170,14 +167,12 @@ export function ResultPane({
       </div>
     </Card>
   );
-  const cards = ids.map((id, i) => (
+  const cards = ids.map((id) => (
     <LandedCard
       key={id}
       id={id}
       refs={refs.data as LocalTestRef[] | undefined}
       check={checkOf(id)}
-      writing={running && i === ids.length - 1}
-      checking={running && i < ids.length - 1}
       onOpen={() => app.navigate("review", id)}
     />
   ));
@@ -198,27 +193,10 @@ export function ResultPane({
       {head}
       {running ? (
         <div {...stylex.props(styles.split)}>
+          <div {...stylex.props(styles.col)}>
+            <WritingTests tests={gen.writing} />
+          </div>
           <div {...stylex.props(styles.col)}>{activity}</div>
-          <section aria-label="Tests written" aria-live="polite" {...stylex.props(styles.col, styles.cards)}>
-            <div {...stylex.props(styles.colHead)}>
-              <h3 {...stylex.props(type.body, type.strong, styles.colTitle)}>Tests</h3>
-              <Badge count size="sm" label={String(ids.length)} />
-              <span {...stylex.props(styles.grow)} />
-              <span {...stylex.props(type.compact, styles.muted)}>they land here as Claude writes them</span>
-            </div>
-            {ids.length ? (
-              cards
-            ) : (
-              <Card>
-                <EmptyState
-                  compact
-                  icon="tests"
-                  title="No test written yet"
-                  text="Claude reads first, then plans, then writes."
-                />
-              </Card>
-            )}
-          </section>
         </div>
       ) : (
         <>

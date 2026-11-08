@@ -107,6 +107,18 @@ const event = z.discriminatedUnion("type", [
       .optional()
       .describe("Where a pull is"),
     test: z.string().optional().describe("The test this line is about (a check's verdict)"),
+    gen: z
+      .array(
+        z.object({
+          id: z.string().optional().describe("The test, once a tool call of the run named it"),
+          summary: z.string().optional().describe("The planned test's summary, from the plan"),
+          state: z
+            .enum(["waiting", "writing", "written", "missed"])
+            .describe("waiting (planned, not started), writing, written, or missed (its run wrote no test)"),
+        }),
+      )
+      .optional()
+      .describe("A generation: the tests it writes, in order, and where each one is"),
     step: z.string().optional().describe("The step it belongs to"),
   }),
   z.object({

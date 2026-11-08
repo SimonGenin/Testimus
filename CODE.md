@@ -137,7 +137,8 @@ and the updates. Knobs:
 |---|---|
 | `TESTIMUS_MOCK_SEED` | `fixture` (default, the LFRPS12 sample), `empty`, `none` (first run), or a project folder of this PC (copied, never written); comma-separated, first one open |
 | `TESTIMUS_MOCK_CLAUDE` | `absent`, `logged-out` |
-| `TESTIMUS_MOCK_CLAUDE_MS`, `TESTIMUS_MOCK_JIRA_MS` | pace the fake Claude / Jira |
+| `TESTIMUS_MOCK_CLAUDE_MS`, `TESTIMUS_MOCK_JIRA_MS` | pace the fake Claude / Jira (a wait before each run or call) |
+| `TESTIMUS_MOCK_CLAUDE_STEP_MS` | ms between the lines of the fake Claude's stream (default 150): a generation can be watched test by test |
 | `TESTIMUS_MOCK_JIRA_NO_COMMENT` | `1`: the fake Jira refuses comments |
 | `TESTIMUS_MOCK_MAX_ATTACHMENT` | bytes |
 | `TESTIMUS_MOCK_MACHINE` | `gpu16` (default), `gpu-small`, `cpu-only`, `unknown`, `dev`, `mac`, `mac-intel` |

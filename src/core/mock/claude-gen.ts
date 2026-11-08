@@ -147,16 +147,14 @@ const SKIPPED = [
   },
 ];
 
-function writeTests(spawn: ClaudeSpawn, ids: string[]): void {
+// ponytail: test i of the run as Claude saves it — its first steps, then the whole test — so the Generate page sees a
+// test grow while it is written
+function writeTest(spawn: ClaudeSpawn, ids: string[], i: number, steps?: number): void {
   const folder = spawn.stdin.match(/^Target Xray folder: (\/\S*)\s*$/m)?.[1] ?? "/Traction/Sectionneurs";
-  const bodies = [menuTest(folder), tkTest(folder, partialRead(spawn.stdin))];
-  ids.forEach((id, i) => {
-    mkdirSync(join(spawn.cwd, "tests", id), { recursive: true });
-    writeFileSync(join(spawn.cwd, "tests", id, "test.md"), bodies[i], "utf8");
-  });
-  try {
-    attachImage(spawn.cwd, { id: ids[0], step: 1, figure: `${DOC}#fig:40` });
-  } catch {}
+  const body = [menuTest(folder), tkTest(folder, partialRead(spawn.stdin))][i];
+  const cut = steps === undefined ? -1 : body.indexOf(`## Step ${steps + 1}\n`);
+  mkdirSync(join(spawn.cwd, "tests", ids[i]), { recursive: true });
+  writeFileSync(join(spawn.cwd, "tests", ids[i], "test.md"), cut < 0 ? body : body.slice(0, cut), "utf8");
 }
 
 // ponytail: a request about the sectionneur « avec TK » reads only §5.6.6 of doc.md and cites one quote under the
@@ -194,14 +192,30 @@ registerMockScript(
           name: "Read",
           input: { file_path: `docs/${DOC}/doc.md`, ...(partialRead(spawn.stdin) ? { offset: 13, limit: 14 } : {}) },
         },
-        { name: "mcp__testimus__tests_create", input: { summary: "Sectionneur sans TK" } },
-        { name: "Write", input: { file_path: file(ids[0]), content: "…" } },
-        { name: "mcp__testimus__tests_addImage", input: { id: ids[0], step: 1, figure: `${DOC}#fig:40` } },
-        { name: "mcp__testimus__tests_create", input: { summary: "Sectionneur avec TK" } },
-        { name: "Write", input: { file_path: file(ids[1]), content: "…" } },
+        {
+          name: "mcp__testimus__tests_create",
+          input: { summary: "Sectionneur sans TK" },
+          does: () => writeTest(spawn, ids, 0, 2),
+        },
+        { name: "mcp__testimus__tests_save", input: { id: ids[0], test: "…" } },
+        { name: "mcp__testimus__tests_edit", input: { id: ids[0], step: 3 }, does: () => writeTest(spawn, ids, 0) },
+        {
+          name: "mcp__testimus__tests_addImage",
+          input: { id: ids[0], step: 1, figure: `${DOC}#fig:40` },
+          does: () => {
+            try {
+              attachImage(spawn.cwd, { id: ids[0], step: 1, figure: `${DOC}#fig:40` });
+            } catch {}
+          },
+        },
+        {
+          name: "mcp__testimus__tests_create",
+          input: { summary: "Sectionneur avec TK" },
+          does: () => writeTest(spawn, ids, 1, 1),
+        },
+        { name: "Write", input: { file_path: file(ids[1]), content: "…" }, does: () => writeTest(spawn, ids, 1) },
         { name: "mcp__testimus__check_run", input: { ids } },
       ],
-      edit: () => writeTests(spawn, ids),
       texts: [
         "J'ai lu le §5.6.6 et la Figure 40. ",
         "Deux tests : le sectionneur sans TK (chemin positif) et le sectionneur avec TK (chemin négatif).\n\n",

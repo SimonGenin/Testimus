@@ -768,6 +768,11 @@ export type PullStage =
   | { phase: "images"; done: number; total: number }
   | { phase: "write" };
 export type PullInfo = { key: string } & PullStage;
+// ponytail: the tests a running generation writes, in the order it meets them — planned ones wait, the one(s) Claude is
+// on are writing, a run that ended leaves its tests written (a planned test it wrote none for is missed); id once a
+// tool call names the test, summary from the plan
+export type GenTestState = "waiting" | "writing" | "written" | "missed";
+export type GenTestProgress = { id?: string; summary?: string; state: GenTestState };
 // ponytail: every event names its project (null: the machine's own work), so a page only follows its own project
 export type JobEvent = (
   | { jobId: string; at: string; type: "status"; job: Job }
@@ -780,6 +785,7 @@ export type JobEvent = (
       total?: number;
       pull?: PullInfo;
       test?: string;
+      gen?: GenTestProgress[];
       step?: string;
     }
   | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string; step?: string }

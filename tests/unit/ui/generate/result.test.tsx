@@ -58,11 +58,8 @@ describe("Generate › result helpers", () => {
     expect(landedIds(events)).toEqual(["local-dddddddd"]);
   });
 
-  it("GenCard: placeholders while writing or loading", () => {
-    render(<GenCard item={{ id: "x" }} writing checking={false} onOpen={vi.fn()} />);
-    expect(screen.getByRole("status", { name: "Claude is writing a test" })).toHaveTextContent("Writing…");
-    cleanup();
-    render(<GenCard item={{ id: "x" }} writing={false} checking={false} onOpen={vi.fn()} />);
+  it("GenCard: a placeholder while loading", () => {
+    render(<GenCard item={{ id: "x" }} onOpen={vi.fn()} />);
     expect(screen.getByRole("status", { name: "Loading a test" })).toHaveTextContent("Loading…");
   });
 
@@ -74,7 +71,7 @@ describe("Generate › result helpers", () => {
       testHash: "h",
       findings: [{ kind: "quote-not-found", severity: "error", message: "Quote absent", sources: [], step: 1 }],
     };
-    render(<GenCard item={{ id: "x", test: t, check }} writing={false} checking={false} onOpen={onOpen} />);
+    render(<GenCard item={{ id: "x", test: t, check }} onOpen={onOpen} />);
     const card = screen.getByRole("region", { name: /^Tournois/ });
     expect(card).toHaveTextContent("1 step");
     expect(card).toHaveTextContent("Draft");
@@ -92,8 +89,6 @@ describe("Generate › result helpers", () => {
       <GenCard
         item={{ id: "x", test: test("T", []) }}
         check={{ id: "x", ok: true, review: "checked", errors: 0, warnings: 0 }}
-        writing={false}
-        checking={false}
         onOpen={vi.fn()}
       />,
     );
@@ -104,7 +99,7 @@ describe("Generate › result helpers", () => {
     const t = test("", []);
     const show = (props: Partial<Parameters<typeof GenCard>[0]>) => {
       cleanup();
-      render(<GenCard item={{ id: "x", test: t }} writing={false} checking={false} onOpen={vi.fn()} {...props} />);
+      render(<GenCard item={{ id: "x", test: t }} onOpen={vi.fn()} {...props} />);
     };
     show({ check: { id: "x", ok: false, review: "to-fix", errors: 2, warnings: 0 } });
     expect(screen.getByRole("region", { name: /^Untitled test/ })).toBeInTheDocument();
@@ -114,8 +109,6 @@ describe("Generate › result helpers", () => {
     expect(screen.getByText("1 warning")).toBeInTheDocument();
     show({ check: { id: "x", ok: true, review: "draft", errors: 0, warnings: 0 } });
     expect(screen.getByText("No findings")).toBeInTheDocument();
-    show({ checking: true });
-    expect(screen.getByText("Checking…")).toBeInTheDocument();
     show({});
     expect(screen.getByText("Not checked yet")).toBeInTheDocument();
     const findings = (f: Partial<NonNullable<LocalTestRef["findings"]>>) =>

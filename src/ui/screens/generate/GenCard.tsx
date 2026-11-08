@@ -21,15 +21,14 @@ const styles = stylex.create({
 
 const STALE = "Out of date: the test changed after this check";
 
-function Findings({ refItem, check, checking }: { refItem?: LocalTestRef; check?: GenCheck; checking: boolean }) {
+function Findings({ refItem, check }: { refItem?: LocalTestRef; check?: GenCheck }) {
   if (check) {
     if (check.errors) return <Badge tone="danger" icon="x-circle" label={plural(check.errors, "error")} />;
     if (check.warnings) return <Badge tone="warning" icon="alert-triangle" label={plural(check.warnings, "warning")} />;
     return <Badge tone="success" icon="check" label="No findings" />;
   }
   const f = refItem?.findings;
-  if (!f)
-    return checking ? <Badge tone="info" busy label="Checking…" /> : <Badge tone="neutral" label="Not checked yet" />;
+  if (!f) return <Badge tone="neutral" label="Not checked yet" />;
   const stale = f.stale ? STALE : undefined;
   if (f.errors)
     return (
@@ -50,19 +49,17 @@ function Findings({ refItem, check, checking }: { refItem?: LocalTestRef; check?
 export type GenCardProps = {
   item: Landed;
   check?: GenCheck;
-  writing: boolean;
-  checking: boolean;
   onOpen: () => void;
 };
 
-// ponytail: Generate shows what was written — title, state, findings — and Review is where a test is read, once
-// the generation has ended: until then the test is nowhere else
-export function GenCard({ item, check, writing, checking, onOpen }: GenCardProps) {
+// ponytail: once the generation has ended, Generate shows what was written — title, state, findings — and Review is
+// where a test is read; while it runs, WritingCard shows each test read only
+export function GenCard({ item, check, onOpen }: GenCardProps) {
   if (!item.test)
     return (
-      <div role="status" aria-busy="true" aria-label={writing ? "Claude is writing a test" : "Loading a test"}>
+      <div role="status" aria-busy="true" aria-label="Loading a test">
         <Card dashed>
-          <span {...stylex.props(type.compact)}>{writing ? "Writing…" : "Loading…"}</span>
+          <span {...stylex.props(type.compact)}>Loading…</span>
           <Skeleton kind="title" width="70%" />
           <Skeleton lines={2} />
         </Card>
@@ -92,27 +89,20 @@ export function GenCard({ item, check, writing, checking, onOpen }: GenCardProps
       <span {...stylex.props(styles.badges)}>
         <ReviewBadge state={review} size="sm" />
         <Badge tone="claude" icon="claude" size="sm" label="Generated" />
-        <Findings refItem={item.ref} check={check} checking={checking} />
+        <Findings refItem={item.ref} check={check} />
       </span>
     </Card>
   );
 }
 
-// ponytail: the test Claude is still writing is not on disk yet — it is read once tests.list sees it and the next one began
+// ponytail: a test of the generation, read once tests.list knows it
 export function LandedCard({
   id,
   refs,
-  writing,
   ...rest
-}: Omit<GenCardProps, "item" | "writing"> & { id: string; refs: LocalTestRef[] | undefined; writing: boolean }) {
+}: Omit<GenCardProps, "item"> & { id: string; refs: LocalTestRef[] | undefined }) {
   const ref = refs?.find((r) => r.id === id);
-  const shown = useRead("tests.show", { id }, { enabled: !!ref && !writing });
+  const shown = useRead("tests.show", { id }, { enabled: !!ref });
   const data = shown.data as { test?: Test; check?: CheckFile | null } | undefined;
-  return (
-    <GenCard
-      item={{ id, test: writing ? undefined : data?.test, ref, check: data?.check }}
-      writing={writing}
-      {...rest}
-    />
-  );
+  return <GenCard item={{ id, test: data?.test, ref, check: data?.check }} {...rest} />;
 }

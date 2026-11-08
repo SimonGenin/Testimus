@@ -19,6 +19,7 @@ const MOCK_VALUES: Record<string, (v: string) => boolean> = {
   TESTIMUS_MOCK_LLAMACPP: (v) => ["found", "absent"].includes(v),
   TESTIMUS_MOCK_PROBE: (v) => ["ok", "fail"].includes(v),
   TESTIMUS_MOCK_CLAUDE_MS: (v) => Number(v) > 0,
+  TESTIMUS_MOCK_CLAUDE_STEP_MS: (v) => Number(v) > 0,
   TESTIMUS_MOCK_JIRA_MS: (v) => Number(v) > 0,
   TESTIMUS_MOCK_DOWNLOAD_MS: (v) => Number(v) >= 0,
   TESTIMUS_MOCK_INDEX_MS: (v) => Number(v) > 0,

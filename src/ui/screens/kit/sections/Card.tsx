@@ -35,6 +35,38 @@ function Packs() {
   );
 }
 
+function Folds() {
+  const [open, setOpen] = useState<Record<string, boolean>>({ writing: true });
+  const fold = (k: string) => ({ open: !!open[k], onOpenChange: (o: boolean) => setOpen((x) => ({ ...x, [k]: o })) });
+  return (
+    <>
+      <Card
+        density="compact"
+        title="Sectionneur sans TK — menu contextuel"
+        actions={<Badge label="Written" tone="success" size="sm" />}
+        fold={fold("written")}
+      >
+        4 steps.
+      </Card>
+      <Card
+        density="compact"
+        edge="claude"
+        title="Sectionneur avec TK — manœuvre régulière"
+        actions={<Badge label="Writing" tone="claude" busy size="sm" />}
+        fold={fold("writing")}
+      >
+        Step 1 · Clic droit sur un sectionneur avec TK.
+      </Card>
+      <Card density="compact" title="Refus de manœuvre" fold={fold("hover")} debugState="hover">
+        Planned.
+      </Card>
+      <Card density="compact" title="Ouverture" fold={fold("focus")} debugState="focus">
+        Planned.
+      </Card>
+    </>
+  );
+}
+
 function Drive() {
   const name = useId();
   return (
@@ -50,7 +82,7 @@ export const section: KitSection = {
   file: "Card.tsx",
   summary:
     "A framed group with a head (title, actions), a body and a foot: settings sections, model packs, the push plan's operations, a finding, the step card. A state is a badge in the head, never a coloured edge; cards nest once at most.",
-  note: "density compact (12/16 px) is a card among many (a finding, a radio card in a list, a figure's detail), tight (8 px) a tile in a grid; fill makes the cards of a grid row as tall as each other. radio is the « radio card » the screens drew for packs and drives: the card stays a Card, the choice adds a native radio, the whole card picks it, and the arrows move between the cards of one name.",
+  note: "density compact (12/16 px) is a card among many (a finding, a radio card in a list, a figure's detail), tight (8 px) a tile in a grid; fill makes the cards of a grid row as tall as each other. radio is the « radio card » the screens drew for packs and drives: the card stays a Card, the choice adds a native radio, the whole card picks it, and the arrows move between the cards of one name. fold makes the head one button (chevron, title, badges) that opens or folds the body: the tests Generate shows while Claude writes them.",
   guidelines: [],
   states: () => (
     <States>
@@ -130,6 +162,9 @@ export const section: KitSection = {
         <Card title="Figure 5" onOpen={() => {}} debugState="focus">
           Légende.
         </Card>
+      </Cell>
+      <Cell label="fold · folded, open, hover, focus (the tests Claude is writing)" wide column>
+        <Folds />
       </Cell>
       <Cell label="radio · checked, hover, disabled" wide column>
         <Packs />
