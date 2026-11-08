@@ -103,11 +103,16 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
   }
   if (!r.ok) ctx.log("error", r.summary);
   const skipped = ledger.skipped ?? [];
-  proposeGenActions(project, input.generation, {
-    tests: revised,
-    skipped: [],
-    by: { runId: r.runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
-  });
+  proposeGenActions(
+    project,
+    input.generation,
+    {
+      tests: revised,
+      skipped: [],
+      by: { runId: r.runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
+    },
+    ctx.log,
+  );
   return {
     runId: r.runId,
     ok: r.ok,

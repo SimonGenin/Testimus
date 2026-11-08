@@ -72,8 +72,8 @@ export function whereOf(scope: ClaudeScope): string {
 
 // ponytail: an action is about the state it was proposed on — the document as converted, the test as written (its
 // content: a review, a key or a folder that moves leaves the problem as it was), the job as it ended, the generation
-// with its tests not written and the tests it still has (a new generation that replaced them takes it away); when that
-// state changes the problem may be gone or different, so the button goes (stale)
+// with its tests not written (a test of it deleted leaves them as they were, a generation without any is still one);
+// when that state changes the problem may be gone or different, so the button goes (stale)
 export function stampOf(project: string, where: string): string {
   const [kind, id] = where.split(":");
   if (kind === "doc") {
@@ -87,16 +87,8 @@ export function stampOf(project: string, where: string): string {
   }
   if (kind === "job") return existsSync(join(project, ".testimus", "jobs", `${id}.jsonl`)) ? "job" : "gone";
   if (kind === "gen") {
-    const ledger = readJson<{ skipped?: unknown; tests?: unknown } | null>(
-      join(project, ".testimus", "gen", `${id}.json`),
-      null,
-    );
-    const tests = Array.isArray(ledger?.tests)
-      ? ledger.tests.filter(
-          (t): t is string => typeof t === "string" && existsSync(join(testDir(project, t), "test.md")),
-        )
-      : [];
-    return ledger && tests.length ? sha256(JSON.stringify([ledger.skipped ?? [], tests])).slice(0, 16) : "gone";
+    const ledger = readJson<{ skipped?: unknown } | null>(join(project, ".testimus", "gen", `${id}.json`), null);
+    return ledger ? sha256(JSON.stringify(ledger.skipped ?? [])).slice(0, 16) : "gone";
   }
   return "project";
 }

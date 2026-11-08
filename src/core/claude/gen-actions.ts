@@ -1,5 +1,6 @@
+import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
-import { proposeAction } from "../lib/actions.ts";
+import { type Proposal, proposeAction } from "../lib/actions.ts";
 import { quoted, testName } from "../lib/names.ts";
 import { readCheck, testExists } from "../lib/store.ts";
 import type { Effort, Finding } from "../types.ts";
@@ -8,7 +9,8 @@ import { type Skipped, STOPPED } from "./gen-reply.ts";
 // ponytail: after a generation the core itself leaves a Claude action per problem it can name — a test of the
 // generation with findings, a category of tests not written — the same actions.* as any run's proposals: one per
 // problem, stale when its test changes or the generation's list of tests not written moves (where gen:<id>), dismissed
-// for good. A planned test stopped by a cancel is resumed, not acted on
+// for good. A planned test stopped by a cancel is resumed, not acted on; an action that cannot be proposed is a warning,
+// never the generation's failure
 
 const MAX_TITLE = 80;
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
@@ -27,7 +29,15 @@ export function proposeGenActions(
   project: string,
   generation: string,
   o: { tests: string[]; skipped: Skipped[]; by: ProposedBy },
+  log: Ctx["log"],
 ): void {
+  const propose = (p: Proposal) => {
+    try {
+      proposeAction(project, p);
+    } catch (e) {
+      log("warn", `No Claude action for « ${p.title} »: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
   const proposedBy = {
     run: "generate",
     model: o.by.model,
@@ -44,7 +54,7 @@ export function proposeGenActions(
     const name = testName(project, id);
     const what = errors ? plural(errors, "error") : plural(warnings, "warning");
     const head = `Fix the ${what} in `;
-    proposeAction(project, {
+    propose({
       title: `${head}${quoted(clip(name, MAX_TITLE - head.length - 4))}`,
       scope: { kind: "test", testId: id },
       where: `test:${id}`,
@@ -63,7 +73,7 @@ export function proposeGenActions(
   for (const s of o.skipped) if (s.category !== STOPPED) groups.set(s.category, [...(groups.get(s.category) ?? []), s]);
   for (const [category, items] of groups) {
     const head = `Write the ${plural(items.length, "test")} skipped for `;
-    proposeAction(project, {
+    propose({
       title: `${head}${quoted(clip(category, MAX_TITLE - head.length - 4))}`,
       scope: { kind: "project" },
       where: `gen:${generation}`,

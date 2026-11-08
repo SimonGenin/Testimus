@@ -377,11 +377,16 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     ...kept,
     reportedConsulted: union(reports.map((r) => r.consulted)),
   });
-  proposeGenActions(project, by, {
-    tests,
-    skipped: result.skipped,
-    by: { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
-  });
+  proposeGenActions(
+    project,
+    by,
+    {
+      tests,
+      skipped: result.skipped,
+      by: { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
+    },
+    ctx.log,
+  );
   ctx.progress({ message: `${tests.length} test(s) written`, done: tests.length, total: tests.length });
   return result;
 }

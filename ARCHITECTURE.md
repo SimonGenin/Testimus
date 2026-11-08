@@ -601,9 +601,11 @@ after the frontmatter, so a review decision never makes findings stale.
 - **The core proposes actions after a generation** (`claude/gen-actions.ts`, at the end of `gen.tests` and
   `gen.revise`): one per test of the generation with errors or warnings (« Fix the 2 errors in « summary » », where
   `test:<id>`, stale once the test changes) and one per category of tests not written (« Write the 2 tests skipped for
-  « category » », where `gen:<generation>`, stale once the generation's skipped items or its remaining tests change —
-  a new generation that replaced its tests takes it away); « Stopped before it was written » is resumed, never acted on.
-  They are ordinary `actions.*`: deduplicated per problem, dismissed for good, run in the dock, snapshotted.
+  « category » », where `gen:<generation>`, stale once the generation's skipped items change — its stamp is the
+  ledger's existence and its skipped items only: a test of it deleted, or a generation that wrote none, leaves the
+  action as it was); « Stopped before it was written » is resumed, never acted on. They are ordinary `actions.*`:
+  deduplicated per problem, dismissed for good, run in the dock, snapshotted. Proposing them never fails the
+  generation: an action that cannot be proposed is a warning in the job's log.
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
   of `doc.md` mapped to sections, figure images) and what it searched. Review shows it (`review.evidence`); `gen.bench`

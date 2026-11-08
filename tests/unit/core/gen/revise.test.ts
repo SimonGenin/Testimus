@@ -76,6 +76,10 @@ describe("after a generation", () => {
     writeFileSync(ledger, JSON.stringify(l));
     expect((await actionsOf(g.generation)).filter((a) => a.where.startsWith("gen:"))).toHaveLength(2);
     for (const id of g.tests) rmSync(join(dir, "tests", id), { recursive: true, force: true });
+    const left = await actionsOf(g.generation);
+    expect(left.filter((a) => a.where.startsWith("test:"))).toHaveLength(0);
+    expect(left.filter((a) => a.where === `gen:${g.generation}`)).toHaveLength(2);
+    rmSync(ledger);
     expect(await actionsOf(g.generation)).toHaveLength(0);
   });
 
