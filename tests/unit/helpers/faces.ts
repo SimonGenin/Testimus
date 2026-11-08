@@ -102,7 +102,7 @@ export async function fakeCommands(seen: Seen) {
         ctx.progress({ message: "counted", total: 3 });
         ctx.log("info", "not progress");
         if (input.fail) throw new Error(input.fail);
-        return { ok: true };
+        return { ok: true, ...(ctx.llm ? { llm: true } : {}) };
       },
     }),
   ];
@@ -122,13 +122,20 @@ export async function withFakes(seen: Seen) {
   const invoke = async (
     name: string,
     raw: unknown,
-    opts: { project: string | null; signal?: AbortSignal; wait?: boolean },
+    opts: { project: string | null; signal?: AbortSignal; wait?: boolean; llm?: boolean },
   ) => {
     const c = find(name);
     if (!(extra as Command[]).includes(c)) return actual.invoke(name, raw, opts);
     const input = actual.parseInput(c, raw);
     if (c.job) {
-      const { job, done } = startJob(c.job, "s", opts.project, (ctx) => c.run(ctx, input as never), opts.signal);
+      const llm = opts.llm ? { llm: true } : {};
+      const { job, done } = startJob(
+        c.job,
+        "s",
+        opts.project,
+        (ctx) => c.run({ ...ctx, ...llm }, input as never),
+        opts.signal,
+      );
       if (opts.wait === false) return { jobId: job.id };
       return await done;
     }

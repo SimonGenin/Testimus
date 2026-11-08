@@ -104,9 +104,9 @@ describe("MCP face in process", () => {
     expect(bad?.content[0].text).toContain("\ntestimus help fake.void");
   });
 
-  it("waits for a job without a progress token", async () => {
+  it("waits for a job without a progress token; the job knows an LLM called it", async () => {
     const r = await handlers.get("fake_job")?.({}, ctx());
-    expect(JSON.parse(r?.content[0].text ?? "")).toEqual({ ok: true });
+    expect(JSON.parse(r?.content[0].text ?? "")).toEqual({ ok: true, llm: true });
   });
 
   it("reports a job's progress to a client that asked, even when the client cannot take it", async () => {
@@ -118,7 +118,7 @@ describe("MCP face in process", () => {
         if (sent.length === 2) throw new Error("closed");
       }),
     );
-    expect(JSON.parse(r?.content[0].text ?? "")).toEqual({ ok: true });
+    expect(JSON.parse(r?.content[0].text ?? "")).toEqual({ ok: true, llm: true });
     expect(sent.map((n) => n.params?.message)).toEqual(["working [1/2]", "later", "counted [0/3]"]);
     expect(sent.map((n) => n.params?.progress)).toEqual([1, 2, 3]);
     expect(sent[0].params?.progressToken).toBe("tok");

@@ -21,6 +21,11 @@ export const CLAUDE_SEARCH: SearchUse = {
   why: "not in Claude's loop",
 };
 
+// ponytail: the one place an LLM's search (a command called through the MCP face: ctx.llm) leaves the reranker out —
+// rag.search and search.all both take it, so no path puts the reranker back in Claude's loop
+export const llmSearch = (llm?: boolean): { reranker?: null } =>
+  llm && CLAUDE_SEARCH.reranker === "no" ? { reranker: null } : {};
+
 export type RunKind =
   | "chat"
   | "figures"

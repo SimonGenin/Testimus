@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { llmSearch } from "../claude/access.ts";
 import { command, projectOf } from "../command.ts";
 import { searchAll } from "../search/all.ts";
 import { embedTests } from "../search/vectors.ts";
@@ -96,7 +97,7 @@ export const commands = [
     }),
     mutates: false,
     positional: ["query"],
-    run: (ctx, input) => searchAll(projectOf(ctx), input),
+    run: (ctx, input) => searchAll(projectOf(ctx), input, llmSearch(ctx.llm)),
   }),
   command({
     name: "search.index",

@@ -93,4 +93,17 @@ describe("the reranker is never in Claude's loop", () => {
     await invoke("rag.search", { query: "sectionneur" }, { project: dir });
     expect(reranked).toBe(1);
   });
+
+  it("search.all through the MCP face ranks its passages without it; from the command line it reranks", async () => {
+    reference({ embedding: "bge-m3-q8", reranker: "bge-reranker-v2-m3-q8" });
+    await indexProject(dir, quietCtx(dir));
+    const ctx = { mcpReq: { signal: new AbortController().signal, notify: async () => {} } };
+    const viaMcp = (await callTool(find("search.all"), dir, { query: "sectionneur", in: ["passage"] }, ctx)) as {
+      hits: unknown[];
+    };
+    expect(viaMcp.hits.length).toBeGreaterThan(0);
+    expect(reranked).toBe(0);
+    await invoke("search.all", { query: "sectionneur", in: ["passage"] }, { project: dir });
+    expect(reranked).toBe(1);
+  });
 });

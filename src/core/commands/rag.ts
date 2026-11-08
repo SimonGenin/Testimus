@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CLAUDE_SEARCH } from "../claude/access.ts";
+import { llmSearch } from "../claude/access.ts";
 import { command, projectOf } from "../command.ts";
 import { chunkKind, retrievalOverride, searchMode } from "../rag/schemas.ts";
 import { search } from "../rag/search/hybrid.ts";
@@ -117,7 +117,7 @@ export const commands = [
     run: (ctx, input) =>
       search(projectOf(ctx), input.query, {
         ...input,
-        ...(ctx.llm && CLAUDE_SEARCH.reranker === "no" ? { reranker: null } : {}),
+        ...llmSearch(ctx.llm),
         log: (level, m) => ctx.log(level, m),
       }),
   }),

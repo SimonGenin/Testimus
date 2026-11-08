@@ -158,7 +158,8 @@ function subjectOf(c: Command, input: unknown): string {
 export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Promise<unknown> {
   const c = find(name);
   const input = parseInput(c, raw);
-  const nested: NonNullable<Ctx["invoke"]> = (n, i, o) => invoke(n, i, { project: opts.project, ...o });
+  const llm = opts.llm ? { llm: true } : {};
+  const nested: NonNullable<Ctx["invoke"]> = (n, i, o) => invoke(n, i, { project: opts.project, ...llm, ...o });
   if (!c.global && !opts.project)
     throw new UserError("No project is open.", "Open or create a project first (testimus project init <dir>).");
   if (opts.project && c.name !== "media.migrate") migrateOnOpen(opts.project);
@@ -171,7 +172,7 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
       c.job,
       subjectOf(c, input),
       opts.project,
-      (ctx) => c.run({ ...ctx, invoke: nested }, input as never),
+      (ctx) => c.run({ ...ctx, ...llm, invoke: nested }, input as never),
       opts.signal,
       { cause, rerun, label: labelOf(c, input, opts.project) },
     );
@@ -182,7 +183,7 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
   if (paced) await sleep(paced, opts.signal);
   const ctx: Ctx = {
     project: opts.project,
-    ...(opts.llm ? { llm: true } : {}),
+    ...llm,
     signal: opts.signal ?? new AbortController().signal,
     progress: (p) => opts.onProgress?.(p),
     log: (level, message) => opts.onLog?.(level, message),

@@ -43,7 +43,7 @@ export async function callTool(c: Command, project: string | null, input: unknow
   };
   const unsub = subscribe((e) => (jobId ? send(e) : early.push(e)));
   try {
-    jobId = ((await invoke(c.name, input, { project, wait: false, signal })) as { jobId: string }).jobId;
+    jobId = ((await invoke(c.name, input, { project, wait: false, signal, llm: true })) as { jobId: string }).jobId;
     for (const e of early) send(e);
     return await waitJob(jobId);
   } finally {

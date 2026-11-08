@@ -229,7 +229,13 @@ export const TESTS_SEARCH: SearchUse = {
   why: "tests are ranked by meaning alone",
 };
 
-async function findPassages(project: string, q: Query, k: number, meaning: boolean): Promise<Found> {
+async function findPassages(
+  project: string,
+  q: Query,
+  k: number,
+  meaning: boolean,
+  o: { reranker?: null },
+): Promise<Found> {
   if (!existsSync(indexFile(project))) return { hits: [], total: 0, unembedded: 0 };
   const docIds = docIdsOf(project, q);
   if (docIds && !docIds.length) return { hits: [], total: 0, unembedded: 0 };
@@ -239,7 +245,7 @@ async function findPassages(project: string, q: Query, k: number, meaning: boole
     k: k * 3,
     mode: meaning ? "hybrid" : "bm25",
     expand: "none",
-    ...(meaning ? {} : { reranker: null }),
+    ...(meaning ? o : { reranker: null }),
     ...(docIds ? { docIds } : {}),
     log: (_, m) => {
       note = m;
@@ -332,7 +338,12 @@ function suggestFor(project: string, t: NonNullable<ReturnType<typeof typing>>):
   return { token: t.token, key: t.key, values: counted.slice(0, SUGGEST_MAX) };
 }
 
-export async function searchAll(project: string, input: SearchAllInput): Promise<SearchResult> {
+// ponytail: o.reranker null leaves the reranker out (an LLM's search, claude/access.ts llmSearch)
+export async function searchAll(
+  project: string,
+  input: SearchAllInput,
+  o: { reranker?: null } = {},
+): Promise<SearchResult> {
   const q = parseQuery(input.query);
   const typed = typing(input.query);
   const words = [...q.used.map((u) => u.token), ...(typed ? [typed.token] : [])]
@@ -361,7 +372,7 @@ export async function searchAll(project: string, input: SearchAllInput): Promise
     });
   if (hasText) {
     if (wants(q, "document")) await guard("document", () => findDocuments(project, q, k));
-    if (wants(q, "passage") && q.text.trim()) await guard("passage", () => findPassages(project, q, k, meaning));
+    if (wants(q, "passage") && q.text.trim()) await guard("passage", () => findPassages(project, q, k, meaning, o));
   }
   for (const f of Object.values(found)) if (f?.note && !notes.includes(f.note)) notes.push(f.note);
   const order = orderOf(q, found);
