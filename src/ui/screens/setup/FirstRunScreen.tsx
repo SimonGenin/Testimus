@@ -40,16 +40,18 @@ export type Step = "welcome" | "claude" | "access" | "project" | "pack" | "ready
 
 const ARGS: Step[] = ["claude", "access", "project", "pack", "ready"];
 
-export const stepOf = (arg: string | undefined): Step => ARGS.find((s) => s === arg) ?? "welcome";
+export const stepOf = (arg: string | undefined): Step => ARGS.find((s) => s === arg?.split("/")[0]) ?? "welcome";
 
-const argOf = (s: Step) => (s === "welcome" ? undefined : s);
+const fromAppOf = (arg: string | undefined) => arg?.split("/")[1] === "app";
+const argOf = (s: Step, fromApp: boolean) => (fromApp ? `${s}/app` : s === "welcome" ? undefined : s);
 
 // ponytail: the first launch — no rail, no dock; five steps a person can walk back and forth, each its own card, then
 // what is ready and what was left for later; each step opens at its top (the page is new for each)
 export function FirstRunScreen() {
   const app = useApp();
   const step = stepOf(app.route.arg);
-  const go = (s: Step) => app.navigate("setup", argOf(s));
+  const fromApp = fromAppOf(app.route.arg);
+  const go = (s: Step) => app.navigate("setup", argOf(s, fromApp));
   const noJira = !!useSettings().data?.atlassian?.skipJira;
   return (
     <div key={step} {...stylex.props(styles.page)}>
@@ -93,7 +95,7 @@ export function FirstRunScreen() {
         ) : step === "project" ? (
           <ProjectStep
             onBack={() => go(noJira ? "claude" : "access")}
-            onOpened={() => (app.info ? app.navigate("documents") : go("pack"))}
+            onOpened={() => (fromApp ? app.navigate("documents") : go("pack"))}
           />
         ) : step === "pack" ? (
           <PackStep onBack={() => go("project")} onDone={() => go("ready")} />

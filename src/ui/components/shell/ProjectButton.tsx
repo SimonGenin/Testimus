@@ -1,5 +1,5 @@
 import { type ReactElement, useEffect } from "react";
-import { useApp } from "../../lib/app.ts";
+import { SETUP_FROM_APP, useApp } from "../../lib/app.ts";
 import { project, setProject } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
@@ -48,7 +48,7 @@ export function ProjectButton() {
         }))
       : [{ label: "No other project known yet", disabled: true, onSelect: () => {} }]),
     "separator",
-    { label: "All projects…", icon: "list", onSelect: () => app.navigate("setup", "project") },
+    { label: "All projects…", icon: "list", onSelect: () => app.navigate("setup", SETUP_FROM_APP) },
   ];
   const trigger = (
     <RailItem

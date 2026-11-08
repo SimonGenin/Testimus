@@ -175,7 +175,7 @@ describe("TestsScreen", () => {
       within(screen.getByRole("complementary", { name: "Tests" })).getByRole("button", { name: "New test" }),
     ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
-    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project/app");
     expect(callsTo("tests.list")).toHaveLength(0);
     expect(errors).toEqual([]);
   });

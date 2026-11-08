@@ -59,7 +59,7 @@ describe("the palette's « Open a folder as a project… »", () => {
   it("in a browser: goes to First launch › Project, which asks for the folder", () => {
     const { state } = withData(<Probe />);
     click();
-    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project/app");
     expect(callsOf("project.open")).toHaveLength(0);
   });
 });

@@ -18,7 +18,7 @@ import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
 import { ResizeHandle } from "../components/ui/ResizeHandle.tsx";
 import { Toaster } from "../components/ui/Toast.tsx";
-import { AppContext, type AppState, type ClaudeRun, type Focus, type SourceFrom } from "../lib/app.ts";
+import { AppContext, type AppState, type ClaudeRun, type Focus, SETUP_FROM_APP, type SourceFrom } from "../lib/app.ts";
 import type { CommandInfo } from "../lib/data/client.ts";
 import { execute } from "../lib/data/query.ts";
 import { usePaneWidth } from "../lib/panes.ts";
@@ -210,7 +210,7 @@ export function App() {
     (c: CommandInfo) => {
       if (c.name === "project.open") return void openFolder();
       if (c.name === "project.openKey") return setByKey(true);
-      if (c.name === "project.init") return navigate("setup", "project");
+      if (c.name === "project.init") return navigate("setup", SETUP_FROM_APP);
       if (c.name === "chat.ask") return askDocs();
       if (c.name === "claude.run") return askClaude("test");
       if (hasInput(c) || lossOf(c.name, {})) {

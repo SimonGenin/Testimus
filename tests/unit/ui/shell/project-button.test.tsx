@@ -55,7 +55,7 @@ describe("ProjectButton", () => {
     openMenu();
     openMenu();
     fireEvent.click(await screen.findByRole("menuitem", { name: "All projects…" }));
-    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project/app");
   });
 
   it("says when no other project is known, and when the list fails", async () => {
@@ -99,7 +99,7 @@ describe("ProjectButton", () => {
     ]);
     for (const label of gone) expect(screen.queryByRole("menuitem", { name: label })).toBeNull();
     fireEvent.click(screen.getByRole("menuitem", { name: "All projects…" }));
-    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project/app");
     expect(d.pickFolder).not.toHaveBeenCalled();
     expect(d.reveal).not.toHaveBeenCalled();
   });

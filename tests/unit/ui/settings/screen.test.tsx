@@ -66,7 +66,7 @@ describe("Settings screen", () => {
     const open = screen.getByRole("button", { name: "Open a project…" });
     expect(iconsIn(open)).toEqual(["folder-open"]);
     fireEvent.click(open);
-    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project/app");
     expect(screen.queryByRole("button", { name: "New project" })).toBeNull();
     expect(calls("project.info")).toHaveLength(0);
     expect(calls("project.notes")).toHaveLength(0);
@@ -149,7 +149,7 @@ describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a
     expect(option("Claude")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText(/open one to set them/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
-    expect(state.navigate).toHaveBeenCalledWith("setup", "project");
+    expect(state.navigate).toHaveBeenCalledWith("setup", "project/app");
   });
 
   it("#/settings/project-jira opens Project and focuses the Jira project key", async () => {

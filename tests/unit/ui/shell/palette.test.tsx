@@ -204,7 +204,7 @@ describe("command palette", () => {
     expect(screen.getByText(/No project is open: only commands are listed/)).toBeInTheDocument();
     expect(screen.getByText("Commands only")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
-    expect(navigate).toHaveBeenCalledWith("setup", "project");
+    expect(navigate).toHaveBeenCalledWith("setup", "project/app");
     expect(onCommand).not.toHaveBeenCalled();
   });
 

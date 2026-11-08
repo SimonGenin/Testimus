@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { type KeyboardEvent, useContext, useId, useMemo, useRef, useState } from "react";
 import type { SearchMatch } from "../../../core/types.ts";
-import { AppContext } from "../../lib/app.ts";
+import { AppContext, SETUP_FROM_APP } from "../../lib/app.ts";
 import type { CommandInfo } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
@@ -380,7 +380,7 @@ export function Palette({
                   label="Open a project…"
                   onClick={() => {
                     onClose();
-                    app.navigate("setup", "project");
+                    app.navigate("setup", SETUP_FROM_APP);
                   }}
                 />
               )

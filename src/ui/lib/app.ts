@@ -13,6 +13,10 @@ export type Screen =
   | "setup"
   | "kit";
 
+// ponytail: First launch › Project reached from the app (the project menu's « All projects… », the palette, an empty
+// screen): opening a project there goes back to the app, where the first launch walks on to Search
+export const SETUP_FROM_APP = "project/app";
+
 export type ProjectInfo = {
   dir: string;
   project: ProjectJson;

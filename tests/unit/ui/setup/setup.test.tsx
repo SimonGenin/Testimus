@@ -118,11 +118,27 @@ describe("First launch screen", () => {
     settingsWith();
     projects = [{ dir: "C:/q", name: "Q", jiraProject: "Q1", exists: true }];
     net.routes["project.open"] = (i) => ({ dir: i.dir });
-    const { state } = withApp(<FirstRunScreen />, { route: { screen: "setup", arg: "project" } });
+    const { state } = withApp(<FirstRunScreen />, { route: { screen: "setup", arg: "project/app" } });
     expect(screen.getByRole("button", { name: "Back to the app" })).toBeInTheDocument();
+    expect(within(steps()).getAllByRole("listitem")[3]).toHaveAttribute("aria-current", "step");
+    fireEvent.click(within(steps()).getByRole("button", { name: /Search/ }));
+    expect(state.navigate).toHaveBeenCalledWith("setup", "pack/app");
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("documents"));
     expect(state.navigate).not.toHaveBeenCalledWith("setup", "pack");
+  });
+
+  it("on the first launch, back on the project step once a project is open, opening another still goes to Search", async () => {
+    settingsWith();
+    projects = [
+      { dir: "C:/q", name: "Q", jiraProject: "Q1", exists: true },
+      { dir: "C:/r", name: "R", jiraProject: "R1", exists: true },
+    ];
+    net.routes["project.open"] = (i) => ({ dir: i.dir });
+    const { state } = withApp(<FirstRunScreen />, { route: { screen: "setup", arg: "project" } });
+    fireEvent.click((await screen.findAllByRole("button", { name: "Open" }))[1]);
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("setup", "pack"));
+    expect(state.navigate).not.toHaveBeenCalledWith("documents");
   });
 
   it("with Jira left out, the Claude step and the project step skip Jira & Xray", async () => {

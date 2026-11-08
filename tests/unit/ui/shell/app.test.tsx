@@ -509,7 +509,7 @@ describe("App palette", () => {
     expect(callsOf("xray.disconnect")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await pick("project init");
-    await hashIs("#/setup/project");
+    await hashIs("#/setup/project/app");
   });
 
   it("copes with a core that lists no commands", async () => {

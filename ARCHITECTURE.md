@@ -538,7 +538,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   Claude dock on the right everywhere (folded in Review; floats over the screen below 1300 px). Minimum width 520 px.
   The project at the top of the rail opens a menu of the known projects (a quick switch) and one action, « All
   projects… », to First launch › Project — the one place that opens a folder, opens by Jira key, creates, hides,
-  deletes or shows a project in Explorer; reached with a project open, opening one there goes back to the app.
+  deletes or shows a project in Explorer; reached from the app (its route says so, `#/setup/project/app`: the project
+  menu, the palette, an empty screen's « Open a project… »), opening one there goes back to the app; on the first
+  launch it walks on to Search, even once a first project is open.
 - **Names, never internal ids**: a label is what speaks to the user — a test's summary (its Jira key beside it in mono
   when it has one; a local test carries a « Local » badge), a document's title (and its code), the project's name, a
   context's or column's name; a missing one is « Untitled test / document / context », never the id

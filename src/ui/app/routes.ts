@@ -36,7 +36,8 @@ export function parseRoute(hash: string): Route {
   return { screen: s, arg };
 }
 
-export const hashOf = (screen: Screen, arg?: string) => `#/${screen}${arg ? `/${encodeURIComponent(arg)}` : ""}`;
+export const hashOf = (screen: Screen, arg?: string) =>
+  `#/${screen}${arg ? `/${arg.split("/").map(encodeURIComponent).join("/")}` : ""}`;
 
 // ponytail: the route is the page's hash — a link, the back button or a screen's navigate all move it
 export function useRoute(): [Route, (screen: Screen, arg?: string) => void] {
