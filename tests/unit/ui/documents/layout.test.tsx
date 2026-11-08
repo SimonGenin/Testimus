@@ -190,6 +190,25 @@ describe("Documents screen folding", () => {
     expect(screen.queryByRole("region", { name: / details$/ })).toBeNull();
   });
 
+  it("a narrow screen is folded from its first frame, before the size watcher answers: no list shown then taken away", async () => {
+    listed();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      return { width: this.getAttribute("data-testid") === "docs-body" ? 900 : 0 } as DOMRect;
+    });
+    const { container } = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "D1" } });
+    expect(fold(container)).toBe("small");
+    expect(screen.queryByRole("region", { name: "Document list" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Show the document list" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Document list" })).toBeNull();
+  });
+
   it("small: Details opens the settings as a drawer; the button, Escape, the scrim or a wider screen closes it", async () => {
     listed({ converted: { with: "", at, warnings: ["2 comments dropped"] } });
     const body = sized(900);

@@ -155,6 +155,7 @@ describe("Documents screen", () => {
         ? { md: "Première ligne.\n\nLa **deuxième** ligne,\ncitée.\n\nTroisième." }
         : { doc: doc("D1"), context: "", toc: [{ anchor: "§1", title: "One", level: 1 }], figures: [], md: "" };
     const { tops } = boxes({
+      '[data-testid="docs-body"]': { width: 1600 },
       '[data-testid="doc-part"]': { top: 100, bottom: 300, height: 200 },
       "[data-focus]": { top: 500, bottom: 520, height: 20 },
       '[data-testid="doc-toc"]': { top: 0, bottom: 100, height: 100 },

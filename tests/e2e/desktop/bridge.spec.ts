@@ -244,8 +244,9 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
   try {
     await stubMain(app);
     await go(page, "#/documents");
-    // ponytail: an added document opens, and under 1300px the list folds into a drawer — it is opened to count the
-    // rows, then closed (a drawer is modal: the screen's buttons wait behind it)
+    // ponytail: an added document opens, and on a window too narrow for the four columns the list folds into a drawer
+    // from the screen's first frame — it is opened to count the rows, then closed (a drawer is modal: the screen's
+    // buttons wait behind it)
     const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
     const count = async (n: number) => {
       const drawer = page.getByRole("button", { name: "Show the document list" });

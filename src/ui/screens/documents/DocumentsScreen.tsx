@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { type DragEvent, useEffect, useRef, useState } from "react";
+import { type DragEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -149,9 +149,12 @@ export function DocumentsScreen() {
 
   useEffect(() => forgetSettled, []);
 
-  useEffect(() => {
+  // ponytail: measured before the first paint — the wide layout drawn for one frame on a narrow window showed the list
+  // the drawer then took away
+  useLayoutEffect(() => {
     const el = body.current;
     if (!hasBody || !el || typeof ResizeObserver === "undefined") return;
+    setWidth(el.getBoundingClientRect().width);
     const watch = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
     watch.observe(el);
     return () => watch.disconnect();
