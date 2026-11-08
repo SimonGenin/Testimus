@@ -39,7 +39,7 @@ test.describe("vectors built, this PC's choice", () => {
     await expect(row(/^Search everything/)).toContainText("Always");
     await expect(row(/^The index of the documents/)).toContainText("Builds it");
     await expect(who).not.toContainText("Qwen3");
-    await api(url, "models.use", { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null });
+    await api(server.url, "models.use", { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null });
     await page.reload();
     await expect(row(/^Search everything/)).toContainText("Qwen3 Embedding 0.6B (8-bit, CPU)", { timeout: 30_000 });
     await expect(row(/^Search everything/)).toContainText("None in the models in use");
