@@ -26,7 +26,7 @@ async function sandbox(url: string): Promise<string> {
 }
 
 test.describe("default PC: a 16 GB GPU, a models folder", () => {
-  const { url } = mockServer(4360);
+  const server = mockServer(4360);
 
   test("the packs say what runs here, and the advice can be applied or dismissed", async ({ page }) => {
     const models = await openModels(page);
@@ -64,7 +64,7 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
       .click();
     const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
     await expect(plan).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
-    await expect(plan).toContainText(join(await sandbox(url), "models"));
+    await expect(plan).toContainText(join(await sandbox(server.url), "models"));
     await shoot(page, "models-plan-e2e");
     await plan.getByRole("button", { name: /^Download \S+ [MG]B$/ }).click();
     await expect(plan).toBeHidden();
@@ -159,10 +159,10 @@ test.describe("no GPU and 6 GB of memory", () => {
 });
 
 test.describe("first download, no models folder chosen", () => {
-  const { url } = mockServer(4363, { TESTIMUS_MOCK_MODELS_DIR: "unset", TESTIMUS_MOCK_LLAMACPP: "absent" });
+  const server = mockServer(4363, { TESTIMUS_MOCK_MODELS_DIR: "unset", TESTIMUS_MOCK_LLAMACPP: "absent" });
 
   test("the first download asks where models go, then Change… moves them", async ({ page }) => {
-    const root = await sandbox(url);
+    const root = await sandbox(server.url);
     const models = await openModels(page);
     await expect(models).toContainText("Not chosen yet — Testimus asks on the first download.");
     await models
@@ -202,7 +202,9 @@ test.describe("first download, no models folder chosen", () => {
     await expect(change).toBeHidden();
     await expect(models).toContainText(moved, { timeout: 30_000 });
     await expect
-      .poll(async () => (await api<{ where: string }[]>(url, "models.list")).some((m) => m.where.startsWith(moved)))
+      .poll(async () =>
+        (await api<{ where: string }[]>(server.url, "models.list")).some((m) => m.where.startsWith(moved)),
+      )
       .toBe(true);
   });
 });

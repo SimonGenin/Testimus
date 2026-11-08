@@ -1,9 +1,10 @@
 import { api, boot, expect, mockServer, openDock, openTest, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4343);
+const server = mockServer(4343);
 
 type Shown = { test: { steps: { fields: Record<string, string> }[] } };
-const action1 = async () => (await api<Shown>(url, "tests.show", { id: "LFRPS12-1420" })).test.steps[0].fields.Action;
+const action1 = async () =>
+  (await api<Shown>(server.url, "tests.show", { id: "LFRPS12-1420" })).test.steps[0].fields.Action;
 const ORIGINAL = "Ouvrir la vue de traction de la ligne 92 et repérer le sectionneur S 12.";
 
 test("Ask a document streams an answer whose source chips open the passage", async ({ page }) => {

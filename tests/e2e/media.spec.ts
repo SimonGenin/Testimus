@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4366);
+const server = mockServer(4366);
 const D3 = "SOSIE_211_D401-1_3";
 const FILES = join(import.meta.dirname, "..", "fixtures", "project", "docs", D3, "media", "recette-tco-12-10", "files");
 
@@ -29,7 +29,9 @@ test("a batch is added from its dialog, read by Claude, and becomes an annex of 
   await expect(dialog).toBeHidden();
 
   await expect
-    .poll(async () => (await api<Batch[]>(url, "media.list", { doc: D3 })).find((b) => b.title === "Essai ouverture"))
+    .poll(async () =>
+      (await api<Batch[]>(server.url, "media.list", { doc: D3 })).find((b) => b.title === "Essai ouverture"),
+    )
     .toMatchObject({ included: true, photos: 2, analysed: 2, state: "ready" });
   const lists = page.getByRole("region", { name: "Document list" });
   await expect(lists.getByRole("option", { name: new RegExp(D3) })).toContainText("Essai ouverture — 2 photos");
@@ -57,7 +59,9 @@ test("the fixture's batch is put in the document and taken out by its checkbox",
   await expect(box).not.toBeChecked();
   await box.click();
   await expect
-    .poll(async () => (await api<Batch[]>(url, "media.list", { doc: D3 })).find((b) => b.id === "recette-tco-12-10"))
+    .poll(async () =>
+      (await api<Batch[]>(server.url, "media.list", { doc: D3 })).find((b) => b.id === "recette-tco-12-10"),
+    )
     .toMatchObject({ included: true });
   await expect(box).toBeChecked();
   const toc = page.getByRole("navigation", { name: "Sections" });
@@ -68,13 +72,13 @@ test("the fixture's batch is put in the document and taken out by its checkbox",
 });
 
 test("the generation scope lists a document's annexes, each one left out on its own", async ({ page }) => {
-  const jobs = await api<{ jobId: string }>(url, "media.include", {
+  const jobs = await api<{ jobId: string }>(server.url, "media.include", {
     doc: D3,
     lot: "recette-tco-12-10",
     included: true,
   });
   expect(jobs.jobId).toBeTruthy();
-  await expect.poll(async () => (await api<Batch[]>(url, "media.list", { doc: D3 }))[0]?.included).toBe(true);
+  await expect.poll(async () => (await api<Batch[]>(server.url, "media.list", { doc: D3 }))[0]?.included).toBe(true);
   await boot(page, "#/generate");
   const annexes = page.getByRole("list", { name: "Annexes in scope" });
   const annex = annexes.getByRole("checkbox", { name: "Annex — Recette TCO 12/10" });

@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { api, expect, mockServer, openTest, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4390);
+const server = mockServer(4390);
 
 type Shown = {
   test: { preconditions: string[]; steps: { id?: string; fields: Record<string, string> }[] };
@@ -9,7 +9,7 @@ type Shown = {
   sync: string;
 };
 
-const show = (id: string) => api<Shown>(url, "tests.show", { id });
+const show = (id: string) => api<Shown>(server.url, "tests.show", { id });
 const main = (page: Page) => page.getByRole("main");
 const more = async (page: Page, item: string) => {
   await main(page).getByRole("button", { name: "More actions for this test" }).click();
@@ -78,12 +78,12 @@ test("the Columns popover folds Data for this test only", async ({ page }) => {
   await pop.getByRole("radio", { name: "This test" }).click();
   await pop.getByRole("radiogroup", { name: "Data column" }).getByRole("radio", { name: "Collapsed" }).click();
   await expect
-    .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
+    .poll(async () => (await api<{ own: unknown }>(server.url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toEqual({ Data: "collapsed" });
   await expect(main(page).getByRole("textbox", { name: /^Data of step/ })).toHaveCount(0);
   await pop.getByRole("button", { name: "Use the project default", exact: true }).click();
   await expect
-    .poll(async () => (await api<{ own: unknown }>(url, "tests.folds", { id: "LFRPS12-1420" })).own)
+    .poll(async () => (await api<{ own: unknown }>(server.url, "tests.folds", { id: "LFRPS12-1420" })).own)
     .toBeNull();
 });
 
@@ -123,6 +123,6 @@ test("Delete local copy asks for a never-pushed test and closes the editor", asy
   await d.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page).toHaveURL(/#\/tests$/);
   await expect
-    .poll(async () => (await api<{ id: string }[]>(url, "tests.list", {})).map((t) => t.id))
+    .poll(async () => (await api<{ id: string }[]>(server.url, "tests.list", {})).map((t) => t.id))
     .not.toContain("local-3f9a12c0");
 });

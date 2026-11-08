@@ -12,7 +12,7 @@ async function openSearch(page: Page) {
 }
 
 test.describe("vectors built, this PC's choice", () => {
-  const { url } = mockServer(4366);
+  const server = mockServer(4366);
 
   test("the section names the models in use and where the choice comes from, with no fixed list", async ({ page }) => {
     const search = await openSearch(page);
@@ -28,11 +28,13 @@ test.describe("vectors built, this PC's choice", () => {
   });
 
   test("a second model gets its own space; the old one is dropped", async ({ page }) => {
-    await api(url, "models.use", { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null });
+    await api(server.url, "models.use", { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null });
     await expect
-      .poll(async () => (await api<Space[]>(url, "rag.spaces")).filter((s) => s.complete).length, { timeout: 30_000 })
+      .poll(async () => (await api<Space[]>(server.url, "rag.spaces")).filter((s) => s.complete).length, {
+        timeout: 30_000,
+      })
       .toBe(2);
-    const old = (await api<Space[]>(url, "rag.spaces")).find((s) => s.model === "bge-m3-q8");
+    const old = (await api<Space[]>(server.url, "rag.spaces")).find((s) => s.model === "bge-m3-q8");
     const search = await openSearch(page);
     await expect(search).toContainText("Qwen3 Embedding 0.6B (8-bit, CPU)");
     const spaces = search.getByRole("table", { name: "Vector spaces" });

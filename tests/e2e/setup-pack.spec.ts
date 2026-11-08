@@ -4,7 +4,7 @@ import { api, expect, mockServer, shoot, test } from "./helpers.ts";
 type Pack = { id: string; active: boolean };
 
 test.describe("a 16 GB GPU", () => {
-  const { url } = mockServer(4370);
+  const server = mockServer(4370);
 
   test("the project step leads to the pack step, which suggests the heaviest pack that fits", async ({ page }) => {
     await page.goto("/#/setup/project");
@@ -28,7 +28,7 @@ test.describe("a 16 GB GPU", () => {
     await expect(page).toHaveURL(/#\/setup\/ready$/);
     await expect(page.getByRole("list", { name: "Setup summary" })).toContainText("Search");
     await expect
-      .poll(async () => (await api<Pack[]>(url, "models.packs")).find((p) => p.id === "quality")?.active, {
+      .poll(async () => (await api<Pack[]>(server.url, "models.packs")).find((p) => p.id === "quality")?.active, {
         timeout: 30_000,
       })
       .toBe(true);
@@ -43,10 +43,10 @@ test.describe("a 16 GB GPU", () => {
 });
 
 test.describe("no GPU, 6 GB, no models folder yet", () => {
-  const { url } = mockServer(4371, { TESTIMUS_MOCK_MACHINE: "cpu-only", TESTIMUS_MOCK_MODELS_DIR: "unset" });
+  const server = mockServer(4371, { TESTIMUS_MOCK_MACHINE: "cpu-only", TESTIMUS_MOCK_MODELS_DIR: "unset" });
 
   test("the suggestion avoids a model on the processor, and the first download asks for a folder", async ({ page }) => {
-    const root = dirname((await api<{ dir: string }>(url, "project.info")).dir);
+    const root = dirname((await api<{ dir: string }>(server.url, "project.info")).dir);
     await page.goto("/#/setup/pack");
     const packs = page.getByRole("radiogroup", { name: "Search packs" });
     await expect(packs.getByRole("radio", { name: /^Light\b/ })).toBeEnabled();
@@ -76,7 +76,7 @@ test.describe("no GPU, 6 GB, no models folder yet", () => {
     await plan.getByRole("button", { name: /^Download / }).click();
     await expect(page).toHaveURL(/#\/setup\/ready$/);
     await expect
-      .poll(async () => (await api<Pack[]>(url, "models.packs")).find((p) => p.id === "performance")?.active, {
+      .poll(async () => (await api<Pack[]>(server.url, "models.packs")).find((p) => p.id === "performance")?.active, {
         timeout: 30_000,
       })
       .toBe(true);

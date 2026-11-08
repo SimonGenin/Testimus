@@ -1,9 +1,9 @@
 import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4348);
+const server = mockServer(4348);
 
 test("a request runs live, the tests land, and « Review these tests » opens them", async ({ page }) => {
-  const before = (await api<unknown[]>(url, "tests.list")).length;
+  const before = (await api<unknown[]>(server.url, "tests.list")).length;
   await boot(page, "#/generate");
   await expect(page.getByRole("heading", { level: 1, name: "Generate" })).toBeVisible();
   const request = page.getByRole("region", { name: "Request" });
@@ -54,7 +54,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(landed).toHaveCount(2);
   for (const card of await landed.all())
     await expect(card.getByRole("button", { name: "Review", exact: true })).toBeVisible();
-  await expect.poll(async () => (await api<unknown[]>(url, "tests.list")).length).toBe(before - 1 + 2);
+  await expect.poll(async () => (await api<unknown[]>(server.url, "tests.list")).length).toBe(before - 1 + 2);
   await expect(result.getByText("1 test not validated yet was deleted before this run.")).toBeVisible();
   await shoot(page, "generate-done");
 

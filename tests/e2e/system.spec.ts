@@ -1,6 +1,6 @@
 import { api, boot, expect, mockServer, openTest, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4352);
+const server = mockServer(4352);
 
 test("first launch: welcome, Claude, the access found tested on arrival, then the project step", async ({ page }) => {
   await page.goto("/#/setup");
@@ -63,10 +63,10 @@ test("settings save the smart column preferences and the editor honours them", a
   await fields.getByRole("button", { name: "Move Exigence up" }).click();
   type Columns = { columns: { name: string; mode: string }[] };
   await expect
-    .poll(async () => (await api<Columns>(url, "project.info")).columns.map((c) => c.name).join(","))
+    .poll(async () => (await api<Columns>(server.url, "project.info")).columns.map((c) => c.name).join(","))
     .toBe("Action,Data,Exigence,Expected Result");
   await expect
-    .poll(async () => (await api<Columns>(url, "project.info")).columns.find((c) => c.name === "Data")?.mode)
+    .poll(async () => (await api<Columns>(server.url, "project.info")).columns.find((c) => c.name === "Data")?.mode)
     .toBe("open");
 
   await openTest(page, "LFRPS12-1420");

@@ -1,6 +1,6 @@
 import { api, boot, expect, mockServer, shoot, test, waitForJob } from "./helpers.ts";
 
-const { url } = mockServer(4351);
+const server = mockServer(4351);
 
 test("a running job shows its live log, then its result", async ({ page }) => {
   await boot(page, "#/jobs");
@@ -8,7 +8,7 @@ test("a running job shows its live log, then its result", async ({ page }) => {
   await expect(page.getByText("No job yet", { exact: true })).toBeVisible();
   await shoot(page, "jobs-empty");
 
-  await api(url, "gen.tests", { request: "Le menu contextuel du sectionneur" });
+  await api(server.url, "gen.tests", { request: "Le menu contextuel du sectionneur" });
   const list = page.getByRole("region", { name: "Job list" });
   const row = list.getByRole("treeitem", { name: /Generate tests.*Le menu contextuel du sectionneur/ });
   await expect(row).toBeVisible();
@@ -28,14 +28,14 @@ test("a running job shows its live log, then its result", async ({ page }) => {
 
 test("a running job is cancelled from its detail", async ({ page }) => {
   await boot(page, "#/jobs");
-  const { jobId } = await api<{ jobId: string }>(url, "gen.tests", { request: "Le disjoncteur à distance" });
+  const { jobId } = await api<{ jobId: string }>(server.url, "gen.tests", { request: "Le disjoncteur à distance" });
   const list = page.getByRole("region", { name: "Job list" });
   await list.getByRole("treeitem", { name: /Generate tests.*Le disjoncteur à distance/ }).click();
   const detail = page.getByRole("complementary", { name: "Generate tests job" });
   await detail.getByRole("button", { name: "Cancel" }).click();
   await expect(detail.getByText(/^Cancel/).first()).toBeVisible();
-  await waitForJob(url, jobId);
-  const job = await api<{ job: { status: string } }>(url, "jobs.show", { id: jobId });
+  await waitForJob(server.url, jobId);
+  const job = await api<{ job: { status: string } }>(server.url, "jobs.show", { id: jobId });
   expect(job.job.status).toBe("cancelled");
   await expect(list.getByRole("treeitem", { name: /Generate tests.*Le disjoncteur à distance/ })).toContainText(
     /Cancel/,
@@ -44,12 +44,12 @@ test("a running job is cancelled from its detail", async ({ page }) => {
 
 test("finished jobs are cleared, running ones stay", async ({ page }) => {
   await boot(page, "#/jobs");
-  const { jobId } = await api<{ jobId: string }>(url, "check.run", { all: true, semantic: false });
-  await waitForJob(url, jobId);
+  const { jobId } = await api<{ jobId: string }>(server.url, "check.run", { all: true, semantic: false });
+  await waitForJob(server.url, jobId);
   const list = page.getByRole("region", { name: "Job list" });
   await expect(list.getByRole("treeitem", { name: /Check tests/ }).first()).toBeVisible();
   await list.getByRole("button", { name: "Clear finished" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Clear" }).click();
   await expect(list.getByRole("treeitem", { name: /Check tests/ })).toHaveCount(0);
-  expect(await api<unknown[]>(url, "jobs.list", {})).toEqual([]);
+  expect(await api<unknown[]>(server.url, "jobs.list", {})).toEqual([]);
 });

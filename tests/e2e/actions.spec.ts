@@ -1,18 +1,19 @@
 import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4351);
+const server = mockServer(4351);
 
 // ponytail: below ~1300px beside the Claude dock the document list and the settings fold into drawers
 test.use({ viewport: { width: 1920, height: 1080 } });
 
 const DOC = "SOSIE_211_D401-1_3";
 type Listed = { id: string; title: string; state: string }[];
-const open = async () => (await api<Listed>(url, "actions.list", { docId: DOC })).filter((a) => a.state === "open");
+const open = async () =>
+  (await api<Listed>(server.url, "actions.list", { docId: DOC })).filter((a) => a.state === "open");
 
 test("a problem Claude can fix becomes a card in the Actions tab only; it runs with the suggested model and reverts", async ({
   page,
 }) => {
-  await api(url, "actions.triage", { docId: DOC, model: "haiku", effort: "low" });
+  await api(server.url, "actions.triage", { docId: DOC, model: "haiku", effort: "low" });
   await expect.poll(async () => (await open()).length, { timeout: 15_000 }).toBe(1);
 
   await boot(page, `#/documents/${DOC}`);
@@ -46,12 +47,12 @@ test("a problem Claude can fix becomes a card in the Actions tab only; it runs w
   await expect(ran.getByText("I read the passage the problem is about.")).toBeVisible();
   await expect(ran.getByText("opus · high")).toBeVisible();
   await shoot(page, "action-done");
-  expect((await api<{ context: string }>(url, "docs.show", { id: DOC })).context).toContain("Figures lost");
+  expect((await api<{ context: string }>(server.url, "docs.show", { id: DOC })).context).toContain("Figures lost");
   await expect.poll(async () => (await open()).length).toBe(0);
 
   await ran.getByRole("button", { name: /^Revert$/ }).click();
   await expect(ran.getByText("Reverted")).toBeVisible();
-  expect((await api<{ context: string }>(url, "docs.show", { id: DOC })).context).not.toContain("Figures lost");
+  expect((await api<{ context: string }>(server.url, "docs.show", { id: DOC })).context).not.toContain("Figures lost");
 
   await dock.getByRole("tab", { name: "Documents" }).click();
   await expect(dock.getByRole("region", { name: /Claude action/ })).toHaveCount(0);
@@ -60,7 +61,7 @@ test("a problem Claude can fix becomes a card in the Actions tab only; it runs w
 test("a step's action is a card in the Actions tab, not on its Review row, and is dismissed for good", async ({
   page,
 }) => {
-  await api(url, "actions.propose", {
+  await api(server.url, "actions.propose", {
     problem: "Le résultat attendu ne dit pas ce que montre le menu.",
     title: "Make step 2 say what the menu shows",
     why: "§5.6.6 lists what the menu proposes.",
@@ -85,7 +86,7 @@ test("a step's action is a card in the Actions tab, not on its Review row, and i
   await expect(card.getByRole("button", { name: "sonnet · medium" })).toBeVisible();
   await card.getByRole("button", { name: "Dismiss" }).click();
   await expect(card).toHaveCount(0);
-  const again = await api<{ ignored?: boolean }>(url, "actions.propose", {
+  const again = await api<{ ignored?: boolean }>(server.url, "actions.propose", {
     problem: "Le résultat attendu ne dit pas ce que montre le menu.",
     title: "Make step 2 say what the menu shows",
     why: "§5.6.6 lists what the menu proposes.",

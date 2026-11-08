@@ -1,9 +1,10 @@
 import type { Page } from "@playwright/test";
 import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4346);
+const server = mockServer(4346);
 
-const review = async (id: string) => (await api<{ test: { review: string } }>(url, "tests.show", { id })).test.review;
+const review = async (id: string) =>
+  (await api<{ test: { review: string } }>(server.url, "tests.show", { id })).test.review;
 const queue = (page: Page) => page.getByRole("complementary", { name: "Review queue" });
 const under = (page: Page) => page.getByRole("region", { name: "Test under review" });
 const SUMMARY_1420 = "Sectionneur sans TK — menu contextuel et propriétés";

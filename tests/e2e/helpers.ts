@@ -1,6 +1,8 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { createInterface } from "node:readline";
+import type { Readable } from "node:stream";
 import { test as base, expect, type Page } from "@playwright/test";
 
 export { expect };
@@ -30,49 +32,57 @@ export const test = base.extend<{ consoleGuard: Guard }>({
   ],
 });
 
-// ponytail: other sessions run this suite on the same PC at the same time — a spec's port may already be held by
-// their server, and the spec would quietly test (and lose) someone else's sandbox; the first free port from the
-// preferred one on is taken instead, and the readiness check asks our own child
-function freePort(preferred: number): number {
-  const probe = `const net=require("node:net");const t=(p)=>{const s=net.createServer();s.once("error",()=>t(p+1));s.listen(p,"127.0.0.1",()=>{s.close(()=>process.stdout.write(String(p)))})};t(${preferred});`;
-  const out = spawnSync(process.execPath, ["-e", probe], { encoding: "utf8" }).stdout.trim();
-  return Number(out) || preferred;
-}
-
-export function mockServer(preferred: number, extraEnv: Record<string, string> = {}): { url: string } {
-  const port = freePort(preferred);
-  const url = `http://localhost:${port}`;
+// ponytail: other sessions run this suite on the same PC at the same time, on the same preferred ports — a port probed
+// free could be taken while our server built its sandbox, and the readiness check then got its answer from their
+// server: the spec quietly tested (and changed) someone else's sandbox. The server takes the preferred port or any free
+// one (--port-fallback, as the desktop shell starts it) and names it on its own ready line, where the spec reads its url
+export function mockServer(preferred: number, extraEnv: Record<string, string> = {}): { readonly url: string } {
+  let url = "";
   let child: ChildProcess | null = null;
-  test.use({ baseURL: url });
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright reads a fixture's dependencies from its first parameter
+  test.use({ baseURL: async ({}, use) => use(url) });
   test.beforeAll(async () => {
-    // ponytail: a port moved off its preferred value can be one an earlier spec used — its session cookie is stale
-    sessions.delete(url);
-    child = spawn(
+    const started = spawn(
       process.execPath,
-      [join(ROOT, "src", "faces", "cli.ts"), "serve", "--mock", "--port", String(port), "--no-open"],
-      { cwd: ROOT, env: { ...process.env, ...extraEnv }, stdio: "ignore" },
+      [
+        join(ROOT, "src", "faces", "cli.ts"),
+        "serve",
+        "--mock",
+        "--port",
+        String(preferred),
+        "--port-fallback",
+        "--no-open",
+        "--ready-json",
+      ],
+      { cwd: ROOT, env: { ...process.env, ...extraEnv }, stdio: ["ignore", "pipe", "ignore"] },
     );
-    let exited: number | null = null;
-    child.once("exit", (code) => {
-      exited = code ?? -1;
+    child = started;
+    const ready = await new Promise<{ url: string; pid: number }>((ok, fail) => {
+      const timer = setTimeout(() => fail(new Error("testimus serve --mock did not say it was ready")), 30_000);
+      started.once("exit", (code) => {
+        clearTimeout(timer);
+        fail(new Error(`testimus serve --mock exited (${code ?? -1}) before it was ready`));
+      });
+      createInterface({ input: started.stdout as Readable }).once("line", (line) => {
+        clearTimeout(timer);
+        ok(JSON.parse(line));
+      });
     });
-    const until = Date.now() + 30_000;
-    while (Date.now() < until) {
-      if (exited !== null)
-        throw new Error(`testimus serve --mock on ${url} exited (${exited}) — port taken meanwhile?`);
-      try {
-        const r = await fetch(`${url}/api/system/version`);
-        if (r.ok) return;
-      } catch {}
-      await new Promise((r) => setTimeout(r, 150));
-    }
-    throw new Error(`testimus serve --mock did not answer on ${url}`);
+    if (ready.pid !== started.pid) throw new Error(`the ready line came from pid ${ready.pid}, not ours`);
+    url = `http://localhost:${new URL(ready.url).port}`;
+    // ponytail: a port off its preferred value can be one an earlier spec used — its session cookie is stale
+    sessions.delete(url);
   });
   test.afterAll(() => {
     child?.kill();
     child = null;
   });
-  return { url };
+  return {
+    get url() {
+      if (!url) throw new Error("the mock server starts in beforeAll — read its url inside a test");
+      return url;
+    },
+  };
 }
 
 const sessions = new Map<string, string>();

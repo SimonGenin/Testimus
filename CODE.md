@@ -155,7 +155,9 @@ Several mock servers on `localhost` share one cookie jar and clash: give each it
 Done means:
 - `npm run build` clean (tsc + vite), `npm run check` clean (Biome), `npm test` green.
 - `npx playwright test` green against fresh `serve --mock` servers (msedge); screens touched are captured light and
-  dark in `tests/screens/`.
+  dark in `tests/screens/`. A spec with a sandbox of its own calls `mockServer(<preferred port>)`
+  (`tests/e2e/helpers.ts`): its server takes that port or any free one and names it on its ready line, so the spec
+  reads `server.url` inside a test — several sessions run the suite on one PC at once, on the same preferred ports.
 - The architecture guards stay where they are: `node tests/unit/guards/report.ts [--detail]`. The guards at zero stay
   at zero (`npm test` fails above); the counted ones (G2 framed boxes outside the kit, G8 token values added by
   `scripts/tokens.ts`) may only shrink.

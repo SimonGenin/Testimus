@@ -1,7 +1,7 @@
 import type { Locator } from "@playwright/test";
 import { api, boot, expect, mockServer, openTest, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4347);
+const server = mockServer(4347);
 
 const row = (side: Locator, name: RegExp) =>
   side.getByRole("treeitem", { name }).or(side.getByRole("option", { name }));
@@ -45,9 +45,9 @@ test("the Jira tab shows the folder tree and pulls a remote test", async ({ page
   await expect(remote).toBeVisible();
   await expect(row(side, /LFRPS12-1398.*In sync.*\d+ steps?$/)).toBeVisible();
   await shoot(page, "tests-jira");
-  const before = (await api<unknown[]>(url, "tests.list")).length;
+  const before = (await api<unknown[]>(server.url, "tests.list")).length;
   await remote.click();
-  await expect.poll(async () => (await api<unknown[]>(url, "tests.list")).length).toBe(before + 1);
+  await expect.poll(async () => (await api<unknown[]>(server.url, "tests.list")).length).toBe(before + 1);
   await expect(page).toHaveURL(/#\/tests\/LFRPS12-1401$/);
   await expect(page.getByRole("main").getByRole("article", { name: "Step 1" })).toBeVisible();
 });
@@ -65,7 +65,7 @@ test("a typed issue number searches Jira, and a local row's trash deletes a push
   await row(side, /LFRPS12-1398/).hover();
   await side.getByRole("button", { name: /^Delete the local copy of LFRPS12-1398/ }).click();
   await expect
-    .poll(async () => (await api<{ id: string }[]>(url, "tests.list")).map((t) => t.id))
+    .poll(async () => (await api<{ id: string }[]>(server.url, "tests.list")).map((t) => t.id))
     .not.toContain("LFRPS12-1398");
 });
 

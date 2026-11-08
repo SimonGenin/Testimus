@@ -1,13 +1,13 @@
 import type { Page } from "@playwright/test";
 import { api, expect, mockServer, openTest, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4341);
+const server = mockServer(4341);
 
 type Shown = {
   test: { summary: string; review: string; steps: { id?: string; fields: Record<string, string> }[] };
 };
 
-const show = (id: string) => api<Shown>(url, "tests.show", { id });
+const show = (id: string) => api<Shown>(server.url, "tests.show", { id });
 const main = (page: Page) => page.getByRole("main");
 const step = (page: Page, n: number) => main(page).getByRole("article", { name: `Step ${n}`, exact: true });
 

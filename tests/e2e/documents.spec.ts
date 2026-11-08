@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { sampleDocx } from "../fixtures/docx/sample.ts";
 import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
-const { url } = mockServer(4350);
+const server = mockServer(4350);
 
 // ponytail: below ~1420px beside the Claude dock the document list and the settings fold into drawers
 test.use({ viewport: { width: 1920, height: 1080 } });
@@ -39,7 +39,7 @@ test("the context note is edited and saved for Claude", async ({ page }) => {
   await context.fill("Référence traction ligne 92. Les sectionneurs avec TK sont câblés depuis la v01.02.");
   await context.blur();
   await expect
-    .poll(async () => JSON.stringify(await api(url, "docs.show", { id: "SOSIE_211_D401-1_3" })))
+    .poll(async () => JSON.stringify(await api(server.url, "docs.show", { id: "SOSIE_211_D401-1_3" })))
     .toContain("câblés depuis la v01.02");
   await page.reload();
   await expect(
@@ -60,7 +60,7 @@ test("a document's status change is saved", async ({ page }) => {
   await status.getByRole("radio", { name: "Validated" }).click();
   await expect(status.getByRole("radio", { name: "Validated", checked: true })).toBeVisible();
   await expect
-    .poll(async () => JSON.stringify(await api(url, "docs.show", { id: "SOSIE_211_D401-1_4" })))
+    .poll(async () => JSON.stringify(await api(server.url, "docs.show", { id: "SOSIE_211_D401-1_4" })))
     .toContain('"status":"validated"');
 });
 
@@ -74,7 +74,7 @@ test("a .docx added is listed unconverted, then converted and indexed on demand"
   await (await chooser).setFiles(file);
   const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
   await expect(rows).toHaveCount(3, { timeout: 30_000 });
-  const listed = JSON.stringify(await api(url, "docs.list"));
+  const listed = JSON.stringify(await api(server.url, "docs.list"));
   const added = [...listed.matchAll(/"id":"([^"]+)"/g)]
     .map((m) => m[1])
     .find((id) => !id.startsWith("SOSIE_211_D401-1_3") && !id.startsWith("SOSIE_211_D401-1_4"));
@@ -84,12 +84,12 @@ test("a .docx added is listed unconverted, then converted and indexed on demand"
     .getByRole("option", { name: new RegExp(`${added} · `) });
   await expect(row).toHaveCount(1);
   await expect(row.getByText("Not converted")).toBeVisible();
-  expect(JSON.stringify(await api(url, "docs.show", { id: added }))).not.toContain('"converted":');
+  expect(JSON.stringify(await api(server.url, "docs.show", { id: added }))).not.toContain('"converted":');
   const side = page.getByRole("region", { name: `${added} details` });
   await expect(side.getByText("Not converted yet")).toBeVisible();
   await side.getByRole("button", { name: "Convert and index" }).click();
   await expect
-    .poll(async () => JSON.stringify(await api(url, "docs.show", { id: added })), { timeout: 60_000 })
+    .poll(async () => JSON.stringify(await api(server.url, "docs.show", { id: added })), { timeout: 60_000 })
     .toContain('"converted":');
   await expect(side.getByRole("navigation", { name: "Sections" })).toBeVisible({ timeout: 30_000 });
 });
