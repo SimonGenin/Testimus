@@ -177,6 +177,7 @@ describe("gen-report parsing", () => {
         { item: "Menu C", category: "Other", why: "" },
       ],
       consulted: [],
+      covered: [],
     });
     const withConsulted = ["```gen-report", '{"tests": [], "consulted": ["D#§1", 3]}', "```"].join("\n");
     expect(parseGenReport(withConsulted).consulted).toEqual(["D#§1"]);
@@ -192,6 +193,7 @@ describe("gen-report parsing", () => {
       tests: [],
       skipped: [],
       consulted: [],
+      covered: [],
     });
     expect(parseGenReport("Tests written.").found).toBe(false);
   });
@@ -326,6 +328,11 @@ describe("planned generation", () => {
     expect(seen).toHaveLength(3);
     expect(seen[1].stdin).toContain("Request: Boutons 0 à 7");
     expect(seen[2].stdin).toContain("This is test 2 of 2 of a plan for: Tout le document.");
+    for (const s of seen.slice(1))
+      expect(s.stdin).toContain(
+        "Categories already used for the items not written in this generation: « Not observable » — file an item of the same nature under the same words.",
+      );
+    expect(seen[0].stdin).not.toContain("Categories already used");
     expect(r.ok).toBe(true);
     expect(r.planned).toBe(2);
     expect([...r.tests].sort()).toEqual(ids);

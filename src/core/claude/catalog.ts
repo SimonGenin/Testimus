@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { prompts as doctor } from "../lib/doctor.ts";
+import { shipSkills } from "../lib/shipped.ts";
 import { prompts as actions } from "./actions.ts";
 import { prompts as chat } from "./chat.ts";
 import { prompts as check } from "./check.ts";
@@ -90,8 +91,12 @@ const words = (name: string) => {
 };
 
 // ponytail: a skill is used where a built prompt names it (« Use the generate-tests skill »); one no prompt names is the
-// team's, and Claude picks it from its description
+// team's, and Claude picks it from its description. The skills are brought up to the app's version first, as the next
+// run will (claude/run.ts): what is shown is what Claude is sent
 function skills(project: string, built: Given[]): Given[] {
+  try {
+    shipSkills(project);
+  } catch {}
   const root = join(project, ".claude", "skills");
   if (!existsSync(root)) return [];
   return readdirSync(root, { withFileTypes: true })

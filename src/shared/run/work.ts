@@ -109,6 +109,33 @@ export function semaphore(n: number): Semaphore {
   };
 }
 
+export type KeyedSemaphore = <T>(
+  key: string,
+  work: () => Promise<T>,
+  signal?: AbortSignal,
+  onWait?: () => void,
+) => Promise<T>;
+
+// ponytail: one semaphore per key, made when first asked for and dropped once nobody holds it or waits for it
+export function perKey(n: number): KeyedSemaphore {
+  const held = new Map<string, { take: Semaphore; users: number }>();
+  return async <T>(key: string, work: () => Promise<T>, signal?: AbortSignal, onWait?: () => void) => {
+    let k = held.get(key);
+    if (!k) {
+      k = { take: semaphore(n), users: 0 };
+      held.set(key, k);
+    }
+    if (k.users >= n) onWait?.();
+    k.users++;
+    try {
+      return await k.take(work, signal);
+    } finally {
+      k.users--;
+      if (!k.users) held.delete(key);
+    }
+  };
+}
+
 export type Scope = {
   signal: AbortSignal;
   defer(cleanup: () => unknown): void;

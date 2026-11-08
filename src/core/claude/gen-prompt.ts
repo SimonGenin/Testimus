@@ -8,7 +8,7 @@ import { anchorsOf } from "../rag/convert.ts";
 import { readState } from "../rag/indexer.ts";
 import type { Effort } from "../types.ts";
 import { proposeLines } from "./actions.ts";
-import type { PlannedTest } from "./gen-reply.ts";
+import type { PlannedTest, Skipped } from "./gen-reply.ts";
 import { CONTEXT_SLOT, contextLines, type PromptTemplate, readContexts } from "./prompt.ts";
 
 // ponytail: what a generation is asked — its input checked, the index gate, the prompt of a run (the whole request or
@@ -60,6 +60,15 @@ function scopeSections(project: string, i: GenInput): number {
 }
 
 export type PlanPart = { n: number; of: number; request: string };
+
+// ponytail: what a run that adds to an earlier generation is told (gen.revise add) — the generation's first request,
+// the tests it has (never written again) and the items it could not write (written now when the request covers them,
+// and named back under « covered »); categories are those its items not written already use, so a planned run or an
+// added one files the same kind of item under the same words
+export type AddPart = { request: string; tests: string[]; skipped: Skipped[] };
+export type GenMore = { add?: AddPart; categories?: string[] };
+
+export const categoriesOf = (skipped: Skipped[]) => [...new Set(skipped.map((s) => s.category))];
 
 export function checkGenInput(i: GenInput, project?: string): void {
   if (!i.request.trim() && !clean(i.sections).length && !clean(i.docs).length)
@@ -116,6 +125,7 @@ export function genPrompt(
   contextIds: string[] = [],
   runId?: string,
   part?: PlanPart,
+  more: GenMore = {},
 ): string {
   const p = readProject(project);
   return genText(
@@ -129,6 +139,7 @@ export function genPrompt(
     },
     runId,
     part,
+    more,
   );
 }
 
@@ -138,6 +149,7 @@ export function genText(
   facts: { size: number | string; columns: string[]; folders: string; language: string; context: string[] },
   runId?: string,
   part?: { n: number | string; of: number | string; request: string },
+  more: GenMore = {},
 ): string {
   const sections = clean(i.sections);
   const docs = clean(i.docs);
@@ -150,6 +162,17 @@ export function genText(
     lines.push(
       `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test; the other tests of the plan are written by other runs.`,
     );
+  const add = more.add;
+  if (add) {
+    lines.push(`This adds tests to an earlier generation${add.request.trim() ? ` for: ${add.request.trim()}` : ""}.`);
+    if (add.tests.length)
+      lines.push("It already has these tests — never write them again:", ...add.tests.map((t) => `- ${t}`));
+    if (add.skipped.length)
+      lines.push(
+        'Items it could not write before — write a test for each one the request covers and a source now supports, and name it under "covered" in the report:',
+        ...add.skipped.map((s) => `- ${s.item} (${s.category}${s.why ? `: ${s.why}` : ""})`),
+      );
+  }
   const size = facts.size;
   if (!part)
     lines.push(
@@ -175,6 +198,12 @@ export function genText(
     "Never modify, rename or delete an existing test. Never call a tool that writes to Jira.",
   );
   lines.push(...facts.context);
+  const categories = more.categories ?? [];
+  if (categories.length)
+    lines.push(
+      "",
+      `Categories already used for the items not written in this generation: ${categories.map((c) => `« ${c} »`).join(", ")} — file an item of the same nature under the same words.`,
+    );
   if (runId)
     lines.push(
       ...proposeLines(
@@ -186,7 +215,7 @@ export function genText(
     "",
     `When you finish, end your reply with the report block of the skill (section 4), exactly this shape:`,
     "```" + REPORT_TAG,
-    '{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}',
+    `{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]${add?.skipped.length ? ', "covered": ["<an item not written before, as listed above, you wrote a test for>"]' : ""}}`,
     "```",
     "",
   );
@@ -232,6 +261,27 @@ export const prompts: PromptTemplate[] = [
           n: "{k}",
           of: "{n}",
           request: "{request}",
+        },
+        { categories: ["{category already used}"] },
+      ),
+  },
+  {
+    id: "generate-add",
+    name: "More tests for a generation",
+    group: "Generation",
+    usedBy: ["Generate › Ask for changes › Add tests", "gen.revise (add)"],
+    text: () =>
+      genText(
+        { request: "{request}", docs: ["{documents}"], sections: ["{sections}"], folder: "{folder}" },
+        FACTS,
+        "{runId}",
+        undefined,
+        {
+          add: {
+            request: "{first request}",
+            tests: ["{test it already has}"],
+            skipped: [{ item: "{item not written}", category: "{category}", why: "{why}" }],
+          },
         },
       ),
   },

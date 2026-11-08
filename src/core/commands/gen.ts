@@ -212,7 +212,9 @@ export const commands = [
         .array(z.string())
         .optional()
         .describe("With change: only these tests of the generation (default: all of them)"),
-      contexts: CONTEXT_IDS.optional().describe("Saved context ids Claude reads first (default: as the generation)"),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved context ids Claude reads first (default: those the generation ran with — the project's default contexts for a generation older than that record)",
+      ),
       note: NOTE,
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)"),

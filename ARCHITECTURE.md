@@ -571,8 +571,9 @@ after the frontmatter, so a review decision never makes findings stale.
   holds over a skill the team edited); the mechanical check has no length rule and `check-test` never reports one.
   `tests/unit/core/gen/step-length.test.ts` fails on a hard-limit wording in any shipped skill, the code's prompts or
   the mock.
-- The skill ends with a fenced `gen-report` block `{ tests, skipped: [{ item, category, why, sources? }], consulted }`
-  (`claude/gen-reply.ts`; `plan-tests`' `test-plan` block has the same `skipped`). Every new test is stamped `review:
+- The skill ends with a fenced `gen-report` block `{ tests, skipped: [{ item, category, why, sources? }], consulted,
+  covered? }` (`claude/gen-reply.ts`; `plan-tests`' `test-plan` block has the same `skipped`; `covered`, asked only of a
+  run that adds to a generation, names the items not written before that it wrote a test for). Every new test is stamped `review:
   draft` + `generated_by`, and checked at once. The run is snapshotted (revertable).
 - **Why a test was not written** (2026-11-08): `category` is a few words Claude chooses for the run, in the project
   language, the same words for items of the same nature — **no list of categories exists in the code**, the skills and
@@ -591,9 +592,17 @@ after the frontmatter, so a review decision never makes findings stale.
 - **Asking again after a generation** (2026-11-08): `gen.revise { generation, request, mode: change | add, tests? }`
   is a `generate` job under the same generation (`claude/gen-revise.ts`). *change* runs `edit-test` on the
   generation's tests (all, or the ones picked), checks the ones it changed (`revised` in the result) and keeps the
-  generation's skipped items; *add* is a generation under the same id (`generateTests(…, into)`), told the tests it
-  already has, whose new tests are stamped with it and added to its ledger (the first request and date stay). Both
-  are snapshotted like any generation. `gen.show` reads a generation: its name, request, date, tests still there and
+  generation's skipped items; *add* is a generation under the same id (`generateTests(…, into)`), told — in its own
+  prompt lines (template `generate-add`), never as the user's note — the first request, the tests it already has and
+  the items it could not write, writing those the request covers and naming them under `covered`. Its new tests are
+  stamped with the generation and added to its ledger; the first request, the date, the plan and its `done` stay; the
+  skipped items are merged (`mergeSkipped`: the earlier ones stay unless covered or reported again, the new reason
+  replacing the old). Two *add* on one generation run one after the other (`perKey` in `src/shared/run/work.ts`), so
+  neither loses the other's tests. Both modes run with the contexts the generation ran with (the ledger's
+  `input.contexts`, recorded since 2026-11-08; an older ledger falls back to the project's default) unless given
+  others. A planned run, and a run that adds, is told the categories the generation's items not written already use,
+  so the same kind of item keeps the same words across runs. « Cover the skipped items » is an *add* (a quick ask may
+  carry a scope: `ClaudeBlock` `quickAsks[].scope`). Both are snapshotted like any generation. `gen.show` reads a generation: its name, request, date, tests still there and
   skipped items. On Generate, once a generation is done, the left column is « Ask for changes » (`AskChanges`: the
   kit's `ClaudeBlock` with scope chips All N tests · Add tests · Pick tests…, quick asks, model · effort); « New
   request » in the top bar brings the request form back, and a run keeps the column it was started from. Under it,
@@ -758,7 +767,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   `prompts` — its builder given the parts filled per run as `{placeholders}` (`{request}`, `{contexts}`…; the context
   lines, a document's team note and the smart columns are pure functions for that) — and `claude/catalog.ts` lists
   them, so the screen never shows a copy of the text. A module that runs Claude without its entry fails
-  `tests/unit/core/claude/catalog.test.ts`; `prompts-sent.test.ts` keeps the exact text each run sends for one input
+  `tests/unit/core/claude/catalog.test.ts`; so does a module outside `commands/` that runs Claude through another
+  (`generateTests`, `runOnScope`, `triage`…) without `promptsUsed` naming the templates it causes, and a `claude.run`
+  scope without its `ask-<kind>` template. The skills are shown after `shipSkills`, as the next run sends them; `prompts-sent.test.ts` keeps the exact text each run sends for one input
   (`prompts-sent/*.txt`, updated with `vitest -u` when a prompt changes on purpose). Decided: a skill takes the group
   and the « used by » of the built prompts that name it (« Use the X skill »); one no prompt names is a Team skill;
   each default context is its own entry (its `context.md`); the two sign-in probes (`claude.status`, the doctor) are

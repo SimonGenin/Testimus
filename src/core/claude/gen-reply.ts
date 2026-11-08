@@ -14,6 +14,7 @@ export type GenReport = {
   tests: string[];
   skipped: Skipped[];
   consulted: string[];
+  covered: string[];
 };
 
 export type PlannedTest = { summary: string; technique: string; sections: string[] };
@@ -60,10 +61,11 @@ export function parseGenReport(text: string): GenReport {
         tests: asStrings(o.tests),
         skipped: asSkipped(o.skipped),
         consulted: asStrings(o.consulted),
+        covered: asStrings(o.covered),
       };
     } catch {}
   }
-  return { found: false, tests: [], skipped: [], consulted: [] };
+  return { found: false, tests: [], skipped: [], consulted: [], covered: [] };
 }
 
 // ponytail: the plan is the last fenced block tagged test-plan; a planned test needs a summary, and keeps only the

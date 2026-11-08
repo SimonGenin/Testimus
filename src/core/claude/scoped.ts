@@ -65,8 +65,22 @@ export const prompts: PromptTemplate[] = [
     id: "ask-test",
     name: "Ask Claude on a test",
     group: "Tests",
-    usedBy: ["Claude dock on a test or several tests", "Quick asks", USED],
+    usedBy: ["Claude dock on a test", "Quick asks", USED],
     text: () => sent({ kind: "test", testId: "{test}" }, "{request}", CONTEXT_SLOT),
+  },
+  {
+    id: "ask-tests",
+    name: "Ask Claude on several tests",
+    group: "Tests",
+    usedBy: ["Claude dock on several tests", "Generate › Ask for changes", "gen.revise (change)", USED],
+    text: () => sent({ kind: "tests", testIds: ["{test}", "{other test}"] }, "{request}", CONTEXT_SLOT),
+  },
+  {
+    id: "ask-doc",
+    name: "Ask Claude on a document",
+    group: "Documents",
+    usedBy: ["Claude dock on a document", "Claude actions on a document", USED],
+    text: () => sent({ kind: "doc", docId: "{document}" }, "{request}", CONTEXT_SLOT),
   },
   {
     id: "ask-project",

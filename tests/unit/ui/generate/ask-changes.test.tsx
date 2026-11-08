@@ -140,4 +140,18 @@ describe("Generate › Ask for changes", () => {
     await waitFor(() => expect(named("gen.revise")).toHaveLength(2));
     expect(named("gen.revise")[1].input).toMatchObject({ mode: "change", tests: [B], request: "Raccourcis" });
   });
+
+  it("Cover the skipped items asks for added tests: the core gives Claude the items not written", async () => {
+    done();
+    mountData(<GenerateScreen />);
+    const ask = await screen.findByRole("region", { name: "Ask for changes" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Cover the skipped items" }));
+    expect(within(ask).getByRole("button", { name: "Add tests" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
+    await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
+    expect(named("gen.revise")[0].input).toMatchObject({
+      mode: "add",
+      request: "Write tests for the items not written, where a source now supports them.",
+    });
+  });
 });

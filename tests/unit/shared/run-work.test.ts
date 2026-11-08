@@ -4,6 +4,7 @@ import {
   debounce,
   every,
   isCancelled,
+  perKey,
   retry,
   scope,
   semaphore,
@@ -230,6 +231,31 @@ describe("semaphore", () => {
     const gate = semaphore(1);
     await expect(gate(() => Promise.reject(new Error("x")))).rejects.toThrow("x");
     expect(await gate(async () => "next")).toBe("next");
+  });
+});
+
+describe("perKey", () => {
+  it("one at a time per key, keys apart from each other; a work waiting says so", async () => {
+    const lock = perKey(1);
+    const order: string[] = [];
+    const waited: string[] = [];
+    const work = (key: string, name: string) =>
+      lock(
+        key,
+        async () => {
+          order.push(`${name} in`);
+          await sleep(100);
+          order.push(`${name} out`);
+        },
+        undefined,
+        () => waited.push(name),
+      );
+    const all = Promise.all([work("a", "a1"), work("a", "a2"), work("b", "b1")]);
+    await vi.advanceTimersByTimeAsync(200);
+    await all;
+    expect(order).toEqual(["a1 in", "b1 in", "a1 out", "a2 in", "b1 out", "a2 out"]);
+    expect(waited).toEqual(["a2"]);
+    expect(await lock("a", async () => "free again")).toBe("free again");
   });
 });
 

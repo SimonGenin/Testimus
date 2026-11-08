@@ -11,6 +11,9 @@ import { filesOf, prepareImage, syncImageEntries, updateFile, updateFiles } from
 import { writeMediaMd } from "./media-md.ts";
 import { processVideo } from "./media-video.ts";
 
+// ponytail: the Claude run reading the pictures is built by claude/media.ts (tests/unit/core/claude/catalog.test.ts)
+export const promptsUsed = ["media"];
+
 export const MEDIA_CONVERTER = "media 1";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));

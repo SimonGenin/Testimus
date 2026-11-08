@@ -147,6 +147,10 @@ const SKIPPED = [
   },
 ];
 
+// ponytail: a run adding to a generation writes a test for the first item it was told the generation could not write,
+// names it under « covered », and reports the others again
+const coveredItem = (prompt: string) => prompt.match(/^Items it could not write before[^\n]*\n- (.+?) \(/m)?.[1];
+
 // ponytail: test i of the run as Claude saves it — its first steps, then the whole test — so the Generate page sees a
 // test grow while it is written
 function writeTest(spawn: ClaudeSpawn, ids: string[], i: number, steps?: number): void {
@@ -169,9 +173,11 @@ registerMockScript(
   (spawn) => {
     const ids = [newLocalId(), newLocalId()];
     const file = (id: string) => join(spawn.cwd, "tests", id, "test.md");
+    const covered = coveredItem(spawn.stdin);
     const report = {
       tests: ids,
-      skipped: SKIPPED,
+      skipped: SKIPPED.filter((s) => s.item !== covered),
+      ...(covered ? { covered: [covered] } : {}),
     };
     const reply = [
       `Tests écrits : ${ids[0]} (sectionneur sans TK, 4 steps), ${ids[1]} (sectionneur avec TK, chemin négatif, 2 steps).`,

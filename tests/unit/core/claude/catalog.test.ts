@@ -1,9 +1,10 @@
-import { cpSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { BUILT } from "../../../../src/core/claude/catalog.ts";
 import { contextDir } from "../../../../src/core/claude/prompt.ts";
+import { sha256 } from "../../../../src/core/lib/hash.ts";
 import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
 import { templateDir } from "../../../../src/core/lib/shipped.ts";
 import { writeContextMd } from "../../helpers/context.ts";
@@ -33,9 +34,19 @@ const sources = (d: string): string[] =>
     return f.endsWith(".ts") ? [p] : [];
   });
 
-const callers = sources(CORE)
-  .map((f) => relative(CORE, f).replaceAll("\\", "/"))
-  .filter((f) => !RUNNERS.has(f) && /\b(runClaude|spawnClaude)\(/.test(readFileSync(join(CORE, f), "utf8")));
+const all = sources(CORE).map((f) => relative(CORE, f).replaceAll("\\", "/"));
+const text = (f: string) => readFileSync(join(CORE, f), "utf8");
+const callers = all.filter((f) => !RUNNERS.has(f) && /\b(runClaude|spawnClaude)\(/.test(text(f)));
+// ponytail: a module that runs claude -p through another one (generateTests, runOnScope, triage…) — the commands only
+// hand their input over, so they are left out; each such module names the prompts it causes (promptsUsed)
+const runners = callers.flatMap((f) => [...text(f).matchAll(/^export async function (\w+)/gm)].map((m) => m[1]));
+const indirect = all.filter(
+  (f) =>
+    !f.startsWith("commands/") &&
+    !RUNNERS.has(f) &&
+    !callers.includes(f) &&
+    runners.some((r) => new RegExp(`\\b${r}\\(`).test(text(f))),
+);
 
 function project(): string {
   cpSync(join(templateDir(), ".claude"), join(dir, ".claude"), { recursive: true });
@@ -55,6 +66,42 @@ describe("claude.prompts lists everything Claude is given", () => {
       for (const t of m.prompts ?? []) expect(ids.has(t.id), `${f}: ${t.id} is in claude.prompts`).toBe(true);
     }
     expect(new Set(BUILT.map((t) => t.id)).size).toBe(BUILT.length);
+  });
+
+  it("every module that runs claude -p through another names the prompts it causes, each in the list", async () => {
+    expect(indirect).toEqual(expect.arrayContaining(["claude/gen-revise.ts", "lib/docs-pipeline.ts"]));
+    const ids = new Set(BUILT.map((t) => t.id));
+    for (const f of indirect) {
+      const m = (await import(pathToFileURL(join(CORE, f)).href)) as { promptsUsed?: string[] };
+      expect(
+        m.promptsUsed?.length,
+        `${f} runs claude -p through another module: it exports promptsUsed`,
+      ).toBeGreaterThan(0);
+      for (const id of m.promptsUsed ?? []) expect(ids.has(id), `${f}: ${id} is in claude.prompts`).toBe(true);
+    }
+  });
+
+  it("claude.run has a prompt for every scope it takes", () => {
+    for (const kind of ["step", "test", "tests", "doc", "project"])
+      expect(
+        BUILT.some((t) => t.id === `ask-${kind}`),
+        `ask-${kind}`,
+      ).toBe(true);
+  });
+
+  it("a skill is shown as the next run sends it: an older shipped version is brought up first", async () => {
+    const p = project();
+    const skill = join(p, ".claude", "skills", "check-test", "SKILL.md");
+    const old = "an older check-test\n";
+    writeFileSync(skill, old);
+    mkdirSync(join(p, ".testimus"), { recursive: true });
+    writeFileSync(
+      join(p, ".testimus", "shipped.json"),
+      JSON.stringify({ ".claude/skills/check-test/SKILL.md": [sha256(Buffer.from(old))] }),
+    );
+    const out = await call<Given[]>("claude.prompts", {}, p);
+    const shown = out.find((g) => g.id === "skill:check-test") as Given;
+    expect(shown.text).toBe(readFileSync(join(templateDir(), ".claude", "skills", "check-test", "SKILL.md"), "utf8"));
   });
 
   it("the skills of the project with what uses them, the team's own, CLAUDE.md, the default contexts, each built prompt", async () => {
@@ -118,6 +165,7 @@ describe("claude.prompts lists everything Claude is given", () => {
       "skill",
       "built",
       "built",
+      "built",
     ]);
     expect(out.filter((p) => p.group === "Every run").map((p) => p.id)).toEqual([
       "file:CLAUDE.md",
@@ -126,7 +174,12 @@ describe("claude.prompts lists everything Claude is given", () => {
     ]);
   });
 
-  it("a project without skills nor CLAUDE.md still lists what Testimus builds", async () => {
+  it("a project whose team deleted the skills, without CLAUDE.md, still lists what Testimus builds", async () => {
+    const shipped = Object.fromEntries(
+      readdirSync(join(templateDir(), ".claude", "skills")).map((s) => [`.claude/skills/${s}/SKILL.md`, ["0"]]),
+    );
+    mkdirSync(join(dir, ".testimus"), { recursive: true });
+    writeFileSync(join(dir, ".testimus", "shipped.json"), JSON.stringify(shipped));
     rmSync(join(dir, ".claude"), { recursive: true, force: true });
     const out = await call<Given[]>("claude.prompts", {}, dir);
     expect(out.map((p) => p.origin).every((o) => o === "built")).toBe(true);

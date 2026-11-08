@@ -54,6 +54,7 @@ const QUICK = [
   {
     label: "Cover the skipped items",
     prompt: "Write tests for the items not written, where a source now supports them.",
+    scope: "add",
   },
 ];
 

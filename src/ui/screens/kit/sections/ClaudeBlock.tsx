@@ -50,7 +50,10 @@ function Scopes() {
       ]}
       scopeValue={scope}
       onScope={setScope}
-      quickAsks={quickAsks}
+      quickAsks={[
+        ...quickAsks,
+        { label: "Cover the skipped items", prompt: "Write the items not written.", scope: "add" },
+      ]}
       model={model}
       effort={effort}
       submitLabel="Ask Claude"

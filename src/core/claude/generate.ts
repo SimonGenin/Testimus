@@ -1,5 +1,6 @@
+import { resolve } from "node:path";
+import { perKey } from "../../shared/run/work.ts";
 import type { Ctx } from "../command.ts";
-import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
 import { loadCorpus, runMechanical } from "../lib/check.ts";
@@ -18,10 +19,11 @@ import {
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type Tokens } from "../types.ts";
 import { checkTests } from "./check.ts";
 import { proposeGenActions } from "./gen-actions.ts";
+import { addPart, mergeSkipped, readPrior } from "./gen-again.ts";
 import { genBoard, type Lane } from "./gen-board.ts";
-import { checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
-import { type GenReport, parseGenReport, parsePlan, type Skipped, STOPPED, type TestPlan } from "./gen-reply.ts";
-import { ledgerOf, readLedger, type Searched, writeLedger } from "./ledger.ts";
+import { categoriesOf, checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
+import { type GenReport, parseGenReport, parsePlan, type Skipped, STOPPED } from "./gen-reply.ts";
+import { ledgerOf, readLedger, writeLedger } from "./ledger.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { absorbRun, markLeft, readRun } from "./snapshot.ts";
 
@@ -149,43 +151,24 @@ async function genRun(
 
 const union = (xs: string[][]) => [...new Set(xs.flat())];
 
-type Prior = {
-  input: GenInput;
-  runId: string;
-  tests: string[];
-  consulted: string[];
-  searched: Searched[];
-  plan: TestPlan;
-  done: number[];
-};
-
-function readPrior(project: string, generation: string): Prior {
-  const l = readLedger(project, generation);
-  if (!l?.input || !l.runId || !l.plan?.tests?.length)
-    throw new UserError(
-      `No plan to resume under ${generation}.`,
-      "Only a generation written from a plan can be resumed: its result names it (generation).",
-    );
-  return {
-    input: l.input,
-    runId: l.runId,
-    tests: l.tests ?? [],
-    consulted: l.consulted ?? [],
-    searched: l.searched ?? [],
-    plan: l.plan,
-    done: l.done ?? [],
-  };
-}
-
 // ponytail: into = an earlier generation this run adds to (gen.revise): its tests are stamped with that generation,
-// its ledger keeps what the generation asked first and gains the new tests
+// its ledger keeps what the generation asked first, its plan and its items not written (less those written now) and
+// gains the new tests; two runs adding to the same generation go one after the other, so neither loses the other's
+const adding = perKey(1);
+
 export async function generateTests(project: string, asked: GenInput, ctx: Ctx, into?: string): Promise<GenResult> {
-  const release = holdNewTests(project);
-  try {
-    return await generate(project, asked, ctx, into);
-  } finally {
-    release();
-  }
+  const work = async () => {
+    const release = holdNewTests(project);
+    try {
+      return await generate(project, asked, ctx, into);
+    } finally {
+      release();
+    }
+  };
+  if (!into) return work();
+  return adding(`${resolve(project).toLowerCase()}|${into}`, work, ctx.signal, () =>
+    ctx.progress({ message: "Waiting for the other request on this generation" }),
+  );
 }
 
 async function generate(project: string, asked: GenInput, outer: Ctx, into?: string): Promise<GenResult> {
@@ -217,6 +200,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   if (discarded.length)
     ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
   const contexts = input.contexts ?? p.claude.contexts;
+  const add = into && base ? addPart(project, base) : undefined;
   ctx.steps?.([
     ...(prior ? [] : [{ id: "read", label: "Read the sources" }]),
     { id: "write", label: "Write the tests" },
@@ -232,7 +216,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
         runId,
         by,
         contexts,
-        prompt: genPrompt(project, input, contexts, runId),
+        prompt: genPrompt(project, input, contexts, runId, undefined, add ? { add } : {}),
         label: "generate",
         title: "read and write",
         lane: board.run(),
@@ -242,6 +226,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   const done = new Set(prior?.done ?? []);
   const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k }) => !done.has(k)) : [];
   const slots = board.plan(todo.map(({ t }) => t.summary));
+  const categories = categoriesOf([...(base?.skipped ?? []), ...(plan?.skipped ?? [])]).filter((c) => c !== STOPPED);
   if (todo.length) ctx.step?.("write");
   if (prior) ctx.log("info", `Resuming the plan: ${todo.length} of ${of} test(s) left.`);
   const set = agentsSetting();
@@ -272,7 +257,14 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
           runId: id,
           by,
           contexts,
-          prompt: genPrompt(project, part, contexts, id, { n: k + 1, of, request: input.request.trim() }),
+          prompt: genPrompt(
+            project,
+            part,
+            contexts,
+            id,
+            { n: k + 1, of, request: input.request.trim() },
+            { categories },
+          ),
           label: `generate ${k + 1}/${of}`,
           title: t.summary,
           lane: board.start(slots[n]),
@@ -298,13 +290,15 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   );
   const consulted = union([prior?.consulted ?? [], base?.consulted ?? [], ledger.consulted]);
   const searched = [...(prior?.searched ?? []), ...(base?.searched ?? []), ...ledger.searched];
-  const asked0 = base?.input ?? input;
+  const asked0 = base?.input ?? { ...input, contexts };
   const at = base?.at ?? env.now().toISOString();
+  const ownPlan = !base?.plan && plan?.found;
   const kept = {
     tests: union([prior?.tests ?? [], base?.tests ?? [], tests]),
     consulted,
     searched,
-    ...(plan?.found ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
+    ...(base?.plan ? { plan: base.plan, done: base.done ?? [] } : {}),
+    ...(ownPlan ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
   };
   writeLedger(project, by, { at, input: asked0, runId, ...kept });
   for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
@@ -336,7 +330,10 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   if (!reportFound && !failed) ctx.log("warn", "The generation reply has no gen-report block: skipped items unknown.");
   if (failed) ctx.log("error", failed.summary);
   if (left.length)
-    ctx.log("warn", `${left.length} planned test(s) not written — resume with gen.tests --resume ${by}.`);
+    ctx.log(
+      "warn",
+      `${left.length} planned test(s) not written${ownPlan ? ` — resume with gen.tests --resume ${by}` : ""}.`,
+    );
   const why = `not written: the generation ${ctx.signal.aborted ? "was cancelled" : "stopped on a failed run"} — resume it`;
   const sum = (f: (r: RunResult) => number | undefined) =>
     runs.some((r) => f(r.run) !== undefined) ? runs.reduce((a, r) => a + (f(r.run) ?? 0), 0) : undefined;
@@ -355,11 +352,15 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     checks,
     changed,
     discarded,
-    skipped: [
-      ...(first ? (plan?.skipped ?? []) : []),
-      ...reports.flatMap((r) => r.skipped),
-      ...left.map((t) => ({ item: t.summary, category: STOPPED, why })),
-    ],
+    skipped: mergeSkipped(
+      base?.skipped ?? prior?.skipped ?? [],
+      [
+        ...(first ? (plan?.skipped ?? []) : []),
+        ...reports.flatMap((r) => r.skipped),
+        ...left.map((t) => ({ item: t.summary, category: STOPPED, why })),
+      ],
+      reports.flatMap((r) => r.covered),
+    ),
     reportFound,
     consulted: consulted.length,
     planned: planned.length,

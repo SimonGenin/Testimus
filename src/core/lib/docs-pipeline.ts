@@ -19,6 +19,9 @@ import { docDir, readDoc, writeDoc } from "./docs.ts";
 import { addDoc, convertedCopy, reconvertDoc, setConversion, twinOf } from "./docs-convert.ts";
 import { conversionSlot, indexAfterConversions, whileConverting } from "./docs-index.ts";
 
+// ponytail: the Claude runs a conversion starts are built by the modules it calls (tests/unit/core/claude/catalog.test.ts)
+export const promptsUsed = ["figures", "triage"];
+
 export type AfterConvert = { describeFigures?: boolean; triage?: boolean; study?: boolean; index?: boolean };
 export type IndexOutcome = { chunks?: number; degraded?: string; error?: string };
 export type Aftermath = { citedBy: CitingTest[]; index?: IndexOutcome };

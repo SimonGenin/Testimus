@@ -118,8 +118,9 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   scopes?: { value: string; label: string }[];
   scopeValue?: string;
   onScope?: (value: string) => void;
-  /** chips that put their prompt in the box; typing clears the pressed one */
-  quickAsks?: { label: string; prompt: string }[];
+  /** chips that put their prompt in the box; typing clears the pressed one. One with a scope also presses that scope
+   * chip (« Cover the skipped items » is an Add) */
+  quickAsks?: { label: string; prompt: string; scope?: string }[];
   model?: Choice;
   effort?: Choice;
   /** ctrl-enter (default) and enter call onSubmit; autosave saves like Text (a To fix note, a context's notes); none
@@ -285,6 +286,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
                 setPressed(next);
                 change(next === null ? "" : q.prompt);
                 if (next !== null) setPressed(next);
+                if (next !== null && q.scope && q.scope !== scopeValue) onScope?.(q.scope);
               }}
             />
           ))}

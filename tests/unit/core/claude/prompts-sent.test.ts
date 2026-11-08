@@ -74,6 +74,32 @@ describe("the prompts the Claude runs send", () => {
     await expect(sent()).toMatchFileSnapshot(file("generate"));
   });
 
+  it("a generation asked again: tests added (a plan, one run per test), its tests changed; claude.run on a document", async () => {
+    setup();
+    mkdirSync(join(dir, ".testimus", "gen"), { recursive: true });
+    writeFileSync(
+      join(dir, ".testimus", "gen", "generate-1.json"),
+      JSON.stringify({
+        at: "2026-11-01T10:00:00.000Z",
+        input: { request: "Le sectionneur", docs: [D3], contexts: ["spec"], folder: "/Traction" },
+        runId: "run-1",
+        tests: [TEST, "LFRPS12-1398"],
+        consulted: [],
+        searched: [],
+        skipped: [{ item: "Manœuvre à distance", category: "Pas de source", why: "Aucun document ne la décrit." }],
+      }),
+    );
+    const again = { generation: "generate-1", contexts: ["spec"], note: RUN.note };
+    await call("gen.revise", { ...again, request: "Ajoute la fermeture", mode: "add" }, dir);
+    await call("gen.revise", { ...again, request: "Précise les commandes", mode: "change" }, dir);
+    await call(
+      "claude.run",
+      { scope: { kind: "doc", docId: D3 }, prompt: "Recover figure 41", contexts: ["spec"] },
+      dir,
+    );
+    await expect(sent()).toMatchFileSnapshot(file("revise-doc"));
+  });
+
   it("the semantic check and the fix of a test", async () => {
     setup();
     await checkOne(quietCtx(dir), dir, TEST, true);

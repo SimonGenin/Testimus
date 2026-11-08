@@ -2,6 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { contextDir } from "../../../../src/core/claude/prompt.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
@@ -10,6 +11,7 @@ import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-gen.ts";
 import "../../../../src/core/mock/claude-check.ts";
 import type { ClaudeAction } from "../../../../src/core/types.ts";
+import { writeContextMd } from "../../helpers/context.ts";
 import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -116,6 +118,78 @@ describe("after a generation", () => {
     const shown = (await invoke("gen.show", { generation: g.generation }, { project: dir })) as Shown;
     expect(shown.tests).toHaveLength(4);
     expect(shown.request).toBe(REQUEST);
+  });
+
+  it("gen.revise add is told the tests and the items not written; the ledger keeps its plan and the items still not written", async () => {
+    const g = await generate();
+    const file = join(dir, ".testimus", "gen", `${g.generation}.json`);
+    const before = JSON.parse(readFileSync(file, "utf8"));
+    const unique = { item: "Article à part", category: "Catégorie d'origine", why: "x" };
+    const plan = { found: true, tests: [{ summary: "planned A", technique: "", sections: [] }], skipped: [] };
+    writeFileSync(file, JSON.stringify({ ...before, skipped: [...before.skipped, unique], plan, done: [0] }));
+    const prompts: string[] = [];
+    env.spawnClaude = (s) => {
+      prompts.push(s.stdin);
+      return mockSpawnClaude(s);
+    };
+    const r = (await invoke(
+      "gen.revise",
+      { generation: g.generation, request: "Couvre les éléments non écrits", mode: "add", note: "Ma note" },
+      { project: dir },
+    )) as Gen & { skipped: { item: string }[] };
+    const sent = prompts.find((p) => p.includes("Use the generate-tests skill")) ?? "";
+    expect(sent).toContain(`This adds tests to an earlier generation for: ${REQUEST}.`);
+    for (const id of g.tests) expect(sent).toContain(`- ${readTest(dir, id).test.summary}`);
+    expect(sent).toContain("- Article à part (Catégorie d'origine: x)");
+    expect(sent).toContain('"covered"');
+    expect(sent).toContain("Additional context from the user for this run:\nMa note");
+    expect(sent).not.toContain("never write them again:\n- Ma note");
+
+    const after = JSON.parse(readFileSync(file, "utf8"));
+    const items = after.skipped.map((s: { item: string }) => s.item);
+    expect(items).toContain("Article à part");
+    expect(items).not.toContain(before.skipped[0].item);
+    expect(items).toHaveLength(before.skipped.length);
+    expect(r.skipped.map((s) => s.item)).toEqual(items);
+    expect(after.plan).toEqual(plan);
+    expect(after.done).toEqual([0]);
+    expect(after.tests).toHaveLength(4);
+  });
+
+  it("two gen.revise add at once on one generation go one after the other: no test is lost", async () => {
+    const g = await generate();
+    const ask = (request: string) =>
+      invoke("gen.revise", { generation: g.generation, request, mode: "add" }, { project: dir }) as Promise<Gen>;
+    const [a, b] = await Promise.all([ask("Ajoute le défaut de la TK"), ask("Ajoute la fermeture")]);
+    const shown = (await invoke("gen.show", { generation: g.generation }, { project: dir })) as Shown;
+    expect([...shown.tests].sort()).toEqual([...g.tests, ...a.tests, ...b.tests].sort());
+    expect(shown.tests).toHaveLength(6);
+  });
+
+  it("gen.revise change runs with the generation's contexts unless it is given others", async () => {
+    const g = await generate();
+    const file = join(dir, ".testimus", "gen", `${g.generation}.json`);
+    const l = JSON.parse(readFileSync(file, "utf8"));
+    expect(l.input.contexts).toEqual([]);
+    writeContextMd(contextDir(dir, "glossary"), { name: "RATP glossary", notes: "TCO: poste de commande." });
+    writeFileSync(file, JSON.stringify({ ...l, input: { ...l.input, contexts: ["glossary"] } }));
+    const prompts: string[] = [];
+    env.spawnClaude = (s) => {
+      prompts.push(s.stdin);
+      return mockSpawnClaude(s);
+    };
+    const ask = (contexts?: string[]) =>
+      invoke(
+        "gen.revise",
+        { generation: g.generation, request: "Précise", mode: "change", ...(contexts ? { contexts } : {}) },
+        { project: dir },
+      );
+    await ask();
+    const edit = () => prompts.filter((p) => p.startsWith("Use the edit-test skill")).pop() ?? "";
+    expect(edit()).toMatch(/^Scope: the tests /m);
+    expect(edit()).toContain("- RATP glossary — notes:");
+    await ask([]);
+    expect(edit()).not.toContain("RATP glossary");
   });
 
   it("gen.revise refuses an unknown generation, an empty request, and picked tests not of the generation", async () => {

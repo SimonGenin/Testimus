@@ -141,6 +141,32 @@ describe("ClaudeBlock", () => {
     expect(onScope).toHaveBeenCalledWith("add");
   });
 
+  it("a quick ask with a scope also presses that scope", () => {
+    const onScope = vi.fn();
+    render(
+      <ClaudeBlock
+        ariaLabel="Prompt"
+        value=""
+        scopes={[
+          { value: "all", label: "All 3 tests" },
+          { value: "add", label: "Add tests" },
+        ]}
+        scopeValue="all"
+        onScope={onScope}
+        quickAsks={[
+          { label: "Shorten", prompt: "Make it short." },
+          { label: "Cover the skipped items", prompt: "Write them.", scope: "add" },
+        ]}
+        onSubmit={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Shorten" }));
+    expect(onScope).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cover the skipped items" }));
+    expect(onScope).toHaveBeenCalledWith("add");
+    expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveValue("Write them.");
+  });
+
   it("sends on Enter when asked, and may start with an empty box", () => {
     const onSubmit = vi.fn();
     render(

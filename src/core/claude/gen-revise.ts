@@ -1,6 +1,5 @@
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
-import { testName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
 import { testExists } from "../lib/store.ts";
 import type { Effort } from "../types.ts";
@@ -24,6 +23,10 @@ export type ReviseInput = {
 
 export type ReviseResult = GenResult & { revised: string[] };
 
+// ponytail: the prompts a revision sends are built by the modules it calls — generateTests with what the generation
+// has (generate-add), runOnScope on several tests (ask-tests); tests/unit/core/claude/catalog.test.ts holds it to them
+export const promptsUsed = ["generate-add", "ask-tests"];
+
 // ponytail: a generation asked again — « change » runs edit-test on its tests (all, or the ones picked), « add » runs
 // a generation under the same id with what the user asks for and the tests it already has; either way the result is the
 // generation's, its new findings and skipped items leave Claude actions, and the run is snapshotted like any other
@@ -37,16 +40,17 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
   const theirs = (ledger.tests ?? []).filter((id) => testExists(project, id));
   if (!input.request.trim())
     throw new UserError("Say what should change, or what to add.", "Write the request in a few words.");
+  const contexts = input.contexts ?? ledger.input.contexts;
   if (input.mode === "add") {
     const r = await generateTests(
       project,
       {
         ...ledger.input,
         request: input.request.trim(),
-        note: [addNote(project, ledger.input.request, theirs), input.note?.trim()].filter(Boolean).join("\n\n"),
+        note: input.note?.trim() || undefined,
         model: input.model,
         effort: input.effort,
-        contexts: input.contexts ?? ledger.input.contexts,
+        contexts,
         discard: false,
         resume: undefined,
         check: true,
@@ -86,7 +90,7 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
       prompt: input.request.trim(),
       model: input.model,
       effort: input.effort,
-      ...(input.contexts ? { contexts: input.contexts } : {}),
+      ...(contexts ? { contexts } : {}),
       ...(input.note ? { note: input.note } : {}),
     },
   );
@@ -133,12 +137,4 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
     ...(r.diagnosis ? { diagnosis: r.diagnosis } : {}),
     revised,
   };
-}
-
-function addNote(project: string, request: string, tests: string[]): string {
-  const names = tests.map((id) => `- ${testName(project, id)}`);
-  return [
-    `This adds tests to an earlier generation${request.trim() ? ` for: ${request.trim()}` : ""}.`,
-    ...(names.length ? ["It already has these tests — never write them again:", ...names] : []),
-  ].join("\n");
 }
