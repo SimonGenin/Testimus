@@ -31,10 +31,7 @@ export function Ranking({ draft, reranker }: { draft: Draft; reranker: string | 
   const tops = TOPS.includes(r.rerank.top) ? TOPS : [...TOPS, r.rerank.top].sort((a, b) => a - b);
   const weights = (i: number, v: number) => r.bm25Weights.map((w, j) => (j === i ? v : w));
   return (
-    <Card
-      title="Ranking"
-      actions={<Button size="sm" variant="quiet" label="Reset ranking" onClick={draft.reset} />}
-    >
+    <Card title="Ranking" actions={<Button size="sm" variant="quiet" label="Reset ranking" onClick={draft.reset} />}>
       <Stack>
         <Grid>
           <NumbersField

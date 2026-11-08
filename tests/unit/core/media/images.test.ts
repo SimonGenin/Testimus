@@ -224,7 +224,7 @@ describe("files copied into a document", () => {
       expect(r.rejected).toEqual([]);
       expect(r.added[0]).toMatchObject({ n: 1, file: "files/long.mp4", kind: "video", sha256: sha256("a video") });
       expect(whole(join(dir("V"), "files", "long.mp4"), "utf8")).toBe("a video");
-      expect(existsSync(join(dir("V"), "files", "long.mp4.partial"))).toBe(false);
+      expect(existsSync(join(dir("V"), "files", "long.mp4.tmp"))).toBe(false);
     } finally {
       (fs as { readFileSync: unknown }).readFileSync = whole;
       syncBuiltinESMExports();

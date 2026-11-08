@@ -1,20 +1,9 @@
 import { createHash } from "node:crypto";
-import {
-  closeSync,
-  constants,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  readSync,
-  renameSync,
-  rmSync,
-} from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { UserError } from "../command.ts";
 import type { DocJson, DocKind, FigureEntry, MediaFile, SourceType } from "../types.ts";
-import { writeAtomic } from "./atomic.ts";
+import { copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { docDir, readDoc, readFigures, writeDoc, writeFigures } from "./docs.ts";
 import { sha256 } from "./hash.ts";
 
@@ -113,10 +102,7 @@ function bytesOf(f: Picked, name: string): { hash: string; write: (to: string) =
   if (!path || !existsSync(path)) throw new Error(`File not found: ${path ?? name}`);
   return {
     hash: sha256Of(path),
-    write: (to) => {
-      copyFileSync(path, `${to}.partial`, constants.COPYFILE_FICLONE);
-      renameSync(`${to}.partial`, to);
-    },
+    write: (to) => copyFileAtomic(path, to),
   };
 }
 
