@@ -86,13 +86,14 @@ function rowsOf(j: Job, now: number): Upload[] {
   const row = { ...base, name, ...(docId ? { docId } : {}) };
   const recent = !!j.endedAt && now - Date.parse(j.endedAt) < SHOWN_DONE_MS;
   if (j.status === "running") {
+    if (kind === "add" && j.steps?.some((s) => s.id === "convert" && s.status === "running")) return [];
     const indexing = kind === "index" || j.steps?.some((s) => s.id === "index" && s.status === "running");
     return [{ ...row, phase: kind === "add" ? "adding" : indexing ? "indexing" : "converting" }];
   }
   if (j.status === "done") {
     if (kind === "add")
       return ((j.result as Added | undefined)?.rejected ?? [])
-        .filter((x) => x.code !== "not-a-document")
+        .filter((x) => x.code === "failed")
         .map((x) => ({ ...base, key: `${j.id}:${x.name}`, name: x.name, phase: "failed", message: x.why }));
     const indexError = (j.result as { index?: { error?: string } } | undefined)?.index?.error;
     if (indexError) return [{ ...row, phase: "index-failed", message: indexError, pct: null }];
@@ -114,7 +115,8 @@ function rowsOf(j: Job, now: number): Upload[] {
 }
 
 // ponytail: the rows of the jobs, oldest first, then what has no job yet; a row ended before `since` or dismissed is not
-// shown, a done conversion or index run says so for a few seconds
+// shown, a done conversion or index run says so for a few seconds. A conversion started by a folder import is its own
+// row (the import's row goes once its documents are copied); an index run under a conversion is the list's bar
 export function uploadsOf(
   jobs: Job[],
   local: Local[],
@@ -122,7 +124,8 @@ export function uploadsOf(
 ): Upload[] {
   const known = new Set(jobs.map((j) => j.id));
   const fromJobs = [...jobs]
-    .filter((j) => KIND[j.kind] && !j.parentId && !(j.endedAt && Date.parse(j.endedAt) < o.since))
+    .filter((j) => KIND[j.kind] && (!j.parentId || KIND[j.kind] === "convert"))
+    .filter((j) => !(j.endedAt && Date.parse(j.endedAt) < o.since))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
     .flatMap((j) => rowsOf(j, o.now));
   const waiting = local.filter((u) => u.project === o.project && !(u.jobId && known.has(u.jobId)));

@@ -14,6 +14,7 @@ import { loopbackProxyGap, onStopSignals, stopCore } from "../core/shell.ts";
 import { watchProject } from "../core/watch.ts";
 import { onParentGone, openDetached } from "../shared/run/process.ts";
 import { every } from "../shared/run/work.ts";
+import { uncPath } from "../shared/unc.ts";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -114,12 +115,6 @@ export function guard(req: IncomingMessage, state: ServeState): Refusal | null {
       return refuse("Send JSON (Content-Type: application/json).", 415);
   }
   return null;
-}
-
-// ponytail: opening \\host\share (or //host, \\?\UNC\…, \\.\…) makes Windows sign in to that host with the user's
-// NTLM hash, so a path the HTTP face receives is never one of these, whoever sends it
-export function uncPath(p: string): boolean {
-  return /^\s*[\\/]{2}/.test(p);
 }
 
 // ponytail: kept in the user's data folder so a tab left open survives a restart of Testimus

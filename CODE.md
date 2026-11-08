@@ -19,7 +19,8 @@ src/core/lib/         the domain modules:
                         one collator), creds, project (+ project-info, project-init), doctor (+ doctor-row,
                         doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
                         exported as pages and imported back);
-                        docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index);
+                        docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index; docs-folder: what
+                        a folder import adds);
                         media (+ media-pipeline: batches of photos, body.md + part.md → doc.md);
                         jira/ (http, read, steps, labels, push) and sync/ (connect, pull, push), ported from Xray Editor;
                         models-* (catalog, packs, download, install*, registry, resolve, perf, advice, quality, store,
@@ -39,7 +40,7 @@ src/core/claude/      run (claude -p), access (tool access per run kind), stream
                       Claude is given: each module that runs claude -p exports its `prompts` templates)
 src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates
 src/shared/           Node only, used by the core and the desktop shell: run/work.ts, run/process.ts, loopback, table,
-                      tests (which test a file path touches)
+                      tests (which test a file path touches), unc (a network path is never opened)
 src/faces/            cli.ts, mcp.ts, http.ts — thin adapters over the registry, no domain logic
 src/desktop/          Electron shell: main, preload, bridge (+ bridge-types), core spawn, window, log, pages/
 src/ui/

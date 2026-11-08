@@ -10,6 +10,7 @@ import { commands as claude } from "./claude.ts";
 import { commands as columns } from "./columns.ts";
 import { commands as contexts } from "./contexts.ts";
 import { commands as docs } from "./docs.ts";
+import { commands as docsFolder } from "./docs-folder.ts";
 import { commands as gen } from "./gen.ts";
 import { commands as images } from "./images.ts";
 import { commands as issue } from "./issue.ts";
@@ -31,6 +32,7 @@ import { commands as xray } from "./xray.ts";
 type Defined =
   | (typeof project)[number]
   | (typeof docs)[number]
+  | (typeof docsFolder)[number]
   | (typeof media)[number]
   | (typeof columns)[number]
   | (typeof rag)[number]
@@ -66,6 +68,7 @@ export type CallResult<N extends CommandName> = N extends JobCommand ? JobStart 
 export const registry: Command[] = [
   ...project,
   ...docs,
+  ...docsFolder,
   ...media,
   ...columns,
   ...rag,

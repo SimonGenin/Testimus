@@ -102,6 +102,29 @@ afterEach(() => {
   delete window.testimusDesktop;
 });
 
+describe("a folder import", () => {
+  it("is one row while it copies, then each conversion it started is its own row", () => {
+    const step = (id: string, s: "running" | "done" | "waiting") => ({ id, label: id, status: s });
+    const copying = job({ id: "imp", kind: "docs.add", subject: "J5", steps: [step("copy", "running")] });
+    expect(uploadsOf([copying], [], view()).map((r) => [r.key, r.phase])).toEqual([["imp", "adding"]]);
+    const converting = { ...copying, steps: [step("copy", "done"), step("convert", "running")] };
+    const rows = uploadsOf(
+      [
+        converting,
+        job({ id: "c1", subject: "A", parentId: "imp", startedAt: iso(1) }),
+        job({ id: "c2", subject: "B", parentId: "imp", startedAt: iso(2) }),
+        job({ id: "ix", kind: "rag-index", parentId: "c1", startedAt: iso(3) }),
+      ],
+      [],
+      view(),
+    );
+    expect(rows.map((r) => [r.key, r.job, r.docId, r.phase])).toEqual([
+      ["c1", "convert", "A", "converting"],
+      ["c2", "convert", "B", "converting"],
+    ]);
+  });
+});
+
 describe("the rows are the project's jobs", () => {
   it("shows an add, a conversion and an index run as they go, oldest first, and leaves other jobs and child jobs out", () => {
     const rows = uploadsOf(

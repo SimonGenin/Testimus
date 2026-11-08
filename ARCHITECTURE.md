@@ -208,6 +208,16 @@ docs/<docId>/
   **one index run at a time** per `rag.db`; runs asked for meanwhile share the next one). A failed index run keeps the
   conversion. `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
   citing tests are left and their sources become `source-missing`.
+- **A folder** (`lib/docs-folder.ts`): `docs.scanFolder` reads a folder (sub-folders by default, hidden ones and the
+  project's own folder skipped, at most 2 000 files) and says, file by file, whether an import adds it: each `.docx`
+  or `.pdf` is a document, the `.pdf` of the same name beside a `.docx` is its rendering (its twin); the rest is left
+  aside with a reason — not a document (Thumbs.db, desktop.ini, hidden or temporary files), Word's lock file (`~$…`),
+  a kind not converted yet (`.doc`, `.txt`, pictures, videos…), empty, already in the project (same id or same file
+  name), or the same id as another file found. The id is the code read from the name, accents dropped, made a valid
+  folder name. `docs.addFolder` copies the documents asked for (the same `addDoc` as `docs.add`), then starts one
+  `docs.convert` job per document, children of the import job, and waits for them. A network path (`\\server\share`)
+  is refused (§13). Decided: a document already in the project is shown, unticked, never replaced — reconverting is
+  `docs.convert`; photos and videos stay out of a folder import until they are documents of their own (ROADMAP).
 - **Amendments**: `doc.json.amends` lists what a document amends; the graph links it (document and section level), and
   an amendment wins over what it amends.
 - **Media batches (as built, 2026-11-05 — the principle changes, see ROADMAP)**: a batch of photos is an *annex* of a
@@ -600,7 +610,8 @@ Binding 127.0.0.1 does not stop another web page from sending requests, so `/api
 present, and `POST` with `application/json` (else 415); `/api` and `/api/events` answer `GET` only. Only `GET
 /api/system/version` is public. The guard runs before anything else. The project a request names (`?project=` or
 `X-Testimus-Project`) must match a known project, else 403. UNC and device paths are refused wherever the HTTP face
-reads a path itself (opening one would send the user's NTLM hash). `/files` serves only inside a known project, with a
+reads a path itself (opening one would send the user's NTLM hash), and by a command that walks a folder it is given
+(`docs.scanFolder`, `docs.addFolder`), whichever face calls it (`src/shared/unc.ts`). `/files` serves only inside a known project, with a
 sandboxing CSP. The page's CSP: `default-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src
 'self' 'unsafe-inline'; connect-src 'self'` — no inline script, no `eval`. `system.setCredentials` accepts only
 `https://<tenant>.atlassian.net` and `*.getxray.app` unless `otherHost`. Scripts call the API by loading `/` first for

@@ -48,7 +48,7 @@ import { REVIEW } from "../schemas.ts";
 import type { DocJson } from "../types.ts";
 import { addLot, MEDIA_FILES } from "./media.ts";
 
-const kind = z.enum(["spec", "minutes", "other"]);
+export const kind = z.enum(["spec", "minutes", "other"]);
 const status = z.enum(["draft", "submitted", "validated"]);
 
 const conversion = z
@@ -173,7 +173,7 @@ const copy = z.object({
   sha256: z.string().describe("sha256 of the copy, to tell a changed original"),
 });
 
-const docJson = z.object({
+export const docJson = z.object({
   id: z.string().describe("Document id: its folder under docs/"),
   code: z.string().describe("The document's code, read from the file name (e.g. SOSIE_211_D401-1_3)"),
   title: z.string().describe("Title: read by the first conversion, or typed by the team"),
@@ -233,14 +233,14 @@ const figure = z.object({
     ),
 });
 const id = z.string().describe("Document id (the folder name under docs/, e.g. SOSIE_211_D401-1_3)");
-const model = MODEL.optional().describe(
+export const model = MODEL.optional().describe(
   "Claude model for the figure descriptions (default: project.json claude.model)",
 );
-const effort = EFFORT.optional().describe("Claude effort for the figure descriptions (default: low)");
-const contexts = CONTEXT_IDS.optional().describe(
+export const effort = EFFORT.optional().describe("Claude effort for the figure descriptions (default: low)");
+export const contexts = CONTEXT_IDS.optional().describe(
   "Saved contexts Claude reads for this conversion only, on top of the document's own (docs.set contexts)",
 );
-const after = {
+export const after = {
   describeFigures: z
     .boolean()
     .optional()

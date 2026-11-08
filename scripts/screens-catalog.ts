@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -45,6 +45,14 @@ export type Scenario = {
 
 const ROOT = join(import.meta.dirname, "..");
 const T = 15_000;
+
+// ponytail: a client's folder for Import a folder — the scan fixture, plus a file git does not keep
+function clientFolder(): string {
+  const dir = mkdtempSync(join(tmpdir(), "testimus-screens-folder-"));
+  cpSync(join(ROOT, "tests", "fixtures", "folder"), dir, { recursive: true });
+  writeFileSync(join(dir, "Thumbs.db"), "x");
+  return dir;
+}
 
 function any(page: Page | Locator, name: string | RegExp): Locator {
   const by = (role: Parameters<Page["getByRole"]>[0]) => page.getByRole(role, { name });
@@ -1374,6 +1382,25 @@ export function SCENARIOS(essai: string): Scenario[] {
           note: "Generate waits for the index run",
           hash: "#/generate",
           prep: (p, s) => indexing(p, s),
+        },
+      ],
+    },
+    {
+      id: "import-folder",
+      note: "Import a folder: the files found, the documents ticked, the files left aside with their reason",
+      env: { TESTIMUS_MOCK_SEED: "fixture" },
+      shots: [
+        {
+          id: "documents-import-folder",
+          note: "Documents › Import a folder… once the folder is read (a browser types its path)",
+          hash: "#/documents",
+          prep: async (p) => {
+            await tap(p, "Import a folder…");
+            await dialog(p, "Import a folder");
+            await p.getByRole("textbox", { name: "Folder" }).fill(clientFolder());
+            await tap(p, "Read the folder");
+            await see(p, /can be imported/);
+          },
         },
       ],
     },

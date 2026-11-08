@@ -11,7 +11,7 @@ import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
-import { desktop, pickFiles } from "../../lib/desktop.ts";
+import { desktop, pickFiles, pickFolder } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
 import { isPhoto } from "../../lib/media.ts";
 import { addDocFiles, addDocPaths, forgetSettled, settled, useUploads } from "../../lib/uploads.ts";
@@ -20,6 +20,7 @@ import { type PickedFile, pickedOf } from "./BatchFiles.tsx";
 import { DocDetail } from "./DocDetail.tsx";
 import { DocList } from "./DocList.tsx";
 import { DocLoading } from "./DocLoading.tsx";
+import { ImportFolder } from "./ImportFolder.tsx";
 import { useDocsLayout } from "./layout.ts";
 import { NewBatch } from "./NewBatch.tsx";
 
@@ -132,6 +133,7 @@ export function DocumentsScreen() {
   const [listOpen, setListOpen] = useState(false);
   const [drag, setDrag] = useState<"docs" | "photos" | false>(false);
   const [dropped, setDropped] = useState<PickedFile[] | null>(null);
+  const [folder, setFolder] = useState<{ picked: string | null } | null>(null);
 
   const docs = list.data ? (Array.isArray(list.data) ? list.data : []) : list.isError ? [] : undefined;
   const run = rag.data?.indexing ?? null;
@@ -188,6 +190,18 @@ export function DocumentsScreen() {
       }
     />
   );
+  const folderButton = (big = false) => (
+    <Button
+      size={big ? "lg" : "md"}
+      icon="folder"
+      label="Import a folder…"
+      onClick={() =>
+        native
+          ? void pickFolder("Import a folder").then((picked) => (picked ? setFolder({ picked }) : undefined))
+          : setFolder({ picked: null })
+      }
+    />
+  );
   const open = (id: string) => {
     setListOpen(false);
     app.navigate("documents", id);
@@ -227,6 +241,7 @@ export function DocumentsScreen() {
         crumbs={active ? [`${active.id} · ${active.title || active.id}`] : []}
         meta={busy ? `${busy} in progress` : undefined}
       >
+        {folderButton()}
         {addButton()}
       </ScreenHeader>
       {list.isError && (
@@ -259,7 +274,12 @@ export function DocumentsScreen() {
             icon="documents"
             title="No document yet"
             text="Add the specifications your tests come from: .docx (preferred) or .pdf. Drop files anywhere on this screen or pick them."
-            actions={addButton(true)}
+            actions={
+              <>
+                {folderButton(true)}
+                {addButton(true)}
+              </>
+            }
           />
         </div>
       ) : (
@@ -373,6 +393,7 @@ export function DocumentsScreen() {
           )}
         </div>
       )}
+      {folder && <ImportFolder picked={folder.picked} onClose={() => setFolder(null)} />}
       {dropped && active && <NewBatch doc={active} files={dropped} onClose={() => setDropped(null)} />}
     </div>
   );

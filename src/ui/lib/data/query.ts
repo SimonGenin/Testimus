@@ -52,6 +52,7 @@ const TUNING: Record<string, ReadTuning> = {
   "models.planPack": { staleTime: 0, gcTime: 0 },
   "models.planDir": { staleTime: 0, gcTime: 0 },
   "xray.browse": { staleTime: 0, gcTime: 0 },
+  "docs.scanFolder": { staleTime: 0, gcTime: 0 },
 };
 
 export function tuning(name: string, input?: unknown): Required<ReadTuning> {
