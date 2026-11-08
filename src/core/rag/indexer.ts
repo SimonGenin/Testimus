@@ -133,6 +133,23 @@ async function headersFor(doc: DocJson, chunks: Chunk[], ctx: Ctx, h: Headers): 
   }
 }
 
+// ponytail: two chunks under one id (one anchor written twice in doc.md) keep the first, with a warning — one
+// document never stops the index of the whole project
+function onePerId(chunks: Chunk[], ctx: Ctx): Chunk[] {
+  const seen = new Set<string>();
+  return chunks.filter((c) => {
+    if (!seen.has(c.id)) {
+      seen.add(c.id);
+      return true;
+    }
+    ctx.log(
+      "warn",
+      `${c.docId}: the anchor ${c.anchor} is written twice in doc.md; its second passage is not indexed.`,
+    );
+    return false;
+  });
+}
+
 async function indexDoc(
   db: DatabaseSync,
   d: ProjectDoc,
@@ -149,7 +166,7 @@ async function indexDoc(
     });
     return "unchanged";
   }
-  const chunks = chunkDoc(d.doc, d.md, d.figures);
+  const chunks = onePerId(chunkDoc(d.doc, d.md, d.figures), ctx);
   const old = new Map(chunksOf(db, d.doc.id).map((c) => [`${c.id} ${c.hash}`, c]));
   let fresh = chunks.filter((c) => !old.has(`${c.id} ${chunkHash(c)}`));
   let keep = new Set(chunks.map((c) => `${c.id} ${chunkHash(c)}`));

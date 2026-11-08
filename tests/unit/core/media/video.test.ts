@@ -1,19 +1,22 @@
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { SURVEY_MARKER, SURVEY_TAG } from "../../../../src/core/claude/media.ts";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
+import { quietCtx } from "../../../../src/core/command.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { loadCorpus, mechanicalFindings } from "../../../../src/core/lib/check.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 import { dHash, distance, distinct } from "../../../../src/core/lib/video-frames.ts";
 import { videoIo } from "../../../../src/core/lib/video-io.ts";
-import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
+import { mockSpawnClaude, mockStream } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-media.ts";
 import { setupVideoMock } from "../../../../src/core/mock/video.ts";
 import { clock, momentId, momentOf, parseAnchor } from "../../../../src/core/rag/anchors.ts";
 import { chunkDoc } from "../../../../src/core/rag/chunk.ts";
+import { indexProject } from "../../../../src/core/rag/indexer.ts";
 import type { DocJson, FigureEntry, Source, Test, VideoData } from "../../../../src/core/types.ts";
 import { call, FIXTURE, fixtureCopy } from "../registry.ts";
 
@@ -213,6 +216,40 @@ describe("the index", () => {
     expect(t?.text.split("\n")[2]).toBe(
       "[00:32] Là on fait clic droit sur le sectionneur, et on voit que seul Propriétés est proposé.",
     );
+  });
+
+  it("keeps one key frame a second: two moments Claude gives in the same second are one, past the end is the end", async () => {
+    env.spawnClaude = (s) => {
+      if (!s.stdin.startsWith(SURVEY_MARKER)) return mockSpawnClaude(s);
+      const moments = [
+        { at: "00:42", why: "Le menu" },
+        { at: 42.6, why: "L'alarme" },
+        { at: "09:59", why: "La fin" },
+      ];
+      const reply = [`\`\`\`${SURVEY_TAG}`, JSON.stringify({ chapters: [], moments }), "```"].join("\n");
+      return mockStream(s, { texts: [reply], result: reply, delayMs: 5 });
+    };
+    const added = await call<DocJson>("docs.add", { file: VIDEO, index: false }, P);
+    expect(video(added.id).keyFrames.map((k) => [k.at, k.why, k.figure])).toEqual([
+      [42, "Le menu", "figures/frame-1-42.jpg"],
+      [160, "La fin", "figures/frame-1-160.jpg"],
+    ]);
+    const ids = chunkDoc({ ...doc(added.id), id: added.id }, md(added.id), figures(added.id)).map((c) => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("indexes a document whose doc.md writes one anchor twice, with a warning, and the others still", async () => {
+    writeFileSync(join(dir(V), "doc.md"), `${md(V)}\n![Image at 01:20](figures/frame-1-80.jpg) <!-- frame 01:20 -->\n`);
+    const warned: string[] = [];
+    const ctx = { ...quietCtx(P), log: (_: string, m: string) => void warned.push(m) };
+    const r = await indexProject(P, ctx, { model: null });
+    expect(r.docs.find((d) => d.docId === V)?.status).toBe("indexed");
+    expect(r.docs.length).toBeGreaterThan(1);
+    expect(warned).toContain(
+      `${V}: the anchor frame:01:20 is written twice in doc.md; its second passage is not indexed.`,
+    );
+    const p = await call<{ text: string }>("rag.passage", { ref: `${V}#frame:01:20` }, P);
+    expect(p.text).toContain("Image at 01:20");
   });
 
   it("reads a transcript passage from its line on", async () => {

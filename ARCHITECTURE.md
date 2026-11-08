@@ -322,7 +322,8 @@ docs/<docId>/
   transcript; candidate frames by `ffmpeg` (a scene change, else one every 5 s, 640 px), near-duplicates dropped by
   their difference hash (dHash, 64 bits, ≤ 6 bits apart = the same screen); **4 × 4 mosaics** of the candidates, each
   tile numbered with its moment (at most 12 mosaics, taken evenly along a long video), read by Claude in one survey
-  run with the transcript → chapters and at most 40 moments worth seeing; each moment drawn from the video in full
+  run with the transcript → chapters and at most 40 moments worth seeing, one a second (a key frame is named by its
+  whole second: two moments in the same second are the first; past the end is the end); each moment drawn in full
   (≤ 2000 px) as a key frame (`frame:`), then read with the images. Without Claude the key frames are 12 candidates
   taken evenly; without the speech model the video has no transcript (a warning says how to install it); without
   ffmpeg the video is kept unread (a warning). `media.transcript { doc, video?, from?, to? }` gives the timed lines and
@@ -402,7 +403,8 @@ docs/<docId>/
   `docId#§x.y~n`, `docId#fig:N`. An images or video document adds one chunk per image (`docId#img:3`) and per key
   frame (`docId#frame:04:30`), built like a figure's, and its transcript cut into passages of whole lines under the
   same budget, each anchored by its first line (`docId#t:00:02`); its picture and transcript lines are never a
-  section's text. **Every chunk has a `kind`**: `section` (a passage of text), `figure`, `image`, `transcript`,
+  section's text. Two chunks under one id (one anchor written twice in a doc.md) keep the first, with a warning: one
+  document never stops the index of the project. **Every chunk has a `kind`**: `section` (a passage of text), `figure`, `image`, `transcript`,
   `frame` — what search filters by kind of passage (Settings › Search) reads; decided: text chunks keep the name
   `section` that the search filters already used. A context header per chunk: deterministic, or one sentence by Claude when
   `rag.claudeHeaders` is on (off by default: hundreds of runs on 900 pages; the indexer itself never calls Claude).

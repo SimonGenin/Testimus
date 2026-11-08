@@ -39,6 +39,17 @@ function spread<T>(xs: T[], most: number): T[] {
   return Array.from({ length: most }, (_, i) => xs[Math.floor((i * xs.length) / most)]);
 }
 
+// ponytail: a moment within the video, one per second — a key frame's figure and anchor are named by its whole
+// second, so two moments in the same second would be one figure under two lines of doc.md
+function keyMoments(moments: { at: number; why: string }[], duration: number) {
+  const bySecond = new Map<number, { at: number; why: string }>();
+  for (const m of moments) {
+    const at = Math.min(Math.max(0, m.at), duration || m.at);
+    if (!bySecond.has(Math.floor(at))) bySecond.set(Math.floor(at), { at, why: m.why });
+  }
+  return [...bySecond.values()];
+}
+
 export type VideoOutcome = { warnings: string[]; claude: boolean; costUsd: number };
 
 // ponytail: one video of a document, each step kept in video/<n>.json as it is done, so a new conversion goes on
@@ -120,10 +131,12 @@ export async function processVideo(
       save({
         ...data,
         ...(picked ? { chapters: picked.chapters, surveyed: { at: env.now().toISOString(), model: o.run.model } } : {}),
-        keyFrames: (picked?.moments.length
-          ? picked.moments
-          : spread(data.candidates, FALLBACK_FRAMES).map((c) => ({ at: c.at, why: "" }))
-        ).map((m) => ({ at: Math.min(Math.max(0, m.at), data.duration || m.at), why: m.why })),
+        keyFrames: keyMoments(
+          picked?.moments.length
+            ? picked.moments
+            : spread(data.candidates, FALLBACK_FRAMES).map((c) => ({ at: c.at, why: "" })),
+          data.duration,
+        ),
       });
       data = v as VideoData;
     }
