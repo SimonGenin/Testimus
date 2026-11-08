@@ -33,7 +33,7 @@ describe("project.init keeps a skill the team edited", () => {
     writeFileSync(gen, old);
     const ledger = join(p, ".testimus", "shipped.json");
     const known = JSON.parse(readFileSync(ledger, "utf8"));
-    known[".claude/skills/generate-tests/SKILL.md"].push(sha256(old));
+    known[".claude/skills/generate-tests/SKILL.md"].unshift(sha256(old));
     writeFileSync(ledger, JSON.stringify(known));
     writeFileSync(check, `${readFileSync(check, "utf8")}\nTeam rule: always cite the DMI.\n`);
     const edited = readFileSync(check, "utf8");

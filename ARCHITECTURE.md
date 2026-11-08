@@ -119,9 +119,14 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
 
 A project is **a folder that is also a Claude Code project**: open it in a terminal, run `claude`, and the same skills,
 contexts and MCP tools are there. `project init` copies `templates/project/`; every Claude run first brings the
-shipped skills up to the app's version (`lib/shipped.ts` `shipSkills`: a skill the team left as shipped — its hash is
-in `.testimus/shipped.json` — is replaced, one they edited stays and the new one lands beside it as `SKILL.new.md`, a
-missing one is added), so a skill change reaches existing projects without a new `project init`. The folder can live anywhere and is
+shipped skills up to the app's version (`lib/shipped.ts` `shipSkills`), so a skill change reaches existing projects
+without a new `project init`. Shipping only goes forward, since colleagues on different versions share the folder:
+`.testimus/shipped.json` holds, per file, the hashes of the versions shipped there in the order they were first written,
+and `app`, the newest Testimus that shipped there. An app older than `app` touches no shipped file. Otherwise a skill at
+a shipped version written before this app's is replaced; one at a version written after it (a newer build was here)
+stays; one at no shipped version (the team edited it) stays and the new one lands beside it as `SKILL.new.md`. A
+missing skill is added only if it was never shipped to the project — one shipped and now missing was deleted by the team
+and stays deleted; an explicit `project init` brings it back. The folder can live anywhere and is
 shared by sharing the folder. Every file is plain text a person can read and edit, owned by one module of the core.
 JSON uses camelCase; `test.md` keeps Xray Editor's snake_case frontmatter. *Derived* files can be deleted and are
 rebuilt; they are never hand-edited.
@@ -148,7 +153,7 @@ rebuilt; they are never hand-edited.
   eval/behaviors.jsonl the project's retrieval benchmark set (§6)
   index/rag.db         derived: chunks, full text, vectors per space, graph, last index state; per machine, not shared
   .testimus/           derived, not shared: jobs/, runs/<runId>/ (snapshots), gen/<generation>.json (ledger),
-                         chats/, actions/, eval/ (reports), pages/, uploads/, shipped.json, jira-project.json
+                         chats/, actions/, eval/ (reports), pages/, uploads/, shipped.json (above), jira-project.json
 ```
 
 - **`columns.json`** `[{ name, id?, description?, mode: open|filled|collapsed|hidden, referenceSource? }]`. With `id`

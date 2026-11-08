@@ -48,7 +48,7 @@ describe("initProject", () => {
       string[]
     >;
     const older = "an older shipped version";
-    shipped[skill] = [...(shipped[skill] ?? []), createHash("sha256").update(older).digest("hex")];
+    shipped[skill] = [createHash("sha256").update(older).digest("hex"), ...(shipped[skill] ?? [])];
     writeFileSync(join(project, ".testimus", "shipped.json"), JSON.stringify(shipped));
     writeFileSync(join(project, skill), older);
     expect(initProject(project, {}).beside).toEqual([]);
@@ -96,10 +96,16 @@ describe("shipSkills", () => {
     expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
   });
 
-  it("keeps a skill the team edited and writes this version beside it; adds a skill the project lacks", () => {
+  const ledger = () => JSON.parse(readFileSync(shippedFile(), "utf8")) as Record<string, string[] | string>;
+  const hash = (s: string | Buffer) => createHash("sha256").update(s).digest("hex");
+  const DRAFT = ".claude/skills/draft-comment/SKILL.md";
+
+  it("keeps a skill the team edited and writes this version beside it; adds a skill never shipped to the project", () => {
     olderShipped();
     writeFileSync(join(project, GEN), "the team's own generate-tests");
     rmSync(join(project, ".claude", "skills", "draft-comment"), { recursive: true });
+    const { [DRAFT]: _, ...rest } = ledger();
+    writeFileSync(shippedFile(), JSON.stringify(rest));
     const r = shipSkills(project);
     expect(r.kept).toEqual([GEN]);
     expect(r.beside).toEqual([".claude/skills/generate-tests/SKILL.new.md"]);
@@ -108,6 +114,55 @@ describe("shipSkills", () => {
     expect(readFileSync(join(project, ".claude/skills/generate-tests/SKILL.new.md"))).toEqual(
       readFileSync(join(templateDir(), GEN)),
     );
+  });
+
+  it("never brings back a version a newer build already moved past", () => {
+    initProject(project, {});
+    const newer = `${readFileSync(join(templateDir(), GEN), "utf8")}\nA newer Testimus's rule.\n`;
+    writeFileSync(join(project, GEN), newer);
+    const known = ledger();
+    known[GEN] = [...(known[GEN] as string[]), hash(newer)];
+    writeFileSync(shippedFile(), JSON.stringify(known));
+    expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
+    expect(readFileSync(join(project, GEN), "utf8")).toBe(newer);
+  });
+
+  it("brings forward a version shipped before this one, even when this one was shipped already", () => {
+    initProject(project, {});
+    const known = ledger();
+    known[GEN] = [hash(OLD), ...(known[GEN] as string[])];
+    writeFileSync(shippedFile(), JSON.stringify(known));
+    writeFileSync(join(project, GEN), OLD);
+    shipSkills(project);
+    expect(readFileSync(join(project, GEN))).toEqual(readFileSync(join(templateDir(), GEN)));
+  });
+
+  it("leaves every shipped file alone when a newer Testimus shipped to the project", () => {
+    olderShipped();
+    rmSync(join(project, ".claude", "skills", "draft-comment"), { recursive: true });
+    const { [DRAFT]: _, ...rest } = ledger();
+    writeFileSync(shippedFile(), JSON.stringify({ ...rest, app: "999.0.0" }));
+    expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
+    expect(readFileSync(join(project, GEN), "utf8")).toBe(OLD);
+    expect(existsSync(join(project, DRAFT))).toBe(false);
+    expect(ledger().app).toBe("999.0.0");
+  });
+
+  it("records the newest Testimus that shipped here", () => {
+    initProject(project, {});
+    const app = (
+      JSON.parse(readFileSync(join(templateDir(), "..", "..", "package.json"), "utf8")) as { version: string }
+    ).version;
+    expect(ledger().app).toBe(app);
+  });
+
+  it("does not bring back a skill the team deleted; project init does", () => {
+    initProject(project, {});
+    rmSync(join(project, ".claude", "skills", "draft-comment"), { recursive: true });
+    expect(shipSkills(project).created).toEqual([]);
+    expect(existsSync(join(project, DRAFT))).toBe(false);
+    expect(initProject(project, {}).created).toContain(DRAFT);
+    expect(readFileSync(join(project, DRAFT))).toEqual(readFileSync(join(templateDir(), DRAFT)));
   });
 });
 
