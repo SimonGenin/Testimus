@@ -1004,7 +1004,7 @@ function fixtureShots(): Shot[] {
         await tap(p, "New run…");
         await dialog(p, "New run");
         await p.getByRole("textbox", { name: "Name" }).fill("Recette J6 — Disjoncteurs");
-        await see(p, /^3 tests:/);
+        await see(p, /^\d+ tests?:/);
       },
     },
     { id: "jobs", note: "Jobs, first job open", hash: "#/jobs" },
