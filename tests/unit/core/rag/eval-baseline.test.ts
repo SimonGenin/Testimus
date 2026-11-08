@@ -762,6 +762,12 @@ describe("rag.eval on the fixture project gives the numbers it gave before the r
             "top": 30,
           },
           "rrfK": 60,
+          "rrfWeights": [
+            1,
+            1,
+          ],
+          "synonyms": [],
+          "typos": false,
         },
         "set": {
           "behaviors": 5,
@@ -1491,6 +1497,12 @@ describe("rag.eval on the fixture project gives the numbers it gave before the r
             "top": 30,
           },
           "rrfK": 60,
+          "rrfWeights": [
+            1,
+            1,
+          ],
+          "synonyms": [],
+          "typos": false,
         },
         "set": {
           "behaviors": 5,

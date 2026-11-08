@@ -38,7 +38,21 @@ const retrievalFields = {
     .describe(
       "BM25 weights of the header, text and codes columns, and optionally of the stemmed column (0 turns it off)",
     ),
+  rrfWeights: z
+    .array(z.number().min(0))
+    .length(2)
+    .describe("Weights of the word ranking and of the model's ranking when they are fused: [words, meaning]"),
   expand: z.enum(["none", "section", "graph"]).describe("Related passages added to the hits"),
+  typos: z
+    .boolean()
+    .describe(
+      "A query word the index does not hold also looks for the indexed words one letter away (at most 3 per word)",
+    ),
+  synonyms: z
+    .array(z.array(z.string().trim().min(1)).min(2))
+    .describe(
+      "Groups of words or acronyms that mean the same in this project; a query with one also looks for the others, both ways",
+    ),
 };
 
 export const retrievalOverride = z
@@ -46,6 +60,7 @@ export const retrievalOverride = z
     candidates: retrievalFields.candidates.optional(),
     rrfK: retrievalFields.rrfK.optional(),
     bm25Weights: retrievalFields.bm25Weights.optional(),
+    rrfWeights: retrievalFields.rrfWeights.optional(),
     rerank: z
       .object({
         top: rerank.top.optional(),
@@ -56,6 +71,8 @@ export const retrievalOverride = z
       .optional()
       .describe("Reranker settings (the reranker itself is --reranker or the active configuration)"),
     expand: retrievalFields.expand.optional(),
+    typos: retrievalFields.typos.optional(),
+    synonyms: retrievalFields.synonyms.optional(),
   })
   .describe("Retrieval settings for this run, over project.json rag.retrieval");
 

@@ -294,6 +294,16 @@ export type SearchHit = {
   figure?: string;
   via?: "section" | "graph";
   degraded?: boolean;
+  why?: SearchWhy;
+};
+export type SearchWhy = {
+  words: number | null;
+  meaning: number | null;
+  reranker: number | null;
+  matched: string[];
+  stems: string[];
+  synonyms: string[];
+  typos: string[];
 };
 
 /** one user of the search and what it takes from it, declared beside its own code and gathered by models.usage:
@@ -381,8 +391,11 @@ export type RetrievalSettings = {
   candidates: number;
   rrfK: number;
   bm25Weights: number[];
+  rrfWeights: number[];
   rerank: { top: number; mode: RerankMode; threshold?: number; thresholds?: Record<string, number> };
   expand: "none" | "section" | "graph";
+  typos: boolean;
+  synonyms: string[][];
 };
 export type RagChoice = { pack: string } | { embedding: string; reranker: string | null };
 export type ActiveChoice = RagChoice & { variant?: PackVariant };

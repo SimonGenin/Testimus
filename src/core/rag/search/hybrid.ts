@@ -2,21 +2,23 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { UserError } from "../../command.ts";
-import { docDir, readDocMd, readFigures } from "../../lib/docs.ts";
+import { docIds, readDoc } from "../../lib/docs.ts";
 import { indexRunState } from "../../lib/docs-index.ts";
 import { loadMsSoFar, recordPerf } from "../../lib/models-perf.ts";
 import { readProject } from "../../lib/project.ts";
-import type { RetrievalSettings, SearchHit } from "../../types.ts";
+import type { RetrievalSettings, SearchHit, SearchWhy } from "../../types.ts";
 import { activeModels } from "../activation.ts";
-import { docFigures } from "../chunk.ts";
-import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, toChunk, withDb } from "../db.ts";
+import { type ChunkRow, chunkCount, chunksByRowid, indexFile, nearest, withDb } from "../db.ts";
 import { embedWith, rerankFor, rerankWith } from "../embed.ts";
 import { spaceOf } from "../fingerprint.ts";
+import { explainHit } from "./explain.ts";
 import { keep, type RetrievalOverride, type SearchOpts } from "./filter.ts";
-import { bm25 } from "./lexical.ts";
+import { type Expand, expandHits, hitOf } from "./hits.ts";
+import { bm25, termsOf } from "./lexical.ts";
 import { type VectorResult, vector } from "./vector.ts";
 
 export type { RetrievalOverride, SearchMode, SearchOpts } from "./filter.ts";
+export type { Expand } from "./hits.ts";
 
 const RRF_K = 60;
 
@@ -24,8 +26,11 @@ export const RETRIEVAL_DEFAULTS: RetrievalSettings = {
   candidates: 50,
   rrfK: RRF_K,
   bm25Weights: [1, 1, 5],
+  rrfWeights: [1, 1],
   rerank: { top: 30, mode: "topk" },
   expand: "none",
+  typos: false,
+  synonyms: [],
 };
 
 export function mergeRetrieval(base: RetrievalSettings, over: RetrievalOverride | undefined): RetrievalSettings {
@@ -40,13 +45,16 @@ export function mergeRetrieval(base: RetrievalSettings, over: RetrievalOverride 
   };
 }
 
+export function projectRetrieval(project: string): RetrievalOverride | undefined {
+  return existsSync(join(project, "project.json")) ? readProject(project).rag.retrieval : undefined;
+}
+
 export function retrievalSettings(
   project: string,
   override?: RetrievalOverride,
   pack?: RetrievalOverride,
 ): RetrievalSettings {
-  const fromProject = existsSync(join(project, "project.json")) ? readProject(project).rag.retrieval : undefined;
-  return mergeRetrieval(mergeRetrieval(mergeRetrieval(RETRIEVAL_DEFAULTS, pack), fromProject), override);
+  return mergeRetrieval(mergeRetrieval(mergeRetrieval(RETRIEVAL_DEFAULTS, pack), projectRetrieval(project)), override);
 }
 
 export async function packRetrieval(project: string): Promise<RetrievalOverride | undefined> {
@@ -89,39 +97,34 @@ function rerankThreshold(r: RetrievalSettings, model: string): number | undefine
   return r.rerank.thresholds?.[model] ?? r.rerank.threshold;
 }
 
-export function rrf(lists: number[][], k = RRF_K): [number, number][] {
+// ponytail: weights[i] scales list i's share (words, then meaning); a missing weight is 1
+export function rrf(lists: number[][], k = RRF_K, weights: number[] = []): [number, number][] {
   const score = new Map<number, number>();
-  for (const list of lists) for (const [i, id] of list.entries()) score.set(id, (score.get(id) ?? 0) + 1 / (k + i + 1));
+  for (const [l, list] of lists.entries()) {
+    const w = weights[l] ?? 1;
+    for (const [i, id] of list.entries()) score.set(id, (score.get(id) ?? 0) + w / (k + i + 1));
+  }
   return [...score].sort((a, b) => b[1] - a[1]);
 }
 
-function figureFile(project: string, c: ChunkRow): string | undefined {
-  if (c.kind !== "figure") return undefined;
-  const md = existsSync(join(docDir(project, c.docId), "doc.md")) ? readDocMd(project, c.docId) : "";
-  const f = docFigures(md, readFigures(project, c.docId)).find((x) => x.anchor === c.anchor);
-  return f?.file ? `docs/${c.docId}/${f.file}` : undefined;
-}
-
 // ponytail: `degraded` is every fallback this search took (vectors, reranker) — rag.eval lists it in its warnings;
-// `lexical` marks the BM25-only fallback that rag.search flags on each hit
-export type Ranked = { chunk: ChunkRow; score: number; degraded?: string; lexical?: true };
+// `lexical` marks the BM25-only fallback that rag.search flags on each hit; `why` only when explain is asked
+export type Ranked = { chunk: ChunkRow; score: number; degraded?: string; lexical?: true; why?: SearchWhy };
 
-export type Expand = RetrievalSettings["expand"];
 type SearchLog = (level: "info" | "warn", message: string) => void;
-type SearchInput = SearchOpts & { expand?: Expand; log?: SearchLog };
+type RankOpts = SearchOpts & { log?: SearchLog; explain?: boolean };
+export type SearchInput = RankOpts & { expand?: Expand; dateFrom?: string; dateTo?: string };
 
-export async function searchChunks(
-  project: string,
-  query: string,
-  opts: SearchOpts & { log?: SearchLog } = {},
-): Promise<Ranked[]> {
+export async function searchChunks(project: string, query: string, opts: RankOpts = {}): Promise<Ranked[]> {
   return (await ranked(project, query, opts)).hits;
 }
+
+const rankOf = (ids: number[] | undefined) => new Map((ids ?? []).map((id, i) => [id, i + 1]));
 
 async function ranked(
   project: string,
   query: string,
-  opts: SearchOpts & { log?: SearchLog },
+  opts: RankOpts,
 ): Promise<{ hits: Ranked[]; settings: RetrievalSettings }> {
   const t0 = performance.now();
   const l0 = loadMsSoFar();
@@ -133,13 +136,17 @@ async function ranked(
   const o: SearchOpts = { ...opts, retrieval: settings, project };
   return withDb(file, async (db) => {
     const lists: number[][] = [];
+    const weights: number[] = [];
+    let words: number[] | undefined;
+    let meaning: number[] | undefined;
     let degraded: string | null = null;
     let unbuilt = false;
     if (mode !== "vector") {
       const t = performance.now();
-      const ids = bm25(db, query, o);
-      recordPerf({ at: "", op: "search.bm25", items: ids.length, ms: Math.round(performance.now() - t) });
-      lists.push(ids);
+      words = bm25(db, query, o);
+      recordPerf({ at: "", op: "search.bm25", items: words.length, ms: Math.round(performance.now() - t) });
+      lists.push(words);
+      weights.push(settings.rrfWeights[0] ?? 1);
     }
     if (mode !== "bm25") {
       const t = performance.now();
@@ -153,7 +160,9 @@ async function ranked(
           ms: Math.round(performance.now() - t - (loadMsSoFar() - lv)),
           ...(o.model ? { model: o.model.entry.id } : {}),
         });
+      meaning = v.ids;
       lists.push(v.ids);
+      weights.push(settings.rrfWeights[1] ?? 1);
       degraded = v.degraded;
       unbuilt = !!v.unbuilt;
     }
@@ -161,7 +170,7 @@ async function ranked(
     // any other fallback (the model does not load, the query fails) is said as it is, run or not
     const building = unbuilt && !opts.dbFile && !!indexRunState(project);
     if (building) degraded = "An index run is under way: search matches words until it ends.";
-    let ranked = rrf(lists, settings.rrfK);
+    let ranked = rrf(lists, settings.rrfK, weights);
     const byId = chunksByRowid(
       db,
       ranked.map(([id]) => id),
@@ -197,14 +206,27 @@ async function ranked(
         cut = ranked.length;
       }
     }
-    const hits = ranked.slice(0, cut).map(
-      ([id, score]): Ranked => ({
-        chunk: byId.get(id) as ChunkRow,
+    const explained = opts.explain
+      ? { terms: termsOf(db, query, o), words: rankOf(words), meaning: rankOf(meaning) }
+      : null;
+    const hits = ranked.slice(0, cut).map(([id, score]): Ranked => {
+      const chunk = byId.get(id) as ChunkRow;
+      return {
+        chunk,
         score,
         ...(why ? { degraded: why } : {}),
         ...(degraded ? { lexical: true as const } : {}),
-      }),
-    );
+        ...(explained
+          ? {
+              why: explainHit(explained.terms, chunk, {
+                words: explained.words.get(id) ?? null,
+                meaning: explained.meaning.get(id) ?? null,
+                reranker: reranked ? score : null,
+              }),
+            }
+          : {}),
+      };
+    });
     recordPerf({
       at: "",
       op: "search.total",
@@ -215,59 +237,30 @@ async function ranked(
   });
 }
 
-const hitOf = (project: string, c: ChunkRow, score: number, extra: Partial<SearchHit> = {}): SearchHit => {
-  const figure = figureFile(project, c);
-  return {
-    docId: c.docId,
-    anchor: c.anchor,
-    path: c.path,
-    text: c.text,
-    header: c.header,
-    score,
-    kind: c.kind,
-    ...(figure ? { figure } : {}),
-    ...extra,
-  };
-};
-
-const parentOf = (n: string) => n.split(".").slice(0, -1).join(".");
-
-// ponytail: expansion follows the document's own structure, never a model — the parent section, the section a figure
-// sits in, and (graph) the sections the hit cross-references or amends; added after the k hits, each passage once,
-// flagged `via`
-function expandHits(project: string, hits: Ranked[], expand: Expand, opts: SearchOpts): SearchHit[] {
-  if (expand === "none" || !hits.length) return [];
-  return withDb(opts.dbFile ?? indexFile(project), (db) => {
-    const sectionChunk = db.prepare(
-      "select * from chunks where doc_id = ? and (id = ? or id = ?) order by rowid limit 1",
-    );
-    const linked = db.prepare("select dst from edges where src = ? and kind in ('refers', 'amends')");
-    const seen = new Set(hits.map((h) => `${h.chunk.docId}#${h.chunk.anchor}`));
-    const out: SearchHit[] = [];
-    const addSection = (ref: string, score: number, via: "section" | "graph") => {
-      const m = ref.match(/^([^#]+)#(§.+)$/);
-      if (!m || seen.has(ref)) return;
-      const raw = sectionChunk.get(m[1], ref, `${ref}~1`) as Parameters<typeof toChunk>[0] | undefined;
-      const c = raw ? toChunk(raw) : undefined;
-      if (!keep(c, opts)) return;
-      seen.add(ref);
-      out.push(hitOf(project, c, score, { via }));
-    };
-    for (const { chunk: c, score } of hits) {
-      const n = c.path.split(" > ").pop() ?? "";
-      if (c.kind === "section" && c.anchor.startsWith("§") && parentOf(n))
-        addSection(`${c.docId}#§${parentOf(n)}`, score, "section");
-      if (c.kind !== "section" && n) addSection(`${c.docId}#§${n}`, score, "section");
-      if (expand !== "graph" || c.kind !== "section") continue;
-      for (const r of linked.all(`${c.docId}#${c.anchor}`) as { dst: string }[]) addSection(r.dst, score, "graph");
+// ponytail: a date filter keeps the documents whose doc.json date (YYYY-MM-DD) lies within it, bounds included — it
+// narrows docIds; a document without a date is left out by any date filter
+function datedDocs(project: string, opts: SearchInput): string[] | undefined {
+  if (!opts.dateFrom && !opts.dateTo) return opts.docIds;
+  const within = (date: string) =>
+    !!date && (!opts.dateFrom || date >= opts.dateFrom) && (!opts.dateTo || date <= opts.dateTo);
+  const ids = (opts.docIds?.length ? opts.docIds : docIds(project)).filter((id) => {
+    try {
+      return within(readDoc(project, id).date ?? "");
+    } catch {
+      return false;
     }
-    return out;
   });
+  return ids;
 }
 
 export async function search(project: string, query: string, opts: SearchInput = {}): Promise<SearchHit[]> {
-  const { hits, settings } = await ranked(project, query, opts);
-  const top = hits.map(({ chunk: c, score, lexical }) => hitOf(project, c, score, lexical ? { degraded: true } : {}));
+  const docs = datedDocs(project, opts);
+  if (docs && !docs.length) return [];
+  const scoped = { ...opts, ...(docs ? { docIds: docs } : {}) };
+  const { hits, settings } = await ranked(project, query, scoped);
+  const top = hits.map(({ chunk: c, score, lexical, why }) =>
+    hitOf(project, c, score, { ...(lexical ? { degraded: true } : {}), ...(why ? { why } : {}) }),
+  );
   const expand = opts.expand ?? settings.expand;
-  return [...top, ...expandHits(project, hits, expand, { ...opts, project })];
+  return [...top, ...expandHits(project, hits, expand, { ...scoped, project })];
 }

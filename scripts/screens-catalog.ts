@@ -741,6 +741,17 @@ function fixtureShots(): Shot[] {
       },
     },
     {
+      id: "settings-search-try",
+      note: "Search settings being edited, Try it with each passage's why",
+      hash: "#/settings/search",
+      prep: async (p) => {
+        await p.getByRole("radio", { name: "Meaning" }).click();
+        await p.getByRole("searchbox", { name: "Try a search" }).fill("ouverture sectionneur TK");
+        await p.getByRole("list", { name: "Passages found" }).getByRole("listitem").first().waitFor();
+        await p.getByRole("heading", { name: "Try it" }).scrollIntoViewIfNeeded();
+      },
+    },
+    {
       id: "settings-search-drop",
       note: "Drop a vector space (confirmation)",
       hash: "#/settings/search",

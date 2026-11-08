@@ -69,12 +69,16 @@ nothing.
 
 Order: defaults < the active pack's `retrieval` < `project.json.rag.retrieval` < the run override.
 `project.json.rag.retrieval` — all optional, defaults = `{ candidates: 50, rrfK: 60,
-bm25Weights: [1, 1, 5], rerank: { top: 30, mode: "topk" }, expand: "none" }`. `rag.eval --retrieval`
+bm25Weights: [1, 1, 5], rrfWeights: [1, 1], rerank: { top: 30, mode: "topk" }, expand: "none", typos: false,
+synonyms: [] }`. `rag.eval --retrieval`
 overrides any of them for one run (the setting name then ends in `-r<hash>`).
 Reranker modes: `topk` reorders the top `max(k, top)` candidates; `threshold` scores every candidate
 and keeps all those at or above the model's threshold — `rerank.thresholds[<model id>]`, else
 `rerank.threshold`, else plain top-k. A threshold belongs to one reranker: set it from the benchmark,
 never copy it to another model.
+`testimus rag measure --retrieval.typos=true --json` (Settings › Search › « Measure on the benchmark ») runs
+`rag.eval` with the saved settings and with these, then `rag.compare` on `search` @10: one call per setting tried.
+`rag.search --explain` says why each passage came (rank by words, by meaning, reranker score, forms found).
 
 ## Deciding — `rag.compare`
 

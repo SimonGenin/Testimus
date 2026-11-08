@@ -9,7 +9,7 @@ export type SearchState = { result: SearchResult | null; loading: boolean; deep:
 const WORDS_MS = 60;
 const MEANING_MS = 280;
 
-function useSettled<T>(value: T, ms: number): T {
+export function useSettled<T>(value: T, ms: number): T {
   const [settled, setSettled] = useState(value);
   useEffect(() => {
     const t = setTimeout(() => setSettled(value), ms);

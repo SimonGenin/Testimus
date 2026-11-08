@@ -56,7 +56,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 - [x] **Packs : des textes justes, un code générique.** Ce qui est écrit dans les packs n'est pas toujours vrai, par
       exemple « skipped car trop gros » pour un modèle qu'on est littéralement en train d'utiliser. Retravailler ce code
       pour le rendre global et générique : il montre clairement du spaghetti.
-- [ ] **Une recherche plus puissante,** avec des réglages modifiables dans Settings › Search.
+- [x] **Une recherche plus puissante,** avec des réglages modifiables dans Settings › Search.
 
 ## 4. Claude
 

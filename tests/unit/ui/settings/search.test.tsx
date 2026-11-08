@@ -74,12 +74,34 @@ const USAGE = [
   use("light", "Light user", { words: "no", reranker: { use: "uses", model: null, label: null, why: null } }),
 ];
 
+const RETRIEVAL = {
+  candidates: 50,
+  rrfK: 60,
+  bm25Weights: [1, 1, 5],
+  rrfWeights: [1, 1],
+  rerank: { top: 30, mode: "topk" },
+  expand: "none",
+  typos: false,
+  synonyms: [],
+};
+
 beforeEach(() => {
   fakeNet();
   net.routes["models.usage"] = () => USAGE;
   net.routes["project.info"] = () => info();
   net.routes["rag.status"] = () => status();
   net.routes["rag.spaces"] = () => SPACES;
+  net.routes["rag.retrieval"] = () => ({
+    defaults: RETRIEVAL,
+    pack: null,
+    base: RETRIEVAL,
+    project: null,
+    effective: RETRIEVAL,
+    reranker: null,
+    glossary: { documents: 0, project: 0 },
+  });
+  net.routes["docs.list"] = () => [];
+  net.routes["jobs.list"] = () => [];
   net.routes["models.catalog"] = () => [
     { id: "qwen3-embedding-0.6b-onnx-q8", label: "Qwen3 Embedding 0.6B (8-bit, CPU)" },
     { id: "bge-reranker-v2-m3-q8", label: "BGE Reranker v2 M3 (8-bit, CPU)" },
@@ -133,7 +155,8 @@ describe("Settings › Search", () => {
       0,
     );
     expect(screen.getByText("This PC's choice")).toBeInTheDocument();
-    expect(screen.queryByRole("combobox")).toBeNull();
+    const lists = ["Reranker", "Documents", "Kind of passage"].map((name) => screen.getByRole("combobox", { name }));
+    expect(screen.getAllByRole("combobox")).toEqual(lists);
     expect(screen.getByText(/Index up to date · 40 passages/)).toBeInTheDocument();
     expect(screen.getByText("Up to date")).toBeInTheDocument();
   });

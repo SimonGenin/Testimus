@@ -29,7 +29,7 @@ src/core/lib/         the domain modules:
                         llama-server --list-devices, memory, drives; sources, gpus, profile);
                         fit/ will a model run here (placement, need, support, verdict)
 src/core/rag/         convert* (docx/pdf/html/png → doc.md + figures), pdf-tags-*, anchors (the one reader of anchors),
-                      chunk, embed, db, indexer, search/ (lexical, vector, hybrid, passage), runtimes/ (transformers,
+                      chunk, embed, db, indexer, search/ (filter, lexical, typos, vector, hybrid, hits, explain, passage), runtimes/ (transformers,
                       llamacpp, llama-server, ort), graph, related, mentions, glossary, stem-fr, fingerprint,
                       activation, eval (+ eval-set, eval-score), bench, compare, refdoc, schemas, inspect, pdf
 src/core/search/      search.all (Ctrl K and the tests list): query, match (accents, French stems, prefixes, typos,

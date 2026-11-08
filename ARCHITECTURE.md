@@ -306,8 +306,38 @@ docs/<docId>/
 - **Claude also reads `doc.md` directly** (Grep/Read): the index finds, the file proves. The index is derived; nothing
   in it is the only copy of anything; sources point at `doc.md` anchors, never at chunks.
 - **Retrieval settings** `project.json.rag.retrieval` (defaults `{ candidates: 50, rrfK: 60, bm25Weights: [1, 1, 5],
-  rerank: { top: 30, mode: "topk" }, expand: "none" }`; precedence defaults < active pack < project.json < run
-  override). A rerank `threshold` belongs to one model id and is set by the benchmark.
+  rrfWeights: [1, 1], rerank: { top: 30, mode: "topk" }, expand: "none", typos: false, synonyms: [] }`; precedence
+  defaults < active pack < project.json < run override). A rerank `threshold` belongs to one model id and is set by the
+  benchmark. `rrfWeights` = [words, meaning] scale each list's share of the fusion; `bm25Weights[3]` is the French
+  stems column (0 turns French forms off); `typos` and `synonyms` below. Every setting is shared with the team: none is
+  this PC's (a rerank threshold is already keyed by model id, so a PC with another reranker never takes it).
+- **Settings › Search** edits them as a **draft**: Ranking (candidates; « Words vs meaning » = `rrfWeights` [2, 1] ·
+  [1, 1] · [1, 2]; « Weight of codes and ids » = codes column 1 · 5; reranker Top N / « Above its threshold », only
+  when the models in use have a reranker; « Also bring » = `expand`; « Reset to defaults » = defaults < pack; the raw
+  numbers under Advanced) and Words (French forms, accents and case — always, the index folds them —, typos, synonym
+  chips « a = b »). **Try it** runs `rag.search` with the draft as its `retrieval` override and `explain`; **Measure on
+  the benchmark** runs `rag.measure` with it; **Save** writes, through `rag.setRetrieval`, only the keys that differ
+  from defaults < pack (a pack's later change still reaches a key the team never set). `rag.retrieval` reads defaults,
+  pack, base, project, effective, the reranker in use and the glossary counts.
+- **Filters** (`rag.search`, so Claude's `rag_search` too, and Try it): `docIds`, `kinds` (the chunk's `kind`, a free
+  string: section · figure today, whatever kinds media add later), `section` (a section number: the section, its
+  sub-sections and the figures inside them, by the chunk's path), `dateFrom` / `dateTo` (doc.json `date`, bounds
+  included; narrows `docIds`). BM25 filters in SQL before its candidate cut (`search/filter.ts` `scopeSql`), vectors
+  after the nearest neighbours (≤ 4096).
+- **Synonyms** `rag.retrieval.synonyms` (groups `[["TK", "télécommande"]]`): any member found in the query (a word by
+  its stems, an acronym as an acronym — the glossary's rule) adds the others, both ways, beside the documents' acronyms
+  and `project.json.glossary`; `rag.mentions` expands with them too (`glossary.ts` `expansions`). They live in
+  `rag.retrieval`, not in `glossary`, so Try it and `rag.eval --retrieval` try them before they are kept; the
+  glossary stays the acronyms list (CLI `project set --glossary`), counted in Settings › Search.
+- **Typos** (`search/typos.ts`): only a query word of 4 letters or more that the index does not hold (fts5vocab over
+  header and text) also looks for the indexed words one letter away (changed, added, removed, two swapped), at most 3
+  per word (most frequent first) and 6 words. A word the index holds is never second-guessed. No model: P1 holds.
+- **Explain** (`rag.search --explain`, `search/explain.ts`): each hit's `why` — rank by words, rank by meaning (null
+  when not found that way), the reranker's score, the query words found as written, French stems found, synonym and
+  glossary forms (« TK → télécommande »), typo variants. Hits added by `expand` say so through `via`.
+- **`rag.measure`** (job): `rag.eval` with the saved settings, `rag.eval` with the tried ones (`retrieval`), then
+  `rag.compare` on `search` at k = 10 by default — the adopt rule's verdict, with the two reports kept in
+  `.testimus/eval/`.
 
 **Who uses what** (`models.usage`, the table « Who uses what on this PC » at the head of Settings › Search): every
 user of the search declares, beside its own code, a `SearchUse` — who, when, words (BM25 and the document's structure)
@@ -402,6 +432,16 @@ provisional**): under `search+graph` every configuration finds 0.96–1.00 of th
 rule (bge-m3 q8 0.819 @10; 8B Q4 0.853); Q4 is never worse than Q8; the French stem column and a French instruction
 change nothing measurable. Only 8B Q4 + Qwen3-Reranker in threshold mode passes, at k = 10/20 only, with thresholds
 chosen on the same set. **The team reference stays the Light pack.**
+
+Search settings (R11, 2026-11-08, words only — `--mode bm25`, the P1 floor; no embedding model on the Mac that
+measured): on the Syntec reference (`templates/reference/syntec`, 100 questions, validated), baseline `search` recall
+0.880 @10, 0.940 @20, MRR 0.668 (`search+graph` 0.970 @10). **Typos on**: 0.870 @10 (−0.010, 95 % [−0.040, +0.020])
+and MRR 0.647 — a question's words the articles never use pick up near words that are noise; not adopted, **`typos`
+stays off** (available). **French forms off** (stems weight 0): 0.830 @10 (−0.050, [−0.100, 0.000]) — confirms the
+stems column stays on. **Codes weight 1 instead of 5**: identical (Syntec has no codes). On the mock set (5
+behaviors, provisional) every variant (typos, a synonym TK = télécommande, codes 1) gives 1.000 = the baseline
+(saturated). `rrfWeights` (Words vs meaning) and the reranker settings were not measured here (no models on this PC):
+their defaults stay [1, 1] and Top 30. Synonyms are project vocabulary, empty by default.
 
 ## 7. The test file (`test.md`)
 

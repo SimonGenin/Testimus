@@ -19,7 +19,7 @@ test.describe("vectors built, this PC's choice", () => {
     await expect(search).toContainText("BGE-M3 (8-bit, CPU)");
     await expect(search).toContainText("This PC's choice");
     await expect(search).toContainText("Not set: the Light pack");
-    await expect(search.getByRole("radio")).toHaveCount(0);
+    await expect(search.getByRole("radio", { name: /pack|BGE|Qwen/i })).toHaveCount(0);
     await expect(search).not.toContainText("Search on words only");
     const spaces = search.getByRole("table", { name: "Vector spaces" });
     await expect(spaces.getByRole("row", { name: /Space [0-9a-f]{12}/ })).toHaveCount(1);
@@ -65,6 +65,51 @@ test.describe("vectors built, this PC's choice", () => {
     await ask.getByRole("button", { name: /^Drop / }).click();
     await expect(spaces.getByRole("row", { name: /Space [0-9a-f]{12}/ })).toHaveCount(1);
     await expect(spaces).toContainText("Qwen3 Embedding 0.6B (8-bit, CPU)");
+  });
+});
+
+test.describe("search settings: edited, tried, measured, saved", () => {
+  const server = mockServer(4368);
+
+  test("a setting changed is tried with its why, measured, then saved to project.json", async ({ page }) => {
+    const search = await openSearch(page);
+    await search.getByRole("radiogroup", { name: "Words vs meaning" }).getByRole("radio", { name: "Words" }).click();
+    await search.getByRole("checkbox", { name: /Typos forgiven/ }).check();
+    const chips = search.getByRole("textbox", { name: "Synonyms and acronyms" });
+    await chips.fill("pilotage = télécommande");
+    await chips.press("Enter");
+    await expect(search.getByText(/Not saved: Try it and Measure use these settings/)).toBeVisible();
+
+    await search.getByRole("searchbox", { name: "Try a search" }).fill("pilotage sectionneurr");
+    const found = search.getByRole("list", { name: "Passages found" });
+    await expect(found.getByRole("listitem").first()).toContainText("words #1", { timeout: 15_000 });
+    await expect(found).toContainText("synonym pilotage → télécommande");
+    await expect(found).toContainText("typo sectionneurr → sectionneur");
+    await shoot(page, "search-try-it-e2e");
+
+    await search.getByRole("button", { name: "Measure on the benchmark" }).click();
+    await expect(search.getByText(/saved → .* with these settings/)).toBeVisible({ timeout: 60_000 });
+
+    expect(
+      (await api<{ project: { rag: { retrieval?: unknown } } }>(server.url, "project.info")).project.rag.retrieval,
+    ).toBeUndefined();
+    await search.getByRole("button", { name: "Save to project.json" }).click();
+    await expect(search.getByRole("button", { name: "Save to project.json" })).toHaveCount(0);
+    const saved = await api<{ project: { rag: { retrieval?: unknown } } }>(server.url, "project.info");
+    expect(saved.project.rag.retrieval).toEqual({
+      rrfWeights: [2, 1],
+      typos: true,
+      synonyms: [["pilotage", "télécommande"]],
+    });
+
+    await search.getByRole("button", { name: "Reset to defaults" }).click();
+    await search.getByRole("button", { name: "Save to project.json" }).click();
+    await expect
+      .poll(
+        async () =>
+          (await api<{ project: { rag: { retrieval?: unknown } } }>(server.url, "project.info")).project.rag.retrieval,
+      )
+      .toBeUndefined();
   });
 });
 

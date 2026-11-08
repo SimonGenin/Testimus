@@ -122,30 +122,49 @@ function sameAbbr(abbr: string): (token: string, part: string) => boolean {
     token === part || (loose && !STOP_WORDS.has(fold(token)) && fold(token) === fold(part) && token.length > 0);
 }
 
+export type Expansion = { from: string; to: string; source: string };
+
+const foundIn = (raw: string[], stems: string[], term: string) =>
+  contains(raw, rawTokens(term), sameAbbr(term)) ||
+  (!looksLikeAbbr(term) && contains(stems, contentStems(term), (a, b) => a === b));
+
 // ponytail: an acronym is found case-sensitively unless it has 3 letters or more (« IL » is not « il »); a long form
-// is found by its stems, stop words aside; a one-letter acronym is never added (« D » would match every « d' »)
-export function expand(glossary: GlossaryEntry[], text: string): string[] {
+// is found by its stems, stop words aside; a one-letter acronym is never added (« D » would match every « d' »). A
+// synonym group of the project (rag.retrieval.synonyms) works both ways: any member found brings the others, a word
+// by its stems, an acronym as an acronym
+export function expansions(glossary: GlossaryEntry[], text: string, synonyms: string[][] = []): Expansion[] {
   const raw = rawTokens(text);
   const stems = contentStems(text);
-  const out: string[] = [];
+  const out: Expansion[] = [];
   for (const g of glossary) {
-    if (contains(raw, rawTokens(g.abbr), sameAbbr(g.abbr))) out.push(g.long);
+    if (contains(raw, rawTokens(g.abbr), sameAbbr(g.abbr))) out.push({ from: g.abbr, to: g.long, source: g.source });
     if (
       fold(g.abbr).replace(/[^\p{L}\p{N}]/gu, "").length >= 2 &&
       contains(stems, contentStems(g.long), (a, b) => a === b)
     )
-      out.push(g.abbr);
+      out.push({ from: g.long, to: g.abbr, source: g.source });
   }
-  const self = fold(text.trim());
-  const seen = new Set<string>([self]);
-  return out.filter((f) => {
-    const k = fold(f);
+  for (const group of synonyms) {
+    const from = group.find((t) => foundIn(raw, stems, t));
+    if (from) for (const to of group) if (to !== from) out.push({ from, to, source: "synonym" });
+  }
+  const seen = new Set<string>([fold(text.trim())]);
+  return out.filter((e) => {
+    const k = fold(e.to);
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
   });
 }
 
+export function expand(glossary: GlossaryEntry[], text: string, synonyms: string[][] = []): string[] {
+  return expansions(glossary, text, synonyms).map((e) => e.to);
+}
+
+export function projectSynonyms(project: string): string[][] {
+  return readProject(project).rag.retrieval?.synonyms ?? [];
+}
+
 export function expandTerm(project: string, term: string): string[] {
-  return [term, ...expand(glossaryOf(project), term)];
+  return [term, ...expand(glossaryOf(project), term, projectSynonyms(project))];
 }

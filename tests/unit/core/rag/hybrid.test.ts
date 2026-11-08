@@ -135,8 +135,11 @@ describe("retrieval settings", () => {
       candidates: 50,
       rrfK: 60,
       bm25Weights: [1, 1, 5],
+      rrfWeights: [1, 1],
       rerank: { top: 30, mode: "topk" },
       expand: "none",
+      typos: false,
+      synonyms: [],
     });
     expect(retrievalSettings(dir)).toEqual(RETRIEVAL_DEFAULTS);
     project({ candidates: 80, rerank: { top: 10, mode: "threshold", thresholds: { m: 0.5 } } });
@@ -145,10 +148,39 @@ describe("retrieval settings", () => {
       candidates: 80,
       rrfK: 5,
       bm25Weights: [1, 1, 5],
+      rrfWeights: [1, 1],
       rerank: { top: 10, mode: "threshold", thresholds: { m: 0.5 }, threshold: 0.2 },
       expand: "none",
+      typos: false,
+      synonyms: [],
     });
     expect(mergeRetrieval(RETRIEVAL_DEFAULTS, { candidates: undefined })).toEqual(RETRIEVAL_DEFAULTS);
+  });
+
+  it("the new settings keep the order defaults < the pack < project.json < the run's", () => {
+    const pack = { typos: true, rrfWeights: [2, 1], synonyms: [["TK", "télécommande"]], expand: "section" as const };
+    expect(retrievalSettings(dir, undefined, pack)).toMatchObject(pack);
+    project({ rrfWeights: [1, 2], synonyms: [["PCC", "poste central"]] });
+    expect(retrievalSettings(dir, undefined, pack)).toMatchObject({
+      typos: true,
+      rrfWeights: [1, 2],
+      synonyms: [["PCC", "poste central"]],
+      expand: "section",
+    });
+    expect(retrievalSettings(dir, { typos: false, synonyms: [] }, pack)).toMatchObject({
+      typos: false,
+      rrfWeights: [1, 2],
+      synonyms: [],
+    });
+  });
+
+  it("weights the word ranking and the model's ranking in the fusion", async () => {
+    seen.lists = { bm25: [ids[0]], vector: [ids[1]] };
+    const meaning = await searchChunks(dir, "q", { retrieval: { rrfWeights: [1, 2] } });
+    expect(meaning.map((h) => h.chunk.rowid)).toEqual([ids[1], ids[0]]);
+    const words = await searchChunks(dir, "q", { retrieval: { rrfWeights: [2, 1] } });
+    expect(words.map((h) => h.chunk.rowid)).toEqual([ids[0], ids[1]]);
+    expect(words[0].score).toBeCloseTo(2 / 61);
   });
 
   it("passes the effective settings and the project folder to bm25 and vector", async () => {

@@ -26,6 +26,7 @@ import { useOps } from "./models/ops.tsx";
 import { useInfo } from "./project.ts";
 import { SearchUsers } from "./SearchUsers.tsx";
 import { Hint, Section, Stack } from "./Section.tsx";
+import { Tuning } from "./search/Tuning.tsx";
 
 const styles = stylex.create({
   dd: { display: "flex", alignItems: "center", gap: space.s2, flexWrap: "wrap", minWidth: 0 },
@@ -129,11 +130,12 @@ export function SearchSection() {
     <Section
       id="search"
       title="Search"
-      intro="How this project's documents are searched on this PC: the models, the index, and the vectors each model keeps."
+      intro="How passages are found — for you, for Claude and for the check. Saved in project.json (shared with the team) unless marked « this PC »."
       actions={<Button icon="cpu" label="Go to Models" onClick={() => app.navigate("settings", "models")} />}
     >
       {watchers}
       <SearchUsers />
+      <Tuning />
       <Card title="Search on this PC">
         <Stack loose>
           {st.isError ? (

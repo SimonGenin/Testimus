@@ -24,6 +24,7 @@ import { commands as rag } from "./rag.ts";
 import { commands as ragEval } from "./rag-eval.ts";
 import { commands as ragGraph } from "./rag-graph.ts";
 import { commands as ragIndex } from "./rag-index.ts";
+import { commands as ragSettings } from "./rag-settings.ts";
 import { commands as review } from "./review.ts";
 import { commands as runs } from "./runs.ts";
 import { commands as search } from "./search.ts";
@@ -42,6 +43,7 @@ type Defined =
   | (typeof ragIndex)[number]
   | (typeof ragEval)[number]
   | (typeof ragGraph)[number]
+  | (typeof ragSettings)[number]
   | (typeof models)[number]
   | (typeof chat)[number]
   | (typeof claude)[number]
@@ -78,6 +80,7 @@ export const registry: Command[] = [
   ...ragIndex,
   ...ragEval,
   ...ragGraph,
+  ...ragSettings,
   ...models,
   ...chat,
   ...claude,

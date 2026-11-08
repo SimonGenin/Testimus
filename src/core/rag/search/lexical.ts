@@ -2,9 +2,10 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { chunksByRowid } from "../db.ts";
-import { expand, type GlossaryEntry, glossaryOf } from "../glossary.ts";
+import { type Expansion, expansions, type GlossaryEntry, glossaryOf } from "../glossary.ts";
 import { fold, frenchTokens, STOP_WORDS, stemWord } from "../stem-fr.ts";
-import { keep, type SearchOpts } from "./filter.ts";
+import { keep, type SearchOpts, scopeSql } from "./filter.ts";
+import { type Typo, typoVariants } from "./typos.ts";
 
 export const CANDIDATES = 50;
 const BM25_WEIGHTS = [1, 1, 5];
@@ -18,34 +19,61 @@ export function words(text: string): string[] {
     .filter((w) => w.length > 1);
 }
 
-const plain = (text: string) =>
+export const plain = (text: string) =>
   fold(text)
     .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean);
+export const stemsOf = (text: string) => frenchTokens(text).map((t) => fold(stemWord(t)));
 const phrase = (tokens: string[]) => `"${tokens.join(" ")}"`;
 const searchable = (folded: string) => !STOP_WORDS.has(folded) && (folded.length > 1 || /\d/.test(folded));
 const isCode = (raw: string) => /_/.test(raw) || (/\d/.test(raw) && /\p{L}/u.test(raw));
 
-// ponytail: exact forms query the unicode61 columns (header, text, codes), stems the stemmed column; codes and ids stay
-// exact phrases; glossary expansions are added as phrases in both
-export function ftsQuery(query: string, glossary: GlossaryEntry[] = []): string {
-  const exact: string[] = [];
-  const stems: string[] = [];
+// ponytail: what a query looks for — its words (a code is one phrase of its parts), their French stems, the glossary
+// and synonym forms it brings, and the indexed words one letter from a word the index lacks (typos on)
+export type QueryTerms = {
+  exact: string[][];
+  stems: string[][];
+  words: string[];
+  expansions: Expansion[];
+  typos: Typo[];
+};
+
+export function queryTerms(
+  query: string,
+  glossary: GlossaryEntry[] = [],
+  synonyms: string[][] = [],
+  typos: Typo[] = [],
+): QueryTerms {
+  const exact: string[][] = [];
+  const stems: string[][] = [];
+  const plainWords: string[] = [];
   for (const raw of query.split(/\s+/)) {
     if (!raw) continue;
     if (isCode(raw)) {
       const parts = plain(raw);
-      if (parts.length) exact.push(phrase(parts));
+      if (parts.length) exact.push(parts);
       continue;
     }
-    for (const t of plain(raw)) if (searchable(t)) exact.push(phrase([t]));
-    for (const t of frenchTokens(raw)) if (searchable(fold(t))) stems.push(phrase([fold(stemWord(t))]));
+    for (const t of plain(raw))
+      if (searchable(t)) {
+        exact.push([t]);
+        plainWords.push(t);
+      }
+    for (const t of frenchTokens(raw)) if (searchable(fold(t))) stems.push([fold(stemWord(t))]);
   }
-  for (const form of expand(glossary, query)) {
+  return { exact, stems, words: plainWords, expansions: expansions(glossary, query, synonyms), typos };
+}
+
+// ponytail: exact forms query the unicode61 columns (header, text, codes), stems the stemmed column; codes and ids stay
+// exact phrases; glossary, synonym and typo forms are added as phrases in both
+export function ftsOf(t: QueryTerms): string {
+  const exact = t.exact.map(phrase);
+  const stems = t.stems.map(phrase);
+  for (const form of [...t.expansions.map((e) => e.to), ...t.typos.map((x) => x.to)]) {
     const parts = plain(form);
     if (!parts.length) continue;
     exact.push(phrase(parts));
-    stems.push(phrase(frenchTokens(form).map((t) => fold(stemWord(t)))));
+    stems.push(phrase(stemsOf(form)));
   }
   const ex = [...new Set(exact)];
   const st = [...new Set(stems)];
@@ -54,6 +82,10 @@ export function ftsQuery(query: string, glossary: GlossaryEntry[] = []): string 
     st.length ? `stem : (${st.join(" OR ")})` : "",
   ];
   return sides.filter(Boolean).join(" OR ");
+}
+
+export function ftsQuery(query: string, glossary: GlossaryEntry[] = [], synonyms: string[][] = []): string {
+  return ftsOf(queryTerms(query, glossary, synonyms));
 }
 
 export function bm25Weights(given?: number[]): [number, number, number, number] {
@@ -75,20 +107,24 @@ function projectOfIndex(db: DatabaseSync): string | null {
   return null;
 }
 
-export function bm25(db: DatabaseSync, query: string, opts: SearchOpts): number[] {
+export function termsOf(db: DatabaseSync, query: string, opts: SearchOpts): QueryTerms {
   const project = projectOfIndex(db);
-  const q = ftsQuery(query, project ? glossaryOf(project) : []);
+  const r = opts.retrieval;
+  const terms = queryTerms(query, project ? glossaryOf(project) : [], r?.synonyms ?? []);
+  return r?.typos ? { ...terms, typos: typoVariants(db, terms.words) } : terms;
+}
+
+export function bm25(db: DatabaseSync, query: string, opts: SearchOpts): number[] {
+  const q = ftsOf(termsOf(db, query, opts));
   if (!q) return [];
   const candidates = opts.retrieval?.candidates ?? CANDIDATES;
-  const docs = opts.docIds ?? [];
-  const inDocs = docs.length
-    ? ` and rowid in (select rowid from chunks where doc_id in (${docs.map(() => "?").join(",")}))`
-    : "";
+  const scope = scopeSql(opts);
+  const inScope = scope.where ? ` and rowid in (select rowid from chunks where ${scope.where})` : "";
   const rows = db
     .prepare(
-      `select rowid from chunks_fts where chunks_fts match ?${inDocs} order by bm25(chunks_fts, ?, ?, ?, ?) limit ?`,
+      `select rowid from chunks_fts where chunks_fts match ?${inScope} order by bm25(chunks_fts, ?, ?, ?, ?) limit ?`,
     )
-    .all(q, ...docs, ...bm25Weights(opts.retrieval?.bm25Weights), candidates * 4) as { rowid: number }[];
+    .all(q, ...scope.args, ...bm25Weights(opts.retrieval?.bm25Weights), candidates * 4) as { rowid: number }[];
   const ids = rows.map((r) => Number(r.rowid));
   const byId = chunksByRowid(db, ids);
   return ids.filter((id) => keep(byId.get(id), opts)).slice(0, candidates);

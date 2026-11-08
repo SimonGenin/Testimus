@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { CLAUDE_SEARCH } from "../claude/access.ts";
 import { command, projectOf } from "../command.ts";
-import { chunkKind, searchMode } from "../rag/schemas.ts";
+import { chunkKind, retrievalOverride, searchMode } from "../rag/schemas.ts";
 import { search } from "../rag/search/hybrid.ts";
 import { figure, passage } from "../rag/search/passage.ts";
 import type { SearchUse } from "../types.ts";
@@ -16,6 +16,8 @@ export const COMMAND_SEARCH: SearchUse = {
   embedding: "uses",
   reranker: "uses",
 };
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const figureEntry = z
   .object({
@@ -38,6 +40,24 @@ export const commands = [
       query: z.string().min(1).describe("What to look for: a question, a code, a device name"),
       k: z.number().int().min(1).max(50).default(10).describe("How many passages to return"),
       docIds: z.array(z.string()).optional().describe("Only search these documents"),
+      kinds: z
+        .array(z.string())
+        .optional()
+        .describe("Only these kinds of passage: section (a section's text), figure (a figure); default every kind"),
+      section: z
+        .string()
+        .optional()
+        .describe("Only this section, its sub-sections and their figures: a section number such as 5.6 or §5.6"),
+      dateFrom: z
+        .string()
+        .regex(DATE, "A date YYYY-MM-DD")
+        .optional()
+        .describe("Only documents dated this day or later (doc.json date, YYYY-MM-DD)"),
+      dateTo: z
+        .string()
+        .regex(DATE, "A date YYYY-MM-DD")
+        .optional()
+        .describe("Only documents dated this day or earlier (doc.json date, YYYY-MM-DD)"),
       mode: searchMode,
       expand: z
         .enum(["none", "section", "graph"])
@@ -45,6 +65,13 @@ export const commands = [
         .describe(
           "Add related passages flagged `via`: section = parent sections and the section a figure sits in; graph = also the sections each hit cross-references or amends (default: project.json rag.retrieval.expand, else none)",
         ),
+      retrieval: retrievalOverride
+        .optional()
+        .describe("Retrieval settings for this search only, over the project's (Settings › Search's Try it)"),
+      explain: z
+        .boolean()
+        .optional()
+        .describe("Say why each passage came: its rank by words and by meaning, the reranker's score, the forms found"),
     }),
     output: z
       .array(
@@ -62,6 +89,26 @@ export const commands = [
             .boolean()
             .optional()
             .describe("True when vectors were missing or incomplete and the search fell back to BM25 alone"),
+          why: z
+            .object({
+              words: z
+                .number()
+                .nullable()
+                .describe("Rank among the passages found by their words (1 = first); null: not"),
+              meaning: z
+                .number()
+                .nullable()
+                .describe("Rank among the passages found by the embedding model (1 = first); null: not, or no model"),
+              reranker: z.number().nullable().describe("The reranker's score; null: no reranker ran"),
+              matched: z.array(z.string()).describe("Query words found as written (accents and case aside)"),
+              stems: z.array(z.string()).describe("French stems found: another form of a query word"),
+              synonyms: z
+                .array(z.string())
+                .describe("Glossary and synonym forms found, « from → to » (TK → télécommande)"),
+              typos: z.array(z.string()).describe("Indexed words one letter from a query word, « typed → found »"),
+            })
+            .optional()
+            .describe("With explain: why the passage came"),
         }),
       )
       .describe("Best passages first, then the ones `expand` added"),
