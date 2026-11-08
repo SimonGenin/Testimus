@@ -6,7 +6,7 @@ import { quietCtx } from "../command.ts";
 import { agentProbe } from "../commands/system.ts";
 import { env } from "../env.ts";
 import { DEFAULT_PROJECT, writeJson, writeProject } from "../lib/project.ts";
-import { templateDir } from "../lib/project-init.ts";
+import { templateDir } from "../lib/shipped.ts";
 import { mockProbeDeps } from "./agents.ts";
 import { mockSpawnClaude } from "./claude.ts";
 import "./claude-actions.ts";

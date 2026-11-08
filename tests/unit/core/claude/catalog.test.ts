@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { BUILT } from "../../../../src/core/claude/catalog.ts";
 import { contextDir } from "../../../../src/core/claude/prompt.ts";
 import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
-import { templateDir } from "../../../../src/core/lib/project-init.ts";
+import { templateDir } from "../../../../src/core/lib/shipped.ts";
 import { writeContextMd } from "../../helpers/context.ts";
 import { call } from "../registry.ts";
 import { dir } from "./run-fakes.ts";
