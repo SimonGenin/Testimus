@@ -93,7 +93,8 @@ export function Column({ children }: { children: ReactNode }) {
   return <div {...stylex.props(styles.column)}>{children}</div>;
 }
 
-// ponytail: a card's lines, 12 px apart; loose: the groups of a card (a field and its result, then another), 24 px
+// ponytail: a card's lines, 12 px apart; loose: the groups of a card (a field and its result, then another), or a
+// banner and the block it speaks about (the advice above the packs), 24 px
 export function Stack({ loose = false, children }: { loose?: boolean; children: ReactNode }) {
   return <div {...stylex.props(styles.stack, loose && styles.loose)}>{children}</div>;
 }

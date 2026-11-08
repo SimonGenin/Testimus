@@ -51,7 +51,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
       et quel RAG sont utilisés. Exemple : avec le pack Qualité, l'app propose quand même d'installer BGE-M3. Il faut
       dire clairement qui a besoin de quoi et qui utilise quoi — d'autant que d'autres LLM que Claude vont bientôt
       arriver.
-- [ ] **Packs : marge du bandeau.** Au-dessus des packs de modèles, le bandeau info / warning n'a pas de marge par
+- [x] **Packs : marge du bandeau.** Au-dessus des packs de modèles, le bandeau info / warning n'a pas de marge par
       rapport aux packs.
 - [ ] **Packs : des textes justes, un code générique.** Ce qui est écrit dans les packs n'est pas toujours vrai, par
       exemple « skipped car trop gros » pour un modèle qu'on est littéralement en train d'utiliser. Retravailler ce code

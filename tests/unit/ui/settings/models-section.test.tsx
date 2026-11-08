@@ -790,6 +790,26 @@ describe("Settings › Models › the catalog", () => {
 });
 
 describe("Settings › Models › advice and the folder", () => {
+  it("the advice banner and the pack cards are one stack of the section, a step apart, never touching", async () => {
+    const advice = [
+      {
+        id: "a1",
+        direction: "downgrade",
+        from: { pack: "balanced" },
+        to: { pack: "light" },
+        reason: "r",
+        quality: "q",
+      },
+    ];
+    base({ packs: [pack("balanced", { active: true }), pack("light")], advice });
+    mountSettings(<ModelsSection />);
+    const banner = await screen.findByRole("region", { name: "Advice" });
+    const grid = (await screen.findByRole("article", { name: "Light pack" })).parentElement as HTMLElement;
+    const stack = banner.parentElement as HTMLElement;
+    expect(grid.parentElement).toBe(stack);
+    expect(stack.getAttribute("data-style-src")).toMatch(/Section\.tsx:\d+; src\/ui\/screens\/settings\/Section\.tsx/);
+  });
+
   it("a pack advice plans the pack; dismiss is said when refused, then gone", async () => {
     const advice = [
       {

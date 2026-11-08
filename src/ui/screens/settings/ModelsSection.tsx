@@ -166,7 +166,7 @@ export function ModelsSection() {
             <span>{failed.message}</span>
           </Banner>
         ) : (
-          <>
+          <Stack loose>
             {top && (
               <AdviceBanner
                 advice={top}
@@ -215,7 +215,7 @@ export function ModelsSection() {
                 />
               </div>
             )}
-          </>
+          </Stack>
         )}
       </Anchor>
       <Anchor id="models-catalog">
