@@ -546,8 +546,11 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
 - **Names, never internal ids**: a label is what speaks to the user — a test's summary (its Jira key beside it in mono
   when it has one; a local test carries a « Local » badge), a document's title (and its code), the project's name, a
   context's or column's name; a missing one is « Untitled test / document / context », never the id
-  (`src/ui/lib/labels.ts`: `testLabel`, `docLabel`, `contextLabel`, `nameTests` for a text that still names tests by
-  id, such as Claude's own words, `useTestNames`). An id (job, `local-…`) stays visible only in a job's folded
+  (`src/ui/lib/labels.ts`: `testName`, `testLabel`, `testRef`, `contextLabel`, `nameTests` for a text that still
+  names tests by id, such as Claude's own words, `useTestNames`). The core names what it reports (a job's label, a
+  check's verdict, its messages: `src/core/lib/names.ts`) and the page shows that name; the page applies the test rule
+  only to the tests it holds, and `tests/unit/ui/lib/names-parity.test.ts` keeps its copy equal to the core's (the page
+  cannot import a value from the core). An id (job, `local-…`) stays visible only in a job's folded
   « Technical details », beside its name. `tests/e2e/ids.spec.ts` fails on a `local-<hex>` in any visible text.
 - **Safety rules of the page**: a Jira write always shows its plan first; from the palette (Ctrl K, every command by
   name, a form from its schema) nothing runs blind — a command with `dryRun` shows its plan, one that loses something

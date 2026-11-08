@@ -11,6 +11,7 @@ import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
+import { testLabel } from "../../lib/labels.ts";
 import { border, color, container, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
 import type { QueueGroup } from "./queueGroups.ts";
 import { FilteredEmpty } from "./ReviewEmpty.tsx";
@@ -112,7 +113,7 @@ function Counts({ item }: { item: QueueItem }) {
 }
 
 const tip = (t: QueueItem) =>
-  [t.key ?? "Not in Jira yet", t.summary || "Untitled test", t.folder || "/"].join(" — ") +
+  [t.key ?? "Not in Jira yet", testLabel(t), t.folder || "/"].join(" — ") +
   (t.edited ? " · edited since it was generated" : "");
 
 export type ReviewQueueProps = {
@@ -237,7 +238,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
             selected={p.activeId}
             onSelect={p.onOpen}
             renderItem={(t) => ({
-              title: t.summary || "Untitled test",
+              title: testLabel(t),
               tooltip: tip(t),
               meta: (
                 <>

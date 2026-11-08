@@ -4,7 +4,7 @@ import type { Job, JobEvent } from "../../../core/types.ts";
 import { activityOf, DOING, lasted, type Phase, type Verdict } from "../../lib/activity.ts";
 import { plural } from "../../lib/format.ts";
 import { clock } from "../../lib/jobs.ts";
-import { isLocalId, type TestNames, UNTITLED_TEST, useTestNames } from "../../lib/labels.ts";
+import { isLocalId, type TestNames, testNamed, UNTITLED_TEST, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { JobLog } from "../shell/JobLog.tsx";
 import { Badge, type BadgeTone } from "../ui/Badge.tsx";
@@ -148,7 +148,7 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
       )}
       {p.kind === "write" && last && (
         <span {...stylex.props(type.compact, styles.quiet)}>
-          Last written: “{last.summary || names(last.id) || UNTITLED_TEST}”
+          Last written: “{last.summary || testNamed(names, last.id)}”
           {p.written.some((w) => w.saves > 1) &&
             `; ${plural(p.written.filter((w) => w.saves > 1).length, "test")} written more than once`}
           .

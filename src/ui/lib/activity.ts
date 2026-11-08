@@ -1,7 +1,7 @@
 import type { ClaudeEvent, JobEvent } from "../../core/types.ts";
 import { FILE_WRITE_TOOLS, testInPath } from "../../shared/tests.ts";
 import { resultLine } from "./jobs.ts";
-import { nameTests, type TestNames } from "./labels.ts";
+import { nameTests, type TestNames, UNTITLED_TEST } from "./labels.ts";
 
 export type PhaseKind = "prepare" | "read" | "plan" | "write" | "check" | "end";
 export type Act = { at: string; text: string; level: "info" | "warn" | "error" };
@@ -151,7 +151,7 @@ function stepOf(e: Extract<ClaudeEvent, { type: "tool" }>): Step {
   if (name === "tests_list") return { kind: "prepare", text: "Listed the existing tests" };
   if (name.startsWith("contexts_")) return { kind: "prepare", text: "Read the saved contexts" };
   if (name === "tests_create") {
-    const s = str(a.summary) || "Untitled test";
+    const s = str(a.summary) || UNTITLED_TEST;
     return { kind: "plan", plan: s, text: `Planned ${quoted(s)}` };
   }
   if (name === "tests_save" || name === "tests_edit") {

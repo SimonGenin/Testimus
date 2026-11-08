@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
 import type { Screen } from "../../lib/app.ts";
-import { type TestNames, UNTITLED_TEST, useTestNames } from "../../lib/labels.ts";
+import { type TestNames, testNamed, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -26,7 +26,7 @@ export function placeOfPath(path: string, names: TestNames): Place | null {
   const m = /^(tests|docs)\/([^/]+)\/(.*)$/.exec(path.replace(/\\/g, "/"));
   if (!m) return null;
   return m[1] === "tests"
-    ? { name: names(m[2]) ?? (m[2].startsWith("local-") ? UNTITLED_TEST : m[2]), rest: m[3], screen: "tests", id: m[2] }
+    ? { name: testNamed(names, m[2]), rest: m[3], screen: "tests", id: m[2] }
     : { name: m[2], rest: m[3], screen: "documents", id: m[2] };
 }
 

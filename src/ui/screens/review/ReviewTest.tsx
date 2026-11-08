@@ -7,6 +7,7 @@ import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
 import { type ClaudeBefore, diffRun } from "../../lib/diff.ts";
 import { plural } from "../../lib/format.ts";
+import { testLabel } from "../../lib/labels.ts";
 import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { GoneStep } from "../tests/WasView.tsx";
 import { FindingCard } from "./FindingCard.tsx";
@@ -166,7 +167,7 @@ export function ReviewTest(p: ReviewTestProps) {
       <div ref={p.bodyRef} {...stylex.props(styles.body)}>
         <div {...stylex.props(styles.col)}>
           <div {...stylex.props(styles.titles)}>
-            <h2 {...stylex.props(type.titleLg, styles.title)}>{test.summary || "Untitled test"}</h2>
+            <h2 {...stylex.props(type.titleLg, styles.title)}>{testLabel(test)}</h2>
             <p {...stylex.props(type.compact, styles.sub)}>{subline(test, check)}</p>
           </div>
           <ReviewBanners {...p} checked={!!check} claudeReady={p.claudeReady ?? true} />

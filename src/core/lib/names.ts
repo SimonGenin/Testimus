@@ -6,12 +6,13 @@ export const UNTITLED_TEST = "Untitled test";
 export const UNTITLED_DOC = "Untitled document";
 
 // ponytail: a local test's id (local-4df6ff7b) means nothing to a person — what the core says about a test names it
-// by its summary, else its Jira key; a test that is gone keeps its Jira key, a local one becomes « Untitled test »
-export function testName(project: string | null, id: string): string {
-  const ref = project ? localTestRef(project, id) : null;
-  if (ref) return ref.summary.trim() || ref.key || UNTITLED_TEST;
-  return id.startsWith("local-") ? UNTITLED_TEST : id;
-}
+// by its summary, else its Jira key; a test that is gone keeps its Jira key, a local one becomes « Untitled test ».
+// The page has the same rule for the tests it holds (src/ui/lib/labels.ts testName); a test keeps the two equal
+export const testNameOf = (t: { summary?: string; key?: string } | null, id: string): string =>
+  t ? t.summary?.trim() || t.key || UNTITLED_TEST : id.startsWith("local-") ? UNTITLED_TEST : id;
+
+export const testName = (project: string | null, id: string): string =>
+  testNameOf(project ? localTestRef(project, id) : null, id);
 
 export function docName(project: string | null, id: string): string {
   const doc = project ? findDoc(project, id) : null;

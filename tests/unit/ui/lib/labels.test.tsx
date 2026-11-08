@@ -8,15 +8,7 @@ import { scopeWords } from "../../../../src/ui/lib/actions.ts";
 import { activityOf } from "../../../../src/ui/lib/activity.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { subjectLabel } from "../../../../src/ui/lib/jobs.ts";
-import {
-  contextLabel,
-  docLabel,
-  isLocalId,
-  nameTests,
-  testLabel,
-  testRef,
-  useTestNames,
-} from "../../../../src/ui/lib/labels.ts";
+import { contextLabel, isLocalId, nameTests, testLabel, testRef, useTestNames } from "../../../../src/ui/lib/labels.ts";
 import { placeOfPath } from "../../../../src/ui/screens/jobs/JobFiles.tsx";
 import { fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 
@@ -49,8 +41,6 @@ describe("labels: what the page calls a test, a document, a context", () => {
     expect(testLabel(null)).toBe("Untitled test");
     expect(testRef({ key: "LFRPS12-1398", summary: "Disjoncteur" })).toBe("LFRPS12-1398 Disjoncteur");
     expect(testRef({ summary: SUMMARY })).toBe(SUMMARY);
-    expect(docLabel({ title: "Traction" })).toBe("Traction");
-    expect(docLabel({ title: " " })).toBe("Untitled document");
     expect(contextLabel({ name: "Glossaire" })).toBe("Glossaire");
     expect(contextLabel({ name: "" })).toBe("Untitled context");
     expect(isLocalId("local-3f9a12c0")).toBe(true);

@@ -1,5 +1,5 @@
 import type { ClaudeAction, ClaudeScope } from "../../core/types.ts";
-import { isLocalId, type TestNames, UNTITLED_TEST } from "./labels.ts";
+import { type TestNames, testNamed } from "./labels.ts";
 
 export type Action = ClaudeAction & { stale: boolean };
 
@@ -35,7 +35,7 @@ export function originLine(a: Pick<ClaudeAction, "proposedBy">, now = Date.now()
 
 // ponytail: a test is named by its summary (nameOf), a local one never by its id
 export function scopeWords(s: ClaudeScope, nameOf: TestNames = () => undefined): string {
-  const test = (id: string) => nameOf(id) ?? (isLocalId(id) ? UNTITLED_TEST : id);
+  const test = (id: string) => testNamed(nameOf, id);
   if (s.kind === "step") return `${test(s.testId)} · step ${s.step}`;
   if (s.kind === "test") return `${test(s.testId)} · whole test`;
   if (s.kind === "doc") return `${s.docId} · whole document`;
