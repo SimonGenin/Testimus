@@ -17,7 +17,7 @@ test("the Run screen lists the runs, and a test is run step by step, saved, then
   await shoot(page, "run/run-list");
 
   await run.getByRole("button", { name: "Continue — next test not run" }).click();
-  await expect(page).toHaveURL(new RegExp(`#/run/${RUN}%2FLFRPS12-1398$`));
+  await expect(page).toHaveURL(new RegExp(`#/run/${RUN}/LFRPS12-1398$`));
   const test1398 = page.getByRole("region", { name: /^Test Disjoncteur/ });
   await test1398.getByRole("group", { name: "Step 1" }).getByRole("button", { name: "NOK" }).click();
   await test1398.getByRole("textbox", { name: "What happened" }).fill("Le disjoncteur reste fermé.");
@@ -40,7 +40,7 @@ test("the Run screen lists the runs, and a test is run step by step, saved, then
 });
 
 test("the keyboard marks the steps: J / K move, O and N mark, Ctrl+Enter saves", async ({ page }) => {
-  await boot(page, `#/run/${RUN}%2FLFRPS12-1420`);
+  await boot(page, `#/run/${RUN}/LFRPS12-1420`);
   const t = page.getByRole("region", { name: /^Test Sectionneur sans TK/ });
   await expect(
     t.getByRole("group", { name: "Step 1" }).getByRole("button", { name: "OK", exact: true }),
