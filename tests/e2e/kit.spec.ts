@@ -24,6 +24,7 @@ test("each component page shows its props and every state, light and dark, style
   await setTheme(page, "light");
   mkdirSync(join(SCREENS_DIR, "kit"), { recursive: true });
   const rows = page.getByRole("navigation", { name: "Components" }).getByRole("option");
+  await expect(rows.first()).toBeVisible();
   const count = await rows.count();
   expect(count).toBeGreaterThanOrEqual(7);
   for (let i = 0; i < count; i++) {
