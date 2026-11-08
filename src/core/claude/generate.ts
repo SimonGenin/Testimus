@@ -47,6 +47,8 @@ export type GenResult = {
   diagnosis?: Diagnosis;
 };
 
+export const STOPPED = "Stopped before it was written";
+
 export type ToolStep = { kind: "read" } | { kind: "write"; testId: string } | null;
 
 const TEST_PATH = /tests[\\/]+(local-[0-9a-f]{8})[\\/]+test\.md/i;
@@ -336,7 +338,7 @@ async function generate(project: string, asked: GenInput, ctx: Ctx): Promise<Gen
     skipped: [
       ...(first ? (plan?.skipped ?? []) : []),
       ...reports.flatMap((r) => r.skipped),
-      ...left.map((t) => ({ item: t.summary, why })),
+      ...left.map((t) => ({ item: t.summary, category: STOPPED, why })),
     ],
     reportFound,
     consulted: consulted.length,

@@ -186,7 +186,7 @@ export function genText(
     "",
     `When you finish, end your reply with the report block of the skill (section 4), exactly this shape:`,
     "```" + REPORT_TAG,
-    '{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "why": "<reason>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}',
+    '{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}',
     "```",
     "",
   );

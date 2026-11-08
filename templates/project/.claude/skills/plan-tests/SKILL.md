@@ -36,12 +36,15 @@ Reply in a few lines, in the project language: how many tests, and what is left 
 the reply with this block, valid JSON, nothing after it:
 
 ```test-plan
-{"tests": [{"summary": "Report export — PDF of the selected period", "technique": "equivalence classes", "sections": ["SPEC_REPORTS#§4.2"]}], "skipped": [{"item": "Report cache refreshed by the server", "why": "not observable by a manual tester: the server function has no effect on the screen", "sources": ["SPEC_REPORTS#§4.5 \"Le serveur rafraîchit le cache des rapports\""]}]}
+{"tests": [{"summary": "Report export — PDF of the selected period", "technique": "equivalence classes", "sections": ["SPEC_REPORTS#§4.2"]}], "skipped": [{"item": "Report cache refreshed by the server", "category": "Not observable on the screen", "why": "§4.5 describes a server function: nothing on the screen changes when the cache is refreshed", "sources": ["SPEC_REPORTS#§4.5 \"Le serveur rafraîchit le cache des rapports\""]}]}
 ```
 
 - `summary`: the test's summary, in the project language, as it will appear in Xray.
 - `technique`: the test technique, in a few words.
 - `sections`: the `docId#§x.y` the test is written from — the sections that hold its behaviors, its
   figures and its exceptions.
-- `skipped`: every behavior of the scope that no planned test verifies, with `why` in one sentence and
-  `sources`, the passages that ask for it (`docId#anchor "quote"`, as a step source).
+- `skipped`: every behavior of the scope that no planned test verifies, with `category`, `why` and
+  `sources`, the passages that ask for it (`docId#anchor "quote"`, as a step source). `category` is why
+  in a few words of your own, in the project language, the same words for items of the same nature
+  (no fixed list: « Not observable on the screen », « Already tested »…); `why` says in one or two
+  concrete sentences what is missing or what covers it already, for this item.

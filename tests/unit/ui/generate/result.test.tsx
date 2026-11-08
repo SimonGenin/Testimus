@@ -293,21 +293,41 @@ describe("Generate › result helpers", () => {
     );
     expect(screen.getByText(/checked line/)).toBeInTheDocument();
     expect(screen.getByText(/Claude did not say what it could not write a test for/)).toBeInTheDocument();
-    const notCovered = screen.getByRole("region", { name: "Not covered" });
+    const notCovered = screen.getByRole("region", { name: "Not written" });
     expect(within(notCovered).getByText("R2 alarm")).toBeInTheDocument();
     expect(within(notCovered).getByText("no passage")).toBeInTheDocument();
     expect(screen.getByText(/Claude also changed 2 existing tests: T9, T8/)).toBeInTheDocument();
     rerender(<GenSummary result={output({ reportFound: false, ok: false })} checked="" />);
     expect(screen.queryByText(/did not say/)).toBeNull();
     expect(screen.queryByText(/also changed/)).toBeNull();
-    expect(screen.queryByRole("region", { name: /Not covered/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Not written/ })).toBeNull();
+  });
+
+  it("GenSummary: the tests not written are grouped by Claude's category, the largest group first; none is « Other »", () => {
+    const skipped = [
+      { item: "Alarme R2", category: "Hors périmètre", why: "pas le sectionneur" },
+      { item: "Menu B", category: "Pas de source", why: "§2 ne dit pas ce que montre l'écran" },
+      { item: "Menu C", why: "un ancien rapport" },
+      { item: "Menu D", category: "Pas de source", why: "context.md : pas câblé" },
+    ];
+    render(<GenSummary result={output({ skipped })} checked="" open />);
+    const list = screen.getByRole("region", { name: "Not written" });
+    const groups = within(list).getAllByRole("region");
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual(["Pas de source", "Hors périmètre", "Other"]);
+    expect(
+      within(groups[0])
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["Menu B — §2 ne dit pas ce que montre l'écran", "Menu D — context.md : pas câblé"]);
+    expect(within(groups[0]).getByText("2")).toBeInTheDocument();
+    expect(within(groups[2]).getByText("Menu C")).toBeInTheDocument();
   });
 
   it("GenSummary: the not-covered list is folded as the screen says, and its summary asks to unfold it", () => {
     const skipped = Array.from({ length: 2 }, (_, i) => ({ item: `Item ${i}`, why: "no passage" }));
     const onOpenChange = vi.fn();
     render(<GenSummary result={output({ skipped })} checked="" open={false} onOpenChange={onOpenChange} />);
-    const fold = screen.getByRole("button", { name: "Not covered · 2" });
+    const fold = screen.getByRole("button", { name: "Not written · 2" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Item 0")).toBeNull();
     fireEvent.click(fold);
@@ -321,7 +341,7 @@ describe("Generate › result helpers", () => {
       { item: "Menu C", why: "" },
     ];
     const { rerender } = render(<GenSummary result={output({ skipped })} checked="" open />);
-    const list = screen.getByRole("region", { name: "Not covered" });
+    const list = screen.getByRole("region", { name: "Not written" });
     expect(within(list).getByText("D1 §2")).toBeInTheDocument();
     expect(within(list).getAllByText("D1 Figure 4").length).toBeGreaterThan(0);
     expect(within(list).queryByText("not a source")).toBeNull();

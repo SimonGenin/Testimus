@@ -422,9 +422,16 @@ after the frontmatter, so a review decision never makes findings stale.
   holds over a skill the team edited); the mechanical check has no length rule and `check-test` never reports one.
   `tests/unit/core/gen/step-length.test.ts` fails on a hard-limit wording in any shipped skill, the code's prompts or
   the mock.
-- The skill ends with a fenced `gen-report` block `{ tests, skipped: [{ item, why }], consulted }`
-  (`claude/gen-reply.ts`). Every new test is stamped `review: draft` + `generated_by`, and checked at once. The run is
-  snapshotted (revertable).
+- The skill ends with a fenced `gen-report` block `{ tests, skipped: [{ item, category, why, sources? }], consulted }`
+  (`claude/gen-reply.ts`; `plan-tests`' `test-plan` block has the same `skipped`). Every new test is stamped `review:
+  draft` + `generated_by`, and checked at once. The run is snapshotted (revertable).
+- **Why a test was not written** (2026-11-08): `category` is a few words Claude chooses for the run, in the project
+  language, the same words for items of the same nature — **no list of categories exists in the code**, the skills and
+  the prompt only give examples; `why` is one or two concrete sentences (which source is missing, what the documents or
+  `context.md` say). An item without a category (an older report, a model that left it out) reads as « Other »; a
+  planned test a cancel or a failed run left is « Stopped before it was written ». The page groups the items by
+  category, the largest group first (`screens/generate/SkippedList.tsx`); every category wears the warning tone, since
+  the code cannot tell a gap from a choice.
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
   of `doc.md` mapped to sections, figure images) and what it searched. Review shows it (`review.evidence`); `gen.bench`

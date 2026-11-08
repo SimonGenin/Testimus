@@ -77,7 +77,7 @@ skill once per planned test.
   product under test: a window, a menu entry, a colour, a symbol, a message, a state shown, a file
   produced. Internal logic (a
   server function, a file read, a search order), a capacity no screen shows or a design deliverable
-  makes no step: report it in `skipped` with the why « not observable by a manual tester ».
+  makes no step: report it in `skipped`, with a category such as « Not observable on the screen ».
 - **A starting point.** The description states what the tester starts from (the profile, the
   object and its type, its state). A step that checks a behavior in a state first brings the object
   into that state, in its own Action or an earlier step.
@@ -206,16 +206,22 @@ that step:
    you could not test and why. **End the reply with this block**, valid JSON, nothing after it:
 
 ```gen-report
-{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Export settings window", "why": "no passage says what the window shows", "sources": ["SPEC_REPORTS#§4.3 \"Les paramètres d’export sont définis dans la fenêtre dédiée\""]}], "consulted": ["SPEC_REPORTS#§4.2", "SPEC_REPORTS#fig:7"]}
+{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Export settings window", "category": "No source for the expected result", "why": "§4.3 names the window but no passage says what it shows, and context.md says nothing about it", "sources": ["SPEC_REPORTS#§4.3 \"Les paramètres d’export sont définis dans la fenêtre dédiée\""]}], "consulted": ["SPEC_REPORTS#§4.2", "SPEC_REPORTS#fig:7"]}
 ```
 
 - `tests`: the folders (`local-…`) of the tests you wrote.
-- `skipped`: every behavior of the request you wrote no step for, with `why` in one sentence (no
-  source, documents disagree, not implemented, already tested by an existing test… — never the length
-  of a test). An empty list when nothing was left out. `item` names the behavior in a few words;
-  `sources` are the passages that ask for it, written as a step source (`docId#anchor "quote"`, the
-  quote verbatim), so the reviewer opens them — requirement codes and document names belong in the
-  quote, not in `item`.
+- `skipped`: every behavior of the request you wrote no step for — never because of the length of a
+  test. An empty list when nothing was left out. `item` names the behavior in a few words; `sources`
+  are the passages that ask for it, written as a step source (`docId#anchor "quote"`, the quote
+  verbatim), so the reviewer opens them — requirement codes and document names belong in the quote,
+  not in `item`.
+  - `category`: why, in a few words of your own, in the project language (« No source for the
+    expected result », « Documents disagree », « Not observable on the screen », « Already tested »,
+    « Out of the requested scope »…). There is no fixed list: choose the words that fit this run, and
+    give items of the same nature **exactly the same category**, so the reviewer sees them grouped.
+  - `why`: one or two concrete sentences for this item — which source is missing or what it lacks,
+    what the documents or `context.md` say instead, which test already covers it. Not the category
+    again.
 - `consulted`: the `docId#anchor` of every section and figure you read. Testimus keeps its own
   record of what you opened (from your tool calls); this list is compared with it.
 

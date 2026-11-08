@@ -77,7 +77,14 @@ export const commands = [
         .array(
           z.object({
             item: z.string().describe("What was asked"),
-            why: z.string().describe("Why no test"),
+            category: z
+              .string()
+              .describe(
+                "Why no test, in a few words Claude chose for this generation (no fixed list; the same words for items of the same nature; « Other » when the report gave none) — the page groups by it",
+              ),
+            why: z
+              .string()
+              .describe("Why no test for this item, concretely: which source is missing, what the documents say"),
             sources: z
               .array(z.string())
               .optional()

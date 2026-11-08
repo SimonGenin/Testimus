@@ -77,7 +77,7 @@ export type DisclosureProps = {
   defaultOpen?: boolean;
   /** on the right of the summary: a count, a time */
   meta?: ReactNode;
-  /** right after the summary, how many things it folds (« Not covered 2 »): a number pill */
+  /** right after the summary, how many things it folds (« Not written 2 »): a number pill */
   count?: number;
   /** the count's meaning: warning when what it counts needs a look */
   countTone?: BadgeTone;

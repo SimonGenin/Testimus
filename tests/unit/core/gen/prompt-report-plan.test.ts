@@ -12,7 +12,7 @@ import {
   REPORT_TAG,
 } from "../../../../src/core/claude/gen-prompt.ts";
 import { parseGenReport, parsePlan, type Skipped } from "../../../../src/core/claude/gen-reply.ts";
-import { toolStep } from "../../../../src/core/claude/generate.ts";
+import { STOPPED, toolStep } from "../../../../src/core/claude/generate.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { subscribe } from "../../../../src/core/jobs.ts";
@@ -168,8 +168,8 @@ describe("gen-report parsing", () => {
       found: true,
       tests: ["local-1a2b3c4d"],
       skipped: [
-        { item: "Menu B", why: "no source" },
-        { item: "Menu C", why: "" },
+        { item: "Menu B", category: "Other", why: "no source" },
+        { item: "Menu C", category: "Other", why: "" },
       ],
       consulted: [],
     });
@@ -179,7 +179,7 @@ describe("gen-report parsing", () => {
 
   it("accepts an untagged json block holding skipped, and says when there is no report", () => {
     expect(parseGenReport('x\n```json\n{"skipped": [{"item": "A", "why": "w"}]}\n```').skipped).toEqual([
-      { item: "A", why: "w" },
+      { item: "A", category: "Other", why: "w" },
     ]);
     expect(parseGenReport('```json\n{"other": 1}\n```').found).toBe(false);
     expect(parseGenReport("```gen-report\n{not json\n```")).toEqual({
@@ -264,13 +264,13 @@ describe("planned generation", () => {
       block({ tests: [{ summary: "Old" }] }),
       block({
         tests: [{ summary: " A ", technique: "états", sections: ["DOC#§2", "§3"] }, { summary: "" }, "B"],
-        skipped: [{ item: "Fonction serveur", why: "not observable by a manual tester" }],
+        skipped: [{ item: "Fonction serveur", category: "Not observable", why: "not observable by a manual tester" }],
       }),
     ].join("\n");
     expect(parsePlan(t)).toEqual({
       found: true,
       tests: [{ summary: "A", technique: "états", sections: ["DOC#§2"] }],
-      skipped: [{ item: "Fonction serveur", why: "not observable by a manual tester" }],
+      skipped: [{ item: "Fonction serveur", category: "Not observable", why: "not observable by a manual tester" }],
     });
     expect(parsePlan(block({ tests: [] })).found).toBe(false);
     expect(parsePlan("```test-plan\nnot json\n```").found).toBe(false);
@@ -283,7 +283,7 @@ describe("planned generation", () => {
         { summary: "Boutons 0 à 7", sections: ["BIG_DOC#§1"] },
         { summary: "Boutons 8 à 14", sections: [] },
       ],
-      skipped: [{ item: "Bouton 15", why: "not observable by a manual tester" }],
+      skipped: [{ item: "Bouton 15", category: "Not observable", why: "not observable by a manual tester" }],
     };
     const planReply = `Deux tests.\n\`\`\`${PLAN_TAG}\n${JSON.stringify(plan)}\n\`\`\``;
     const ids = ["local-0000a001", "local-0000b002"];
@@ -293,7 +293,7 @@ describe("planned generation", () => {
         if (s.stdin.includes(PLAN_MARKER))
           return [tool("mcp__testimus__docs_show", { id: "BIG_DOC" }), result(planReply)];
         const id = ids[nth(s) - 1];
-        const skipped = nth(s) === 2 ? [{ item: "Bouton 9", why: "no passage" }] : [];
+        const skipped = nth(s) === 2 ? [{ item: "Bouton 9", category: "No source", why: "no passage" }] : [];
         const reply = `Écrit ${id}.\n\`\`\`gen-report\n${JSON.stringify({ tests: [id], skipped })}\n\`\`\``;
         return [tool("Write", { file_path: join(dir, "tests", id, "test.md"), content: "…" }), result(reply)];
       },
@@ -325,8 +325,8 @@ describe("planned generation", () => {
     expect(r.planned).toBe(2);
     expect([...r.tests].sort()).toEqual(ids);
     expect(r.skipped).toEqual([
-      { item: "Bouton 15", why: "not observable by a manual tester" },
-      { item: "Bouton 9", why: "no passage" },
+      { item: "Bouton 15", category: "Not observable", why: "not observable by a manual tester" },
+      { item: "Bouton 9", category: "No source", why: "no passage" },
     ]);
     expect(r.reportFound).toBe(true);
     expect(r.costUsd).toBe(0.75);
@@ -438,6 +438,7 @@ describe("planned generation", () => {
     expect(r.remaining).toBe(3);
     expect(r.skipped.map((s) => s.item)).toEqual(["Bouton 2", "Bouton 4", "Bouton 5"]);
     expect(r.skipped[0].why).toContain("stopped on a failed run");
+    expect(r.skipped[0].category).toBe(STOPPED);
     const ledger = readJson<{ done: number[]; plan: { tests: unknown[] } }>(
       join(dir, ".testimus", "gen", `${r.generation}.json`),
       { done: [], plan: { tests: [] } },
@@ -507,7 +508,7 @@ describe("gen.tests", () => {
     expect(r.tests).toEqual([id]);
     expect(r.consulted).toBe(1);
     expect(r.changed).toEqual([]);
-    expect(r.skipped).toEqual([{ item: "Fermeture du disjoncteur", why: "absent des documents" }]);
+    expect(r.skipped).toEqual([{ item: "Fermeture du disjoncteur", category: "Other", why: "absent des documents" }]);
     expect(r.reportFound).toBe(true);
     expect(r.costUsd).toBe(0.25);
 
@@ -614,7 +615,7 @@ describe("gen.tests", () => {
         folder: "/Traction/Sectionneurs",
       },
       { project: dir },
-    )) as { tests: string[]; skipped: { item: string }[]; ok: boolean; costUsd: number; consulted: number };
+    )) as { tests: string[]; skipped: Skipped[]; ok: boolean; costUsd: number; consulted: number };
     expect(r.ok).toBe(true);
     expect(r.tests).toHaveLength(2);
     const by = readTest(dir, r.tests[0]).test.generatedBy as string;
@@ -637,7 +638,8 @@ describe("gen.tests", () => {
         .filter((d) => !before.includes(d))
         .sort(),
     ).toEqual([...r.tests].sort());
-    expect(r.skipped).toHaveLength(1);
+    expect(r.skipped).toHaveLength(3);
+    expect(new Set(r.skipped.map((s) => s.category)).size).toBe(2);
     expect(r.costUsd).toBeGreaterThan(0);
 
     const notFound = r.tests.map((id) => {

@@ -48,8 +48,13 @@ test("a request runs live, the tests land, and « Review these tests » opens th
 
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(result.getByRole("button", { name: "What Claude did" })).toHaveAttribute("aria-expanded", "false");
-  await result.getByRole("button", { name: /^Not covered · \d+$/ }).click();
+  await result.getByRole("button", { name: "Not written · 3" }).click();
   await expect(result.getByText(/sectionneur avec TK/).first()).toBeVisible();
+  const groups = result.getByRole("region", { name: "Not written" }).getByRole("region");
+  await expect(groups).toHaveCount(2);
+  await expect(groups.first()).toHaveAccessibleName("Pas de source pour le résultat attendu");
+  await expect(groups.first().getByRole("listitem")).toHaveCount(2);
+  await expect(groups.nth(1)).toHaveAccessibleName("Hors du périmètre demandé");
   const landed = result.getByRole("region", { name: /^Sectionneur (sans|avec) TK/ });
   await expect(landed).toHaveCount(2);
   for (const card of await landed.all())

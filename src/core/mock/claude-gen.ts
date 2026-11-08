@@ -126,11 +126,24 @@ ${
     : ""
 }`;
 
+const NO_SOURCE = "Pas de source pour le résultat attendu";
+
 const SKIPPED = [
   {
     item: "Manœuvre à distance d'un sectionneur avec TK",
-    why: "context.md : les sectionneurs avec TK ne sont pas encore câblés dans le simulateur ; aucune source ne décrit le résultat attendu.",
+    category: NO_SOURCE,
+    why: "context.md : les sectionneurs avec TK ne sont pas encore câblés dans le simulateur ; aucun document ne décrit le résultat attendu.",
     sources: ['SOSIE_211_D401-1_3#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"'],
+  },
+  {
+    item: "Défaut de la TK pendant la manœuvre",
+    category: NO_SOURCE,
+    why: "Le §5.6.6 nomme le défaut de la TK mais ne dit pas ce que l'écran montre alors.",
+  },
+  {
+    item: "EXI_MOP_SPF_510_A_20",
+    category: "Hors du périmètre demandé",
+    why: "Le TCO à deux rangées ne concerne pas le sectionneur.",
   },
 ];
 

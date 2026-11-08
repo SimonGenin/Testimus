@@ -569,7 +569,7 @@ describe("Generate screen", () => {
     expect(screen.queryByRole("button", { name: "Deux" })).toBeNull();
     const folds = [
       ["What Claude did", "What Claude did"],
-      ["Not covered · 1", "Not covered"],
+      ["Not written · 1", "Not written"],
     ];
     const shut = () => {
       for (const [b] of folds)
@@ -581,8 +581,8 @@ describe("Generate screen", () => {
     expect(screen.queryByText("do local-aaaaaaaa")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
     shut();
-    fireEvent.click(screen.getByRole("button", { name: "Not covered · 1" }));
-    expect(screen.getByRole("region", { name: "Not covered" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Not written · 1" }));
+    expect(screen.getByRole("region", { name: "Not written" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
     shut();
   });
@@ -711,7 +711,7 @@ describe("Generate › the tests land from the job events (was ui-screens)", () 
     emit({ jobId: "job-gen", at: now, type: "status", job: done });
     expect(await screen.findByRole("region", { name: /^Second test/ })).toBeInTheDocument();
     expect(screen.getByText("2 tests written")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Not covered · 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Not written · 1" }));
     expect(screen.getByText(/no passage describes the alarm/)).toBeInTheDocument();
     expect(screen.getByText(/All 2 tests went through the check: 1 has findings/)).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: /^Second test/ })).getByText("2 errors")).toBeInTheDocument();

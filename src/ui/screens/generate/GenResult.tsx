@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
-import { type ReactNode, useContext } from "react";
-import type { Job, JobEvent, Source } from "../../../core/types.ts";
+import type { ReactNode } from "react";
+import type { Job, JobEvent } from "../../../core/types.ts";
 import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
@@ -9,16 +9,13 @@ import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Raw } from "../../components/ui/Raw.tsx";
-import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { Spinner } from "../../components/ui/Spinner.tsx";
 import { Timer } from "../../components/ui/Timer.tsx";
 import { type } from "../../components/ui/type.ts";
-import { AppContext } from "../../lib/app.ts";
-import { parseSourceRef, sourceLabel } from "../../lib/fields.ts";
 import { plural } from "../../lib/format.ts";
 import { duration } from "../../lib/jobs.ts";
-import { isObserved } from "../../lib/media.ts";
-import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
+import { type SkippedItem, SkippedList } from "./SkippedList.tsx";
 
 export type GenCheck = { id: string; ok: boolean; review: string; errors: number; warnings: number };
 
@@ -30,7 +27,7 @@ export type GenOutput = {
   checks?: GenCheck[];
   changed: string[];
   discarded?: string[];
-  skipped: { item: string; why: string; sources?: string[] }[];
+  skipped: SkippedItem[];
   reportFound: boolean;
   durationMs: number;
   diagnosis?: { kind: string; title: string; detail: string };
@@ -50,31 +47,8 @@ const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   line: { margin: 0, color: color.text },
   muted: { margin: 0, color: color.textMuted },
-  skipped: {
-    margin: 0,
-    padding: 0,
-    paddingInlineStart: `calc(${space.s1} + ${size.iconSm} + ${space.s2})`,
-    listStyle: "none",
-    display: "flex",
-    flexDirection: "column",
-  },
-  no: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s1,
-    minWidth: 0,
-    paddingBlock: space.s3,
-    borderTopWidth: border.width,
-    borderTopStyle: "solid",
-    borderTopColor: color.border,
-  },
-  why: { color: color.textMuted },
-  item: { color: color.text, overflowWrap: "anywhere" },
-  sources: { display: "flex", flexWrap: "wrap", gap: space.s2, marginTop: space.s1, minWidth: 0 },
   fold: { alignSelf: "flex-end" },
 });
-
-const ID = /^(?=.*[\d_])[\w.#-]+$/;
 
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
 
@@ -304,7 +278,6 @@ export function GenSummary({
   onOpenChange?: (open: boolean) => void;
 }) {
   const skipped = result.skipped ?? [];
-  const openSource = useContext(AppContext)?.openSource;
   return (
     <div {...stylex.props(styles.body)}>
       {checked && <p {...stylex.props(type.body, styles.line)}>{checked}</p>}
@@ -319,41 +292,7 @@ export function GenSummary({
           Claude did not say what it could not write a test for: read its reply in the log.
         </p>
       )}
-      {skipped.length > 0 && (
-        <Disclosure
-          summary="Not covered"
-          count={skipped.length}
-          countTone="warning"
-          open={open}
-          onOpenChange={onOpenChange}
-        >
-          <ul {...stylex.props(type.compact, styles.skipped)}>
-            {skipped.map((u) => {
-              const sources = (u.sources ?? []).map(parseSourceRef).filter((s): s is Source => !!s);
-              return (
-                <li key={u.item} {...stylex.props(styles.no)}>
-                  <span {...stylex.props(ID.test(u.item) ? type.code : type.medium, styles.item)}>{u.item}</span>
-                  {u.why && <span {...stylex.props(styles.why)}>{u.why}</span>}
-                  {sources.length > 0 && (
-                    <span {...stylex.props(styles.sources)}>
-                      {sources.map((s) => (
-                        <SourceChip
-                          key={`${s.docId}#${s.anchor} ${s.quote}`}
-                          reference={sourceLabel(s)}
-                          quote={s.quote || undefined}
-                          figure={s.anchor.startsWith("fig:")}
-                          observed={isObserved(s.anchor)}
-                          onOpen={openSource && (() => openSource(s))}
-                        />
-                      ))}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </Disclosure>
-      )}
+      {skipped.length > 0 && <SkippedList skipped={skipped} open={open} onOpenChange={onOpenChange} />}
       {result.changed.length > 0 && (
         <Banner
           tone="warning"

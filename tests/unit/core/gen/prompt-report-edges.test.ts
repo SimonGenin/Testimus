@@ -81,7 +81,7 @@ describe("gen-report parsing, the edges", () => {
       ].join("\n"),
     );
     expect(r.found).toBe(true);
-    expect(r.skipped).toEqual([{ item: "A", why: "" }]);
+    expect(r.skipped).toEqual([{ item: "A", category: "Other", why: "" }]);
     expect(parseGenReport('```gen-report\n"text"\n```').found).toBe(false);
     expect(parseGenReport('```gen-report\n{"skipped": "no"}\n```').skipped).toEqual([]);
   });
@@ -89,13 +89,13 @@ describe("gen-report parsing, the edges", () => {
   it("keeps the sources of a skipped item written docId#anchor, and drops the rest", () => {
     const report = {
       skipped: [
-        { item: "A", why: "w", sources: ['D1#§2 "le texte"', "D1", 3, "  "] },
-        { item: "B", why: "w", sources: ["nothing"] },
+        { item: "A", category: "  No   source ", why: "w", sources: ['D1#§2 "le texte"', "D1", 3, "  "] },
+        { item: "B", category: 4, why: "w", sources: ["nothing"] },
       ],
     };
     expect(parseGenReport(`\`\`\`gen-report\n${JSON.stringify(report)}\n\`\`\``).skipped).toEqual([
-      { item: "A", why: "w", sources: ['D1#§2 "le texte"'] },
-      { item: "B", why: "w" },
+      { item: "A", category: "No source", why: "w", sources: ['D1#§2 "le texte"'] },
+      { item: "B", category: "Other", why: "w" },
     ]);
   });
 });

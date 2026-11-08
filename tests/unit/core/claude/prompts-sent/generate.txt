@@ -36,7 +36,7 @@ Propose only what you are confident about, at most 3, and never for a choice onl
 
 When you finish, end your reply with the report block of the skill (section 4), exactly this shape:
 ```gen-report
-{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "why": "<reason>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}
+{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}
 ```
 
 =====
@@ -78,5 +78,5 @@ Propose only what you are confident about, at most 3, and never for a choice onl
 
 When you finish, end your reply with the report block of the skill (section 4), exactly this shape:
 ```gen-report
-{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "why": "<reason>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}
+{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}
 ```

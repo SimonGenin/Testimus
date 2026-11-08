@@ -3,7 +3,11 @@ import { isSection, PLAN_TAG, REPORT_TAG } from "./gen-prompt.ts";
 
 // ponytail: what a generation run answers — the report block of the generate-tests skill, or the plan of plan-tests
 
-export type Skipped = { item: string; why: string; sources?: string[] };
+export type Skipped = { item: string; category: string; why: string; sources?: string[] };
+
+// ponytail: a report written before skipped items had a category (or a model that left it out) still reads — its
+// items fall under one word the page groups like any other
+export const OTHER = "Other";
 export type GenReport = {
   found: boolean;
   tests: string[];
@@ -22,13 +26,19 @@ function asSkipped(v: unknown): Skipped[] {
   if (!Array.isArray(v)) return [];
   const out: Skipped[] = [];
   for (const u of v) {
-    if (typeof u === "string" && u.trim()) out.push({ item: u.trim(), why: "" });
+    if (typeof u === "string" && u.trim()) out.push({ item: u.trim(), category: OTHER, why: "" });
     else if (u && typeof u === "object") {
       const o = u as Record<string, unknown>;
-      const item = typeof o.item === "string" ? o.item.trim() : "";
+      const text = (k: string) => (typeof o[k] === "string" ? (o[k] as string).trim() : "");
+      const item = text("item");
       const sources = asStrings(o.sources).filter((s) => parseSource(s));
       if (item)
-        out.push({ item, why: typeof o.why === "string" ? o.why.trim() : "", ...(sources.length > 0 && { sources }) });
+        out.push({
+          item,
+          category: text("category").replace(/\s+/g, " ") || OTHER,
+          why: text("why"),
+          ...(sources.length > 0 && { sources }),
+        });
     }
   }
   return out;

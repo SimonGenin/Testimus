@@ -836,6 +836,15 @@ function fixtureShots(): Shot[] {
       settle: 1000,
     },
     {
+      id: "generate-not-written",
+      note: "Generate › the tests not written, grouped by Claude's category",
+      hash: "#/generate",
+      prep: async (p) => {
+        await tap(p.getByRole("region", { name: "Result" }), /^Not written · \d+$/);
+        await p.getByRole("region", { name: "Not written" }).waitFor({ timeout: T });
+      },
+    },
+    {
       id: "review-sources-read",
       note: "Source panel › Sources read unfolded (a freshly generated test)",
       hash: "#/review",

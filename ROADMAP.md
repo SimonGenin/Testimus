@@ -12,7 +12,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 - [x] **Plus de refus au-delà de 15 pas.** Des tests ont été refusés parce qu'ils dépassaient 15 pas. Aucun prompt ne
       doit imposer une limite stricte : c'est au prompt de l'utilisateur d'en décider. On peut pousser vers 15 pas au
       plus, mais un test plus long est écrit quand même.
-- [ ] **Mieux expliquer les tests non écrits (skipped).** Dire un peu mieux pourquoi un test n'a pas été écrit, et
+- [x] **Mieux expliquer les tests non écrits (skipped).** Dire un peu mieux pourquoi un test n'a pas été écrit, et
       ranger les refus par catégorie. Les catégories viennent de Claude, elles sont dynamiques (pas de liste en dur) :
       elles font donc partie des prompts et des outils (le bloc `gen-report`, ses `skipped`).
 - [ ] **Redemander des changements après une génération.** Une fois les tests générés, pouvoir demander des
