@@ -260,6 +260,7 @@ const DOC2 = "SOSIE_211_D401-1_4";
 const T1420 = "LFRPS12-1420";
 const T1398 = "LFRPS12-1398";
 const TLOCAL = "local-3f9a12c0";
+const RUN = "recette-j5-sectionneurs";
 
 // ponytail: the #/kit catalogue (served under --mock), one shot per component: its page shows light and dark side by
 // side, so one size is enough. The page is reached by the name the section declares, never by its file's name
@@ -853,6 +854,33 @@ function fixtureShots(): Shot[] {
         await p.getByRole("complementary", { name: "Source passage" }).waitFor({ timeout: T });
       },
     },
+    // Run (the testers' screen)
+    { id: "run-list", note: "Run, the runs and the first one in progress", hash: "#/run" },
+    {
+      id: "run-problems",
+      note: "Run › only the tests with a problem",
+      hash: `#/run/${RUN}`,
+      prep: (p) => tap(p, /^Problems/),
+    },
+    { id: "run-test", note: "Run › running a test with a NOK step and a question", hash: `#/run/${RUN}%2F${TLOCAL}` },
+    { id: "run-test-picture", note: "Run › a test whose step shows a figure", hash: `#/run/${RUN}%2F${T1420}` },
+    {
+      id: "run-test-blocked",
+      note: "Run › a test set Blocked, its reason asked",
+      hash: `#/run/${RUN}%2F${T1398}`,
+      prep: (p) => tap(p, /^Blocked/),
+    },
+    {
+      id: "run-new",
+      note: "Run › New run…",
+      hash: "#/run",
+      prep: async (p) => {
+        await tap(p, "New run…");
+        await dialog(p, "New run");
+        await p.getByRole("textbox", { name: "Name" }).fill("Recette J6 — Disjoncteurs");
+        await see(p, /^3 tests:/);
+      },
+    },
     { id: "jobs", note: "Jobs, first job open", hash: "#/jobs" },
     {
       id: "jobs-claude",
@@ -886,6 +914,7 @@ function emptyShots(): Shot[] {
       prep: (p) => tap(p, /^Jira/),
     },
     { id: "review", note: "Nothing to review", hash: "#/review" },
+    { id: "run-empty", note: "No run yet", hash: "#/run" },
     { id: "jobs", note: "No job yet", hash: "#/jobs" },
     ...settingsShots(),
     ...shellShots(),

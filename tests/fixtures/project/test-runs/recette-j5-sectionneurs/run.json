@@ -1,0 +1,103 @@
+{
+  "name": "Recette J5 — Sectionneurs",
+  "version": "SOSIE 2.4.0-rc2",
+  "environment": "Simulator room B",
+  "createdAt": "2026-11-06T09:30:00.000Z",
+  "createdBy": "tester",
+  "tests": [
+    {
+      "id": "LFRPS12-1420",
+      "key": "LFRPS12-1420",
+      "summary": "Sectionneur sans TK — menu contextuel et propriétés",
+      "description": "Vérifie le menu contextuel et la fenêtre Propriétés d'un sectionneur sans télécommande (TK) sur la vue de traction. Technique boîte noire : partition par type de sectionneur.",
+      "preconditions": [
+        "LFRPS12-77"
+      ],
+      "steps": [
+        {
+          "fields": {
+            "Action": "Ouvrir la vue de traction de la ligne 92 et repérer le sectionneur S 12.",
+            "Expected Result": "Le sectionneur S 12 est affiché sur la schématique de traction avec le symbole du sectionneur.\n\n![](images/fig-40.png \"width=320,height=160\")",
+            "Exigence": "EXI_MOP_SPF_511_A_1650"
+          },
+          "images": [
+            "images/fig-40.png"
+          ]
+        },
+        {
+          "fields": {
+            "Action": "Clic droit sur le sectionneur S 12 de la vue de traction.",
+            "Expected Result": "Le menu propose : Propriétés, Autoriser l'ouverture, Annuler l'autorisation d'ouverture, Confirmer l'ouverture, Autoriser la fermeture, Annuler l'autorisation de fermeture, Confirmer la fermeture.",
+            "Exigence": "EXI_MOP_SPF_511_A_1670, EXI_MOP_SPF_510_A_20"
+          },
+          "images": []
+        },
+        {
+          "fields": {
+            "Action": "Choisir Propriétés.",
+            "Data": "Sectionneur S 12, position fermée.",
+            "Expected Result": "Une fenêtre affiche l'état de la position, les heures de la dernière autorisation et confirmation d'ouverture et de fermeture, et les points kilométriques voie 1 et voie 2.\n\n||Champ||Valeur attendue||\n|Position|Fermé|\n|PK voie 1|12,480|",
+            "Exigence": "EXI_MOP_SPF_511_A_1680"
+          },
+          "images": []
+        },
+        {
+          "fields": {
+            "Action": "Choisir Autoriser l'ouverture puis Confirmer l'ouverture.",
+            "Expected Result": "Le symbole du sectionneur S 12 passe à l'état ouvert sans ouvrir de fenêtre.",
+            "Exigence": "EXI_MOP_SPF_511_A_1660"
+          },
+          "images": []
+        },
+        {
+          "fields": {
+            "Action": "Faire circuler un train sur la section du sectionneur ouvert.",
+            "Expected Result": "La traction n'est pas simulée : le train garde sa vitesse.",
+            "Exigence": "EXI_MOP_SPF_511_A_1660"
+          },
+          "images": []
+        }
+      ]
+    },
+    {
+      "id": "local-3f9a12c0",
+      "summary": "Sectionneur avec TK — manœuvre régulière",
+      "description": "Vérifie le menu contextuel d'un sectionneur avec télécommande (TK) manœuvré régulièrement.",
+      "preconditions": [],
+      "steps": [
+        {
+          "fields": {
+            "Action": "Ouvrir la vue de traction et repérer un sectionneur avec TK.",
+            "Expected Result": "Le sectionneur est affiché avec le symbole du sectionneur.",
+            "Exigence": "EXI_MOP_SPF_511_A_1650"
+          },
+          "images": []
+        },
+        {
+          "fields": {
+            "Action": "Clic droit sur le sectionneur avec TK.",
+            "Expected Result": "Le menu contextuel s'ouvre.",
+            "Exigence": "EXI_MOP_SPF_511_A_1670"
+          },
+          "images": []
+        }
+      ]
+    },
+    {
+      "id": "LFRPS12-1398",
+      "key": "LFRPS12-1398",
+      "summary": "Disjoncteur — ouverture à distance",
+      "description": "Vérifie l'ouverture à distance d'un disjoncteur depuis le PCC.",
+      "preconditions": [],
+      "steps": [
+        {
+          "fields": {
+            "Action": "Clic droit sur le disjoncteur D 4 de la vue de traction.",
+            "Expected Result": "Le menu propose Ouvrir, Fermer et Propriétés."
+          },
+          "images": []
+        }
+      ]
+    }
+  ]
+}

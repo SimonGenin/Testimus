@@ -39,6 +39,11 @@ project is in **Team notes** at the end.
 - `columns.json` — the step columns in their order: Xray's step fields and the project's local
   columns, each with the description you follow to fill it and how it shows (see **Smart columns**).
 - `xray.json` — Xray's step fields as Xray last gave them (read again from Xray, never edited).
+- `test-runs/<run>/` — a test run the testers play: `run.json` (its name, the version under test, and a
+  frozen copy of each test as it was when the run was made), `results/<testId>.json` (passed, problem,
+  blocked or not run; OK / NOK per step with notes; comments and questions) and the screenshots in
+  `results/<testId>/`. Read them with `runs_list` and `runs_show` (what failed, what testers asked);
+  a result is a tester's finding: never write one.
 
 Derived files, never edited by hand: `index/`, `.testimus/`, `tests/*/.remote.md`,
 `tests/*/check.json`.
@@ -61,7 +66,7 @@ Testimus starts you for one job, with only the tools that job needs. The prompt 
 | Propose the step columns | `define-columns` | nothing (the team saves the proposal) |
 | A Claude action (see below) | — | what the action's plan says, through the app's commands |
 
-Files outside `tests/` are never edited directly in a run: `docs/`, `index/`, `.testimus/`,
+Files outside `tests/` are never edited directly in a run: `docs/`, `test-runs/`, `index/`, `.testimus/`,
 `contexts/`, `.claude/`, `project.json`, `xray.json`, `columns.json`, `.mcp.json` and this file are refused. What the
 app lets a run change there (a document's status, a column's description, a context) goes through
 its command, like a button would.
@@ -84,6 +89,7 @@ in permission lists; `testimus help` lists them all). Prefer them to guessing:
 - **Writing tests** (generation, fix, edit runs only): `tests_create`, `tests_edit`, `tests_save`,
   `tests_addImage`; `check_run` (from a Claude run it does the mechanical pass only — you are the
   semantic check).
+- **Test runs** (read): `runs_list`, `runs_show` — what the testers found when they ran the tests.
 - **Context**: `contexts_list`, `contexts_show`, `contexts_ofTest`; `actions_list`.
 - **Xray** (read): `xray_search`, `xray_status`, `xray_folders`, `xray_preconditions`, `xray_plan`.
 - **The test's Jira issue** (read): `issue_comments` (the thread; a mention reads `@[Name](accountId)`),

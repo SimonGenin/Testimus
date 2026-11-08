@@ -113,6 +113,22 @@ describe("Button", () => {
     expect(on).toBe(cls(screen.getByRole("button", { name: "Held" })));
   });
 
+  it("a toggle with a tone takes its colour only when pressed (OK green, NOK red)", () => {
+    render(
+      <>
+        <Button label="OK" tone="success" pressed />
+        <Button label="NOK" tone="danger" pressed />
+        <Button label="NOK off" tone="danger" pressed={false} />
+        <Button label="Plain off" pressed={false} />
+        <Button label="Plain on" pressed />
+      </>,
+    );
+    const c = (n: string) => cls(screen.getByRole("button", { name: n }));
+    expect(screen.getByRole("button", { name: "OK" })).toHaveAttribute("aria-pressed", "true");
+    expect(new Set([c("OK"), c("NOK"), c("Plain on")]).size).toBe(3);
+    expect(c("NOK off")).toBe(c("Plain off"));
+  });
+
   it("is a submit button when asked, full width when block, and shows forced states for the catalogue", () => {
     render(<Button label="Save" type="submit" block />);
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("type", "submit");

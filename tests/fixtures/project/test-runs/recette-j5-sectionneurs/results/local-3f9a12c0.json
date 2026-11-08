@@ -1,0 +1,32 @@
+{
+  "status": "problem",
+  "steps": [
+    {
+      "ok": true
+    },
+    {
+      "ok": false,
+      "note": "La fenêtre s'ouvre mais la TK n'est pas indiquée."
+    }
+  ],
+  "comments": [
+    {
+      "id": "c0a1b2c3",
+      "kind": "comment",
+      "text": "Exécuté sur le poste 3, image du 5/11.",
+      "by": "tester",
+      "at": "2026-11-06T10:50:00.000Z"
+    },
+    {
+      "id": "q0a1b2c3",
+      "kind": "question",
+      "step": 2,
+      "text": "La TK doit-elle apparaître si le sectionneur est fermé depuis le PCC ?",
+      "by": "tester",
+      "at": "2026-11-06T10:55:00.000Z"
+    }
+  ],
+  "attachments": [],
+  "updatedAt": "2026-11-06T10:55:00.000Z",
+  "updatedBy": "tester"
+}

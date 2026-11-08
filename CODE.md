@@ -17,7 +17,7 @@ src/core/lib/         the domain modules:
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
                         agents, atomic (every owned write), changed, file-memo (reads per file version), natural (the
                         one collator), creds, project (+ project-info, project-init), doctor (+ doctor-row,
-                        doctor-models), hash, zip, updates;
+                        doctor-models), hash, zip, updates; runs (+ run-results: test runs, test-runs/<run>/);
                         docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index);
                         media (+ media-pipeline: batches of photos, body.md + part.md → doc.md);
                         jira/ (http, read, steps, labels, push) and sync/ (connect, pull, push), ported from Xray Editor;
@@ -47,7 +47,7 @@ src/ui/
                       <button>/<input>/<select>/<textarea>; type.ts (text styles), halo.ts (focus halo), icons.ts,
                       rowWindow.ts (long lists)
   components/         claude/, shell/, sources/ — composites shared by several screens
-  screens/<screen>/   one folder per screen (documents, generate, tests, review, jobs, settings, setup, doctor);
+  screens/<screen>/   one folder per screen (documents, generate, tests, review, run, jobs, settings, setup, doctor);
                       screens/kit/ is the catalogue (#/kit under --mock)
   lib/data/           the data layer: client (call, the HTTP seam), query (useRead, useCommand, execute, keys),
                       events (one SSE stream → cache), autosave, provider

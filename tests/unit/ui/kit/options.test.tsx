@@ -10,6 +10,7 @@ import {
   HEALTH,
   jiraStatus,
   REVIEW,
+  RUN_STATUS,
   SEVERITY,
   SYNC,
 } from "../../../../src/ui/components/ui/Badge.tsx";
@@ -113,6 +114,13 @@ describe("Badge vocabularies (audit n° 30, 31, 32, 33)", () => {
     expect(COLUMN.local).toBe(SYNC.local);
     expect(DOC_STATUS.validated.label).toBe("Validated");
     expect(HEALTH.fail).toMatchObject({ label: "Failed", tone: "danger", icon: "x-circle" });
+    expect(Object.values(RUN_STATUS).map((w) => [w.label, w.tone])).toEqual([
+      ["Passed", "success"],
+      ["Problem", "danger"],
+      ["Blocked", "warning"],
+      ["Not run", "neutral"],
+    ]);
+    for (const w of Object.values(RUN_STATUS)) expect(w.icon, w.label).toBeTruthy();
     expect(jiraStatus("Done")).toMatchObject({ label: "Done", tone: "success", icon: "check-circle" });
     expect(jiraStatus("In Progress")).toMatchObject({ tone: "warning", icon: "clock" });
     expect(jiraStatus("To Do")).toMatchObject({ tone: "neutral", icon: "circle-dashed" });

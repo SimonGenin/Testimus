@@ -279,6 +279,39 @@ describe("Progress", () => {
     const fill = (n: string) => cls(screen.getByRole("progressbar", { name: n }).firstElementChild as Element);
     expect(new Set(["Pull", "accent", "claude", "success"].map(fill)).size).toBe(4);
   });
+
+  it("with segments draws each share in its tone side by side, its value their sum, never past the whole", () => {
+    render(
+      <>
+        <Progress
+          label="Run"
+          detail="9 of 14 tests run"
+          segments={[
+            { value: 43, tone: "success" },
+            { value: 0, tone: "accent" },
+            { value: 14, tone: "danger" },
+            { value: 7, tone: "warning" },
+          ]}
+        />
+        <Progress
+          label="Over"
+          segments={[
+            { value: 80, tone: "success" },
+            { value: 50, tone: "danger" },
+          ]}
+        />
+      </>,
+    );
+    const bar = screen.getByRole("progressbar", { name: "Run" });
+    expect(bar).toHaveAttribute("aria-valuenow", "64");
+    expect(bar).toHaveAttribute("aria-valuetext", "9 of 14 tests run");
+    const parts = [...bar.children] as HTMLElement[];
+    expect(parts.map((p) => p.style.width)).toEqual(["43%", "14%", "7%"]);
+    expect(new Set(parts.map(cls)).size).toBe(3);
+    const over = screen.getByRole("progressbar", { name: "Over" });
+    expect(over).toHaveAttribute("aria-valuenow", "100");
+    expect([...over.children].map((p) => (p as HTMLElement).style.width)).toEqual(["80%", "20%"]);
+  });
 });
 
 function Packs() {

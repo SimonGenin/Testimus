@@ -143,6 +143,16 @@ const styles = stylex.create({
   dangerHover: { backgroundColor: color.danger, borderColor: color.danger, filter: "brightness(0.92)" },
   claudeHover: { backgroundColor: color.claudeHover, borderColor: color.claudeHover },
   claudeQuietHover: { backgroundColor: color.claudeSubtle },
+  successPressed: {
+    backgroundColor: color.successSubtle,
+    borderColor: color.successBorder,
+    color: color.success,
+  },
+  dangerPressed: {
+    backgroundColor: color.dangerSubtle,
+    borderColor: color.dangerBorder,
+    color: color.danger,
+  },
   focusRing: { outline: `${border.widthStrong} solid ${color.focusRing}` },
   ringOnFocus: { outline: { default: "none", ":focus": `${border.widthStrong} solid ${color.focusRing}` } },
   kbd: { marginInlineStart: space.s2, marginInlineEnd: `calc(-1 * ${space.s2})` },
@@ -178,6 +188,8 @@ export type ButtonProps = {
   block?: boolean;
   /** a toggle's state (aria-pressed), drawn pressed while on */
   pressed?: boolean;
+  /** a toggle that answers (OK / NOK of a step): pressed, it takes the answer's colour instead of the plain pressed one */
+  tone?: "success" | "danger";
   /** the focus ring shows whenever it has the focus, also when the program put it there (a confirmation's Cancel) */
   ringOnFocus?: boolean;
   /** a fold's trigger (« Show details »): aria-expanded, with a chevron after the label */
@@ -204,6 +216,8 @@ const VARIANT = {
   field: styles.field,
   link: styles.link,
 } as const;
+
+const TONE_PRESSED = { success: styles.successPressed, danger: styles.dangerPressed } as const;
 
 const SQUARE = { xs: styles.squareXs, sm: styles.squareSm, md: styles.squareMd, lg: styles.squareLg } as const;
 
@@ -248,6 +262,7 @@ export function Button({
   disabled = false,
   block = false,
   pressed,
+  tone,
   ringOnFocus = false,
   expanded,
   popup,
@@ -291,6 +306,7 @@ export function Button({
         block && styles.block,
         loading && styles.loading,
         !off && (pressed || popup?.open) && FORCED.pressed[variant],
+        !off && pressed && tone && TONE_PRESSED[tone],
         !off && (debugState === "hover" || debugState === "pressed") && FORCED[debugState][variant],
         ringOnFocus && styles.ringOnFocus,
         debugState === "focus" && styles.focusRing,

@@ -469,7 +469,7 @@ describe("App palette", () => {
     expect(screen.queryByRole("dialog", { name: "Pull a test" })).toBeNull();
     await pick("xray pull");
     fireEvent.change(screen.getByLabelText("key"), { target: { value: "LFRPS12-1" } });
-    fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Pull a test" })).getByRole("button", { name: /^Run/ }));
     expect(await screen.findByText("Pull a test — started")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Pull a test" })).toBeNull();
     expect(window.location.hash).toBe("");

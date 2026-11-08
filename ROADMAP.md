@@ -77,7 +77,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 
 ## 6. Exécution des tests
 
-- [ ] **Un onglet « Run » pour les testeurs.** Les testeurs y font leurs tests. À imaginer avec /design : ce qui compte
+- [x] **Un onglet « Run » pour les testeurs.** Les testeurs y font leurs tests. À imaginer avec /design : ce qui compte
       pour eux. A priori : créer un run avec une série de tests, puis annoter chaque test (« passe », « problème »),
       ajouter des commentaires, des questions, etc.
 - [ ] **Un run en pages HTML, hors de l'app.** Générer, un peu comme des artifacts, un dossier pour un run : une page

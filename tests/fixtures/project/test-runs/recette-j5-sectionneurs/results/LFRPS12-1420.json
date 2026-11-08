@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "steps": [
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    }
+  ],
+  "comments": [],
+  "attachments": [],
+  "updatedAt": "2026-11-06T10:42:00.000Z",
+  "updatedBy": "tester"
+}

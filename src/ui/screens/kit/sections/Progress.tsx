@@ -22,6 +22,18 @@ export const section: KitSection = {
       <Cell label="indeterminate" column>
         <Progress label="Pull LFRPS12" detail="Reading the folders…" />
       </Cell>
+      <Cell label="segments (a test run)" column>
+        <Progress
+          label="Run progress"
+          segments={[
+            { value: 43, tone: "success" },
+            { value: 14, tone: "danger" },
+            { value: 7, tone: "warning" },
+          ]}
+          detail="9 of 14 tests run"
+        />
+        <Progress label="Run done" segments={[{ value: 100, tone: "success" }]} />
+      </Cell>
     </States>
   ),
 };

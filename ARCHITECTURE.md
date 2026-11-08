@@ -143,6 +143,8 @@ rebuilt; they are never hand-edited.
   tests/<id>/          test.md (§7), images/, local.json { contexts?, columns? } (the test's own settings, never
                          part of the test), .remote.md (derived: Jira's last copy), check.json (derived: last
                          check), .state.json (derived: { remoteChangedAt?, generatedPrint? })
+  test-runs/<run>/     a test run (§9b): run.json (the tests frozen when it was made), results/<testId>.json (what
+                         the tester found), results/<testId>/ (screenshots), images/<testId>/ (the tests' pictures)
   eval/behaviors.jsonl the project's retrieval benchmark set (§6)
   index/rag.db         derived: chunks, full text, vectors per space, graph, last index state; per machine, not shared
   .testimus/           derived, not shared: jobs/, runs/<runId>/ (snapshots), gen/<generation>.json (ledger),
@@ -387,6 +389,40 @@ after the frontmatter, so a review decision never makes findings stale.
   straight to `validated`), with a run id for Revert. A push of a non-validated test asks for confirmation; on push the
   review state becomes a Jira label (`testimus-validated`…).
 
+## 9b. Test runs (the testers' screen)
+
+A **run** is a set of tests a tester plays on a version of the product, test by test: OK / NOK on each step, a
+result, comments and questions. It is a folder of the project — files are the state, shared with the team like
+`tests/` — and never `.testimus/runs/` (those are the snapshots of Claude runs, §11).
+
+```
+test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionneurs », -2 on a clash)
+  run.json                  { name, version?, environment?, createdAt, createdBy, importedAt?, tests: [{ id, key?,
+                              summary, description?, preconditions, steps: [{ fields: { <column>: text }, images }] }] }
+  images/<testId>/<file>    the run's copy of each picture a step shows (a field's ![](images/<file>) points here)
+  results/<testId>.json     { status: not-run|passed|problem|blocked, steps: [{ ok: true|false|null, note? }],
+                              blockedReason?, comments: [{ id, kind: comment|question, step?, text, by, at, answer?,
+                              answeredBy?, answeredAt? }], attachments: [{ file, step? }], updatedAt, updatedBy,
+                              history?: [older results an import replaced] }
+  results/<testId>/         the screenshots (capture-<8hex>.<ext>)
+```
+
+- **Frozen**: `runs.create` copies each test as it is (its filled columns in `columns.json` order, its preconditions,
+  copies of its pictures); a test edited or deleted later does not change what is run. A test is picked by its ids,
+  a folder, labels or a review state (`dryRun` lists them first).
+- **No result file = not run.** A result is read tolerantly (one mark per frozen step, whatever the file says) and
+  written whole by `runs.setResult` / `runs.comment` / `runs.attach`, stamped with the OS user and the time. The page
+  proposes the result from the marks (a NOK → Problem, all OK → Passed); the tester decides; Blocked needs its reason.
+- Commands: group `runs` (`list`, `show`, `create`, `setResult`, `comment`, `attach`, `remove` — asked first in the
+  palette). The watcher reads `test-runs/` like the rest; `lib/data/events.ts` maps a path there to `runs.list` and
+  that run's `runs.show`.
+- **Claude reads runs, never marks one**: `runs.list` / `runs.show` are read-only (every run kind has them); the
+  writes are off every Claude run (`action` included) and `test-runs/**` is refused to Edit/Write (`claude/access.ts`).
+- Screen `#/run` (rail item after Tests): the runs (in progress / finished), a run (bar split by result, filters,
+  the tests' table, Continue = the next test not run), `#/run/<run>/<test>` runs one test (keys O / N / J / K,
+  Ctrl+Enter = save and next). Status words: Passed · Problem · Blocked · Not run (`RUN_STATUS`, success / danger /
+  warning / neutral). The rail item sits after Tests rather than straight after Review: the rail's order is the work's.
+
 ## 10. Jira and Xray
 
 Everything Xray Editor does (pull with images, folders, preconditions, covers links, dirty detection against
@@ -425,7 +461,7 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   `check_run`; fix and `claude.run` add `tests_edit/save/addImage`; `action` gets the whole set minus another Claude
   run, Jira writes and the machine. Everything else goes to `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
-  `.mcp.json`, `CLAUDE.md`.
+  `.mcp.json`, `CLAUDE.md`, `test-runs/**`; the writes of `runs.*` are off every run kind, `action` included (§9b).
 - **Snapshots and Revert** (`claude/snapshot.ts`): a run that may edit records `.testimus/runs/<runId>/run.json` (who,
   model, effort, job) and copies of what it may change (tests, and for actions project.json, xray.json and the document
   folder). Revert works from the run id, also after a restart, refuses when a test changed after the run
@@ -479,7 +515,7 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   white panes, one ink-blue accent (#3e63dd) for the primary action, selection and focus; **Claude in violet and
   nothing else in violet**; Inter for the interface, Source Serif 4 for text quoted from a specification, JetBrains Mono
   for keys and anchors; a state is always icon + word; every pair at WCAG AA. UI text in English.
-- **Layout**: left rail (Documents · Generate · Tests · Review · Jobs, then Settings and the system check), main pane,
+- **Layout**: left rail (Documents · Generate · Review · Tests · Run · Jobs, then Settings and the system check), main pane,
   Claude dock on the right everywhere (folded in Review; floats over the screen below 1300 px). Minimum width 520 px.
   The project at the top of the rail opens a menu of the known projects (a quick switch) and one action, « All
   projects… », to First launch › Project — the one place that opens a folder, opens by Jira key, creates, hides,

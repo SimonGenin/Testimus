@@ -270,6 +270,20 @@ export const DOC_STATUS = {
   validated: REVIEW.validated,
 } as const satisfies Record<string, Word>;
 
+// a test's result in a test run (the Run screen, its pages)
+export const RUN_STATUS = {
+  passed: { label: "Passed", tone: "success", icon: "check-circle" },
+  problem: { label: "Problem", tone: "danger", icon: "x-circle" },
+  blocked: { label: "Blocked", tone: "warning", icon: "alert-triangle" },
+  "not-run": { label: "Not run", tone: "neutral", icon: "circle-dashed" },
+} as const satisfies Record<string, Word>;
+
+// a tester's question on a test of a run
+export const QUESTION = {
+  open: { label: "Open", tone: "warning", icon: "circle-dot" },
+  answered: { label: "Answered", tone: "success", icon: "check-circle" },
+} as const satisfies Record<string, Word>;
+
 // a check of the System check (doctor) and of a pack's verification
 export const HEALTH = {
   fail: { label: "Failed", tone: "danger", icon: "x-circle" },

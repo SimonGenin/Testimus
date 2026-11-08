@@ -73,6 +73,10 @@ export const LOSES: Record<string, Loss> = {
     what: "This vector space is deleted from the index; it takes a new indexing to build it again.",
   },
   "jobs.clear": { verb: "Clear the jobs", what: "The finished jobs are forgotten and their logs deleted." },
+  "runs.remove": {
+    verb: "Delete the run",
+    what: "The run's folder is deleted with every result, comment, question and screenshot of it. The tests are not touched.",
+  },
   "project.forget": {
     verb: "Forget the project",
     what: "The project leaves the list of known projects; its folder stays on this PC.",

@@ -16,6 +16,7 @@ export const NAV: { id: Screen; label: string; icon: IconName }[] = [
   { id: "generate", label: "Generate", icon: "generate" },
   { id: "review", label: "Review", icon: "review" },
   { id: "tests", label: "Tests", icon: "tests" },
+  { id: "run", label: "Run", icon: "play" },
   { id: "jobs", label: "Jobs", icon: "jobs" },
 ];
 

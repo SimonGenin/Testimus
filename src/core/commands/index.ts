@@ -22,6 +22,7 @@ import { commands as ragEval } from "./rag-eval.ts";
 import { commands as ragGraph } from "./rag-graph.ts";
 import { commands as ragIndex } from "./rag-index.ts";
 import { commands as review } from "./review.ts";
+import { commands as runs } from "./runs.ts";
 import { commands as search } from "./search.ts";
 import { commands as system } from "./system.ts";
 import { commands as tests } from "./tests.ts";
@@ -47,6 +48,7 @@ type Defined =
   | (typeof gen)[number]
   | (typeof check)[number]
   | (typeof review)[number]
+  | (typeof runs)[number]
   | (typeof xray)[number]
   | (typeof issue)[number]
   | (typeof jobs)[number]
@@ -81,6 +83,7 @@ export const registry: Command[] = [
   ...gen,
   ...check,
   ...review,
+  ...runs,
   ...xray,
   ...issue,
   ...jobs,

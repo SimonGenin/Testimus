@@ -64,6 +64,14 @@ describe("App, when a job changed project files", () => {
     expect(screen.getByLabelText("tests nonce")).toHaveTextContent("1");
   });
 
+  it("reads a run again when a file of its folder changed (a result, a screenshot), and the list of runs", () => {
+    expect(keysOfPaths(["test-runs/recette-j5/results/LFRPS12-1.json"])).toEqual([
+      ["runs.list"],
+      ["runs.show", { run: "recette-j5" }],
+    ]);
+    expect(keysOfPaths(["tests/LFRPS12-1/test.md"]).map((k) => k[0])).not.toContain("runs.show");
+  });
+
   it("tells the action lists and the context lists to read again when theirs changed", () => {
     const contexts = (paths: string[]) =>
       keysOfPaths(paths)

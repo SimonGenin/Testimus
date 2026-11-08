@@ -81,6 +81,11 @@ export const section: KitSection = {
         <Button variant="quiet" icon="layout-stacked" label="Stacked" pressed />
         <Button variant="quiet" icon="more" iconOnly label="Test actions" popup={{ kind: "menu", open: false }} />
       </Cell>
+      <Cell label="toggle with a tone (a step's OK / NOK)">
+        <Button size="sm" label="OK" tone="success" pressed />
+        <Button size="sm" label="NOK" tone="danger" pressed={false} />
+        <Button size="sm" label="NOK" tone="danger" pressed />
+      </Cell>
       <Cell label="field (the palette's sunken pill) · hover" wide column>
         <Button variant="field" icon="search" label="Search tests, documents, commands…" shortcut="Ctrl K" block />
         <Button

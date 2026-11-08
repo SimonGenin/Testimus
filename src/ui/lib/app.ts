@@ -1,7 +1,17 @@
 import { createContext, useContext } from "react";
 import type { ChatProblem, ColumnLayout, ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
 
-export type Screen = "documents" | "generate" | "tests" | "review" | "jobs" | "settings" | "doctor" | "setup" | "kit";
+export type Screen =
+  | "documents"
+  | "generate"
+  | "tests"
+  | "review"
+  | "run"
+  | "jobs"
+  | "settings"
+  | "doctor"
+  | "setup"
+  | "kit";
 
 export type ProjectInfo = {
   dir: string;

@@ -6,6 +6,7 @@ import { GenerateScreen } from "../screens/generate/GenerateScreen.tsx";
 import { JobsScreen } from "../screens/jobs/JobsScreen.tsx";
 import { KitScreen } from "../screens/kit/KitScreen.tsx";
 import { ReviewScreen } from "../screens/review/ReviewScreen.tsx";
+import { RunScreen } from "../screens/run/RunScreen.tsx";
 import { SettingsScreen } from "../screens/settings/SettingsScreen.tsx";
 import { FirstRunScreen } from "../screens/setup/FirstRunScreen.tsx";
 import { TestsScreen } from "../screens/tests/TestsScreen.tsx";
@@ -15,6 +16,7 @@ const SCREEN: Record<Screen, () => React.JSX.Element> = {
   documents: DocumentsScreen,
   generate: GenerateScreen,
   review: ReviewScreen,
+  run: RunScreen,
   jobs: JobsScreen,
   doctor: DoctorScreen,
   kit: KitScreen,
