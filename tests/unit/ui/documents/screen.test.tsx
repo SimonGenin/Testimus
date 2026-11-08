@@ -68,7 +68,7 @@ describe("Documents screen", () => {
     expect(screen.queryByText(/\d documents?/)).toBeNull();
     expect(rows()[1]).toHaveAttribute("aria-selected", "true");
     await waitFor(() =>
-      expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D2", anchor: "§5" }),
+      expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D2", anchor: "§5", whole: true }),
     );
     fireEvent.click(rows()[0]);
     expect(a.navigate).toHaveBeenCalledWith("documents", "D1");
@@ -177,7 +177,7 @@ describe("Documents screen", () => {
       route: { screen: "documents", arg: docLink("D1", "§1", " la deuxième ligne, citée ") },
     });
     expect(await screen.findByText("Troisième.")).toBeInTheDocument();
-    expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D1", anchor: "§1" });
+    expect(named("docs.show").find((c) => c.input.anchor)?.input).toEqual({ id: "D1", anchor: "§1", whole: true });
     expect(document.querySelectorAll("[data-focus]")).toHaveLength(1);
     expect(document.querySelector("[data-focus]")?.textContent).toBe("La deuxième ligne,\ncitée");
     const part = document.querySelector('[data-testid="doc-part"]') as HTMLElement;

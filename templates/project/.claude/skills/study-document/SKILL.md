@@ -20,7 +20,8 @@ every later reconversion gives the same result.
   `region: [left, top, right, bottom]` (fractions of the page from its top left) zooms on a part when
   small print matters. A document with only a .docx has no page to draw.
 - `docs_show { id, anchor }` — a part of `doc.md`: `page:N` (PDF conversions), `§5.2` (a section and its
-  subsections), `fig:12`; `docs_show { id, brief: true }` gives the outline and the figures.
+  subsections), `fig:12` — a long one a page at a time: ask again with `from: <next>` while the answer has
+  `next`; `docs_show { id, brief: true }` gives the outline and the figures.
 
 ## Before the conversion
 

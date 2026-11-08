@@ -9,8 +9,41 @@ import { docsFreshness } from "../lib/docs-index.ts";
 import { renderPage } from "../rag/pdf.ts";
 import { docJson, figure, id, mtime, status } from "./docs-schemas.ts";
 
-// ponytail: a page of doc.md for docs.show without an anchor — about 15 000 tokens, what an answer to Claude can hold
+// ponytail: an answer of docs.show holds about 15 000 tokens, what an answer to Claude can hold
 const DOC_PAGE = 60_000;
+
+const linesIn = (text: string, to: number) => {
+  let n = 0;
+  for (let i = text.indexOf("\n"); i >= 0 && i < to; i = text.indexOf("\n", i + 1)) n++;
+  return n;
+};
+
+// ponytail: a page of a text (doc.md, or a part of it) from `from`, cut at a line: the outline and the figures the
+// answer carries count in its budget, the text gets the rest — never less than a fifth of it. A later page carries
+// only the sections and figures inside it (the first gave them all); first is the text's first line in doc.md
+function pageOf<T extends { line?: number }, F extends { line?: number }>(
+  text: string,
+  first: number,
+  from: number | undefined,
+  toc: T[],
+  figures: F[],
+) {
+  const start = Math.min(from ?? 0, text.length);
+  const end = (room: number) => {
+    const cut = text.length - start <= room ? text.length : text.lastIndexOf("\n", start + room) + 1;
+    return cut > start ? cut : Math.min(text.length, start + room);
+  };
+  const carried = (to: number) => {
+    if (start === 0) return { toc, figures };
+    const top = first + linesIn(text, start);
+    const bottom = first + linesIn(text, Math.max(start, to - 1));
+    const inside = (x: { line?: number }) => x.line !== undefined && x.line >= top && x.line <= bottom;
+    return { toc: toc.filter(inside), figures: figures.filter(inside) };
+  };
+  const most = carried(end(DOC_PAGE));
+  const to = end(Math.max(DOC_PAGE / 5, DOC_PAGE - JSON.stringify([most.toc, most.figures]).length));
+  return { ...carried(to), md: text.slice(start, to), ...(to < text.length ? { next: to } : {}) };
+}
 
 export const commands = [
   command({
@@ -119,7 +152,13 @@ export const commands = [
         .min(0)
         .optional()
         .describe(
-          "Without anchor: where the page of text starts, in characters of doc.md (the next of the previous answer); 0 by default",
+          "Where the page of text starts, in characters of doc.md — or of the part, with an anchor (the next of the previous answer); 0 by default",
+        ),
+      whole: z
+        .boolean()
+        .optional()
+        .describe(
+          "With an anchor: the whole part in one answer however long (the page's reader); without it a long part comes a page at a time",
         ),
     }),
     output: z.object({
@@ -138,20 +177,25 @@ export const commands = [
             line: z.number().describe("Line of doc.md the heading is on, from 1"),
           }),
         )
-        .describe("The sections of doc.md, in order; with an anchor, those inside the part only"),
+        .describe(
+          "The sections of doc.md, in order; with an anchor, those inside the part only; on a later page (from), those inside the page",
+        ),
       figures: z
         .array(figure.extend({ line: z.number().optional().describe("Line of doc.md the figure is on, from 1") }))
         .describe(
-          "The figures of the text in reading order: figures.json, and the captions with no picture (a table, or a lost picture); with an anchor, those inside the part only",
+          "The figures of the text in reading order: figures.json, and the captions with no picture (a table, or a lost picture); with an anchor, those inside the part only; on a later page (from), those inside the page",
         ),
       lines: z.number().describe("Lines in doc.md"),
       chars: z.number().describe("Characters in doc.md"),
       md: z
         .string()
         .describe(
-          `The asked part of doc.md; without an anchor a page of it, at most ${DOC_PAGE} characters from \`from\`, cut at a line; empty with brief`,
+          `A page of doc.md, or of the part asked, from \`from\`, cut at a line — the answer holds about ${DOC_PAGE} characters with its toc and figures; empty with brief`,
         ),
-      next: z.number().optional().describe("Without an anchor, when doc.md goes on: the from of the next page"),
+      next: z
+        .number()
+        .optional()
+        .describe("When doc.md (or the part) goes on past this page: the from of the next page"),
       section: z
         .string()
         .optional()
@@ -174,18 +218,7 @@ export const commands = [
       const figures = shape.figures.map(({ n: _, ...f }) => f);
       if (input.brief && !input.anchor) return { ...told, toc: shape.toc, figures, md: "" };
       const full = readDocMd(project, input.id);
-      if (!input.anchor) {
-        const from = Math.min(input.from ?? 0, full.length);
-        const cut = full.length - from <= DOC_PAGE ? full.length : full.lastIndexOf("\n", from + DOC_PAGE) + 1;
-        const to = cut > from ? cut : Math.min(full.length, from + DOC_PAGE);
-        return {
-          ...told,
-          toc: shape.toc,
-          figures,
-          md: input.brief ? "" : full.slice(from, to),
-          ...(to < full.length ? { next: to } : {}),
-        };
-      }
+      if (!input.anchor) return { ...told, ...pageOf(full, 1, input.from, shape.toc, figures) };
       const part = partOf(full, input.anchor);
       if (part === null)
         throw new UserError(
@@ -194,13 +227,13 @@ export const commands = [
         );
       const inside = (line?: number) => line !== undefined && line >= part.first && line <= part.last;
       const section = headingAt(full, input.anchor);
-      return {
-        ...told,
-        toc: shape.toc.filter((t) => inside(t.line)),
-        figures: figures.filter((f) => inside(f.line)),
-        md: input.brief ? "" : part.text,
-        ...(section ? { section } : {}),
-      };
+      const toc = shape.toc.filter((t) => inside(t.line));
+      const own = figures.filter((f) => inside(f.line));
+      const page =
+        input.brief || input.whole
+          ? { toc, figures: own, md: input.brief ? "" : part.text }
+          : pageOf(part.text, part.first, input.from, toc, own);
+      return { ...told, ...page, ...(section ? { section } : {}) };
     },
   }),
 ];

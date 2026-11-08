@@ -120,10 +120,14 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   - A document's fingerprint (all of `doc.md` hashed, against what the index last read) and its outline (headings and
     figures with their lines) are worked out once per version of their files (`lib/docs.ts` `contentOf`, `docShape`):
     `docs.list` warm 190 → 71 ms, `rag.status` 236 → 85 ms.
-  - **`docs.show` answers a page**: without an anchor, at most 60 000 characters of `doc.md` from `from`, cut at a
-    line, with `next` while it goes on (Claude reads on with `from`; an MCP answer of a whole 1.1 MB `doc.md` was
-    beyond what Claude takes); with an anchor, the part and only the sections and figures inside it (a section's
-    answer carried the whole 1 500-entry toc). Every answer gives `lines`, `chars` and each toc entry's `line`, so the
+  - **`docs.show` answers a page**: about 60 000 characters of `doc.md` — or, with an anchor, of the part — from
+    `from`, cut at a line, with `next` while it goes on (Claude reads on with `from`; an MCP answer of a whole 1.1 MB
+    `doc.md`, or of a two-hour transcript's one section, was beyond what Claude takes). The toc and the figures the
+    answer carries count in that budget (the text keeps at least a fifth of it); a later page carries only the
+    sections and figures inside it. With an anchor, only those inside the part (a section's answer carried the whole
+    1 500-entry toc); `whole: true` gives the part in one answer, for the page's reader (Documents › Text), never
+    Claude. A toc longer than the budget still comes whole on the first page (open, §16). Every answer gives `lines`,
+    `chars` and each toc entry's `line`, so the
     page draws where Claude read without the text. Brief 61 ms → 7 ms; a section 136 ms / 80 KB → 21 ms / 1.3 KB; the
     first page 1.14 MB → 158 KB.
   - Left as it is, measured: the first `tests.list` of the big project still parses 600 `test.md` (0.5–0.9 s, mostly
@@ -1036,6 +1040,8 @@ first-class: every screen works without the bridge.
   custom field?
 - Where the team's project folder lives (SharePoint sync, SVN, a share) — decides locking needs. Whether colleagues'
   PCs reach Hugging Face and claude.ai through the company proxy (unchecked).
+- A document whose outline alone is longer than an answer of `docs.show` (≈ 2 000 headings) still gets it whole on
+  the first page and with `brief`: paging the toc too waits for a real document that needs it.
 - Requirement coverage is computed **outside** the app, from the step column the team fills with requirement ids.
 - Not proven yet: signing and execution policy on a tester's PC (E0); live read-only checks of `xray.pull` and of the
   `issue` reads on the Windows PC; whether a custom field is cleared with `""` or `null`; the benchmark's gold set

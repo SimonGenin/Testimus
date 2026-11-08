@@ -127,7 +127,7 @@ export function DocDetail({
   const fig = target.startsWith("fig:") || /^(img|frame|t):/.test(target) ? target : "";
   const holder = useRead("docs.show", { id, anchor: fig, brief: true }, { enabled: reading && !!fig });
   const read = fig ? holder.data?.section || (holder.isFetched ? fig : "") : target;
-  const part = useRead("docs.show", read ? { id, anchor: read } : { id }, {
+  const part = useRead("docs.show", read ? { id, anchor: read, whole: true } : { id }, {
     enabled: reading && view === "text" && (!fig || !!read),
     keepPrevious: true,
   });

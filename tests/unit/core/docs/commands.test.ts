@@ -139,6 +139,12 @@ describe("docs.show, docs.set and docs.remove through the registry", () => {
     expect(pages[0]).toMatchObject({ chars: md.length, lines: md.split("\n").length });
     expect(pages[0].toc).toHaveLength(1800);
     expect(md.split("\n")[pages[0].toc[1799].line - 1]).toContain("<!-- § 900.1 -->");
+    expect(pages[0].md.length).toBeLessThanOrEqual(12_000);
+    expect(pages.slice(1).every((p) => JSON.stringify(p.toc).length + p.md.length <= 60_000)).toBe(true);
+    const later = pages[1];
+    const lines = md.split("\n");
+    expect(later.toc.length).toBeGreaterThan(0);
+    expect(later.toc.every((t) => later.md.includes(lines[t.line - 1]))).toBe(true);
     const part = await call<Page>("docs.show", { id: D4, anchor: "§450" }, P);
     expect(part.section).toBe("§450");
     expect(part.toc.map((t) => t.anchor)).toEqual(["§450", "§450.1"]);
@@ -148,6 +154,40 @@ describe("docs.show, docs.set and docs.remove through the registry", () => {
     writeFileSync(join(P, "docs", D4, "doc.md"), `# Short\n\n## 1 Seul <!-- § 1 -->\n`);
     const after = await call<Page>("docs.show", { id: D4, brief: true }, P);
     expect(after).toMatchObject({ lines: 4, toc: [{ anchor: "§1", line: 3 }] });
+  });
+
+  it("gives a long part a page at a time too, its outline counted; whole gives it in one answer", async () => {
+    const P = fixtureCopy("docs-part-pages");
+    const said = Array.from({ length: 3000 }, (_, i) => `[${i}] Le régulateur ouvre le sectionneur et lit le message.`);
+    const md = [
+      "# Long",
+      "",
+      "## 1 Transcription <!-- § 1 -->",
+      "",
+      ...said,
+      "",
+      "### 1.1 Fin <!-- § 1.1 -->",
+      "",
+      "Dernière ligne.",
+      "",
+      "## 2 Après <!-- § 2 -->",
+      "",
+      "Autre chose.",
+    ].join("\n");
+    writeFileSync(join(P, "docs", D4, "doc.md"), md);
+    type Part = { md: string; next?: number; toc: { anchor: string }[]; section?: string };
+    const pages: Part[] = [await call<Part>("docs.show", { id: D4, anchor: "§1" }, P)];
+    while (pages[pages.length - 1].next !== undefined)
+      pages.push(await call<Part>("docs.show", { id: D4, anchor: "§1", from: pages[pages.length - 1].next }, P));
+    expect(pages.length).toBeGreaterThan(2);
+    expect(pages.every((p) => JSON.stringify(p.toc).length + p.md.length <= 60_000)).toBe(true);
+    const whole = await call<Part>("docs.show", { id: D4, anchor: "§1", whole: true }, P);
+    expect(pages.map((p) => p.md).join("")).toBe(whole.md);
+    expect(whole.md).toContain("Dernière ligne.");
+    expect(whole.md).not.toContain("Autre chose.");
+    expect(pages[0].toc.map((t) => t.anchor)).toEqual(["§1", "§1.1"]);
+    expect(pages.at(-1)?.toc.map((t) => t.anchor)).toEqual(["§1.1"]);
+    expect(pages.every((p) => p.section === "§1")).toBe(true);
   });
 
   it("sets the team's fields and context; the output passes the schema", async () => {
