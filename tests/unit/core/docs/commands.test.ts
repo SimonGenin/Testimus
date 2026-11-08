@@ -45,6 +45,20 @@ describe("docs.list through the registry", () => {
       "Figure 41 is a shape drawn in Word: only its labels survive",
     ]);
     expect(list[4].converted?.warnings).toEqual([]);
+    const what = (d: Doc & { type?: string; observed?: boolean }) => [d.id, d.type, d.observed];
+    expect(list.map(what)).toEqual([
+      ["Manoeuvre_d_un_sectionneur_au_PCC", "video", true],
+      ["Notes_de_reunion", "txt", false],
+      ["RECETTE_TCO_12-10", "images", true],
+      [D3, "docx", false],
+      [D4, "docx", false],
+    ]);
+    const shown = await call<{ type: string; observed: boolean }>(
+      "docs.show",
+      { id: "RECETTE_TCO_12-10", brief: true },
+      P,
+    );
+    expect([shown.type, shown.observed]).toEqual(["images", true]);
   });
 
   it("keeps only the documents of one status", async () => {

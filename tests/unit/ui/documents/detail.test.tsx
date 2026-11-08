@@ -32,6 +32,8 @@ const shown = (over: Record<string, unknown> = {}) => ({
     converted: { with: "", at, warnings: ["2 comments dropped"] },
     amends: ["D2"],
   }),
+  type: "pdf",
+  observed: false,
   context: "known",
   toc: [
     { anchor: "§5", title: "Traction", level: 1 },
@@ -574,7 +576,7 @@ describe("DocDetail", () => {
   });
 
   it("reports a failed save and shows Word documents without a date or amends", async () => {
-    show("", { doc: doc("D1", { source: { name: "", sha256: "", file: "" } }) });
+    show("", { doc: doc("D1", { source: { name: "", sha256: "", file: "" } }), type: "docx" });
     await screen.findByRole("heading", { name: "Title D1" });
     expect(screen.getByText(/Converted from Word/)).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Conversion warnings" })).toBeNull();

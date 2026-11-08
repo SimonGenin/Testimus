@@ -35,7 +35,12 @@ describe("the Documents icons, as the design draws them", () => {
   it("the list: a PDF is a file, a Word document documents; Not up to date warns, Not indexed is a danger", async () => {
     api.routes["docs.list"] = () => [
       doc("D1", { title: "Traction" }),
-      doc("D2", { title: "Signalisation", indexed: "stale", source: { name: "", sha256: "", file: "source.pdf" } }),
+      doc("D2", {
+        title: "Signalisation",
+        indexed: "stale",
+        type: "pdf",
+        source: { name: "", sha256: "", file: "source.pdf" },
+      }),
       doc("D3", { title: "Alarmes", indexed: "missing" }),
     ];
     mountDocs(<DocumentsScreen />, { route: { screen: "documents" } });

@@ -141,9 +141,10 @@ async function ranked(
     let meaning: number[] | undefined;
     let degraded: string | null = null;
     let unbuilt = false;
-    if (mode !== "vector") {
+    const terms = mode !== "vector" || opts.explain ? termsOf(db, query, o) : null;
+    if (terms && mode !== "vector") {
       const t = performance.now();
-      words = bm25(db, query, o);
+      words = bm25(db, query, o, terms);
       recordPerf({ at: "", op: "search.bm25", items: words.length, ms: Math.round(performance.now() - t) });
       lists.push(words);
       weights.push(settings.rrfWeights[0] ?? 1);
@@ -206,9 +207,7 @@ async function ranked(
         cut = ranked.length;
       }
     }
-    const explained = opts.explain
-      ? { terms: termsOf(db, query, o), words: rankOf(words), meaning: rankOf(meaning) }
-      : null;
+    const explained = opts.explain && terms ? { terms, words: rankOf(words), meaning: rankOf(meaning) } : null;
     const hits = ranked.slice(0, cut).map(([id, score]): Ranked => {
       const chunk = byId.get(id) as ChunkRow;
       return {

@@ -6,8 +6,11 @@ import { command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { contextMtime, docDir, docShape, headingAt, partOf, readContext, readDoc, readDocMd } from "../lib/docs.ts";
 import { docsFreshness } from "../lib/docs-index.ts";
+import { isObserved, sourceType } from "../lib/media.ts";
 import { renderPage } from "../rag/pdf.ts";
+import type { DocJson } from "../types.ts";
 import { docJson, figure, id, mtime, status } from "./docs-schemas.ts";
+import { SOURCE_TYPE } from "./media-schemas.ts";
 
 // ponytail: an answer of docs.show holds about 15 000 tokens, what an answer to Claude can hold
 const DOC_PAGE = 60_000;
@@ -44,6 +47,19 @@ function pageOf<T extends { line?: number }, F extends { line?: number }>(
   const to = end(Math.max(DOC_PAGE / 5, DOC_PAGE - JSON.stringify([most.toc, most.figures]).length));
   return { ...carried(to), md: text.slice(start, to), ...(to < text.length ? { next: to } : {}) };
 }
+
+// ponytail: what a document is, worked out here once — the page reads it, never the rules behind it
+const what = {
+  type: SOURCE_TYPE.describe(
+    "What the document is made of (doc.json source.type, else read from its copy's extension): docx, pdf, txt, images, video or mixed",
+  ),
+  observed: z
+    .boolean()
+    .describe(
+      "An images or video document the team has not marked as the reference: it shows how the real system behaves, never what it must do",
+    ),
+};
+const whatOf = (d: DocJson) => ({ type: sourceType(d), observed: isObserved(d) });
 
 export const commands = [
   command({
@@ -105,6 +121,7 @@ export const commands = [
     input: z.object({ status: status.optional().describe("Only the documents with this status") }),
     output: z.array(
       docJson.extend({
+        ...what,
         indexed: z
           .enum(["fresh", "stale", "missing"])
           .describe(
@@ -127,7 +144,7 @@ export const commands = [
     ),
     mutates: false,
     async run(ctx, input) {
-      const all = await docsFreshness(projectOf(ctx));
+      const all = (await docsFreshness(projectOf(ctx))).map((d) => ({ ...d, ...whatOf(d) }));
       return input.status ? all.filter((d) => d.status === input.status) : all;
     },
   }),
@@ -163,6 +180,7 @@ export const commands = [
     }),
     output: z.object({
       doc: docJson,
+      ...what,
       context: z.string().describe("What the team says about this document (context.md)"),
       contextMtime: mtime,
       contexts: z
@@ -209,6 +227,7 @@ export const commands = [
       const shape = docShape(project, input.id);
       const told = {
         doc,
+        ...whatOf(doc),
         context: readContext(project, input.id),
         contextMtime: contextMtime(project, input.id),
         contexts: docContexts(project, input.id),

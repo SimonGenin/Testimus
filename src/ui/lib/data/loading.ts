@@ -18,7 +18,6 @@ const WORDS = {
   "issue.comments": "the comments",
   "issue.people": "the people",
   "jobs.list": "the jobs",
-  "media.show": "the batch",
   "models.catalog": "the model catalog",
   "models.hardware": "this machine",
   "models.packs": "the packs",

@@ -114,9 +114,9 @@ describe("lexical search", () => {
       const long = add(chunk("1", "Le départ sur ordre est donné par le régulateur."));
       const short = add(chunk("2", "Le DSO est affiché sur l'IHM."));
       const secours = add(chunk("3", "Le poste de traction de secours alimente la section."));
-      expect(bm25(db, "DSO", {}).sort()).toEqual([long, short].sort());
-      expect(bm25(db, "départs sur ordre", {}).sort()).toEqual([long, short].sort());
-      expect(bm25(db, "PTS", {})).toEqual([secours]);
+      expect(bm25(db, "DSO", { project }).sort()).toEqual([long, short].sort());
+      expect(bm25(db, "départs sur ordre", { project }).sort()).toEqual([long, short].sort());
+      expect(bm25(db, "PTS", { project })).toEqual([secours]);
     });
 
     it("does not take a two-letter acronym for a common word", () => {

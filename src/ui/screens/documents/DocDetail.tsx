@@ -6,7 +6,7 @@ import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
-import { isMediaDoc, isObservedDoc } from "../../lib/media.ts";
+import { isMedia } from "../../lib/media.ts";
 import { addMedia } from "../../lib/media-uploads.ts";
 import { settled, useUploads } from "../../lib/uploads.ts";
 import { border, color, duration, easing, space } from "../../styles/tokens.stylex.ts";
@@ -107,7 +107,7 @@ export function DocDetail({
   const sections = shown?.toc ?? [];
   const converted = !!shown?.doc.converted?.at;
   const reading = !!shown && !running && converted;
-  const media = !!shown && isMediaDoc(shown.doc);
+  const media = !!shown && isMedia(shown.type);
   const files = shown?.doc.source.files ?? [];
   // ponytail: an images or video document opens on its pictures or its player — on its player when a link names a
   // moment (t:, frame:), on its pictures for an image (img:), on its text for a section
@@ -184,7 +184,7 @@ export function DocDetail({
       />
     );
 
-  const d = shown.doc;
+  const d = { ...shown.doc, type: shown.type, observed: shown.observed };
   const current = (!part.isPlaceholderData && part.data?.section) || target;
   const go = (a: string) => {
     setView("text");
@@ -264,7 +264,7 @@ export function DocDetail({
                 focus={quote || undefined}
                 target={anchor && !quote ? anchor : undefined}
                 quote={onClearQuote && onBack ? { from, onBack, onClear: onClearQuote } : undefined}
-                observed={isObservedDoc(d)}
+                observed={d.observed}
                 onGo={go}
                 onFigure={(a) => {
                   setFigure(a);

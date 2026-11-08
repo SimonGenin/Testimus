@@ -317,7 +317,8 @@ docs/<docId>/
   **observed** until the team marks it as the reference (`doc.json.reference`, `docs.set reference`, the page's
   « Reference, not observed » button; a written document is always a reference). A source from an observed document
   says *how* to do a step; an expected result backed only by observed documents is `observed-only` (mechanical check,
-  §9). Marking or unmarking re-checks the citing tests.
+  §9). Marking or unmarking re-checks the citing tests. `docs.list` and `docs.show` say each document's `type` (docx ·
+  pdf · txt · images · video · mixed) and whether it is `observed`: the page reads them, never the rules behind them.
 - **Conversion of an images or video document** (`docs.convert`, `lib/media-pipeline.ts`, in a conversion slot like
   any other): each image not prepared yet is normalised (sharp: jpg ≤ 2000 px, EXIF orientation applied, the EXIF date
   kept as `takenAt`, a transparent PNG laid on white); each video goes through the steps below; Claude reads the

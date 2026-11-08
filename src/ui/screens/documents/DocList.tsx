@@ -1,5 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
-import type { DocRef, IndexRun, SourceType } from "../../../core/types.ts";
+import type { CommandOutput } from "../../../core/commands/index.ts";
+import type { IndexRun, SourceType } from "../../../core/types.ts";
+
+type DocRef = CommandOutput<"docs.list">[number];
+
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Icon, type IconName } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
@@ -8,7 +12,7 @@ import { Progress } from "../../components/ui/Progress.tsx";
 import { type } from "../../components/ui/type.ts";
 import { baseName } from "../../lib/desktop.ts";
 import { indexRunLine, indexRunPercent } from "../../lib/format.ts";
-import { isObservedDoc, sourceType, typeLabel } from "../../lib/media.ts";
+import { typeLabel } from "../../lib/media.ts";
 import { OVERVIEW_ROUTE, OVERVIEW_TITLE, type OverviewShown, overviewMeta } from "../../lib/overview.ts";
 import { conversionsLine, owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
@@ -60,12 +64,12 @@ function docItem(d: DocRef): ListItemProps {
   return {
     title: d.title,
     tooltip: code ? `${code} — ${d.title}` : d.title,
-    lead: <Icon name={LEAD[sourceType(d)]} />,
+    lead: <Icon name={LEAD[d.type]} />,
     meta: (
       <span {...stylex.props(styles.lines)}>
         <span {...stylex.props(styles.badges)}>
           <Badge size="sm" label={typeLabel(d)} />
-          {isObservedDoc(d) && <Badge size="sm" outline label="Observed" />}
+          {d.observed && <Badge size="sm" outline label="Observed" />}
           {code && <span {...stylex.props(type.mono, styles.mono)}>{code}</span>}
         </span>
         <span {...stylex.props(styles.badges)}>

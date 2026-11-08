@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import type { DocConversion, DocJson, Effort } from "../../../core/types.ts";
+import type { DocConversion, Effort } from "../../../core/types.ts";
 import { CustomModel, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
 import { useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { Button } from "../../components/ui/Button.tsx";
@@ -13,7 +13,7 @@ import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { invalidate } from "../../lib/data/query.ts";
 import { baseName } from "../../lib/desktop.ts";
-import { isMediaDoc } from "../../lib/media.ts";
+import { type Described, isMedia } from "../../lib/media.ts";
 import { jobToast } from "../../lib/toast.ts";
 import { convertDoc, importClaude, setImportClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
@@ -88,7 +88,7 @@ function Options({
   onFigures,
   onStudy,
 }: {
-  doc: DocJson;
+  doc: Described;
   again: boolean;
   figures: boolean;
   study: boolean;
@@ -97,7 +97,7 @@ function Options({
   onStudy: (on: boolean) => void;
 }) {
   const noFigures = again && doc.converted?.stats?.figures === 0;
-  if (isMediaDoc(doc))
+  if (isMedia(doc.type))
     return (
       <div {...stylex.props(styles.group)}>
         <h3 {...stylex.props(type.small, type.strong, styles.caption)}>While preparing</h3>
@@ -143,7 +143,7 @@ export function ConvertDoc({
   described,
   onClose,
 }: {
-  doc: DocJson;
+  doc: Described;
   again?: boolean;
   /** figures that already have a description (they are kept) */
   described?: number;
@@ -153,7 +153,7 @@ export function ConvertDoc({
   const client = useQueryClient();
   const [figures, setFigures] = useState(app.info?.project?.rag.describeFigures !== false);
   const [study, setStudy] = useState(false);
-  const media = isMediaDoc(doc);
+  const media = isMedia(doc.type);
   const offline = useClaudeOffline();
   const settled = doc.conversion ? optionsOf(doc.conversion) : "";
   const go = () => {

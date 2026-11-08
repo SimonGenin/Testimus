@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { chunksByRowid } from "../db.ts";
 import { type Expansion, expansions, type GlossaryEntry, glossaryOf } from "../glossary.ts";
@@ -94,28 +92,21 @@ export function bm25Weights(given?: number[]): [number, number, number, number] 
   return [w[0], w[1], w[2], Number.isFinite(stem) ? Number(stem) : w[1]];
 }
 
-function projectOfIndex(db: DatabaseSync): string | null {
-  const file = db.location();
-  if (!file) return null;
-  let dir = dirname(file);
-  for (let i = 0; i < 5; i++) {
-    if (existsSync(join(dir, "project.json"))) return dir;
-    const up = dirname(dir);
-    if (up === dir) break;
-    dir = up;
-  }
-  return null;
-}
-
+// ponytail: the words a query looks for, its glossary and synonyms expansions and its typos — worked out once per
+// search, for the word ranking and for its explanation
 export function termsOf(db: DatabaseSync, query: string, opts: SearchOpts): QueryTerms {
-  const project = projectOfIndex(db);
   const r = opts.retrieval;
-  const terms = queryTerms(query, project ? glossaryOf(project) : [], r?.synonyms ?? []);
+  const terms = queryTerms(query, opts.project ? glossaryOf(opts.project) : [], r?.synonyms ?? []);
   return r?.typos ? { ...terms, typos: typoVariants(db, terms.words) } : terms;
 }
 
-export function bm25(db: DatabaseSync, query: string, opts: SearchOpts): number[] {
-  const q = ftsOf(termsOf(db, query, opts));
+export function bm25(
+  db: DatabaseSync,
+  query: string,
+  opts: SearchOpts,
+  terms: QueryTerms = termsOf(db, query, opts),
+): number[] {
+  const q = ftsOf(terms);
   if (!q) return [];
   const candidates = opts.retrieval?.candidates ?? CANDIDATES;
   const scope = scopeSql(opts);

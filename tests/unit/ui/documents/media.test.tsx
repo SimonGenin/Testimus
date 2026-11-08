@@ -2,12 +2,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DocRef, MediaFile } from "../../../../src/core/types.ts";
+import type { MediaFile } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
 import { api, FakeEventSource, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
-import { at, doc, mountDocs } from "./helpers.tsx";
+import { at, type DocRef, doc, mountDocs } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -38,6 +38,8 @@ const images = (over: Partial<DocRef> = {}) =>
   doc("PHOTOS", {
     title: "Recette TCO",
     kind: "other",
+    type: "images",
+    observed: !over.reference,
     source: {
       type: "images",
       name: "IMG_0041.jpg",
@@ -50,9 +52,15 @@ const images = (over: Partial<DocRef> = {}) =>
 const video = doc("FILM", {
   title: "Manœuvre au PCC",
   kind: "other",
+  type: "video",
+  observed: true,
   source: { type: "video", name: "manoeuvre.mp4", file: "files", sha256: "", files: [file(1, "video")] },
 });
-const text = doc("NOTES", { title: "Notes de réunion", source: { name: "notes.txt", file: "source.txt", sha256: "" } });
+const text = doc("NOTES", {
+  title: "Notes de réunion",
+  type: "txt",
+  source: { name: "notes.txt", file: "source.txt", sha256: "" },
+});
 
 const listOf = () => screen.getByRole("region", { name: "Document list" });
 const row = (title: string) => within(listOf()).getByText(title).closest('[role="option"]') as HTMLElement;
@@ -63,6 +71,8 @@ const shown = (d: DocRef) => {
       ? { md: "", section: "§media" }
       : {
           doc: d,
+          type: d.type,
+          observed: d.observed,
           context: "",
           contextMtime: null,
           contexts: [],

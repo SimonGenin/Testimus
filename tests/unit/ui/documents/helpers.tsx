@@ -1,7 +1,8 @@
 import { act, configure, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
-import type { DocRef, Job, JobEvent } from "../../../../src/core/types.ts";
+import type { CommandOutput } from "../../../../src/core/commands/index.ts";
+import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
@@ -13,6 +14,8 @@ configure({ asyncUtilTimeout: 4000 });
 
 export const at = "2026-11-02T10:00:00.000Z";
 
+export type DocRef = CommandOutput<"docs.list">[number];
+
 export const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
   id,
   code: `C-${id}`,
@@ -22,6 +25,8 @@ export const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
   kind: "spec",
   status: "validated",
   source: { name: "", sha256: "", file: "source.docx" },
+  type: "docx",
+  observed: false,
   converted: { with: "", at, warnings: [] },
   indexed: "fresh",
   ...over,

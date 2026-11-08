@@ -94,8 +94,8 @@ export type SourceChipProps = {
   pressed?: boolean;
   /** a figure: the image icon instead of the quote mark */
   figure?: boolean;
-  /** from an annex of photos of the real system: says how to do a step, never what is expected — the eye and the
-   * word « Observed » */
+  /** from images or a video of the real system (not marked as the reference): says how to do a step, never what is
+   * expected — the eye and the word « Observed » */
   observed?: boolean;
   /** inside a line of text: the reference alone */
   compact?: boolean;

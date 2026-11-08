@@ -8,7 +8,15 @@ import { type } from "../../components/ui/type.ts";
 import { project } from "../../lib/data/client.ts";
 import { baseName, desktop, pathJoin, pickFiles, reveal } from "../../lib/desktop.ts";
 import { plural } from "../../lib/format.ts";
-import { clock, IMAGE_EXTENSIONS, isMediaDoc, MEDIA_ACCEPT, typeLabel, VIDEO_EXTENSIONS } from "../../lib/media.ts";
+import {
+  clock,
+  type Described,
+  IMAGE_EXTENSIONS,
+  isMedia,
+  MEDIA_ACCEPT,
+  typeLabel,
+  VIDEO_EXTENSIONS,
+} from "../../lib/media.ts";
 import { type Picked, pickedOfFiles, pickedOfPaths } from "../../lib/uploads.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 
@@ -83,7 +91,7 @@ export function DocHead({
   onAddMedia,
   onReference,
 }: {
-  doc: DocJson;
+  doc: Described;
   sections: number;
   figures: number;
   running: boolean;
@@ -103,7 +111,7 @@ export function DocHead({
   onReference?: (reference: boolean) => void;
 }) {
   const from = typeLabel(doc);
-  const media = isMediaDoc(doc);
+  const media = isMedia(doc.type);
   const files = doc.source.files ?? [];
   const converted = !!doc.converted?.at;
   const reading = !running && converted;

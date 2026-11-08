@@ -71,7 +71,7 @@ export function DocSide({
   const docs = Array.isArray(list) ? list : [];
   const ref = docs.find((x) => x.id === d.id);
   const warnings = running ? [] : (d.converted?.warnings ?? []);
-  const from = typeLabel(d);
+  const from = typeLabel({ ...d, type: shown.type });
   const related = (d.relatesTo ?? []).map((id) => docs.find((x) => x.id === id) ?? { id, title: id });
   const ix = indexWord(ref ?? { indexed: "missing", converted: d.converted });
   const app = useApp();
