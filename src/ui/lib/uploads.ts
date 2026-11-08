@@ -24,7 +24,7 @@ export type Upload = {
   index?: boolean;
 };
 
-type Local = Upload & { project: string | null };
+type Local = Upload & { project: string | null /** when the page made the row (ms) */; at: number };
 
 const SHOWN_DONE_MS = 4000;
 const KIND: Record<string, Upload["job"]> = { "docs.add": "add", "docs.convert": "convert", "rag-index": "index" };
@@ -49,9 +49,9 @@ const dropLocal = (key: string) => {
   view.local = view.local.filter((u) => u.key !== key);
   emit();
 };
-const addLocal = (row: Omit<Local, "key" | "project" | "pct">): string => {
+const addLocal = (row: Omit<Local, "key" | "project" | "pct" | "at">): string => {
   const key = `local-${++seq}`;
-  view.local = [...view.local, { ...row, key, project: project(), pct: null }];
+  view.local = [...view.local, { ...row, key, project: project(), pct: null, at: Date.now() }];
   emit();
   return key;
 };
@@ -141,8 +141,27 @@ export function uploadsOf(
     .filter((j) => !(j.endedAt && Date.parse(j.endedAt) < o.since))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
     .flatMap((j) => rowsOf(j, o.now, converts));
-  const waiting = local.filter((u) => u.project === o.project && !(u.jobId && known.has(u.jobId)));
-  return [...fromJobs, ...waiting.map(({ project: _p, jobId: _j, ...u }) => u)].filter((u) => !o.dismissed.has(u.key));
+  const claimed = new Set(local.map((u) => u.jobId));
+  const startedFor = (u: Local) =>
+    jobs.find(
+      (j) =>
+        KIND[j.kind] === u.job &&
+        !claimed.has(j.id) &&
+        Date.parse(j.startedAt) >= u.at &&
+        (u.job === "index" || j.subject === (u.job === "convert" ? u.docId : u.name)),
+    );
+  const waiting = local.filter((u) => {
+    if (u.project !== o.project || (u.jobId && known.has(u.jobId))) return false;
+    if (u.jobId || settled(u) || u.phase === "reading") return true;
+    // ponytail: the job's row can come by the event stream before the call that started it returns its id — that job
+    // is this row's (same kind and subject, started after the row was made), so the row gives way and is never a second
+    const j = startedFor(u);
+    if (j) claimed.add(j.id);
+    return !j;
+  });
+  return [...fromJobs, ...waiting.map(({ project: _p, jobId: _j, at: _a, ...u }) => u)].filter(
+    (u) => !o.dismissed.has(u.key),
+  );
 }
 
 export function useUploads(): Upload[] {
@@ -184,7 +203,7 @@ export const setImportClaude = (next: ClaudeRun) => {
 // ponytail: a local row stands for a job until the list shows it; a failure before the job started stays on it, a
 // failure after is the job's own row
 export async function tracked<T>(
-  row: Omit<Local, "key" | "project" | "pct">,
+  row: Omit<Local, "key" | "project" | "pct" | "at">,
   start: (onStart: (jobId: string) => void) => Promise<T>,
 ): Promise<{ ok: true; value: T } | { ok: false }> {
   const key = addLocal(row);

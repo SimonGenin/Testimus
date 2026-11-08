@@ -275,6 +275,7 @@ describe("the rows are the project's jobs", () => {
         pct: null,
         message: "Reading",
         project: "C:\\p",
+        at: T0,
       },
       {
         key: "local-2",
@@ -284,6 +285,7 @@ describe("the rows are the project's jobs", () => {
         pct: null,
         message: "Adding",
         project: "C:\\other",
+        at: T0,
       },
       {
         key: "local-3",
@@ -294,11 +296,33 @@ describe("the rows are the project's jobs", () => {
         message: "Converting",
         project: "C:\\p",
         jobId: "cv",
+        at: T0,
       },
     ];
     expect(uploadsOf([], local, view()).map((u) => u.key)).toEqual(["local-1", "local-3"]);
     expect(uploadsOf([job({ id: "cv", subject: "SPEC" })], local, view()).map((u) => u.key)).toEqual(["cv", "local-1"]);
-    expect(uploadsOf([], local, view()).every((u) => !("project" in u) && !("jobId" in u))).toBe(true);
+    expect(uploadsOf([], local, view()).every((u) => !("project" in u) && !("jobId" in u) && !("at" in u))).toBe(true);
+  });
+
+  it("is one row when the job comes by the event stream before the call returns its id", () => {
+    const adding = { key: "local-1", name: "essai PCC.mp4", job: "add" as const, phase: "adding" as const };
+    const local = [{ ...adding, pct: null, message: "Adding", project: "C:\\p", at: T0 + 5 }];
+    const add = (o: Partial<Job>) => job({ id: "add-1", kind: "docs.add", subject: "essai PCC.mp4", ...o });
+    expect(uploadsOf([add({ startedAt: iso(6) })], local, view()).map((u) => [u.key, u.name])).toEqual([
+      ["add-1", "essai PCC.mp4"],
+    ]);
+    expect(uploadsOf([add({ startedAt: iso(4) })], local, view()).map((u) => u.key)).toEqual(["add-1", "local-1"]);
+    expect(uploadsOf([add({ startedAt: iso(6), subject: "other.mp4" })], local, view()).map((u) => u.key)).toEqual([
+      "add-1",
+      "local-1",
+    ]);
+    const two = [...local, { ...local[0], key: "local-2", at: T0 + 7 }];
+    expect(uploadsOf([add({ startedAt: iso(6) })], two, view()).map((u) => u.key)).toEqual(["add-1", "local-2"]);
+    const cv = { key: "local-3", name: "SPEC", job: "convert" as const, phase: "converting" as const, docId: "SPEC" };
+    const converting = [{ ...cv, pct: null, message: "Converting", project: "C:\\p", at: T0 }];
+    expect(
+      uploadsOf([job({ id: "cv", subject: "SPEC", startedAt: iso(1) })], converting, view()).map((u) => u.key),
+    ).toEqual(["cv"]);
   });
 
   it("reads the rows back from the jobs after a reload, and follows them live", async () => {
