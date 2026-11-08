@@ -7,7 +7,7 @@ import { env } from "../env.ts";
 import { docDir, docIds, readDoc, readDocMd, readFigures } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
-import type { Chunk, ClaudeRun, DocJson, FigureEntry, ResolvedModel, VectorSpace } from "../types.ts";
+import type { Chunk, ClaudeRun, DocJson, FigureEntry, ResolvedModel, SearchUse, VectorSpace } from "../types.ts";
 import { activeModels } from "./activation.ts";
 import { chunkDoc, type DescribeChunks } from "./chunk.ts";
 import {
@@ -36,6 +36,17 @@ import { fingerprintOf, spaceOf } from "./fingerprint.ts";
 import { docEdges } from "./graph.ts";
 
 type DocIndexStatus = "indexed" | "unchanged" | "removed";
+// ponytail: the index builds the words (FTS5 and the graph) once, then the active embedding's vectors; it never reranks
+export const DOCS_INDEX: SearchUse = {
+  id: "index",
+  who: "The index of the documents",
+  when: "After each import or conversion, and Reindex",
+  words: "builds",
+  embedding: "builds",
+  reranker: "no",
+  why: "ranking happens at search time",
+};
+
 export type IndexReport = {
   embedding: string;
   dims: number;

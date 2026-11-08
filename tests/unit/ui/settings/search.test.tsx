@@ -51,8 +51,32 @@ const SPACES = [
   }),
 ];
 
+const use = (id: string, who: string, over: Record<string, unknown> = {}) => ({
+  id,
+  who,
+  when: `when ${id}`,
+  words: "always",
+  embedding: { use: "uses", model: "qwen3-embedding-0.6b-onnx-q8", label: "Qwen3 Embedding 0.6B (8-bit, CPU)" },
+  reranker: { use: "uses", model: "bge-reranker-v2-m3-q8", label: "BGE Reranker v2 M3 (8-bit, CPU)", why: null },
+  ...over,
+});
+
+const USAGE = [
+  use("claude", "Claude, while it writes or checks tests", {
+    reranker: { use: "no", model: null, label: null, why: "not in Claude's loop" },
+  }),
+  use("palette", "Search everything (Ctrl K)"),
+  use("index", "The index of the documents", {
+    words: "builds",
+    embedding: { use: "builds", model: null, label: null },
+    reranker: { use: "no", model: null, label: null, why: null },
+  }),
+  use("light", "Light user", { words: "no", reranker: { use: "uses", model: null, label: null, why: null } }),
+];
+
 beforeEach(() => {
   fakeNet();
+  net.routes["models.usage"] = () => USAGE;
   net.routes["project.info"] = () => info();
   net.routes["rag.status"] = () => status();
   net.routes["rag.spaces"] = () => SPACES;
@@ -69,6 +93,36 @@ const row = (id: string) =>
   waitFor(() =>
     within(screen.getByRole("table", { name: "Vector spaces" })).getByRole("row", { name: new RegExp(`Space ${id}`) }),
   );
+
+describe("Settings › Search › Who uses what on this PC", () => {
+  it("one row per user of the search, in the core's words: words, embedding, reranker or never, and when", async () => {
+    mountSettings(<SearchSection />);
+    const table = await screen.findByRole("table", { name: "Who uses what on this PC" });
+    const row = (who: string) => within(table).getByRole("row", { name: new RegExp(`^${who}`) });
+    await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(USAGE.length + 1));
+    const claude = row("Claude");
+    expect(claude).toHaveTextContent("Always");
+    expect(claude).toHaveTextContent("Qwen3 Embedding 0.6B (8-bit, CPU)");
+    expect(claude).toHaveTextContent("Never");
+    expect(claude).toHaveTextContent("not in Claude's loop");
+    expect(claude).toHaveTextContent("when claude");
+    expect(row("Search everything")).toHaveTextContent("BGE Reranker v2 M3 (8-bit, CPU)");
+    const index = row("The index");
+    expect(index).toHaveTextContent("Builds it");
+    expect(index).toHaveTextContent("None on this PC: words only");
+    expect(row("Light user")).toHaveTextContent("None in the models in use");
+    expect(row("Light user")).toHaveTextContent("—");
+  });
+
+  it("says so when it cannot be read", async () => {
+    net.routes["models.usage"] = () => {
+      throw new Fail("usage down");
+    };
+    mountSettings(<SearchSection />);
+    expect(await screen.findByText("Who uses what could not be read")).toBeInTheDocument();
+    expect(screen.getByText("usage down")).toBeInTheDocument();
+  });
+});
 
 describe("Settings › Search", () => {
   it("has no hard-coded model list; shows the reference and the model used here with its origin", async () => {

@@ -47,7 +47,7 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
 - [x] **Pas de warnings pendant l'indexation.** Pendant qu'elle tourne, l'indexation affiche des avertissements de
       problèmes d'indexation : c'est normal puisqu'elle travaille, ça n'a pas de sens pour l'utilisateur et ça le
       perturbe. Ils doivent disparaître.
-- [ ] **Rendre clair qui utilise quoi : embedding, reranker, recherche.** Aujourd'hui on comprend mal quelle recherche
+- [x] **Rendre clair qui utilise quoi : embedding, reranker, recherche.** Aujourd'hui on comprend mal quelle recherche
       et quel RAG sont utilisés. Exemple : avec le pack Qualité, l'app propose quand même d'installer BGE-M3. Il faut
       dire clairement qui a besoin de quoi et qui utilise quoi — d'autant que d'autres LLM que Claude vont bientôt
       arriver.

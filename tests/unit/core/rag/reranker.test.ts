@@ -40,7 +40,8 @@ vi.mock("../../../../src/core/lib/models-resolve.ts", async (importOriginal) => 
       variantIndex: null,
       embedding: null,
       reranker: null,
-      skipped: [],
+      aside: [],
+      picked: null,
       missing: [],
     }),
   };

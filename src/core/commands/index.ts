@@ -101,6 +101,7 @@ export function find(name: string): Command {
 
 export type InvokeOpts = {
   project: string | null;
+  llm?: boolean;
   signal?: AbortSignal;
   wait?: boolean;
   cause?: JobCause;
@@ -169,6 +170,7 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
   }
   const ctx: Ctx = {
     project: opts.project,
+    ...(opts.llm ? { llm: true } : {}),
     signal: opts.signal ?? new AbortController().signal,
     progress: (p) => opts.onProgress?.(p),
     log: (level, message) => opts.onLog?.(level, message),

@@ -7,8 +7,20 @@ import { activeModels } from "../rag/activation.ts";
 import { spaceId } from "../rag/db.ts";
 import { embedWith } from "../rag/embed.ts";
 import { fingerprintOf } from "../rag/fingerprint.ts";
-import type { ResolvedModel, Test } from "../types.ts";
+import type { ResolvedModel, SearchUse, Test } from "../types.ts";
 import { type TestDoc, testsCorpus } from "./tests.ts";
+
+// ponytail: the tests' vectors, kept in index/tests-vectors.json with the active embedding — a test's words are read from
+// its file at search time, never indexed
+export const TESTS_INDEX: SearchUse = {
+  id: "tests-index",
+  who: "The vectors of the tests",
+  when: "After tests change (a few at search time, the rest in a job)",
+  words: "no",
+  embedding: "builds",
+  reranker: "no",
+  why: "ranking happens at search time",
+};
 
 type Store = { space: string; model: string; tests: Record<string, { hash: string; v: string }> };
 

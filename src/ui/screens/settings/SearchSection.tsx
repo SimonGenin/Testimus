@@ -23,6 +23,7 @@ import { choiceLabel, ORIGIN } from "./models/data.ts";
 import { OpLine } from "./models/OpLine.tsx";
 import { useOps } from "./models/ops.tsx";
 import { useInfo } from "./project.ts";
+import { SearchUsers } from "./SearchUsers.tsx";
 import { Hint, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
@@ -131,6 +132,7 @@ export function SearchSection() {
       actions={<Button icon="cpu" label="Go to Models" onClick={() => app.navigate("settings", "models")} />}
     >
       {watchers}
+      <SearchUsers />
       <Card title="Search on this PC">
         <Stack loose>
           {st.isError ? (

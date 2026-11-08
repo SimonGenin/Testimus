@@ -10,6 +10,7 @@ import { pullLlama } from "../lib/models-use.ts";
 import { commands as machine } from "./models-machine.ts";
 import { commands as packs } from "./models-packs.ts";
 import { dirInput, dirOut, fit, MB, modelId, state } from "./models-schemas.ts";
+import { commands as usage } from "./models-usage.ts";
 
 const own = [
   command({
@@ -224,4 +225,4 @@ const own = [
   }),
 ];
 
-export const commands = [...own, ...packs, ...machine];
+export const commands = [...own, ...packs, ...machine, ...usage];

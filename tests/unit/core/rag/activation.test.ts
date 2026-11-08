@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "../../../../src/core/env.ts";
+import { modelDeps, modelRows } from "../../../../src/core/lib/doctor-models.ts";
 import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { readProject, readSettings, writeProject } from "../../../../src/core/lib/project.ts";
 import { mockMachine } from "../../../../src/core/mock/machine.ts";
@@ -122,7 +123,7 @@ describe("per-machine activation", () => {
     installed.clear();
     const none = await activeModels(dir);
     expect(none).toMatchObject({ source: "none", embedding: null, reranker: null, choice: null });
-    expect(none.missing).toEqual(["qwen3-embedding-4b-q8", "pack light"]);
+    expect(none.missing).toEqual(["qwen3-embedding-4b-q8"]);
   });
 
   it("carries the pack's retrieval settings; a reranker not on this PC is left out and named missing", async () => {
@@ -148,6 +149,43 @@ describe("per-machine activation", () => {
     const yesNo = await activeModels(dir);
     expect(yesNo.reranker?.entry.id).toBe("qwen3-reranker-0.6b-onnx-q8");
     expect(yesNo.missing).toEqual([]);
+  });
+
+  it("Quality chosen here but not on this PC: search falls back to Light, and only Quality's models are asked for", async () => {
+    installed.add("bge-m3-q8");
+    const quality = { embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" };
+    setActiveChoice(dir, { pack: "quality", variant: quality });
+    const a = await activeModels(dir);
+    expect(a).toMatchObject({ source: "light", choice: { pack: "light" } });
+    expect(a.embedding?.entry.id).toBe("bge-m3-q8");
+    expect(a.missing).toEqual([quality.embedding, quality.reranker]);
+
+    const wanted = await modelDeps.active(dir);
+    expect(wanted.wanted.slice(0, 2)).toEqual([quality.embedding, quality.reranker]);
+    const rows = await modelRows(dir, {
+      ...modelDeps,
+      machine: async () => mockMachine("gpu16"),
+      space: async () => null,
+    });
+    const by = Object.fromEntries(rows.map((r) => [r.id, r]));
+    expect(by["model.embedding"]).toMatchObject({
+      state: "warn",
+      detail: "Qwen3 Embedding 8B (4-bit) is not on this PC: search uses BGE-M3 (8-bit, CPU) meanwhile",
+      action: { command: "models.pull", input: { model: quality.embedding } },
+    });
+    expect(by["model.reranker"]).toMatchObject({ state: "warn", action: { input: { model: quality.reranker } } });
+    for (const r of rows) expect(JSON.stringify(r.action ?? {})).not.toContain("bge-m3");
+  });
+
+  it("keeps the variant chosen with the pack while its models are here, whatever a fresh resolution would pick", async () => {
+    const second = { embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-4b-q8" };
+    installed.add(second.embedding);
+    installed.add(second.reranker);
+    installed.add("qwen3-embedding-8b-q4");
+    setActiveChoice(dir, { pack: "quality", variant: second });
+    const a = await activeModels(dir);
+    expect(a).toMatchObject({ source: "machine", choice: { pack: "quality", variant: second }, missing: [] });
+    expect(a.embedding?.entry.id).toBe(second.embedding);
   });
 
   it("fills {task} from project.json rag.queryTask, in English by default", async () => {

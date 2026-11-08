@@ -1,8 +1,21 @@
 import { z } from "zod";
+import { CLAUDE_SEARCH } from "../claude/access.ts";
 import { command, projectOf } from "../command.ts";
 import { chunkKind, searchMode } from "../rag/schemas.ts";
 import { search } from "../rag/search/hybrid.ts";
 import { figure, passage } from "../rag/search/passage.ts";
+import type { SearchUse } from "../types.ts";
+
+// ponytail: rag.search asked by a person (the command line, a script on the HTTP face): the whole hybrid search, the
+// active reranker included — an LLM's run gets its own line (CLAUDE_SEARCH)
+export const COMMAND_SEARCH: SearchUse = {
+  id: "command",
+  who: "testimus rag search, from the command line",
+  when: "When you run it",
+  words: "always",
+  embedding: "uses",
+  reranker: "uses",
+};
 
 const figureEntry = z
   .object({
@@ -54,7 +67,12 @@ export const commands = [
       .describe("Best passages first, then the ones `expand` added"),
     mutates: false,
     positional: ["query"],
-    run: (ctx, input) => search(projectOf(ctx), input.query, { ...input, log: (level, m) => ctx.log(level, m) }),
+    run: (ctx, input) =>
+      search(projectOf(ctx), input.query, {
+        ...input,
+        ...(ctx.llm && CLAUDE_SEARCH.reranker === "no" ? { reranker: null } : {}),
+        log: (level, m) => ctx.log(level, m),
+      }),
   }),
   command({
     name: "rag.passage",

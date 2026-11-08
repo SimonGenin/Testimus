@@ -75,7 +75,9 @@ function resolvePair(v: PackVariant, queryTask: string): Resolved {
 // other programs hold at the moment never switches the models in use, nor drops the project to Light
 async function resolveAny(choice: ActiveChoice, queryTask: string): Promise<Resolved> {
   const variants = "pack" in choice ? (packOf(choice.pack)?.variants ?? []) : [choice];
-  const machine = "pack" in choice ? await machineProfile().catch(() => null) : null;
+  // ponytail: under --mock the mock runtime runs any model — only a machine the mock imposes says what runs there
+  const judged = "pack" in choice && !(env.mock && !process.env.TESTIMUS_MACHINE);
+  const machine = judged ? await machineProfile().catch(() => null) : null;
   const runs = (v: PackVariant) => runsHere(v, machine);
   const kept =
     "pack" in choice && choice.variant && runs(choice.variant) ? resolvePair(choice.variant, queryTask) : null;
@@ -91,6 +93,8 @@ async function resolveAny(choice: ActiveChoice, queryTask: string): Promise<Reso
   return { embedding: null, reranker: null, variant: null };
 }
 
+// ponytail: `missing` names the models of the choice the project wants (this PC's, else the reference, else Light) that
+// are not here — never those of a fallback: a project on Quality is never told to install Light's model
 export async function activeModels(project: string): Promise<ActiveModels> {
   const rag = readProject(project).rag;
   const queryTask = queryTaskOf(project);
@@ -100,16 +104,21 @@ export async function activeModels(project: string): Promise<ActiveModels> {
     ["light", { pack: "light" }],
   ];
   const missing: string[] = [];
+  let wantedFound = false;
   for (const [source, choice] of steps) {
     if (!choice) continue;
+    const first = !wantedFound;
+    wantedFound = true;
     const r = await resolveAny(choice, queryTask);
+    const wanted =
+      ("pack" in choice ? choice.variant : undefined) ?? r.variant ?? ("embedding" in choice ? choice : null);
     if (!r.embedding) {
-      missing.push("pack" in choice ? `pack ${choice.pack}` : choice.embedding);
+      if (first && wanted) missing.push(...[wanted.embedding, wanted.reranker].filter((m): m is string => !!m));
+      else if (first && "pack" in choice) missing.push(`pack ${choice.pack}`);
       continue;
     }
-    const wanted = r.variant?.reranker ?? null;
     const reranker = r.reranker;
-    if (wanted && !reranker) missing.push(wanted);
+    if (first && wanted?.reranker && !reranker) missing.push(wanted.reranker);
     const pack = "pack" in choice ? packOf(choice.pack) : undefined;
     return {
       embedding: r.embedding,

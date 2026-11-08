@@ -296,6 +296,19 @@ export type SearchHit = {
   degraded?: boolean;
 };
 
+/** one user of the search and what it takes from it, declared beside its own code and gathered by models.usage:
+ * words (BM25) always looked up · built (the index) · not used; the active embedding used · built (its vectors) · not
+ * used; the active reranker used or never (with why) */
+export type SearchUse = {
+  id: string;
+  who: string;
+  when: string;
+  words: "always" | "builds" | "no";
+  embedding: "uses" | "builds" | "no";
+  reranker: "uses" | "no";
+  why?: string;
+};
+
 // Search everywhere (search.all)
 
 export type SearchKind = "test" | "document" | "passage";

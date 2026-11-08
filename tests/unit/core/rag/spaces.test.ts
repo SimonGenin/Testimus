@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
+import { pinMachineProfile } from "../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry } from "../../../../src/core/lib/models-catalog.ts";
+import { mockMachine } from "../../../../src/core/mock/machine.ts";
 import { setActiveChoice } from "../../../../src/core/rag/activation.ts";
 import { indexFile, listSpaces, openDb, RECIPE, spaceId } from "../../../../src/core/rag/db.ts";
 import { runtimes } from "../../../../src/core/rag/embed.ts";
@@ -45,7 +47,8 @@ vi.mock("../../../../src/core/lib/models-resolve.ts", async (importOriginal) => 
       variantIndex: null,
       embedding: null,
       reranker: null,
-      skipped: [],
+      aside: [],
+      picked: null,
       missing: [],
     }),
   };
@@ -97,10 +100,12 @@ beforeEach(() => {
   for (const id of [BGE, QWEN, GGUF]) installed.add(id);
   runtimes.transformers = counting();
   runtimes.llamacpp = counting();
+  pinMachineProfile(mockMachine("gpu16"));
 });
 
 afterEach(() => {
   Object.assign(runtimes, saved);
+  pinMachineProfile(null);
   setActiveChoice(dir, null);
   rmSync(dir, { recursive: true, force: true });
 });

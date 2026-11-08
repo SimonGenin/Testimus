@@ -13,10 +13,9 @@ import type {
 import { diskCheck, row } from "./doctor-row.ts";
 import { fitOf, worst } from "./fit/verdict.ts";
 import { machineProfile } from "./machine/profile.ts";
-import { catalogEntry, pack } from "./models-catalog.ts";
+import { catalogEntry } from "./models-catalog.ts";
 import { perfStats, readPerf } from "./models-perf.ts";
 import { budgets, downloadsAllowed, readRegistry } from "./models-registry.ts";
-import { resolveInstalled } from "./models-resolve.ts";
 import { readSettings, writeSettings } from "./project.ts";
 
 // ponytail: the doctor's rows about models — installed, verified, fitting this PC, room on disk, vectors complete
@@ -31,22 +30,17 @@ export type ModelDeps = {
   space(project: string): Promise<string | null>;
 };
 
+// ponytail: what the project's choice wants on this PC — its models missing here first, then those search runs with; no
+// project, no choice: nothing is wanted (the pack is chosen per project, so nothing is proposed before)
 async function activeOf(project: string | null) {
-  if (project) {
-    const { activeModels } = await import("../rag/activation.ts");
-    const a = await activeModels(project);
-    const v = a.choice?.variant ?? (a.choice && "embedding" in a.choice ? a.choice : null);
-    const wanted = [v?.embedding, v?.reranker, a.embedding?.entry.id, a.reranker?.entry.id, ...a.missing].filter(
-      (m): m is string => !!m && !m.startsWith("pack "),
-    );
-    return { embedding: a.embedding, reranker: a.reranker, wanted: [...new Set(wanted)] };
-  }
-  const light = pack("light")?.variants[0];
-  return {
-    embedding: light ? resolveInstalled(light.embedding) : null,
-    reranker: light?.reranker ? resolveInstalled(light.reranker) : null,
-    wanted: [light?.embedding, light?.reranker].filter((m): m is string => !!m),
-  };
+  if (!project) return { embedding: null, reranker: null, wanted: [] as string[] };
+  const { activeModels } = await import("../rag/activation.ts");
+  const a = await activeModels(project);
+  const v = a.choice?.variant ?? (a.choice && "embedding" in a.choice ? a.choice : null);
+  const wanted = [...a.missing, v?.embedding, v?.reranker, a.embedding?.entry.id, a.reranker?.entry.id].filter(
+    (m): m is string => !!m,
+  );
+  return { embedding: a.embedding, reranker: a.reranker, wanted: [...new Set(wanted)] };
 }
 
 // ponytail: a project with no document has nothing to index — not a to-do on the system check
@@ -73,22 +67,24 @@ function installRow(kind: "embedding" | "reranker", m: ResolvedModel | null, wan
   const id = `model.${kind}`;
   const label = `${kind === "embedding" ? "Embedding" : "Reranker"} model`;
   if (!m && !wanted) return row(id, label, "skip", "none in use");
-  if (!m) {
-    const e = wanted ? catalogEntry(wanted) : undefined;
+  if (wanted && (!m || m.entry.id !== wanted)) {
+    const e = catalogEntry(wanted);
     const remote = downloadsAllowed();
+    const meanwhile = m ? `: search uses ${m.entry.label} meanwhile` : "";
     return row(
       id,
       label,
       "warn",
-      `${e?.label ?? wanted} is not on this PC${remote ? "" : " and downloads are off"}`,
+      `${e?.label ?? wanted} is not on this PC${remote ? "" : " and downloads are off"}${meanwhile}`,
       remote
-        ? `testimus models pull ${e?.id ?? wanted} (or choose a pack: testimus models usePack light).`
+        ? `testimus models pull ${e?.id ?? wanted} (or choose another pack: testimus models packs).`
         : "Copy it from the team share, then testimus models add <folder>.",
       remote
         ? { label: `Download ${e?.label ?? wanted}`, command: "models.pull", input: { model: e?.id ?? wanted } }
         : { label: "Add from a folder…", command: "models.add" },
     );
   }
+  if (!m) return row(id, label, "skip", "none in use");
   const where = m.install.path ?? m.runtime;
   const detail = `${m.entry.label} — ${m.runtime}, ${m.device}, ${where}`;
   if (m.install.status === "verified" || m.runtime === "mock") return row(id, label, "ok", `${detail} (verified)`);

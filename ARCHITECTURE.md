@@ -78,7 +78,9 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   everywhere), the MCP tool (`<group>_<verb>`) and the HTTP route (`POST /api/<group>/<verb>`). The faces hold no domain
   logic. **A feature that exists only in the UI is a bug**: Claude loses the ability to do it.
 - `ctx` carries the project folder, settings, an `AbortSignal`, progress (CLI prints, HTTP streams, MCP notifies), the
-  activity tracker, and `invoke` (another command of the same project; no command imports the registry). The registry's
+  activity tracker, `invoke` (another command of the same project; no command imports the registry), and `llm` (the
+  call comes through the MCP face, from an LLM's run: what such a run takes from search is its declared line, below
+  in §6). The registry's
   type `CommandMap` (name → input, output, job or not) is what the page imports — types only — so an unknown command
   name does not compile.
 - **`src/core/env.ts` is the one seam**: `http`, home and data dirs, `spawnClaude`. Tests and `--mock` swap it.
@@ -235,7 +237,9 @@ docs/<docId>/
 - **Hybrid search**: FTS5 BM25 + `sqlite-vec`, fused by reciprocal rank fusion; an optional reranker reorders the
   candidates. A reranker failure leaves the fused ranking, with a warning — never an error. When vectors are missing or
   the query cannot be embedded, search runs on BM25 alone: hits carry `degraded: true`, the reason is a warning, never
-  an error, so Claude keeps working while vectors build. **The reranker is never in Claude's generation loop.**
+  an error, so Claude keeps working while vectors build. **The reranker is never in Claude's generation loop**:
+  `rag.search` called through the MCP face (`ctx.llm`) runs without it, as `CLAUDE_SEARCH` declares — Claude reads the
+  passages and judges better than any reranker; the reranker stays for people (Search everything, the command line).
 - **French lexical search**: `chunks_fts` columns `header`, `text`, `codes` (exact forms) and `stem` (Snowball French,
   `rag/stem-fr.ts`, pure TS, checked word for word against the reference vocabulary; changing it bumps `STEM_VERSION`).
   A token with `_` or mixing digits and letters is a code (exact phrase). Stop words are articles and prepositions
@@ -256,6 +260,22 @@ docs/<docId>/
 - **Retrieval settings** `project.json.rag.retrieval` (defaults `{ candidates: 50, rrfK: 60, bm25Weights: [1, 1, 5],
   rerank: { top: 30, mode: "topk" }, expand: "none" }`; precedence defaults < active pack < project.json < run
   override). A rerank `threshold` belongs to one model id and is set by the benchmark.
+
+**Who uses what** (`models.usage`, the table « Who uses what on this PC » at the head of Settings › Search): every
+user of the search declares, beside its own code, a `SearchUse` — who, when, words (BM25 and the document's structure)
+always · builds · no, the active embedding uses · builds · no, the active reranker uses · no (with why). Today:
+`CLAUDE_SEARCH` (`claude/access.ts`: Claude's runs through rag_search, rag_mentions, rag_related — words, the
+embedding, never the reranker), `PALETTE_SEARCH` and `TESTS_SEARCH` (`search/all.ts`: Search everything reranks the
+passages it finds, the tests list ranks tests by meaning alone), `DOCS_INDEX` (`rag/indexer.ts`), `TESTS_INDEX`
+(`search/vectors.ts`), `COMMAND_SEARCH` (`commands/rag.ts`). `models.usage` gathers them and names the models each
+really uses here (or none); another LLM's runs declare their line beside Claude's. **What is proposed for download is
+only what the project's choice uses**: activation's `missing` names the models of the wanted choice (this PC's, else
+the reference, else Light), never a fallback's; the system check asks for those (« Qwen3 Embedding 8B is not on this
+PC: search uses BGE-M3 meanwhile ») and, with no project open, for nothing (the pack is chosen per project); the
+first launch keeps this PC's choice picked. The cause of « the Quality pack proposes BGE-M3 »: a pack re-resolved at
+each search could land on a variant not downloaded when other programs held GPU memory, activation then fell back to
+Light and the page and the system check asked for Light's model — fixed by keeping the chosen variant (activation,
+above) and by naming only the wanted choice's models.
 
 **Vector spaces and which models a PC uses**:
 - A space id = first 12 hex of the SHA-256 of its fingerprint: runtime · model identity (SHA-256 of the weights, never

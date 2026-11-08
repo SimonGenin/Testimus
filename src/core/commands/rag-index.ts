@@ -91,7 +91,11 @@ export const commands = [
         .describe(
           "Where the active models come from: this PC's choice, the project's reference, the Light pack, or none (BM25 only)",
         ),
-      missing: z.array(z.string()).describe("Models or packs chosen but not installed on this PC"),
+      missing: z
+        .array(z.string())
+        .describe(
+          "Models of the choice the project wants (this PC's, else the reference, else Light) that are not on this PC — never those of a fallback; « pack <id> » when that pack has no variant here",
+        ),
       exists: z.boolean().describe("index/rag.db exists"),
       indexEmbedding: z.string().nullable().describe("Model the index was last embedded with"),
       profileMatches: z.boolean().describe("The active model's vector space exists and is complete"),

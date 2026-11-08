@@ -27,6 +27,25 @@ test.describe("vectors built, this PC's choice", () => {
     await shoot(page, "search-settings-e2e");
   });
 
+  test("who uses what: Claude never with the reranker, the index builds, the models of the pack in use", async ({
+    page,
+  }) => {
+    const search = await openSearch(page);
+    const who = search.getByRole("table", { name: "Who uses what on this PC" });
+    const row = (name: RegExp) => who.getByRole("row", { name });
+    await expect(row(/^Claude, while it writes or checks tests/)).toContainText("BGE-M3 (8-bit, CPU)");
+    await expect(row(/^Claude, while it writes or checks tests/)).toContainText("Never");
+    await expect(row(/^Claude, while it writes or checks tests/)).toContainText("not in Claude's loop");
+    await expect(row(/^Search everything/)).toContainText("Always");
+    await expect(row(/^The index of the documents/)).toContainText("Builds it");
+    await expect(who).not.toContainText("Qwen3");
+    await api(url, "models.use", { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null });
+    await page.reload();
+    await expect(row(/^Search everything/)).toContainText("Qwen3 Embedding 0.6B (8-bit, CPU)", { timeout: 30_000 });
+    await expect(row(/^Search everything/)).toContainText("None in the models in use");
+    await expect(who).not.toContainText("BGE-M3");
+  });
+
   test("a second model gets its own space; the old one is dropped", async ({ page }) => {
     await api(server.url, "models.use", { embedding: "qwen3-embedding-0.6b-onnx-q8", reranker: null });
     await expect

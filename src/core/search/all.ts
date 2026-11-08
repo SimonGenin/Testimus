@@ -13,6 +13,7 @@ import {
   type SearchMatch,
   type SearchResult,
   type SearchSuggest,
+  type SearchUse,
 } from "../types.ts";
 import {
   type Compiled,
@@ -207,6 +208,26 @@ export function marksIn(text: string, q: Query): SearchMark[] {
   const c = compile(q, corpus([{ fields: [f] }]).vocab);
   return merge(c.terms.flatMap((t) => termIn(t, f).marks));
 }
+
+// ponytail: Search everything (Ctrl K) ranks tests by their words and their meaning (search/vectors.ts) and passages by
+// the hybrid search, reranked as the search box always was; the tests list asks for tests only, so no reranker
+export const PALETTE_SEARCH: SearchUse = {
+  id: "palette",
+  who: "Search everything (Ctrl K)",
+  when: "As you type, once words alone have answered",
+  words: "always",
+  embedding: "uses",
+  reranker: "uses",
+};
+export const TESTS_SEARCH: SearchUse = {
+  id: "tests",
+  who: "The search of the tests list",
+  when: "As you type in Tests",
+  words: "always",
+  embedding: "uses",
+  reranker: "no",
+  why: "tests are ranked by meaning alone",
+};
 
 async function findPassages(project: string, q: Query, k: number, meaning: boolean): Promise<Found> {
   if (!existsSync(indexFile(project))) return { hits: [], total: 0, unembedded: 0 };

@@ -5,6 +5,8 @@ export type Progress = { message: string; done?: number; total?: number; pull?: 
 
 export type Ctx = {
   project: string | null;
+  /** the call comes from an LLM's run, through the MCP face */
+  llm?: boolean;
   signal: AbortSignal;
   jobId?: string;
   progress(p: Progress): void;

@@ -301,10 +301,12 @@ describe("model rows", () => {
 });
 
 describe("the real model deps", () => {
-  it("without a project: the default models, nothing installed", async () => {
+  it("without a project: nothing is wanted, so nothing is proposed (the pack is chosen per project)", async () => {
     const a = await modelDeps.active(null);
-    expect(a.wanted).toEqual(["bge-m3-q8"]);
-    expect(a.reranker).toBeNull();
+    expect(a).toEqual({ embedding: null, reranker: null, wanted: [] });
+    const r = by(await modelRows(null));
+    expect(r["model.embedding"]).toMatchObject({ state: "skip", detail: "none in use" });
+    expect(r["model.embedding"].action).toBeUndefined();
     expect((await modelDeps.machine()).at).toBe(devPc.at);
   });
 

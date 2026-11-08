@@ -104,7 +104,11 @@ export function ReadyStep() {
     rows.push({
       what: "Search",
       state: running.length ? "running" : "ready",
-      said: running.length ? "Being set up in Jobs; search works meanwhile" : `${active?.label ?? "Light"}, on this PC`,
+      said: running.length
+        ? "Being set up in Jobs; search works meanwhile"
+        : active
+          ? `${active.label}, on this PC`
+          : "No pack in use: see Settings › Search",
       fix: running.length ? <Button size="sm" label="Open Jobs" onClick={() => app.navigate("jobs")} /> : undefined,
     });
   }

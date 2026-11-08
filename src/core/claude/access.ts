@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import type { SearchUse } from "../types.ts";
 
 // ponytail: what a Claude run may touch — the built-in tools and the app's own commands (the MCP tools) by kind of
 // run, and the files no run edits by hand; the command list comes from the registry, never imported from here
@@ -6,6 +7,19 @@ import { resolve } from "node:path";
 
 const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
 const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
+
+// ponytail: what a Claude run takes from search, through its MCP tools — the words and the document's structure always,
+// the active embedding to rank, never the reranker: Claude reads the passages and judges better than any reranker. The
+// MCP face holds rag.search to it; another LLM's runs declare their own line here
+export const CLAUDE_SEARCH: SearchUse = {
+  id: "claude",
+  who: "Claude, while it writes or checks tests (rag_search, rag_mentions, rag_related)",
+  when: "Generate, Check, Fix, Ask, Claude's actions",
+  words: "always",
+  embedding: "uses",
+  reranker: "no",
+  why: "not in Claude's loop",
+};
 
 export type RunKind =
   | "chat"

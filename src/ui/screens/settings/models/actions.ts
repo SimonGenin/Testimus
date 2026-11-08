@@ -39,6 +39,7 @@ const MODEL_READS: Prefix[] = [
   ["models.list"],
   ["models.catalog"],
   ["models.packs"],
+  ["models.usage"],
   ["models.advice"],
   ["rag.status"],
   ["jobs.list"],

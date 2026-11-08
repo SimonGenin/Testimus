@@ -26,7 +26,7 @@ export type ToolCtx = {
 export async function callTool(c: Command, project: string | null, input: unknown, ctx: ToolCtx): Promise<unknown> {
   const token = ctx.mcpReq?._meta?.progressToken;
   const signal = ctx.mcpReq?.signal;
-  if (!c.job || token === undefined) return await invoke(c.name, input, { project, wait: true, signal });
+  if (!c.job || token === undefined) return await invoke(c.name, input, { project, wait: true, signal, llm: true });
   let jobId = "";
   let n = 0;
   const early: JobEvent[] = [];
