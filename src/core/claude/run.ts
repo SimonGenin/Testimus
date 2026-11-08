@@ -183,7 +183,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     mcpConfig: ensureMcpJson(project),
     tools: TOOLS[o.kind],
     mcpTools: mcp.allow,
-    disallowedTools: [...mcp.deny, ...protectedRules(external, o.kind)],
+    disallowedTools: [...mcp.deny, ...protectedRules(external, o.kind, project)],
     addDirs,
     resume: o.resume,
   });

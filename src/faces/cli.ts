@@ -4,6 +4,7 @@ import { z } from "zod";
 import { type Command, UserError } from "../core/command.ts";
 import { describe as describeCommand, find, invoke, registry } from "../core/commands/index.ts";
 import { listJobs, subscribe, waitJob } from "../core/jobs.ts";
+import { overviewAsked } from "../core/lib/overview-after.ts";
 import { resolveProjectDir } from "../core/lib/project.ts";
 import { onStopSignals, trustSystemCertificates } from "../core/shell.ts";
 
@@ -253,8 +254,11 @@ async function main(argv: string[]): Promise<number> {
     print(result, json);
     return 0;
   } finally {
-    // ponytail: a command that started jobs without waiting (models usePack) lives until they end, then stops its servers
-    for (const j of listJobs(resolveProjectDir(project)))
+    // ponytail: a command that started jobs without waiting (models usePack) lives until they end, then stops its servers;
+    // an import's update of docs/OVERVIEW.md, asked once its index run ended, is waited for too and its progress shown
+    const dir = resolveProjectDir(project);
+    if (dir) await overviewAsked(dir).catch(() => {});
+    for (const j of listJobs(dir))
       if (j.status === "running" && j.pid === process.pid) await waitJob(j.id).catch(() => {});
     unsub();
     // ponytail: a one-shot command never keeps a model server for later; an idle llama-server would hold the process

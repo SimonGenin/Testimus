@@ -13,6 +13,7 @@ import {
   formatOverview,
   OVERVIEW_LINE,
   overviewFile,
+  overviewGiven,
   overviewWarnings,
   parseOverview,
   readOverview,
@@ -178,7 +179,7 @@ describe("docs.overview after an import", () => {
     const first = readOverview(P);
     expect(Object.keys(first.meta.basis).sort()).toEqual(Object.keys(basisOf(P)).sort());
     expect(sectionsOf(first.body).filter((s) => s.doc).length).toBe(8);
-    expect(first.meta.updatedAfter).toBe("Its first writing");
+    expect([first.meta.updatedAfter, first.meta.kind]).toEqual(["Its first writing", "first"]);
 
     await call("docs.addFolder", { dir: client(["SPEC_N_01_00"]), describeFigures: false }, P);
     await overviewDone(P, 2);
@@ -194,6 +195,7 @@ describe("docs.overview after an import", () => {
     expect(second.meta.added).toEqual([expect.stringMatching(/./)]);
     expect(second.meta.modified).toEqual(["Le corpus", "Les liens"]);
     expect(second.meta.updatedAfter).toMatch(/^Import of « /);
+    expect(second.meta.kind).toBe("import");
     const shown = await call<{ pending: unknown[]; last: { before: string } | null }>("docs.overviewShow", {}, P);
     expect(shown.pending).toEqual([]);
     expect(shown.last?.before).toBe(first.body);
@@ -217,10 +219,14 @@ describe("docs.overview after an import", () => {
 
   it("is told to every run while inEveryRun is on, never to a figure reading", async () => {
     const P = fixtureCopy("overview-every");
+    turnOn(P, true);
+    expect(overviewGiven(P)).toBe(false);
     turnOn(P, false);
     writeFileSync(overviewFile(P), "## A <!-- doc A -->\n");
+    expect(overviewGiven(P)).toBe(false);
     expect(withOverview(P, "chat", "Q\n")).toBe("Q\n");
     turnOn(P, true);
+    expect(overviewGiven(P)).toBe(true);
     expect(withOverview(P, "chat", "Q\n")).toBe(`Q\n\n${OVERVIEW_LINE}\n`);
     expect(withOverview(P, "figures", "Q\n")).toBe("Q\n");
     mockClaude();

@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { SearchUse } from "../types.ts";
 
 // ponytail: what a Claude run may touch — the built-in tools and the app's own commands (the MCP tools) by kind of
@@ -143,8 +144,38 @@ export function absRule(dir: string): string {
 
 // ponytail: only the overview's own run may write docs/OVERVIEW.md — for it every document's folder stays closed
 // (docs/*/**), for every other run all of docs/ does
-export function protectedRules(addDirs: string[] = [], kind?: RunKind): string[] {
-  const own = kind === "overview" ? PROTECTED.map((p) => (p === "docs/**" ? "docs/*/**" : p)) : PROTECTED;
+export function protectedRules(addDirs: string[] = [], kind?: RunKind, project?: string): string[] {
+  const own =
+    kind === "overview"
+      ? [...PROTECTED.map((p) => (p === "docs/**" ? "docs/*/**" : p)), ...OVERVIEW_CLOSED, ...closedByName(project)]
+      : PROTECTED;
   const paths = [...own, ...addDirs.map((d) => `${absRule(d)}/**`)];
   return paths.flatMap((p) => [`Edit(${p})`, `Write(${p})`]);
+}
+
+const OVERVIEW_CLOSED = ["tests/**", "eval/**"];
+const NAMED = new Set([...PROTECTED, ...OVERVIEW_CLOSED].map((p) => p.split("/")[0]));
+
+// ponytail: a deny rule cannot except one file, so the overview's run gets every other entry of the project root and
+// every other file of docs/ closed by name, as they are when it starts — what it could still create is undone after the
+// run (claude/overview-scope.ts). A name a rule cannot carry (a comma, a bracket, a glob character) is left to that too
+function closedByName(project?: string): string[] {
+  if (!project) return [];
+  const root = absRule(project);
+  const carried = (n: string) => !/[,()[\]{}*?!\\]/.test(n);
+  const list = (rel: string) => {
+    try {
+      return readdirSync(join(project, rel), { withFileTypes: true }).filter((e) => carried(e.name));
+    } catch {
+      return [];
+    }
+  };
+  return [
+    ...list("")
+      .filter((e) => !NAMED.has(e.name) && e.name !== "docs")
+      .map((e) => (e.isDirectory() ? `${root}/${e.name}/**` : `${root}/${e.name}`)),
+    ...list("docs")
+      .filter((e) => !e.isDirectory() && e.name !== "OVERVIEW.md")
+      .map((e) => `${root}/docs/${e.name}`),
+  ];
 }

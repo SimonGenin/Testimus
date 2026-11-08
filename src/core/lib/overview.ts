@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { RunKind } from "../claude/access.ts";
-import { env } from "../env.ts";
 import type { DocJson } from "../types.ts";
 import { fileMtime, writeAtomic } from "./atomic.ts";
 import { contentOf, docIds, readDoc } from "./docs.ts";
@@ -15,9 +14,12 @@ import { readJson, readProject, writeJson } from "./project.ts";
 export const OVERVIEW_PATH = "docs/OVERVIEW.md";
 
 export type SectionChanges = { modified: string[]; added: string[]; removed: string[] };
+export const OVERVIEW_KINDS = ["import", "conversion", "removal", "rewrite", "first"] as const;
+export type OverviewKind = (typeof OVERVIEW_KINDS)[number];
 export type OverviewMeta = {
   updatedAt?: string;
   updatedAfter?: string;
+  kind?: OverviewKind;
   basis: Record<string, string>;
 } & Partial<SectionChanges>;
 export type Overview = { exists: boolean; meta: OverviewMeta; body: string; mtime: number };
@@ -55,6 +57,8 @@ export function parseOverview(text: string): { meta: OverviewMeta; body: string 
     if (top) {
       key = top[1];
       if (key === "updatedAt" || key === "updatedAfter") meta[key] = bare(top[2]);
+      const kind = OVERVIEW_KINDS.find((k) => k === bare(top[2]));
+      if (key === "kind" && kind) meta.kind = kind;
       if ((LISTS as readonly string[]).includes(key)) meta[key as (typeof LISTS)[number]] = [];
       continue;
     }
@@ -70,6 +74,7 @@ export function formatOverview(meta: OverviewMeta, body: string): string {
   const head = ["---"];
   if (meta.updatedAt) head.push(`updatedAt: ${meta.updatedAt}`);
   if (meta.updatedAfter) head.push(`updatedAfter: ${line(meta.updatedAfter)}`);
+  if (meta.kind) head.push(`kind: ${meta.kind}`);
   head.push("basis:", ...Object.entries(meta.basis).map(([id, print]) => `  ${id}: ${print}`));
   for (const k of LISTS) if (meta[k]?.length) head.push(`${k}:`, ...(meta[k] ?? []).map((t) => `  - ${line(t)}`));
   head.push("---", "");
@@ -169,15 +174,21 @@ export function overviewWarnings(before: Section[], after: Section[], changes: D
 
 export type LastUpdate = { at: string; before: string; after: string };
 
-// ponytail: the text before and after the last update, for « Show changes » — this PC's (derived, not shared)
-export function keepLastUpdate(project: string, before: string, after: string): void {
-  writeJson(lastFile(project), { at: env.now().toISOString(), before, after } satisfies LastUpdate);
+// ponytail: the text before and after the last update, for « Show changes » — this PC's (derived, not shared); `at` is
+// that update's own updatedAt, so an update made since (on another PC) is never shown as this one's changes
+export function keepLastUpdate(project: string, at: string, before: string, after: string): void {
+  writeJson(lastFile(project), { at, before, after } satisfies LastUpdate);
 }
 
-export function readLastUpdate(project: string): LastUpdate | null {
+export function readLastUpdate(project: string, updatedAt: string | undefined): LastUpdate | null {
   const l = readJson<Partial<LastUpdate>>(lastFile(project), {});
-  return typeof l.before === "string" && typeof l.after === "string" ? (l as LastUpdate) : null;
+  const whole = typeof l.before === "string" && typeof l.after === "string";
+  return whole && updatedAt && l.at === updatedAt ? (l as LastUpdate) : null;
 }
+
+// ponytail: the one answer to « is it given to the runs » — what runClaude appends and what Settings › Context lists
+export const overviewGiven = (project: string): boolean =>
+  overviewOption(project).inEveryRun && existsSync(overviewFile(project));
 
 const NOT_GIVEN: RunKind[] = ["overview", "figures", "headers", "media"];
 
@@ -187,7 +198,6 @@ export const OVERVIEW_LINE =
 // ponytail: a pointer, not the text — Claude reads the file once when the run needs it, and a run that only looks at
 // pictures or passages (figures, headers, media) is not told: they describe what they see, not how documents link
 export function withOverview(project: string, kind: RunKind, prompt: string): string {
-  if (NOT_GIVEN.includes(kind) || !overviewOption(project).inEveryRun || !existsSync(overviewFile(project)))
-    return prompt;
+  if (NOT_GIVEN.includes(kind) || !overviewGiven(project)) return prompt;
   return `${prompt.replace(/\n*$/, "")}\n\n${OVERVIEW_LINE}\n`;
 }

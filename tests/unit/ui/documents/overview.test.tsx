@@ -44,6 +44,7 @@ const shown = (over: Record<string, unknown> = {}) => ({
   mtime: 1000,
   updatedAt: "2026-11-08T11:02:00.000Z",
   updatedAfter: "Import of 3 documents",
+  kind: "import",
   changed: { modified: ["Signalisation", "Ce qui se contredit"], added: ["Poste de commande"], removed: [] },
   pending: [],
   last: { at: "2026-11-08T11:02:00.000Z", before: "## A\n\nold line\n", after: "## A\n\nnew line\n" },
@@ -160,6 +161,10 @@ describe("the words of the overview", () => {
       "1 document changed since",
     );
     expect(overviewMeta({ ...o, updatedAfter: undefined })).toBe("written by hand");
-    expect(overviewMeta({ ...o, updatedAfter: "A rewrite from scratch" })).toBe("rewritten from scratch");
+    expect(overviewMeta({ ...o, kind: "rewrite" })).toBe("rewritten from scratch");
+    expect(overviewMeta({ ...o, kind: "import", updatedAfter: "Import de 3 documents" })).toBe(
+      "updated after the last import",
+    );
+    expect(overviewMeta({ ...o, kind: undefined, updatedAfter: "A rewrite from scratch" })).toBe("updated");
   });
 });

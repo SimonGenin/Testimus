@@ -1,11 +1,12 @@
 import { z } from "zod";
-import type { OverviewResult } from "../claude/overview.ts";
+import { type OverviewResult, overviewOff } from "../claude/overview.ts";
 import { EFFORT, MODEL } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { unchangedSince } from "../lib/atomic.ts";
 import {
   basisOf,
   changesSince,
+  OVERVIEW_KINDS,
   OVERVIEW_PATH,
   overviewFile,
   overviewOption,
@@ -53,7 +54,10 @@ export const commands = [
     job: OVERVIEW_JOB,
     subject: (i) => i.mode,
     label: () => OVERVIEW_LABEL,
-    run: (ctx, input): Promise<OverviewResult> => runOverviewJob(ctx, projectOf(ctx), input),
+    run: (ctx, input): Promise<OverviewResult> => {
+      if (!overviewOption(projectOf(ctx)).enabled) throw overviewOff();
+      return runOverviewJob(ctx, projectOf(ctx), input);
+    },
   }),
   command({
     name: "docs.overviewShow",
@@ -68,6 +72,12 @@ export const commands = [
       mtime: z.number().describe("Its modification time (ms, rounded; 0 when missing): docs.overviewSave ifMtime"),
       updatedAt: z.string().optional().describe("When Claude last wrote it (ISO)"),
       updatedAfter: z.string().optional().describe("What that update came after (« Import of 3 documents »)"),
+      kind: z
+        .enum(OVERVIEW_KINDS)
+        .optional()
+        .describe(
+          "What that update came after, as a kind (absent after changes of several sorts, or in an older file)",
+        ),
       changed: sectionChanges,
       pending: z.array(docChange).describe("Documents added, converted again or removed since the last update"),
       last: z
@@ -77,7 +87,9 @@ export const commands = [
           after: z.string().describe("The text Claude left"),
         })
         .nullable()
-        .describe("The last update on this PC, for « Show changes » (null when another PC made it)"),
+        .describe(
+          "The last update, for « Show changes » — null unless this PC made it (its time is the file's updatedAt)",
+        ),
     }),
     mutates: false,
     async run(ctx) {
@@ -92,9 +104,10 @@ export const commands = [
         mtime: o.mtime,
         ...(o.meta.updatedAt ? { updatedAt: o.meta.updatedAt } : {}),
         ...(o.meta.updatedAfter ? { updatedAfter: o.meta.updatedAfter } : {}),
+        ...(o.meta.kind ? { kind: o.meta.kind } : {}),
         changed: { modified: o.meta.modified ?? [], added: o.meta.added ?? [], removed: o.meta.removed ?? [] },
         pending: o.exists ? changesSince(project, o.meta.basis, basisOf(project)) : [],
-        last: o.exists ? readLastUpdate(project) : null,
+        last: o.exists ? readLastUpdate(project, o.meta.updatedAt) : null,
       };
     },
   }),

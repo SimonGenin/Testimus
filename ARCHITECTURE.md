@@ -347,7 +347,9 @@ docs/<docId>/
   writes on the project's documents: a `##` section per document (its heading ends `<!-- doc <docId> -->`, so the core
   knows whose it is), then the sections across them — the corpus, the links, the amendments, what contradicts — in the
   project's language, with `docId#anchor` references. Background, never a source. Its frontmatter is the core's:
-  `updatedAt`, `updatedAfter` (« Import of « Traction » », « Conversion of 2 documents », « A rewrite from scratch »),
+  `updatedAt`, `updatedAfter` (« Import of « Traction » », « Conversion of 2 documents », « A rewrite from scratch »:
+  the person's words), `kind` (`import` · `conversion` · `removal` · `rewrite` · `first`, what the page reads — absent
+  after changes of several sorts and in a file written before it existed, which the page shows as « updated »),
   `basis` (per document, 12 hex of the SHA-256 of what the index compares — `doc.md`, what was read of its pictures,
   code and title — and of `version`, `date`, `kind`, `status`, `amends`, `relatesTo`, `reference`), and what the last
   update changed (`modified`, `added`, `removed`: section titles). The rest is plain markdown a person edits
@@ -357,8 +359,17 @@ docs/<docId>/
   off, the file is neither written nor given to a run, and what is in it stays.
   - **Written by Claude only in its own run** (`docs.overview { mode: auto | full }`, a job, skill
     `overview-documents`, `claude/overview.ts`): run kind `overview`, Edit/Write with `docs/*/**` refused instead of
-    `docs/**` (every other kind keeps `docs/**` refused), read-only MCP tools; `docs.overview` and `docs.overviewSave`
-    are off the `action` kind too. *auto*: the core compares `basis` with the documents now (added, converted again or
+    `docs/**` (every other kind keeps `docs/**` refused), and `tests/**`, `eval/**` and every other entry of the
+    project root and file of `docs/` refused by name as they are when it starts (a deny rule cannot except one file:
+    this is the narrowest `--disallowedTools` allows), read-only MCP tools; `docs.overview` and `docs.overviewSave`
+    are off the `action` kind too. What a rule cannot close (a path created by the run, a name a rule cannot carry) is
+    checked after it (`claude/overview-scope.ts`): the files of the root and of `docs/` and every `tests/<id>/test.md`
+    are kept in memory before the run; a successful Edit/Write of the run's own calls on any path but
+    `docs/OVERVIEW.md` fails the job (`overview-outside`, the paths named), what was kept is put back, a new entry
+    removed, anything else named as left, and `docs/OVERVIEW.md` goes back to what it was (decided: a run that broke
+    its scope keeps nothing — not a `.testimus/runs` snapshot, which would count a test the user edited meanwhile as
+    the run's). Turned off while an update waited: *auto* ends with `ran: false`, no error; `docs.overview` asked
+    while it is off is refused (`overview-off`). *auto*: the core compares `basis` with the documents now (added, converted again or
     changed in `doc.json`, removed) — nothing changed, no run; otherwise Claude gets the exact list, the card and
     outline (headings to level 2, the first 30) of each document added or converted — never the whole corpus — and is
     told to Read the file and Edit in place only those documents' sections and the cross sections they touch, keeping
@@ -367,14 +378,20 @@ docs/<docId>/
     removed one loses its own — anything else is a warning in the job and its result. *full* (Rewrite from scratch, or
     the first writing): Claude writes it whole from every document's card. Then the core rewrites the frontmatter
     (new `basis`, the sections changed) and keeps the text before and after in `.testimus/overview/last.json` (this
-    PC's; « Show changes »).
+    PC's; « Show changes »), its `at` the very `updatedAt` it wrote: `docs.overviewShow` gives `last` only while the
+    two are equal, so an update made since on another PC is never shown as this one's changes.
   - **After each import, one update per batch** (`lib/overview-after.ts`): `withIndex` asks for it once its index run
     ended (or failed) — and `docs.remove` too —, when the option is on and `claude --version` answers. The update is
     a job of its own, nobody's child (`jobs.ts outsideJobs`); the asks that come while it waits join it, so a folder
     of 10 documents (one index run) makes one update. The job waits for the project's conversions, its index run
     (`docs-index.ts indexWork`) and every `generate` job (`jobs.ts runningOf`) to end — never written under a
-    generation reading it — then for the update before it.
-  - **Given to every run** while `inEveryRun` is on (`lib/overview.ts withOverview`, applied by `runClaude`): one line
+    generation reading it — then for the update before it, then for them again (one may have begun meanwhile). Never
+    asked from inside a Claude run (`insideClaude()`, the MCP server a run calls, as `check.ts semanticPlan`). A
+    one-shot CLI command that asked one waits for it before it exits, its progress on stderr (decided: waiting rather
+    than not asking — `testimus docs add` leaves the overview up to date, as the app does; `lib/overview-after.ts
+    overviewAsked`).
+  - **Given to every run** while `inEveryRun` is on and the file is there (`lib/overview.ts overviewGiven`, the one test
+    `withOverview` — applied by `runClaude` — and Settings › Context both use): one line
     at the end of the prompt — « Before you start, read docs/OVERVIEW.md: … » —, a pointer and not the text (decided:
     the soberest in tokens — the file grows with the corpus, Claude reads it once when the run needs it, and the line
     costs ~40 tokens); not to the runs that only describe pictures or passages (figures, headers, media) nor to the
@@ -817,7 +834,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
   `.mcp.json`, `CLAUDE.md`, `test-runs/**`; the writes of `runs.*` are off every run kind, `action` included (§9b).
   The `overview` kind (§5) is the one run that may write a file under `docs/`: `docs/OVERVIEW.md`, its rule being
-  `docs/*/**` instead of `docs/**`.
+  `docs/*/**` instead of `docs/**`, plus `tests/**`, `eval/**` and every other entry of the project root and file of
+  `docs/` by name (absolute rules, as the run starts); a write elsewhere that got through fails its job and is undone
+  (`claude/overview-scope.ts`).
 - **Snapshots and Revert** (`claude/snapshot.ts`): a run that may edit records `.testimus/runs/<runId>/run.json` (who,
   model, effort, job) and copies of what it may change (tests, and for actions project.json, xray.json and the document
   folder). Revert works from the run id, also after a restart, refuses when a test changed after the run

@@ -42,13 +42,13 @@ export function updatedLine(o: Pick<OverviewShown, "updatedAt" | "updatedAfter">
   return `written by Claude, yours to edit · last updated ${when(o.updatedAt)}${after}`;
 }
 
-const AFTER: [RegExp, string][] = [
-  [/^Import/, "updated after the last import"],
-  [/^Conversion/, "updated after the last conversion"],
-  [/^Removal/, "updated after a removal"],
-  [/^A rewrite/, "rewritten from scratch"],
-  [/^Its first/, "written after an import"],
-];
+const AFTER: Record<NonNullable<OverviewShown["kind"]>, string> = {
+  import: "updated after the last import",
+  conversion: "updated after the last conversion",
+  removal: "updated after a removal",
+  rewrite: "rewritten from scratch",
+  first: "written after an import",
+};
 
 // ponytail: the list row's second line — short: the head of the pane says the rest
 export function overviewMeta(o: OverviewShown): string {
@@ -56,5 +56,5 @@ export function overviewMeta(o: OverviewShown): string {
   if (!o.exists) return "Not written yet";
   if (o.pending.length) return `${o.pending.length} document${o.pending.length === 1 ? "" : "s"} changed since`;
   if (!o.updatedAfter) return "written by hand";
-  return AFTER.find(([re]) => re.test(o.updatedAfter ?? ""))?.[1] ?? "updated";
+  return o.kind ? AFTER[o.kind] : "updated";
 }

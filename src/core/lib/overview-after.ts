@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { scope, sleep } from "../../shared/run/work.ts";
 import { type OverviewMode, type OverviewResult, writeOverviewRun } from "../claude/overview.ts";
 import type { JobRun } from "../claude/prompt.ts";
+import { insideClaude } from "../claude/run.ts";
 import { claudeVersion } from "../claude/status.ts";
 import type { Ctx } from "../command.ts";
 import { outsideJobs, runningOf, startJob } from "../jobs.ts";
@@ -20,8 +21,19 @@ const asked = new Map<string, object>();
 // ponytail: per project, the update writing now — the next one writes after it, never beside it
 const writing = new Map<string, Promise<unknown>>();
 
+async function idle(ctx: Ctx, project: string): Promise<void> {
+  for (;;) {
+    const gens = runningOf(project, "generate");
+    const busy = [...indexWork(project), ...gens];
+    if (!busy.length) return;
+    ctx.progress({ message: gens.length ? "Waiting for the generation to end" : "Waiting for the imports to end" });
+    await scope(() => Promise.allSettled(busy), { signal: ctx.signal });
+  }
+}
+
 // ponytail: the overview reads every document and must not be rewritten under a generation reading it: it waits for the
-// conversions, the index run and the generations of the project to end (in line, as the index), then for its turn
+// conversions, the index run and the generations of the project to end (in line, as the index), then for its turn —
+// and for them again once the update before it ended, since one may have begun meanwhile
 async function inTurn<T>(ctx: Ctx, project: string, work: () => Promise<T>): Promise<T> {
   ctx.steps?.([
     { id: "queue", label: "Wait for the imports, the index and the generations" },
@@ -29,17 +41,14 @@ async function inTurn<T>(ctx: Ctx, project: string, work: () => Promise<T>): Pro
   ]);
   ctx.step?.("queue");
   await sleep(200, ctx.signal);
-  for (;;) {
-    const gens = runningOf(project, "generate");
-    const busy = [...indexWork(project), ...gens];
-    if (!busy.length) break;
-    ctx.progress({ message: gens.length ? "Waiting for the generation to end" : "Waiting for the imports to end" });
-    await scope(() => Promise.allSettled(busy), { signal: ctx.signal });
-  }
+  await idle(ctx, project);
   const key = keyOf(project);
   const before = writing.get(key);
   const mine = (async () => {
-    if (before) await scope(() => before.catch(() => {}), { signal: ctx.signal });
+    if (before) {
+      await scope(() => before.catch(() => {}), { signal: ctx.signal });
+      await idle(ctx, project);
+    }
     ctx.step?.("write");
     return work();
   })();
@@ -54,7 +63,7 @@ async function inTurn<T>(ctx: Ctx, project: string, work: () => Promise<T>): Pro
 export function runOverviewJob(
   ctx: Ctx,
   project: string,
-  input: { mode: OverviewMode; reason?: string } & JobRun,
+  input: { mode: OverviewMode } & JobRun,
   onTurn?: () => void,
 ): Promise<OverviewResult> {
   return inTurn(ctx, project, () => {
@@ -63,20 +72,26 @@ export function runOverviewJob(
   });
 }
 
+// ponytail: per project, every update asked after an import, chained — a one-shot CLI command waits for them to end
+const pending = new Map<string, Promise<unknown>>();
+
+export const overviewAsked = (project: string): Promise<unknown> => pending.get(keyOf(project)) ?? Promise.resolve();
+
 // ponytail: after an import or a conversion (once its index run ended), when the option is on and Claude is on this
-// PC — a job of its own, nobody's child; the asks of the same batch join it while it waits its turn
+// PC — a job of its own, nobody's child; the asks of the same batch join it while it waits its turn. Never from inside
+// a Claude run (the MCP server it calls): that run's own job would start another Claude run behind the user's back
 export function overviewAfterImport(project: string, claude: JobRun = {}): void {
   const key = keyOf(project);
-  if (asked.has(key) || !overviewOption(project).enabled) return;
+  if (insideClaude() || asked.has(key) || !overviewOption(project).enabled) return;
   const token = {};
   asked.set(key, token);
   const done = () => {
     if (asked.get(key) === token) asked.delete(key);
   };
-  void claudeVersion().then(
+  const ended = claudeVersion().then(
     (probe) => {
       if (!probe.ok) return done();
-      const { done: ended } = outsideJobs(() =>
+      const job = outsideJobs(() =>
         startJob(
           OVERVIEW_JOB,
           "auto",
@@ -86,8 +101,9 @@ export function overviewAfterImport(project: string, claude: JobRun = {}): void 
           { rerun: { name: OVERVIEW_JOB, input: { mode: "auto" } }, label: OVERVIEW_LABEL },
         ),
       );
-      ended.then(done, done);
+      return job.done.then(done, done);
     },
     () => done(),
   );
+  pending.set(key, Promise.all([pending.get(key), ended]));
 }

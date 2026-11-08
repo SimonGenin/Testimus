@@ -41,7 +41,8 @@ src/core/search/      search.all (Ctrl K and the tests list): query, match (acce
 src/core/claude/      run (claude -p), access (tool access per run kind), stream, snapshot/revert, diagnose, status,
                       chat, generate (+ gen-prompt, gen-reply), check, fix, review, columns, actions, figures, headers,
                       prompt, limits, ledger, schemas, media, study, comment, overview (how the documents fit
-                      together: its prompt and run), scoped (claude.run), catalog (everything
+                      together: its prompt and run; overview-scope: what its run may write, undone after), scoped
+                      (claude.run), catalog (everything
                       Claude is given: each module that runs claude -p exports its `prompts` templates)
 src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates,
                       video (ffmpeg and Whisper made up)

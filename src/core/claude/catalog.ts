@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { prompts as doctor } from "../lib/doctor.ts";
-import { OVERVIEW_PATH, overviewOption } from "../lib/overview.ts";
+import { OVERVIEW_PATH, overviewFile, overviewGiven } from "../lib/overview.ts";
 import { shipSkills } from "../lib/shipped.ts";
 import { prompts as actions } from "./actions.ts";
 import { prompts as chat } from "./chat.ts";
@@ -142,9 +142,9 @@ function rules(project: string): Given[] {
 }
 
 // ponytail: how the documents fit together, while it is given to every run — the file itself, as Claude reads it
-function overviewFile(project: string): Given[] {
-  const file = join(project, "docs", "OVERVIEW.md");
-  if (!overviewOption(project).inEveryRun || !existsSync(file)) return [];
+function overviewEntry(project: string): Given[] {
+  const file = overviewFile(project);
+  if (!overviewGiven(project)) return [];
   return [
     {
       id: "file:docs/OVERVIEW.md",
@@ -181,7 +181,7 @@ function defaults(project: string): Given[] {
 
 export function listPrompts(project: string): Given[] {
   const built = BUILT.map((t): Given => ({ ...t, origin: "built", text: t.text() }));
-  const all = [...skills(project, built), ...rules(project), ...overviewFile(project), ...built, ...defaults(project)];
+  const all = [...skills(project, built), ...rules(project), ...overviewEntry(project), ...built, ...defaults(project)];
   const at = (g: string) => (GROUPS.includes(g) ? GROUPS.indexOf(g) : GROUPS.length);
   return all
     .map((g, i) => ({ g, i }))

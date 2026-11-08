@@ -9,6 +9,7 @@ import {
   keepLastUpdate,
   OVERVIEW_LINE,
   OVERVIEW_PATH,
+  type OverviewKind,
   overviewOption,
   overviewWarnings,
   readOverview,
@@ -19,6 +20,7 @@ import {
 } from "../lib/overview.ts";
 import { readProject } from "../lib/project.ts";
 import type { DocJson } from "../types.ts";
+import { keepForOverview, strayWrites, undoWrites } from "./overview-scope.ts";
 import type { JobRun, PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
@@ -73,12 +75,21 @@ const WORDS: Record<DocChange["change"], string> = {
 export const changeLines = (changes: DocChange[]) =>
   changes.map((c) => `- ${WORDS[c.change]}: ${c.id} — « ${c.title} »`);
 
+// ponytail: no line when every document changed; the template of Settings › Context passes « {n} »
+const othersLine = (others: number | string) =>
+  others === 0
+    ? []
+    : [
+        `The other ${others === 1 ? "document is" : `${others} documents are`} unchanged: their sections already say what they are. Read one (docs_show, rag_search) only when a link needs it.`,
+        "",
+      ];
+
 export function overviewPrompt(
   mode: OverviewMode,
   language: string,
   changes: string[],
   documents: string[],
-  others: number,
+  others: number | string,
 ): string {
   const head = [
     `${OVERVIEW_MARKER} to ${mode === "full" ? "write" : "update"} ${OVERVIEW_PATH}: how this project's documents fit together.`,
@@ -108,8 +119,7 @@ export function overviewPrompt(
     "The documents that changed:",
     ...documents,
     "",
-    `The other ${others === 1 ? "document is" : `${others} documents are`} unchanged: their sections already say what they are. Read one (docs_show, rag_search) only when a link needs it.`,
-    "",
+    ...othersLine(others),
     "When finished, reply in 2-4 lines: the sections you changed, added or removed.",
     "",
   ].join("\n");
@@ -122,9 +132,13 @@ export const prompts: PromptTemplate[] = [
     group: "Documents",
     usedBy: ["Documents: after an import or a conversion (when on)", "How the documents fit together: Update now"],
     text: () =>
-      overviewPrompt("auto", "{language}", ["{what changed: added, converted again, removed}"], ["{documents}"], 0)
-        .replace("The other document is", "The other {n} documents are")
-        .trim(),
+      overviewPrompt(
+        "auto",
+        "{language}",
+        ["{what changed: added, converted again, removed}"],
+        ["{documents}"],
+        "{n}",
+      ).trim(),
   },
   {
     id: "overview-full",
@@ -156,28 +170,47 @@ export type OverviewResult = {
 
 const NONE: SectionChanges = { modified: [], added: [], removed: [] };
 
-// ponytail: what an update is said to come after — the import or conversion that asked for it, else what changed
-export function reasonOf(changes: DocChange[]): string {
-  const n = (k: DocChange["change"]) => changes.filter((c) => c.change === k).length;
+const KIND_OF: Record<DocChange["change"], OverviewKind> = {
+  added: "import",
+  converted: "conversion",
+  removed: "removal",
+};
+const SAID: Record<OverviewKind, string> = {
+  import: "Import of",
+  conversion: "Conversion of",
+  removal: "Removal of",
+  rewrite: "A rewrite from scratch",
+  first: "Its first writing",
+};
+
+// ponytail: what an update is said to come after (updatedAfter, the person's words) and its kind (what the page reads);
+// changes of several sorts have no kind
+export function afterOf(asked: OverviewMode, mode: OverviewMode, changes: DocChange[]) {
+  if (asked === "full") return { updatedAfter: SAID.rewrite, kind: "rewrite" as const };
+  if (mode === "full") return { updatedAfter: SAID.first, kind: "first" as const };
   const one = changes.length === 1 ? ` « ${changes[0].title} »` : ` ${changes.length} documents`;
-  if (!changes.length) return "An update asked for";
-  if (n("added") === changes.length) return `Import of${one}`;
-  if (n("converted") === changes.length) return `Conversion of${one}`;
-  if (n("removed") === changes.length) return `Removal of${one}`;
-  return `Changes to${one}`;
+  const sorts = new Set(changes.map((c) => c.change));
+  const kind = sorts.size === 1 ? KIND_OF[changes[0].change] : undefined;
+  return kind ? { updatedAfter: `${SAID[kind]}${one}`, kind } : { updatedAfter: `Changes to${one}` };
 }
+
+export const overviewOff = () =>
+  new UserError(
+    "How the documents fit together is off for this project.",
+    "Turn it on in Settings › Claude (or on its page in Documents), then update it.",
+    "overview-off",
+  );
 
 export async function writeOverviewRun(
   ctx: Ctx,
   project: string,
-  input: { mode: OverviewMode; reason?: string } & JobRun,
+  input: { mode: OverviewMode } & JobRun,
 ): Promise<OverviewResult> {
-  if (!overviewOption(project).enabled)
-    throw new UserError(
-      "How the documents fit together is off for this project.",
-      "Turn it on in Settings › Claude (or on its page in Documents), then update it.",
-      "overview-off",
-    );
+  if (!overviewOption(project).enabled) {
+    if (input.mode === "full") throw overviewOff();
+    ctx.log("info", "How the documents fit together was turned off meanwhile: no update.");
+    return { ran: false, mode: input.mode, changes: [], sections: NONE, warnings: [], summary: "Turned off." };
+  }
   const before = readOverview(project);
   const mode: OverviewMode = before.exists && before.body.trim() ? input.mode : "full";
   if (mode !== input.mode) ctx.log("info", "There is no overview yet: Claude writes it whole.");
@@ -194,6 +227,7 @@ export async function writeOverviewRun(
   const documents = touched.flatMap((id) => docSummary(project, readDoc(project, id)));
   const others = Object.keys(now).length - touched.length;
   ctx.progress({ message: mode === "full" ? "Claude writes the overview" : "Claude updates the overview" });
+  const kept = keepForOverview(project);
   const r = await runClaude({
     kind: "overview",
     project,
@@ -206,6 +240,16 @@ export async function writeOverviewRun(
     signal: ctx.signal,
     onEvent: (e) => ctx.claude(e),
   });
+  const strays = strayWrites(project, r.calls);
+  if (strays.length) {
+    const left = undoWrites(project, kept, [...strays, OVERVIEW_PATH]);
+    const undone = strays.filter((s) => !left.includes(s));
+    throw new UserError(
+      `Claude wrote outside ${OVERVIEW_PATH}: ${strays.join(", ")}. ${undone.length ? `Put back as it was: ${undone.join(", ")}. ` : ""}${left.length ? `Left as Claude wrote it: ${left.join(", ")}. ` : ""}${OVERVIEW_PATH} was not updated.`,
+      "Update it again; the run may write that file only.",
+      "overview-outside",
+    );
+  }
   if (!r.ok) throw new UserError(`Claude did not ${mode === "full" ? "write" : "update"} the overview: ${r.summary}`);
   const after = readOverview(project);
   if (!after.body.trim()) throw new UserError(`Claude left ${OVERVIEW_PATH} empty.`, "Update it again.");
@@ -214,18 +258,8 @@ export async function writeOverviewRun(
   const warnings = mode === "auto" ? overviewWarnings(was, is, changes) : [];
   for (const w of warnings) ctx.log("warn", w);
   const sections = sectionDiff(was, is);
-  writeOverview(
-    project,
-    {
-      updatedAt: env.now().toISOString(),
-      updatedAfter:
-        input.reason ||
-        (input.mode === "full" ? "A rewrite from scratch" : mode === "full" ? "Its first writing" : reasonOf(changes)),
-      basis: now,
-      ...sections,
-    },
-    after.body,
-  );
-  keepLastUpdate(project, before.body, after.body);
+  const at = env.now().toISOString();
+  writeOverview(project, { updatedAt: at, ...afterOf(input.mode, mode, changes), basis: now, ...sections }, after.body);
+  keepLastUpdate(project, at, before.body, after.body);
   return { ran: true, mode, changes, sections, warnings, summary: r.summary, runId: r.runId };
 }
