@@ -612,7 +612,8 @@ after the frontmatter, so a review decision never makes findings stale.
   carry a scope: `ClaudeBlock` `quickAsks[].scope`). Both are snapshotted like any generation. `gen.show` reads a generation: its name, request, date, tests still there and
   skipped items. On Generate, once a generation is done, the left column is « Ask for changes » (`AskChanges`: the
   kit's `ClaudeBlock` with scope chips All N tests · Add tests · Pick tests…, quick asks, model · effort); « New
-  request » in the top bar brings the request form back, and a run keeps the column it was started from. Under it,
+  request » in the top bar brings the request form back, and a run keeps the column it was started from; until the
+  project's last generation is known the column is a skeleton, so the form never shows and then flips. Under it,
   « Suggested by the results »: the generation's Claude actions (below and §11).
 - **The core proposes actions after a generation** (`claude/gen-actions.ts`, at the end of `gen.tests` and
   `gen.revise`): one per test of the generation with errors or warnings (« Fix the 2 errors in « summary » », where

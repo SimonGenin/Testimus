@@ -275,7 +275,7 @@ describe("Generate screen", () => {
     delete api.routes["claude.status"];
     mountData(<GenerateScreen />);
     await waitFor(() => expect(named("claude.status")).toHaveLength(1));
-    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "x" } });
+    fireEvent.change(await screen.findByLabelText("What should be tested?"), { target: { value: "x" } });
     await waitFor(() => expect(go()).toBeEnabled());
   });
 
@@ -448,7 +448,7 @@ describe("Generate screen", () => {
     ];
     api.routes["jobs.show"] = () => ({ job: ended, events });
     mountData(<GenerateScreen />);
-    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
+    fireEvent.change(await screen.findByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
     await waitFor(() => expect(go()).toBeEnabled());
     fireEvent.click(go());
     expect(await screen.findByText("Claude is installed but not signed in")).toBeInTheDocument();
@@ -482,7 +482,9 @@ describe("Generate screen", () => {
       return { test: test("First") };
     };
     mountData(<GenerateScreen />);
-    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: " Les sectionneurs " } });
+    fireEvent.change(await screen.findByLabelText("What should be tested?"), {
+      target: { value: " Les sectionneurs " },
+    });
     await waitFor(() => expect(go()).toBeEnabled());
     fireEvent.click(go());
     expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
@@ -662,7 +664,7 @@ describe("Generate › the tests land from the job events (was ui-screens)", () 
       test: test(i.id === "local-aaaaaaaa" ? "Premier test" : "Second test"),
     });
     mountData(<GenerateScreen />);
-    fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
+    fireEvent.change(await screen.findByLabelText("What should be tested?"), { target: { value: "Les sectionneurs" } });
     await waitFor(() => expect(go()).toBeEnabled());
     fireEvent.click(go());
     await waitFor(() => expect(named("gen.tests")).toHaveLength(1));

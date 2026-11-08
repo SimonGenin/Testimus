@@ -6,7 +6,9 @@ import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/us
 import { useNow } from "../../components/claude/useNow.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { execute, key, read, useCommand, useRead } from "../../lib/data/query.ts";
@@ -14,7 +16,7 @@ import { usePaneWidth } from "../../lib/panes.ts";
 import { unready } from "../../lib/scope.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { useReindex } from "../../lib/uploads.ts";
-import { border, breakpoint, color } from "../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
 import { AskChanges, type AskInput } from "./AskChanges.tsx";
 import { ReplaceTests } from "./ReplaceTests.tsx";
@@ -55,6 +57,13 @@ const styles = stylex.create({
     borderRightColor: color.border,
   }),
   handle: { display: { default: "flex", [breakpoint.narrow]: "none" } },
+  waiting: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s5,
+    paddingBlock: space.s6,
+    paddingInline: space.s7,
+  },
   result: { flex: 1, minWidth: 0, minHeight: 0, overflow: "auto" },
 });
 
@@ -203,7 +212,14 @@ export function GenerateScreen() {
       </ScreenHeader>
       <div {...stylex.props(styles.panes)}>
         <div {...stylex.props(styles.form(`${formPane.width}px`))}>
-          {asking && generation ? (
+          {gen.loading && mode === "ask" ? (
+            <div {...stylex.props(styles.waiting)}>
+              <Skeleton kind="title" width="40%" />
+              <Skeleton lines={4} />
+              <Skeleton kind="block" />
+              <Loading read="jobs.list" />
+            </div>
+          ) : asking && generation ? (
             <AskChanges
               key={generation}
               generation={generation}

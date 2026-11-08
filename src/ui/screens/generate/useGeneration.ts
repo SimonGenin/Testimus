@@ -15,6 +15,8 @@ export type Generation = {
   /** the tests the job writes and where each one is (its last progress line that says so) */
   writing: GenTestProgress[];
   read: number;
+  /** the project's last generation is not known yet (the jobs, or that job, still loading) */
+  loading: boolean;
   follow: (jobId: string) => void;
 };
 
@@ -57,6 +59,7 @@ export function useGeneration(): Generation {
     ids: landedIds(events, result),
     writing: writingOf(events, landedIds(events, null)),
     read: passagesRead(events),
+    loading: jobs.data === undefined || (!started && !!last && shown.data === undefined),
     follow: (id) => {
       setLive({ id, list: [] });
       setStarted(id);

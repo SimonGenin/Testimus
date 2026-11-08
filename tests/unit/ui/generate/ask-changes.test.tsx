@@ -141,6 +141,26 @@ describe("Generate › Ask for changes", () => {
     expect(named("gen.revise")[1].input).toMatchObject({ mode: "change", tests: [B], request: "Raccourcis" });
   });
 
+  it("while the last generation is not known yet, neither column is shown: the form never flips to Ask for changes", async () => {
+    done();
+    const shown = api.routes["jobs.show"];
+    let answer = () => {};
+    const held = new Promise<void>((r) => {
+      answer = r;
+    });
+    api.routes["jobs.show"] = async (input) => {
+      await held;
+      return shown(input);
+    };
+    mountData(<GenerateScreen />);
+    await waitFor(() => expect(named("jobs.show")).toHaveLength(1));
+    expect(screen.queryByRole("region", { name: "Request" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Ask for changes" })).toBeNull();
+    answer();
+    expect(await screen.findByRole("region", { name: "Ask for changes" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Request" })).toBeNull();
+  });
+
   it("Cover the skipped items asks for added tests: the core gives Claude the items not written", async () => {
     done();
     mountData(<GenerateScreen />);
