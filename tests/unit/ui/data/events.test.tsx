@@ -177,6 +177,42 @@ describe("the event bridge", () => {
     await waitFor(() => expect(answers).toHaveLength(3));
   });
 
+  it("a read in flight when its files change, whose screen is left before it lands, is read when shown again", async () => {
+    const answers: ((v: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>((ok) => answers.push(ok))),
+    );
+    const client = createQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const r = renderHook(() => useRead("tests.list"), { wrapper });
+    await waitFor(() => expect(answers).toHaveLength(1));
+    act(() => apply(client, { jobId: "", at: "", type: "changed", paths: ["tests/t1/test.md"], project: "/p" }, "/p"));
+    r.unmount();
+    await act(async () => answers[0](new Response(JSON.stringify(["before"]), { status: 200 })));
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: ["/p", "tests.list"] })?.state.isInvalidated).toBe(true),
+    );
+    const back = renderHook(() => useRead("tests.list"), { wrapper });
+    await waitFor(() => expect(answers).toHaveLength(2));
+    await act(async () => answers[1](new Response(JSON.stringify(["after"]), { status: 200 })));
+    await waitFor(() => expect(back.result.current.data).toEqual(["after"]));
+  });
+
+  it("a job's detail read that lands while its events wait for the frame does not hold them twice", async () => {
+    const client = createQueryClient();
+    const run = job("running");
+    const show = ["/p", "jobs.show", { id: "j1" }];
+    client.setQueryData(show, { job: run, events: [] });
+    const e = { jobId: "j1", at: "2026-11-08T10:00:00.000Z", type: "log", level: "info", message: "hello" } as const;
+    apply(client, { ...e, project: "/p" }, "/p");
+    client.setQueryData(show, { job: run, events: [e] });
+    await new Promise((ok) => setTimeout(ok, 300));
+    expect(client.getQueryData<{ events: JobEvent[] }>(show)?.events).toEqual([e]);
+  });
+
   it("lets a listener follow every event of the page's project", () => {
     const client = createQueryClient();
     const stop = connectEvents(client);

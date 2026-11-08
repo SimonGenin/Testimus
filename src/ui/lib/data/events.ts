@@ -3,160 +3,7 @@ import { useEffect, useRef } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
 import { events, onProjectChange, onStream, project } from "./client.ts";
 import { invalidateProject, type Key, key, matches, type Prefix, setReachable } from "./query.ts";
-
-type Rule = [pattern: RegExp, keys: (m: RegExpMatchArray) => Prefix[]];
-
-// ponytail: a file changed in the project → the reads that show it (the files are the state)
-const PATHS: Rule[] = [
-  [
-    /^tests\/([^/]+)\/test\.md$/,
-    (m) => [
-      ["tests.show", { id: m[1] }],
-      ["check.show", { id: m[1] }],
-      ["claude.before", { testId: m[1] }],
-      ["tests.list"],
-      ["review.queue"],
-      ["xray.plan", { id: m[1] }],
-      ["search.all"],
-      ["project.info"],
-      ["gen.preview"],
-    ],
-  ],
-  [
-    /^tests\/([^/]+)\/\.remote\.md$/,
-    (m) => [
-      ["tests.show", { id: m[1] }],
-      ["claude.before", { testId: m[1] }],
-      ["tests.list"],
-      ["xray.plan", { id: m[1] }],
-      ["xray.status", { id: m[1] }],
-    ],
-  ],
-  [
-    /^tests\/([^/]+)\/check\.json$/,
-    (m) => [["check.show", { id: m[1] }], ["tests.show", { id: m[1] }], ["review.queue"], ["tests.list"]],
-  ],
-  [/^tests\/([^/]+)\/images\//, (m) => [["tests.show", { id: m[1] }]]],
-  [
-    /^tests\/([^/]+)\/local\.json$/,
-    (m) => [
-      ["contexts.ofTest", { testId: m[1] }],
-      ["tests.folds", { id: m[1] }],
-    ],
-  ],
-  [/^tests\/([^/]+)\/\.state\.json$/, (m) => [["tests.show", { id: m[1] }], ["tests.list"]]],
-  [
-    /^tests\/([^/]+)(\/|$)/,
-    (m) => [["tests.show", { id: m[1] }], ["tests.list"], ["review.queue"], ["project.info"], ["gen.preview"]],
-  ],
-  [/^docs\/OVERVIEW\.md$/, () => [["docs.overviewShow"], ["claude.prompts"]]],
-  [
-    /^docs\/([^/]+)\/doc\.json$/,
-    (m) => [
-      ["docs.overviewShow"],
-      ["docs.list"],
-      ["docs.show", { id: m[1] }],
-      ["rag.status"],
-      ["project.info"],
-      ["rag.passage"],
-      ["gen.preview"],
-      ["media.show", { doc: m[1] }],
-    ],
-  ],
-  [
-    /^docs\/([^/]+)\/(doc\.md|figures|figures\.json)/,
-    (m) => [
-      ["docs.show", { id: m[1] }],
-      ["rag.passage"],
-      ["rag.figure"],
-      ["docs.page"],
-      ["docs.list"],
-      ["media.show", { doc: m[1] }],
-    ],
-  ],
-  [/^docs\/([^/]+)\/context\.md$/, (m) => [["docs.show", { id: m[1] }]]],
-  [
-    /^docs\/([^/]+)\/(video|files)\//,
-    (m) => [
-      ["media.show", { doc: m[1] }],
-      ["media.transcript", { doc: m[1] }],
-      ["docs.show", { id: m[1] }],
-    ],
-  ],
-  [
-    /^docs\/([^/]+)(\/|$)/,
-    () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"], ["docs.overviewShow"]],
-  ],
-  [
-    /^project\.json$/,
-    () => [
-      ["project.info"],
-      ["contexts.ofProject"],
-      ["contexts.ofTest"],
-      ["models.packs"],
-      ["models.usage"],
-      ["models.advice"],
-      ["rag.status"],
-      ["system.doctor"],
-      ["claude.prompts"],
-      ["docs.overviewShow"],
-    ],
-  ],
-  [/^(xray|columns)\.json$/, () => [["project.info"], ["columns.list"]]],
-  [/^CLAUDE\.md$/, () => [["project.notes"], ["claude.prompts"]]],
-  [/^\.claude\/skills\//, () => [["claude.prompts"]]],
-  [
-    /^contexts\//,
-    () => [["contexts.list"], ["contexts.show"], ["contexts.ofTest"], ["contexts.ofProject"], ["claude.prompts"]],
-  ],
-  [/^\.testimus\/actions\//, () => [["actions.list"], ["actions.show"]]],
-  [/^test-runs\/([^/]+)(\/|$)/, (m) => [["runs.list"], ["runs.show", { run: m[1] }]]],
-];
-
-// ponytail: what a finished job changed outside the project files (the index, the models folder, Jira)
-const KINDS: Rule[] = [
-  [
-    /^rag-index$|^rag\.index$/,
-    () => [
-      ["rag.status"],
-      ["rag.spaces"],
-      ["docs.list"],
-      ["docs.show"],
-      ["search.all"],
-      ["models.advice"],
-      ["gen.preview"],
-      ["system.doctor"],
-    ],
-  ],
-  [/^search-index$/, () => [["search.all"]]],
-  [/^update$/, () => [["system.updates"]]],
-  [
-    /^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/,
-    () => [["docs.list"], ["docs.show"], ["media.show"], ["media.transcript"], ["rag.status"]],
-  ],
-  [/^docs\.overview$/, () => [["docs.overviewShow"], ["claude.prompts"]]],
-  [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"], ["gen.show"], ["actions.list"]]],
-  [/^chat$/, () => [["chat.list"], ["chat.show"]]],
-  [
-    /^models-/,
-    () => [
-      ["models.list"],
-      ["models.catalog"],
-      ["models.packs"],
-      ["models.usage"],
-      ["models.advice"],
-      ["models.hardware"],
-      ["rag.status"],
-      ["system.doctor"],
-      ["models.dirs"],
-      ["models.planPack"],
-      ["models.planDir"],
-    ],
-  ],
-  [/^agents-test$/, () => [["system.settings"]]],
-  [/^push$/, () => [["xray.status"], ["xray.folders"], ["xray.search"]]],
-  [/^pull$/, () => [["xray.search"]]],
-];
+import { keysOfKind, keysOfPaths } from "./refresh.ts";
 
 // ponytail: the reads a job changes while it runs — an index run says in docs.list and rag.status which documents it
 // reads and how far it got; they follow each step of it (a read in flight is not restarted, so a fast run cannot starve it)
@@ -196,15 +43,16 @@ function waitingOf(client: QueryClient): Set<string> {
   client.getQueryCache().subscribe(({ query }) => {
     if (!waiting.has(query.queryHash) || query.state.fetchStatus !== "idle") return;
     waiting.delete(query.queryHash);
-    queueMicrotask(() => void client.refetchQueries({ queryKey: query.queryKey, exact: true, type: "active" }));
+    queueMicrotask(() => void client.invalidateQueries({ queryKey: query.queryKey, exact: true }));
   });
   return waiting;
 }
 
 // ponytail: what moved is read again by the reads a screen shows — at once when idle; when in flight, once it lands
 // (it may have read the files before they moved), never dropped and started over: during a long generation or a
-// pull a slow read was cancelled at every burst of writes and the server still worked each one out. The reads no
-// screen shows are only marked stale (read when shown)
+// pull a slow read was cancelled at every burst of writes and the server still worked each one out. Landed, it is
+// marked stale again (its answer may be from before the move), so a screen left meanwhile reads it when shown. The
+// reads no screen shows are only marked stale (read when shown)
 export function readAgain(client: QueryClient, prefixes: Prefix[], p: string | null = project()): void {
   const predicate = (q: Query) => prefixes.some((x) => matches(q.queryKey, x, p));
   void client.invalidateQueries({ predicate, refetchType: "none" });
@@ -214,26 +62,6 @@ export function readAgain(client: QueryClient, prefixes: Prefix[], p: string | n
     if (q.state.fetchStatus === "fetching") waiting.add(q.queryHash);
     else idle.push(q.queryHash);
   if (idle.length) void client.refetchQueries({ type: "active", predicate: (q) => idle.includes(q.queryHash) });
-}
-
-export function keysOfPaths(paths: string[]): Prefix[] {
-  const out: Prefix[] = [];
-  for (const path of paths)
-    for (const [re, keys] of PATHS) {
-      const m = path.match(re);
-      if (m) {
-        out.push(...keys(m));
-        break;
-      }
-    }
-  return out;
-}
-
-export function keysOfKind(kind: string): Prefix[] {
-  return KINDS.flatMap(([re, keys]) => {
-    const m = kind.match(re);
-    return m ? keys(m) : [];
-  });
 }
 
 // ponytail: one job event applied to a list of jobs — a status replaces the job (or adds it on top), the others patch
@@ -264,6 +92,16 @@ export function applyJobEvent(jobs: Job[], e: JobEvent): Job[] {
   return jobs;
 }
 
+const sig = (e: JobEvent) => JSON.stringify({ ...e, project: undefined });
+
+// ponytail: a job's detail read that landed while its events waited for the frame already holds them — they are not
+// added twice
+function unseen(have: JobEvent[], mine: JobEvent[]): JobEvent[] {
+  const from = mine[0]?.at ?? "";
+  const known = new Set(have.filter((e) => e.at >= from).map(sig));
+  return known.size ? mine.filter((e) => !known.has(sig(e))) : mine;
+}
+
 // ponytail: the jobs reads follow the events of the jobs without a round trip; a status still reads them again, since
 // a list of the running jobs drops one that ended
 function follow(client: QueryClient, events: JobEvent[], p: string | null): void {
@@ -274,7 +112,10 @@ function follow(client: QueryClient, events: JobEvent[], p: string | null): void
     const mine = events.filter((e) => e.jobId === id);
     client.setQueriesData<{ job: Job; events: JobEvent[] }>({ queryKey: key("jobs.show", { id }, p) }, (d) =>
       d?.job
-        ? { job: mine.reduce((j, e) => applyJobEvent([j], e)[0], d.job), events: [...(d.events ?? []), ...mine] }
+        ? {
+            job: mine.reduce((j, e) => applyJobEvent([j], e)[0], d.job),
+            events: [...(d.events ?? []), ...unseen(d.events ?? [], mine)],
+          }
         : d,
     );
   }

@@ -739,7 +739,7 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   of a test not run and follows the marks while that result is still its own proposal in this page; a result chosen,
   or recorded before the page was opened, stays. The tester decides; Blocked needs its reason.
 - Commands: group `runs` (`list`, `show`, `create`, `setResult`, `comment`, `attach`, `remove` — asked first in the
-  palette). The watcher reads `test-runs/` like the rest; `lib/data/events.ts` maps a path there to `runs.list` and
+  palette). The watcher reads `test-runs/` like the rest; `lib/data/refresh.ts` maps a path there to `runs.list` and
   that run's `runs.show`.
 - **Claude reads runs, never marks one**: `runs.list` / `runs.show` are read-only (every run kind has them); the
   writes are off every Claude run (`action` included) and `test-runs/**` is refused to Edit/Write (`claude/access.ts`).
@@ -874,13 +874,15 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   what the app does (model, effort, contexts) is a command, not a pref.
 - **Files changed on disk are read again by the data layer alone** (`readAgain`, `lib/data/events.ts`, 2026-11-08):
   the reads a screen shows at once when idle, and a read **in flight is never dropped and started over** — it lands,
-  then is asked once more for every burst that came meanwhile (it may have read the files before they moved); the
+  then is marked stale once more for every burst that came meanwhile (it may have read the files before they moved),
+  so it is read again at once if a screen still shows it, else when one does; the
   others are only marked stale. The shell's old « tests changed » signal on each burst (it drew the whole shell again
   and dropped the tests list in flight) is gone. Burst of 30 `test.md` writes, Tests open: `tests.list`
   asked 6 times, 3 of them dropped → asked 3 times, none dropped.
 - **A running job's events reach the cache once per frame** (a timer stands in for frames in a hidden window, so the
   taskbar's progress still follows); a status is applied at once, after the events before it. 3 000 events streamed as
-  fast as they come: the job's detail worked out 3 000 times (14.3 s) → 35 times (0.8 s).
+  fast as they come: the job's detail worked out 3 000 times (14.3 s) → 35 times (0.8 s). A detail read that lands
+  while events wait for the frame already holds them: they are not added twice (`unseen`).
 - **Sign of life**: a skeleton shimmers (still under `prefers-reduced-motion`); under the skeleton of a read the kit's
   `Loading` says after 1 s what loads, in the words of that read (`lib/data/loading.ts`, one vocabulary, never a
   screen's own text), and the seconds; from 10 s « Still loading… » and a neutral banner « Testimus is answering

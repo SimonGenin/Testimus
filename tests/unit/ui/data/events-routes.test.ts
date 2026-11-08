@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
-import { apply, applyJobEvent, keysOfKind, keysOfPaths } from "../../../../src/ui/lib/data/events.ts";
+import { apply, applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
+import { keysOfKind, keysOfPaths } from "../../../../src/ui/lib/data/refresh.ts";
 
 const names = (paths: string[]) => keysOfPaths(paths).map((k) => k[0]);
 

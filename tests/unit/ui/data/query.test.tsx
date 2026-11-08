@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CallResult, JobCommand } from "../../../../src/core/commands/index.ts";
 import type { JobEvent } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
-import { apply, keysOfKind, keysOfPaths } from "../../../../src/ui/lib/data/events.ts";
+import { apply } from "../../../../src/ui/lib/data/events.ts";
 import {
   createQueryClient,
   execute,
@@ -19,6 +19,7 @@ import {
   useReachable,
   useRead,
 } from "../../../../src/ui/lib/data/query.ts";
+import { keysOfKind, keysOfPaths } from "../../../../src/ui/lib/data/refresh.ts";
 
 type Handler = (name: string, input: unknown, project: string | null) => unknown;
 let handler: Handler;

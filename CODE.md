@@ -99,7 +99,7 @@ tests/fixtures/       the LFRPS12 sample project (two Word documents, an images,
    Jira and the network faked through `env`. `tests/unit/guards/commands-tested.test.ts` counts the commands without
    one: a ratchet that may only go down.
 9. If the page needs it: `useRead("group.verb", input)` or `useCommand` / `execute`; the invalidation follows from the
-   `changed` paths and job events (`lib/data/events.ts` maps paths to the reads they touch).
+   `changed` paths and job events (`lib/data/refresh.ts` maps paths and job kinds to the reads they touch).
 
 ## Adding or changing UI
 
