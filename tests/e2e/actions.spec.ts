@@ -10,7 +10,7 @@ type Listed = { id: string; title: string; state: string }[];
 const open = async () =>
   (await api<Listed>(server.url, "actions.list", { docId: DOC })).filter((a) => a.state === "open");
 
-test("a problem Claude can fix becomes a card in the Actions tab only; it runs with the suggested model and reverts", async ({
+test("a problem Claude can fix becomes a card in the Actions tab and a button beside its warning; it runs with the suggested model and reverts", async ({
   page,
 }) => {
   await api(server.url, "actions.triage", { docId: DOC, model: "haiku", effort: "low" });
@@ -19,7 +19,9 @@ test("a problem Claude can fix becomes a card in the Actions tab only; it runs w
   await boot(page, `#/documents/${DOC}`);
   const side = page.getByRole("region", { name: / details$/ });
   await expect(side.getByText(/Figure 41/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Recover the figure from the PDF" })).toHaveCount(0);
+  const warnings = page.getByRole("list", { name: "Conversion warnings" });
+  await expect(warnings.getByRole("button", { name: "Recover the figure from the PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Recover the figure from the PDF" })).toHaveCount(1);
 
   const dock = page.getByRole("complementary", { name: "Claude" });
   const rail = dock.getByRole("button", { name: "Open Claude" });
