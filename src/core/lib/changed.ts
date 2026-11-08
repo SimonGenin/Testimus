@@ -53,8 +53,8 @@ export const addedRemoved = (before: Stamp, after: Stamp, paths: string[]) => ({
   removed: paths.filter((p) => !after.has(p)),
 });
 
-type Recorder = { before: Map<string, string | undefined>; fence: string; reached: () => void };
-type Followed = { stamp: Stamp | null; recorders: Set<Recorder> };
+type Recorder = { before: Map<string, string | undefined>; fence: string; reached: () => void; lost: boolean };
+type Followed = { stamp: Stamp | null; recorders: Set<Recorder>; stale: boolean };
 
 const followed = new Map<string, Followed>();
 const FENCE_MS = 2000;
@@ -64,7 +64,7 @@ const FENCE_MS = 2000;
 // more on a PC with an antivirus); the stamp is made at the project's first job
 export function follow(project: string): void {
   const dir = resolve(project);
-  if (!followed.has(dir)) followed.set(dir, { stamp: null, recorders: new Set() });
+  if (!followed.has(dir)) followed.set(dir, { stamp: null, recorders: new Set(), stale: false });
 }
 
 export function unfollow(project: string): void {
@@ -102,6 +102,26 @@ export function seen(project: string, rel: string): void {
   for (const r of f.recorders) for (const [k, was] of moved) if (!r.before.has(k)) r.before.set(k, was);
 }
 
+// ponytail: the watcher lost events (a report without a name: Windows' buffer overflowed) — the stamp may be behind,
+// so each job under way walks the project at its end, and the next job starts from a fresh stamp
+export function lost(project: string): void {
+  const f = followed.get(resolve(project));
+  if (!f) return;
+  f.stale = true;
+  for (const r of f.recorders) r.lost = true;
+}
+
+// ponytail: a job whose fence never came back, or that lost events, walks the project once: what moved and was not
+// reported is folded into the stamp, and into what each job under way saw before it
+function resync(project: string, f: Followed): void {
+  const was = f.stamp ?? new Map<string, string>();
+  const now = stampProject(project);
+  for (const k of changedPaths(was, now))
+    for (const r of f.recorders) if (!r.before.has(k)) r.before.set(k, was.get(k));
+  f.stamp = now;
+  f.stale = false;
+}
+
 // ponytail: what a job left changed — from the watcher's reports when it follows the project (a fence folder made at
 // the end and seen come back says every earlier write has been reported), else from a stamp before and after
 export function recordChanges(project: string, id: string): () => Promise<Changes> {
@@ -114,22 +134,32 @@ export function recordChanges(project: string, id: string): () => Promise<Change
       return { paths, ...addedRemoved(before, after, paths) };
     };
   }
-  f.stamp ??= stampProject(project);
+  if (!f.stamp || (f.stale && !f.recorders.size)) {
+    f.stamp = stampProject(project);
+    f.stale = false;
+  }
   const fence = `.testimus/fence-${id}`;
   let reached = () => {};
-  const back = new Promise<void>((ok) => {
+  let back = false;
+  const fenced = new Promise<void>((ok) => {
     reached = ok;
   });
-  const r: Recorder = { before: new Map(), fence, reached: () => reached() };
+  const r: Recorder = { before: new Map(), fence, reached: () => reached(), lost: false };
   f.recorders.add(r);
   return async () => {
     const wait = new AbortController();
     try {
       mkdirSync(join(project, fence), { recursive: true });
-      await Promise.race([back, sleep(FENCE_MS, wait.signal).catch(() => {})]);
+      await Promise.race([
+        fenced.then(() => {
+          back = true;
+        }),
+        sleep(FENCE_MS, wait.signal).catch(() => {}),
+      ]);
     } catch {
     } finally {
       wait.abort();
+      if (!back || r.lost) resync(project, f);
       f.recorders.delete(r);
       rmSync(join(project, fence), { recursive: true, force: true });
     }

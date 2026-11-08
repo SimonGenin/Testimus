@@ -132,7 +132,10 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   watcher keeps a stamp of the project's files (size, mtime) up to date from the paths it reports — a folder renamed
   into place is walked, a path gone takes what it held — made once at the project's first job; each job running
   keeps what a path was before it first moved. At the end the job makes a fence folder `.testimus/fence-<id>` and waits
-  for the watcher to report it (2 s at most): every write before it has been reported. Without a watcher (CLI, MCP)
+  for the watcher to report it (2 s at most): every write before it has been reported. A fence that does not come
+  back, or a report without a name while the job ran (Windows' watch buffer overflowed: events were lost), makes the
+  job walk the project once at its end and compare with the stamp — what was never reported is named all the same,
+  and the stamp is right again (a loss with no job under way makes the next job stamp afresh). Without a watcher (CLI, MCP)
   the project is stamped before and after, as before. Stopping Testimus waits for a job that stopped but has not
   written its last status yet (it may be awaiting its fence). Same paths, added and removed as the walk
   (`tests/unit/core/jobs/changed-watched.test.ts`); the two walks of 1 100 files (~130 ms, synchronous) per job are

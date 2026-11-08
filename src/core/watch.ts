@@ -2,7 +2,7 @@ import { existsSync, type FSWatcher, watch } from "node:fs";
 import { resolve } from "node:path";
 import { debounce } from "../shared/run/work.ts";
 import { filesChanged } from "./jobs.ts";
-import { follow, seen, skipped, unfollow } from "./lib/changed.ts";
+import { follow, lost, seen, skipped, unfollow } from "./lib/changed.ts";
 
 const watchers = new Map<string, FSWatcher>();
 
@@ -16,7 +16,10 @@ export function watchProject(project: string, settleMs = 200, maxMs = 1000): voi
   let w: FSWatcher;
   try {
     w = watch(dir, { recursive: true, persistent: false }, (kind, name) => {
-      if (!name) return;
+      if (!name) {
+        lost(dir);
+        return;
+      }
       // ponytail: on Windows a watched folder that is deleted makes Node fire « rename <its own path> » without end
       // and never an error — hundreds of thousands a second, each held by the batch that never settles, until the
       // heap is full; the watch stops there, and the next request on the folder, once it is back, watches it again

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cancelAll, cancelJob, startJob, subscribe } from "../../../../src/core/jobs.ts";
+import { follow, lost, recordChanges, seen, unfollow } from "../../../../src/core/lib/changed.ts";
 import type { JobEvent } from "../../../../src/core/types.ts";
 import { unwatchAll, watchProject } from "../../../../src/core/watch.ts";
 
@@ -146,5 +147,44 @@ describe("a job's changed event in a project the watcher follows", () => {
       throw new Error("stopped half way");
     });
     expect(e).toMatchObject({ paths: ["tests/local-2/test.md"], added: [], removed: [] });
+  });
+
+  it("walks the project once when its fence does not come back: what the watcher never reported is still named", async () => {
+    const dir = copy("deaf");
+    follow(dir);
+    try {
+      const end = recordChanges(dir, "deaf-1");
+      put(dir, "tests/local-1/test.md", "# one, edited");
+      put(dir, "tests/local-4/test.md", "# four");
+      expect(await end()).toEqual({
+        paths: ["tests/local-1/test.md", "tests/local-4/test.md"],
+        added: ["tests/local-4/test.md"],
+        removed: [],
+      });
+    } finally {
+      unfollow(dir);
+    }
+  });
+
+  it("walks the project once when the watcher lost events (a report without a name)", async () => {
+    const dir = copy("overflow");
+    follow(dir);
+    try {
+      const end = recordChanges(dir, "overflow-1");
+      put(dir, "tests/local-1/test.md", "# one, edited");
+      put(dir, "tests/local-4/test.md", "# four");
+      seen(dir, "tests/local-4/test.md");
+      lost(dir);
+      setImmediate(() => seen(dir, ".testimus/fence-overflow-1"));
+      const started = Date.now();
+      expect(await end()).toEqual({
+        paths: ["tests/local-1/test.md", "tests/local-4/test.md"],
+        added: ["tests/local-4/test.md"],
+        removed: [],
+      });
+      expect(Date.now() - started).toBeLessThan(1500);
+    } finally {
+      unfollow(dir);
+    }
   });
 });
