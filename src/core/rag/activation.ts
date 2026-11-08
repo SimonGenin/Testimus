@@ -72,7 +72,9 @@ function resolvePair(v: PackVariant, queryTask: string): Resolved {
 }
 
 // ponytail: a pack keeps the variant set up when it was chosen while its models are on this PC and it can run here — what
-// other programs hold at the moment never switches the models in use, nor drops the project to Light
+// other programs hold at the moment never switches the models in use, nor drops the project to Light. Else the variant a
+// fresh resolution picks when it is on this PC, else the first variant on this PC that runs here; a variant to download
+// is only named (missing), never a reason to drop to Light while another one is here
 async function resolveAny(choice: ActiveChoice, queryTask: string): Promise<Resolved> {
   const variants = "pack" in choice ? (packOf(choice.pack)?.variants ?? []) : [choice];
   // ponytail: under --mock the mock runtime runs any model — only a machine the mock imposes says what runs there
@@ -82,19 +84,18 @@ async function resolveAny(choice: ActiveChoice, queryTask: string): Promise<Reso
   const kept =
     "pack" in choice && choice.variant && runs(choice.variant) ? resolvePair(choice.variant, queryTask) : null;
   if (kept?.embedding && (!kept.variant?.reranker || kept.reranker)) return kept;
-  if (!env.mock) {
-    const r = await resolveChoice(choice, queryTask);
-    if (r.embedding || r.variant) return { embedding: r.embedding, reranker: r.reranker, variant: r.variant };
-  }
+  const fresh = env.mock ? null : await resolveChoice(choice, queryTask);
+  if (fresh?.embedding) return { embedding: fresh.embedding, reranker: fresh.reranker, variant: fresh.variant };
   for (const v of variants.filter(runs)) {
     const r = resolvePair(v, queryTask);
     if (r.embedding) return r;
   }
-  return { embedding: null, reranker: null, variant: null };
+  return { embedding: null, reranker: null, variant: fresh?.variant ?? null };
 }
 
 // ponytail: `missing` names the models of the choice the project wants (this PC's, else the reference, else Light) that
-// are not here — never those of a fallback: a project on Quality is never told to install Light's model
+// are not here — never those of a fallback (a project on Quality is never told to install Light's model), never one
+// resolveModel finds on this PC
 export async function activeModels(project: string): Promise<ActiveModels> {
   const rag = readProject(project).rag;
   const queryTask = queryTaskOf(project);
@@ -104,6 +105,8 @@ export async function activeModels(project: string): Promise<ActiveModels> {
     ["light", { pack: "light" }],
   ];
   const missing: string[] = [];
+  const lack = (ids: (string | null | undefined)[]) =>
+    missing.push(...ids.filter((m): m is string => !!m && !resolveModel(m, queryTask)));
   let wantedFound = false;
   for (const [source, choice] of steps) {
     if (!choice) continue;
@@ -113,12 +116,12 @@ export async function activeModels(project: string): Promise<ActiveModels> {
     const wanted =
       ("pack" in choice ? choice.variant : undefined) ?? r.variant ?? ("embedding" in choice ? choice : null);
     if (!r.embedding) {
-      if (first && wanted) missing.push(...[wanted.embedding, wanted.reranker].filter((m): m is string => !!m));
+      if (first && wanted) lack([wanted.embedding, wanted.reranker]);
       else if (first && "pack" in choice) missing.push(`pack ${choice.pack}`);
       continue;
     }
     const reranker = r.reranker;
-    if (first && wanted?.reranker && !reranker) missing.push(wanted.reranker);
+    if (first && wanted?.reranker && !reranker) lack([wanted.reranker]);
     const pack = "pack" in choice ? packOf(choice.pack) : undefined;
     return {
       embedding: r.embedding,

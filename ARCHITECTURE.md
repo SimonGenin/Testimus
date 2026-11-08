@@ -460,6 +460,9 @@ above) and by naming only the wanted choice's models.
   (`project.json.rag.reference`, a pack or a pair) > the Light pack. Only installed models are taken; none → lexical
   index only, saying why. A pack keeps the variant stored with the choice while its models are here and this PC can
   run it (not unsupported, not RAM too small): what other programs hold at the moment never switches the models in use.
+  Else it takes the variant a fresh resolution picks when that one is here, else the first variant here that runs here
+  — a variant to download never drops the project to Light while another one is on this PC. `missing` names only the
+  models of the wanted choice that `resolveModel` does not find here.
 
 **Models** (`models/catalog.json` + the user's entries in `models.json`):
 - An entry names one exact quantization, its sources (Hugging Face repo at a pinned revision with every file's

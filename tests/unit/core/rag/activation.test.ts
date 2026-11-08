@@ -18,6 +18,7 @@ import { fingerprintOf } from "../../../../src/core/rag/fingerprint.ts";
 import type { RagChoice } from "../../../../src/core/types.ts";
 
 const installed = vi.hoisted(() => new Set<string>());
+const fresh = vi.hoisted(() => ({ variant: null as { embedding: string; reranker: string | null } | null }));
 
 vi.mock("../../../../src/core/lib/models-resolve.ts", async (importOriginal) => {
   const real = await importOriginal<typeof import("../../../../src/core/lib/models-resolve.ts")>();
@@ -40,7 +41,7 @@ vi.mock("../../../../src/core/lib/models-resolve.ts", async (importOriginal) => 
     resolveInstalled,
     resolveChoice: async (choice: unknown) => ({
       choice,
-      variant: null,
+      variant: fresh.variant,
       variantIndex: null,
       embedding: null,
       reranker: null,
@@ -65,6 +66,7 @@ beforeEach(() => {
   dir = join(root, "Projet");
   cpSync(FIXTURE, dir, { recursive: true });
   installed.clear();
+  fresh.variant = null;
   pinMachineProfile(mockMachine("gpu16"));
 });
 
@@ -175,6 +177,29 @@ describe("per-machine activation", () => {
     });
     expect(by["model.reranker"]).toMatchObject({ state: "warn", action: { input: { model: quality.reranker } } });
     for (const r of rows) expect(JSON.stringify(r.action ?? {})).not.toContain("bge-m3");
+  });
+
+  it("a variant on this PC that runs here is used when a fresh resolution would pick one to download", async () => {
+    fresh.variant = { embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" };
+    const second = { embedding: "qwen3-embedding-4b-q4", reranker: "qwen3-reranker-4b-q8" };
+    installed.add(second.embedding);
+    installed.add(second.reranker);
+    installed.add("bge-m3-q8");
+    setActiveChoice(dir, { pack: "quality" });
+    const a = await activeModels(dir);
+    expect(a).toMatchObject({ source: "machine", choice: { pack: "quality", variant: second } });
+    expect(a.embedding?.entry.id).toBe(second.embedding);
+    expect(a.reranker?.entry.id).toBe(second.reranker);
+  });
+
+  it("names missing only what is not on this PC: a reranker that is here is never asked for", async () => {
+    installed.add("bge-m3-q8");
+    installed.add("qwen3-reranker-4b-q8");
+    const quality = { embedding: "qwen3-embedding-8b-q4", reranker: "qwen3-reranker-4b-q8" };
+    setActiveChoice(dir, { pack: "quality", variant: quality });
+    const a = await activeModels(dir);
+    expect(a.source).toBe("light");
+    expect(a.missing).toEqual([quality.embedding]);
   });
 
   it("keeps the variant chosen with the pack while its models are here, whatever a fresh resolution would pick", async () => {
