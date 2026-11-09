@@ -4,8 +4,8 @@ import { readProject } from "../lib/project.ts";
 import { testExists } from "../lib/store.ts";
 import type { Effort } from "../types.ts";
 import { checkTests } from "./check.ts";
-import { proposeGenActions } from "./gen-actions.ts";
 import { genBoard } from "./gen-board.ts";
+import { proposeNext } from "./gen-next.ts";
 import { inCategoryOrder } from "./gen-reply.ts";
 import { type GenCheck, type GenResult, generateTests, toolStep } from "./generate.ts";
 import { readLedger } from "./ledger.ts";
@@ -26,7 +26,7 @@ export type ReviseResult = GenResult & { revised: string[] };
 
 // ponytail: the prompts a revision sends are built by the modules it calls — generateTests with what the generation
 // has (generate-add), runOnScope on several tests (ask-tests); tests/unit/core/claude/catalog.test.ts holds it to them
-export const promptsUsed = ["generate-add", "ask-tests"];
+export const promptsUsed = ["generate-add", "ask-tests", "gen-next"];
 
 // ponytail: a generation asked again — « change » runs edit-test on its tests (all, or the ones picked), « add » runs
 // a generation under the same id with what the user asks for and the tests it already has; either way the result is the
@@ -70,6 +70,7 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
   ctx.steps?.([
     { id: "write", label: "Change the tests" },
     { id: "check", label: "Check the changed tests" },
+    { id: "next", label: "Propose what is next" },
   ]);
   ctx.step?.("write");
   const p = readProject(project);
@@ -108,16 +109,13 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
   }
   if (!r.ok) ctx.log("error", r.summary);
   const skipped = inCategoryOrder(ledger.skipped ?? []);
-  proposeGenActions(
-    project,
-    input.generation,
-    {
-      tests: revised,
-      skipped: [],
-      by: { runId: r.runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
-    },
-    ctx.log,
-  );
+  await proposeNext(ctx, project, input.generation, {
+    tests: revised,
+    skipped: [],
+    by: { runId: r.runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
+    ask: r.ok,
+    revised: true,
+  });
   return {
     runId: r.runId,
     ok: r.ok,

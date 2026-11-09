@@ -15,6 +15,7 @@ import "./claude-check.ts";
 import "./claude-columns.ts";
 import "./claude-gen.ts";
 import "./claude-media.ts";
+import "./claude-next.ts";
 import "./claude-overview.ts";
 import "./claude-study.ts";
 import { mockHttp } from "./jira.ts";

@@ -48,6 +48,8 @@ export type AskInput = {
   effort?: Effort;
 };
 
+// ponytail: what anyone may ask after a generation — shown until Claude wrote this generation's own (gen.show
+// suggestions, at the end of its last run)
 const QUICK = [
   { label: "Add the negative paths", prompt: "Add the negative paths the documents describe and the tests leave out." },
   { label: "Split steps longer than 15", prompt: "Split a test longer than 15 steps where it splits cleanly." },
@@ -87,6 +89,7 @@ export function AskChanges({
   const fixes = useGenFixes(generation);
   const [reading, setReading] = useState(false);
   const request = shown.data?.request?.trim();
+  const suggestions = shown.data?.suggestions ?? [];
   const nothing = scope === "pick" && !picked.length ? "Pick the tests to change" : undefined;
   return (
     <section aria-label="Ask for changes" {...stylex.props(styles.pane)}>
@@ -126,7 +129,7 @@ export function AskChanges({
             if (v === "repick" || (v === "pick" && !picked.length)) setPicking(true);
             else setScope(v as Scope);
           }}
-          quickAsks={QUICK}
+          quickAsks={suggestions.length ? suggestions : QUICK}
           model={{
             value: choice.selected,
             shown: cap(model),

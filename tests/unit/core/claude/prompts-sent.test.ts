@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { triage } from "../../../../src/core/claude/actions.ts";
@@ -19,7 +19,7 @@ import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
 import type { Chunk } from "../../../../src/core/types.ts";
 import { writeContextMd } from "../../helpers/context.ts";
 import { call } from "../registry.ts";
-import { dir, fake, result, seen } from "./run-fakes.ts";
+import { after, dir, fake, result, seen } from "./run-fakes.ts";
 
 // ponytail: what each Claude run is sent, word for word, for one fixed input — recorded before the prompts became
 // templates (claude.prompts), so the refactor is proven to send the same text; a deliberate prompt change updates the
@@ -114,6 +114,42 @@ describe("the prompts the Claude runs send", () => {
       dir,
     );
     await expect(sent()).toMatchFileSnapshot(file("revise-doc"));
+  });
+
+  it("what is next after a generation: the tests it changed, their findings, the items not written", async () => {
+    setup();
+    mkdirSync(join(dir, ".testimus", "gen"), { recursive: true });
+    writeFileSync(
+      join(dir, ".testimus", "gen", "generate-1.json"),
+      JSON.stringify({
+        at: "2026-11-01T10:00:00.000Z",
+        input: { request: "Le sectionneur", docs: [D3], contexts: [], folder: "/Traction" },
+        runId: "run-1",
+        tests: [TEST, "LFRPS12-1398"],
+        consulted: [],
+        searched: [],
+        skipped: [{ item: "Manœuvre à distance", category: "Pas de source", why: "Aucun document ne la décrit." }],
+      }),
+    );
+    fake((s) =>
+      s.stdin.includes("edit-test skill")
+        ? {
+            during: () => {
+              const f = join(dir, "tests", TEST, "test.md");
+              writeFileSync(f, readFileSync(f, "utf8").replace("### Action\n\n", "### Action\n\nPuis : "));
+            },
+          }
+        : {},
+    );
+    await call(
+      "gen.revise",
+      { generation: "generate-1", request: "Précise les commandes", mode: "change", tests: [TEST] },
+      dir,
+    );
+    expect(after).toHaveLength(1);
+    await expect(
+      after[0].stdin.replaceAll(dir.replaceAll("\\", "/"), "<project>").replaceAll(dir, "<project>"),
+    ).toMatchFileSnapshot(file("gen-next"));
   });
 
   it("the semantic check and the fix of a test", async () => {

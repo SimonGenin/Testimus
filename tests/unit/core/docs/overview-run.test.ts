@@ -72,14 +72,29 @@ describe("the overview's run writes docs/OVERVIEW.md and nothing else", () => {
         "Edit(tests/**)",
         "Write(eval/**)",
         "Write(test-runs/**)",
-        "Edit(docs/*/**)",
+        `Edit(${root}/docs/SOSIE_211_D401-1_4/**)`,
+        `Write(${root}/docs/RECETTE_TCO_12-10/**)`,
         `Edit(${root}/README.md)`,
         `Write(${root}/docs/NOTES.md)`,
         `Write(${root}/exports/**)`,
       ]),
     );
-    expect(rules.filter((r) => /OVERVIEW|\(docs\/\*\*\)/.test(r))).toEqual([]);
+    expect(rules.filter((r) => /OVERVIEW|\(docs\/|docs\/\*/.test(r))).toEqual([]);
     expect(protectedRules([], "generate", P)).not.toContain("Edit(tests/**)");
+  });
+
+  it("says why when Claude leaves docs/OVERVIEW.md empty", async () => {
+    const P = fixtureCopy("overview-empty");
+    setOption(P, true);
+    const why = "I couldn't write docs/OVERVIEW.md: the permission settings block writes to the docs/ folder.";
+    env.spawnClaude = async (s) => {
+      if (!s.stdin.startsWith(OVERVIEW_MARKER)) return mockSpawnClaude(s);
+      const line = JSON.stringify({ type: "result", subtype: "success", is_error: false, result: why });
+      s.onLine?.(line);
+      return { code: 0, stdout: `${line}\n`, stderr: "" };
+    };
+    const err = await call("docs.overview", { mode: "full" }, P).catch((e: unknown) => e);
+    expect(String((err as Error).message)).toBe(`Claude left docs/OVERVIEW.md empty: ${why}`);
   });
 
   it("fails the job when one of its writes went elsewhere, and puts back what it wrote", async () => {

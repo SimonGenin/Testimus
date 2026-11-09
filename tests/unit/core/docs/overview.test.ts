@@ -238,8 +238,8 @@ describe("docs.overview after an import", () => {
 describe("who may write docs/OVERVIEW.md", () => {
   it("only the overview's own run, and no run through the commands", async () => {
     await import("../../../../src/core/commands/index.ts");
-    expect(protectedRules([], "overview")).toContain("Edit(docs/*/**)");
     expect(protectedRules([], "overview")).not.toContain("Edit(docs/**)");
+    expect(protectedRules([], "overview")).not.toContain("Edit(docs/*/**)");
     for (const kind of ["generate", "action", "chat"] as const) {
       expect(protectedRules([], kind)).toContain("Write(docs/**)");
       expect(mcpAccess(kind).deny).toEqual(

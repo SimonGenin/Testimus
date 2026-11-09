@@ -363,11 +363,12 @@ docs/<docId>/
   otherwise cost a Claude run on a colleague's subscription; the team turns it on in Settings › Claude or on its page);
   off, the file is neither written nor given to a run, and what is in it stays.
   - **Written by Claude only in its own run** (`docs.overview { mode: auto | full }`, a job, skill
-    `overview-documents`, `claude/overview.ts`): run kind `overview`, Edit/Write with `docs/*/**` refused instead of
-    `docs/**` (every other kind keeps `docs/**` refused), and `tests/**`, `eval/**` and every other entry of the
-    project root and file of `docs/` refused by name as they are when it starts (a deny rule cannot except one file:
-    this is the narrowest `--disallowedTools` allows), read-only MCP tools; `docs.overview` and `docs.overviewSave`
-    are off the `action` kind too. What a rule cannot close (a path created by the run, a name a rule cannot carry) is
+    `overview-documents`, `claude/overview.ts`): run kind `overview`, Edit/Write not refused on `docs/**` (every
+    other kind keeps it refused) but on every document folder and other file of `docs/` by name, on `tests/**`,
+    `eval/**` and on every other entry of the project root by name, as they are when it starts (a deny rule cannot
+    except one file: this is the narrowest `--disallowedTools` allows; never `docs/*/**`, which Claude Code reads as
+    covering `docs/OVERVIEW.md` too — the run of 2026-11-09 could not write it), read-only MCP tools;
+    `docs.overview` and `docs.overviewSave` are off the `action` kind too. What a rule cannot close (a path created by the run, a name a rule cannot carry) is
     checked after it (`claude/overview-scope.ts`): the files of the root and of `docs/` and every `tests/<id>/test.md`
     are kept in memory before the run; a successful Edit/Write of the run's own calls on any path but
     `docs/OVERVIEW.md` fails the job (`overview-outside`, the paths named), what was kept is put back, a new entry
@@ -703,14 +704,27 @@ after the frontmatter, so a review decision never makes findings stale.
   is on that test's card in the result (its title, its problem in two lines, Fix runs it in the dock, × dismisses it;
   running and failed say so), the result's head counts them with « Show only these n »; beside the ask, « Claude
   proposes » counts them and lists what is proposed on the generation itself (the categories not written, Run).
-- **The core proposes actions after a generation** (`claude/gen-actions.ts`, at the end of `gen.tests` and
-  `gen.revise`): one per test of the generation with errors or warnings (« Fix the 2 errors in « summary » », where
-  `test:<id>`, stale once the test changes) and one per category of tests not written (« Write the 2 tests skipped for
-  « category » », where `gen:<generation>`, stale once the generation's skipped items change — its stamp is the
-  ledger's existence and its skipped items only: a test of it deleted, or a generation that wrote none, leaves the
-  action as it was); « Stopped before it was written » is resumed, never acted on. They are ordinary `actions.*`:
-  deduplicated per problem, dismissed for good, run in the dock, snapshotted. Proposing them never fails the
-  generation: an action that cannot be proposed is a warning in the job's log.
+- **Claude says what is next after a generation** (`claude/gen-next.ts`, decided on 2026-11-09, at the end of
+  `gen.tests` and `gen.revise`, the job's last step « Propose what is next »): one run (template `gen-next`, marker
+  « Testimus after a generation ») reads the tests this run wrote or changed — those with findings whole, with their
+  findings, the others whole while the prompt stays under ~60 000 characters, then by summary — the request and the
+  items not written, calls no tool, and answers one fenced `gen-next` block: `fixes` (per test with findings, at most
+  3: a title that says the change — « Add EXI_MOP_CDC_365_1640 to steps 6 and 10 » —, its problem, why, plan, the
+  model and effort the fix needs) and `suggestions` (3 to 5 requests that fit these tests: `{ label, prompt, scope?:
+  "add" }`). Its fixes become ordinary `actions.*` on `test:<id>` (proposed by the core, `proposedBy.run` « after
+  generation »: deduplicated per problem, dismissed for good, stale once the test changes); a fix on a test that is not
+  this run's, or has no finding, is dropped. Its suggestions are kept in the generation's ledger (`suggestions`,
+  replaced by the next run that writes some, carried by an *add*), given by `gen.show`, and are the « Suggestions »
+  menu of Ask for changes; the fixed list (Add the negative paths…) is shown while a generation has none. **Sober**:
+  Sonnet, effort low, after every generation — measured on 2026-11-09 at $0.15 for two tests (most of it Claude Code's
+  own context), said in the job's log: « Claude proposed 3 fixes and 4 suggestions (sonnet, low effort: $0.15) ». **The core's rules are the fallback** (`claude/gen-actions.ts`):
+  when the run fails, its reply has no block, Claude is away or the generation failed or was cancelled (Claude is then
+  not asked), each test with errors or warnings gets « Fix the 2 errors in « summary » », and so does a test with
+  findings Claude left without a fix; the tests not written are always the core's: one action per category (« Write
+  the 2 tests skipped for « category » », where `gen:<generation>`, stale once the generation's skipped items change —
+  its stamp is the ledger's existence and its skipped items only: a test of it deleted, or a generation that wrote
+  none, leaves the action as it was); « Stopped before it was written » is resumed, never acted on. Proposing never
+  fails the generation: an action that cannot be proposed is a warning in the job's log.
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
   of `doc.md` mapped to sections, figure images) and what it searched. `gen.bench` scores agentic recall from it and a
@@ -875,9 +889,10 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   run, Jira writes and the machine. Everything else goes to `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
   `.mcp.json`, `CLAUDE.md`, `test-runs/**`; the writes of `runs.*` are off every run kind, `action` included (§9b).
-  The `overview` kind (§5) is the one run that may write a file under `docs/`: `docs/OVERVIEW.md`, its rule being
-  `docs/*/**` instead of `docs/**`, plus `tests/**`, `eval/**` and every other entry of the project root and file of
-  `docs/` by name (absolute rules, as the run starts); a write elsewhere that got through fails its job and is undone
+  The `overview` kind (§5) is the one run that may write a file under `docs/`, `docs/OVERVIEW.md`: instead of
+  `docs/**`, every document folder and other file of `docs/` by name, plus `tests/**`, `eval/**` and every other entry of the
+  project root by name (absolute rules, as the run starts; Claude Code honours the `Edit(…)` rules for every file
+  tool, the `Write(…)` ones are kept for older versions); a write elsewhere that got through fails its job and is undone
   (`claude/overview-scope.ts`).
 - **Snapshots and Revert** (`claude/snapshot.ts`): a run that may edit records `.testimus/runs/<runId>/run.json` (who,
   model, effort, job) and copies of what it may change (tests, and for actions project.json, xray.json and the document
@@ -888,8 +903,8 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   `rag_related`.
 - **Contexts**: a run on a test attaches its own list (`local.json`) else the project's `claude.contexts`; ids whose
   folder is gone drop out.
-- **Claude actions** (`actions.*`, `.testimus/actions/`): proposals from the check, the generation and triage, and from
-  the core itself after a generation (§8), shown beside the problem they fix; stale when the problem's place (`where`:
+- **Claude actions** (`actions.*`, `.testimus/actions/`): proposals from the check, the generation and triage, and after
+  a generation from its « what is next » run or the core's own rules (§8), shown beside the problem they fix; stale when the problem's place (`where`:
   `doc:`, `test:`, `job:`, `gen:<generation>` or `project`) changes; one open action per problem; dismissed stays
   dismissed. `actions.list { generation }` gives a generation's own and its tests'. A Claude action never starts
   `gen.revise`. `actions.run` refuses an action whose test, document, generation or job is gone (code `action-gone`,

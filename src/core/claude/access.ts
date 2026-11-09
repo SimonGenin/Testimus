@@ -142,12 +142,12 @@ export function absRule(dir: string): string {
   return `/${m ? `/${m[1].toLowerCase()}${m[2]}` : p}`.replace(/\/+$/, "");
 }
 
-// ponytail: only the overview's own run may write docs/OVERVIEW.md — for it every document's folder stays closed
-// (docs/*/**), for every other run all of docs/ does
+// ponytail: only the overview's own run may write docs/OVERVIEW.md — for it every document's folder stays closed by
+// name, for every other run all of docs/ does. Not docs/*/**: Claude Code reads it as covering docs/OVERVIEW.md too
 export function protectedRules(addDirs: string[] = [], kind?: RunKind, project?: string): string[] {
   const own =
     kind === "overview"
-      ? [...PROTECTED.map((p) => (p === "docs/**" ? "docs/*/**" : p)), ...OVERVIEW_CLOSED, ...closedByName(project)]
+      ? [...PROTECTED.filter((p) => p !== "docs/**"), ...OVERVIEW_CLOSED, ...closedByName(project)]
       : PROTECTED;
   const paths = [...own, ...addDirs.map((d) => `${absRule(d)}/**`)];
   return paths.flatMap((p) => [`Edit(${p})`, `Write(${p})`]);
@@ -157,7 +157,7 @@ const OVERVIEW_CLOSED = ["tests/**", "eval/**"];
 const NAMED = new Set([...PROTECTED, ...OVERVIEW_CLOSED].map((p) => p.split("/")[0]));
 
 // ponytail: a deny rule cannot except one file, so the overview's run gets every other entry of the project root and
-// every other file of docs/ closed by name, as they are when it starts — what it could still create is undone after the
+// of docs/ closed by name, as they are when it starts — what it could still create is undone after the
 // run (claude/overview-scope.ts). A name a rule cannot carry (a comma, a bracket, a glob character) is left to that too
 function closedByName(project?: string): string[] {
   if (!project) return [];
@@ -175,7 +175,7 @@ function closedByName(project?: string): string[] {
       .filter((e) => !NAMED.has(e.name) && e.name !== "docs")
       .map((e) => (e.isDirectory() ? `${root}/${e.name}/**` : `${root}/${e.name}`)),
     ...list("docs")
-      .filter((e) => !e.isDirectory() && e.name !== "OVERVIEW.md")
-      .map((e) => `${root}/docs/${e.name}`),
+      .filter((e) => e.name !== "OVERVIEW.md")
+      .map((e) => (e.isDirectory() ? `${root}/docs/${e.name}/**` : `${root}/docs/${e.name}`)),
   ];
 }

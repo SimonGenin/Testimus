@@ -252,7 +252,11 @@ export async function writeOverviewRun(
   }
   if (!r.ok) throw new UserError(`Claude did not ${mode === "full" ? "write" : "update"} the overview: ${r.summary}`);
   const after = readOverview(project);
-  if (!after.body.trim()) throw new UserError(`Claude left ${OVERVIEW_PATH} empty.`, "Update it again.");
+  if (!after.body.trim())
+    throw new UserError(
+      `Claude left ${OVERVIEW_PATH} empty${r.summary.trim() ? `: ${r.summary.trim()}` : "."}`,
+      "Update it again.",
+    );
   const was = sectionsOf(before.body);
   const is = sectionsOf(after.body);
   const warnings = mode === "auto" ? overviewWarnings(was, is, changes) : [];

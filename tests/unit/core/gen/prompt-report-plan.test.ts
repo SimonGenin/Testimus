@@ -21,6 +21,7 @@ import { readTest } from "../../../../src/core/lib/store.ts";
 import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-gen.ts";
 import type { JobEvent } from "../../../../src/core/types.ts";
+import { afterGenOut, isAfterGen } from "../../helpers/after-gen.ts";
 import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -72,6 +73,7 @@ Le menu propose Ouvrir, Fermer et Propriétés.
 
 function fake(lines: (s: ClaudeSpawn) => string[], during?: (s: ClaudeSpawn) => void) {
   env.spawnClaude = async (s): Promise<ClaudeOut> => {
+    if (isAfterGen(s)) return afterGenOut(s);
     seen.push(s);
     during?.(s);
     const ls = lines(s);
@@ -389,6 +391,7 @@ describe("planned generation", () => {
     let active = 0;
     const most = { n: 0 };
     env.spawnClaude = async (s): Promise<ClaudeOut> => {
+      if (isAfterGen(s)) return afterGenOut(s);
       seen.push(s);
       const k = nthOf(s);
       if (!k) {

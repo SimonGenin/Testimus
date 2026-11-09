@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach } from "vitest";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
+import { afterGenOut, isAfterGen } from "../../helpers/after-gen.ts";
 import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
 
 // ponytail: the fake claude and the fixture copy the Claude-run tests share (one project per test)
@@ -13,6 +14,8 @@ export const win = process.platform === "win32";
 
 export let dir: string;
 export let seen: ClaudeSpawn[] = [];
+/** the runs after a generation (claude/gen-next.ts), kept apart from `seen` */
+export let after: ClaudeSpawn[] = [];
 
 export const line = (m: unknown) => JSON.stringify(m);
 export const tool = (name: string, input: unknown, id = `t-${Math.random().toString(16).slice(2)}`) =>
@@ -34,6 +37,10 @@ export type Script = {
 export function fake(pick: (s: ClaudeSpawn) => Script) {
   env.spawnClaude = async (s) => {
     if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
+    if (isAfterGen(s)) {
+      after.push(s);
+      return afterGenOut(s);
+    }
     seen.push(s);
     const sc = pick(s);
     sc.during?.(s);
@@ -59,6 +66,7 @@ beforeEach(() => {
   markIndexed(dir);
   writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
   seen = [];
+  after = [];
 });
 afterEach(() => {
   env.spawnClaude = real;

@@ -63,6 +63,7 @@ function done() {
     request: "Le sectionneur",
     tests: [A, B],
     skipped: [],
+    suggestions: [],
   });
   api.routes["actions.list"] = () => [
     {
@@ -231,5 +232,30 @@ describe("Generate › Ask for changes", () => {
       mode: "add",
       request: "Write tests for the items not written, where a source now supports them.",
     });
+  });
+
+  it("the Suggestions are the ones Claude wrote for this generation when it wrote some", async () => {
+    done();
+    const shown = api.routes["gen.show"];
+    api.routes["gen.show"] = (input) => ({
+      ...(shown(input) as object),
+      suggestions: [
+        { label: "Add the faulty TK cases", prompt: "Add tests where the TK is faulty.", scope: "add" },
+        { label: "Check each command of the menu", prompt: "Check every command of the menu against §5.6.6." },
+      ],
+    });
+    mountData(<GenerateScreen />);
+    const ask = await screen.findByRole("region", { name: "Ask for changes" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Suggestions" }));
+    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual([
+      expect.stringMatching(/^Add the faulty TK cases/),
+      expect.stringMatching(/^Check each command of the menu/),
+    ]);
+    expect(screen.queryByRole("menuitem", { name: /^Cover the skipped items/ })).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Add the faulty TK cases/ }));
+    expect(within(ask).getByRole("combobox", { name: "Scope" })).toHaveTextContent("New tests");
+    fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
+    await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
+    expect(named("gen.revise")[0].input).toMatchObject({ mode: "add", request: "Add tests where the TK is faulty." });
   });
 });

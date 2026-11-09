@@ -177,6 +177,17 @@ export const commands = [
           }),
         )
         .describe("What it could not write a test for"),
+      suggestions: z
+        .array(
+          z.object({
+            label: z.string().describe("The menu entry: a verb first, a few words"),
+            prompt: z.string().describe("The request it writes in Ask for changes"),
+            scope: z.literal("add").optional().describe("add = new tests under the generation; absent = a change"),
+          }),
+        )
+        .describe(
+          "What Claude proposed to ask next about this generation, written at the end of its last run (empty: none yet)",
+        ),
     }),
     mutates: false,
     positional: ["generation"],
@@ -195,6 +206,7 @@ export const commands = [
         ...(l.at ? { at: l.at } : {}),
         tests: (l.tests ?? []).filter((id) => testExists(project, id)),
         skipped: inCategoryOrder(l.skipped ?? []).map(({ item, category, why }) => ({ item, category, why })),
+        suggestions: l.suggestions ?? [],
       };
     },
   }),

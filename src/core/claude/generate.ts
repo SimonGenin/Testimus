@@ -18,9 +18,9 @@ import {
 } from "../lib/store.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type GenTestProgress, type Tokens } from "../types.ts";
 import { checkTests } from "./check.ts";
-import { proposeGenActions } from "./gen-actions.ts";
 import { addPart, mergeSkipped, readPrior } from "./gen-again.ts";
 import { genBoard, type Lane } from "./gen-board.ts";
+import { proposeNext } from "./gen-next.ts";
 import { categoriesOf, checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
 import { type GenReport, inCategoryOrder, parseGenReport, parsePlan, type Skipped, STOPPED } from "./gen-reply.ts";
 import { ledgerOf, readLedger, writeLedger } from "./ledger.ts";
@@ -216,6 +216,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     ...(prior ? [] : [{ id: "read", label: "Read the sources" }]),
     { id: "write", label: "Write the tests" },
     ...(input.check !== false ? [{ id: "check", label: "Check the new tests" }] : []),
+    { id: "next", label: "Propose what is next" },
   ]);
   if (!prior) ctx.step?.("read");
   ctx.progress({ message: "Reading passages" });
@@ -309,6 +310,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     consulted,
     searched,
     ...(base?.plan ? { plan: base.plan, done: base.done ?? [] } : {}),
+    ...(base?.suggestions ? { suggestions: base.suggestions } : {}),
     ...(ownPlan ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
   };
   writeLedger(project, by, { at, input: asked0, runId, ...kept });
@@ -391,16 +393,12 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     ...kept,
     reportedConsulted: union(reports.map((r) => r.consulted)),
   });
-  proposeGenActions(
-    project,
-    by,
-    {
-      tests,
-      skipped: result.skipped,
-      by: { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
-    },
-    ctx.log,
-  );
+  await proposeNext(ctx, project, by, {
+    tests,
+    skipped: result.skipped,
+    by: { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
+    ask: !failed,
+  });
   ctx.progress({ message: `${tests.length} test(s) written`, done: tests.length, total: tests.length });
   return result;
 }

@@ -128,14 +128,20 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
     proposes.getByText("Write the 2 tests skipped for « Pas de source pour le résultat attendu »"),
   ).toBeVisible();
   await expect(proposes).toContainText(/\d+ fix(es)? on \d+ tests?, each on its test at the right/);
-  await expect(ask.getByRole("button", { name: /^Fix the \d+/ })).toHaveCount(0);
+  const claudes = /^(Add the TK case|List the commands|Source or drop)/;
+  await expect(ask.getByRole("button", { name: claudes })).toHaveCount(0);
   const onCards = page
     .getByRole("region", { name: "Tests written" })
     .getByRole("list", { name: "Fixes Claude proposes" });
-  await expect(onCards.first()).toContainText(/^Fix the \d+ (error|warning)s? in « Sectionneur/);
-  await expect(onCards.first().getByRole("button", { name: "Fix", exact: true })).toBeVisible();
+  await expect(onCards.first()).toContainText(claudes);
+  await expect(onCards.first()).not.toContainText(/Fix the \d+/);
+  await expect(onCards.first().getByRole("button", { name: "Fix", exact: true }).first()).toBeVisible();
   await ask.getByRole("combobox", { name: "Scope" }).click();
   await expect(page.getByRole("option", { name: /^The \d+ with a fix$/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await ask.getByRole("button", { name: "Suggestions" }).click();
+  await expect(page.getByRole("menuitem", { name: /^Add the faulty TK cases/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /^Split steps longer than 15/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await shoot(page, "generate-ask");
 

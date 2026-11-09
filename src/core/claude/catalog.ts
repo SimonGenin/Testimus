@@ -10,6 +10,7 @@ import { prompts as columns } from "./columns.ts";
 import { prompts as comment } from "./comment.ts";
 import { prompts as figures } from "./figures.ts";
 import { prompts as fix } from "./fix.ts";
+import { prompts as genNext } from "./gen-next.ts";
 import { prompts as generate } from "./generate.ts";
 import { prompts as headers } from "./headers.ts";
 import { prompts as media } from "./media.ts";
@@ -54,6 +55,7 @@ const CONTEXTS: PromptTemplate = {
 // here fails tests/unit/core/claude/catalog.test.ts
 export const BUILT: PromptTemplate[] = [
   ...generate,
+  ...genNext,
   ...check,
   ...fix,
   ...scoped,

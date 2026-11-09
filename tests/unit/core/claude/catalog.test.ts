@@ -169,6 +169,7 @@ describe("claude.prompts lists everything Claude is given", () => {
       "built",
       "built",
       "built",
+      "built",
     ]);
     expect(out.filter((p) => p.group === "Every run").map((p) => p.id)).toEqual([
       "file:CLAUDE.md",

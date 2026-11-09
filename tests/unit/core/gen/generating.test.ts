@@ -9,6 +9,7 @@ import { projectOverview } from "../../../../src/core/lib/project-info.ts";
 import { holdNewTests, listLocalTests, writeTest } from "../../../../src/core/lib/store.ts";
 import { parseTest } from "../../../../src/core/lib/testfile.ts";
 import { testsCorpus } from "../../../../src/core/search/tests.ts";
+import { afterGenOut, isAfterGen } from "../../helpers/after-gen.ts";
 import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -53,6 +54,7 @@ describe("a running generation holds its tests", () => {
   it("gen.tests: Claude's test is nowhere but in Generate's list until the generation ends", async () => {
     const at: Record<string, unknown> = {};
     env.spawnClaude = async (s): Promise<ClaudeOut> => {
+      if (isAfterGen(s)) return afterGenOut(s);
       mkdirSync(join(s.cwd, "tests", "local-0000beef"), { recursive: true });
       const md = readFileSync(join(s.cwd, "tests", "local-3f9a12c0", "test.md"), "utf8");
       writeFileSync(

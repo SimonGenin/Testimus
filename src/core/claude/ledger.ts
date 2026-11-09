@@ -23,7 +23,11 @@ export type GenLedger = Ledger & {
   done?: number[];
   reportedConsulted?: string[];
   skipped?: Skipped[];
+  suggestions?: Suggestion[];
 };
+
+// ponytail: what Claude proposes to ask next about the generation (Generate's Suggestions), written by gen-next.ts
+export type Suggestion = { label: string; prompt: string; scope?: "add" };
 
 const genLedgerFile = (project: string, generation: string) => join(project, ".testimus", "gen", `${generation}.json`);
 
@@ -136,7 +140,30 @@ export function readLedger(project: string, jobId: string | undefined): (GenLedg
     ...(Array.isArray(l.done) ? { done: l.done.filter((n): n is number => typeof n === "number") } : {}),
     ...(Array.isArray(l.reportedConsulted) ? { reportedConsulted: strings(l.reportedConsulted) } : {}),
     ...(Array.isArray(l.skipped) ? { skipped: asSkipped(l.skipped) } : {}),
+    ...(Array.isArray(l.suggestions) ? { suggestions: asSuggestions(l.suggestions) } : {}),
   };
+}
+
+function asSuggestions(v: unknown[]): Suggestion[] {
+  const out: Suggestion[] = [];
+  for (const u of v) {
+    if (!u || typeof u !== "object") continue;
+    const o = u as Record<string, unknown>;
+    if (typeof o.label !== "string" || typeof o.prompt !== "string" || !o.label.trim() || !o.prompt.trim()) continue;
+    out.push({
+      label: o.label.trim(),
+      prompt: o.prompt.trim(),
+      ...(o.scope === "add" ? { scope: "add" as const } : {}),
+    });
+  }
+  return out;
+}
+
+// ponytail: the generation's suggestions are the last ones Claude wrote — the rest of its ledger is kept as it is
+export function setSuggestions(project: string, generation: string, suggestions: Suggestion[]): void {
+  const file = genLedgerFile(project, generation);
+  const l = readJson<Record<string, unknown> | null>(file, null);
+  if (l) writeJson(file, { ...l, suggestions });
 }
 
 // ponytail: a section counts as read when it, or a section above it, was opened — a passage or a Read of §5.6
