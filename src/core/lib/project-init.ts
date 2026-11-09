@@ -15,12 +15,22 @@ import { shipTemplate, templateDir } from "./shipped.ts";
 
 const FOLDERS = ["docs", "tests", "contexts"];
 
-// ponytail: a new project starts with Xray Editor's one quick ask, edited or removed in Settings › Claude
+// ponytail: a new project starts with these quick asks, edited or removed in Settings › Claude
 export const STARTER_ASKS = [
   {
-    label: "Rephrase in house style",
+    label: "One action per step",
     prompt:
-      "Rephrase the text in the house style: short imperative sentences, the actor prefix line kept as it is, one ◼ bullet per action. Keep the meaning and the images.",
+      "Split every step that does more than one thing into separate steps, each with one action and the result it gives. Keep the order, the sources and the images; change nothing else.",
+  },
+  {
+    label: "Checkable results",
+    prompt:
+      "Make every expected result something a tester can see and tick off: the exact value, message, indicator or state, as the sources give it. Replace vague results such as « works correctly » or « is OK ». Where the sources do not say what to expect, leave the step as it is and tell me which.",
+  },
+  {
+    label: "Missing cases",
+    prompt:
+      "Check this test against its sources and add what it misses: limits, invalid inputs, error and degraded cases the documents describe, each with its source. Add nothing the documents do not say, and list what you added.",
   },
 ];
 

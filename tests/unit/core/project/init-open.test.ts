@@ -44,7 +44,7 @@ describe("project.init", () => {
     expect(readSettings().projects[0]).toBe(dir);
   });
 
-  it("starts an empty folder with Data shown when filled and the starter quick ask", async () => {
+  it("starts an empty folder with Data shown when filled and the starter quick asks", async () => {
     const dir = tmp("testimus-init-empty-");
     await invoke("project.init", { dir }, { project: null });
     const xray = JSON.parse(readFileSync(join(dir, "xray.json"), "utf8"));
@@ -56,7 +56,11 @@ describe("project.init", () => {
     ).toEqual(["Data"]);
     const project = JSON.parse(readFileSync(join(dir, "project.json"), "utf8"));
     expect(project.claude.presets).toEqual(STARTER_ASKS);
-    expect(project.claude.presets.map((p: { label: string }) => p.label)).toEqual(["Rephrase in house style"]);
+    expect(project.claude.presets.map((p: { label: string }) => p.label)).toEqual([
+      "One action per step",
+      "Checkable results",
+      "Missing cases",
+    ]);
   });
 
   it("never overwrites the team's CLAUDE.md nor an existing project.json", async () => {
