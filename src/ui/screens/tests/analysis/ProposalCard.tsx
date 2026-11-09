@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../../core/types.ts";
 import { Badge, PROPOSAL } from "../../../components/ui/Badge.tsx";
+import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
 import { TextDiff } from "../../../components/ui/TextDiff.tsx";
@@ -96,6 +97,11 @@ export function ProposalCard({
         )}
         {sources}
         <p {...stylex.props(type.small, styles.why)}>{p.why}</p>
+        {p.drops?.length ? (
+          <Banner tone="warning" compact>
+            Also takes out what the team entered: {p.drops.map((d) => `${d.item} (${d.column})`).join(", ")}.
+          </Banner>
+        ) : null}
         <div {...stylex.props(styles.foot)}>
           {p.stale ? <p {...stylex.props(type.small, styles.stale)}>{p.stale}</p> : null}
           <Button size="sm" label="Reject" disabled={locked || busy} onClick={() => onDecide("reject")} />

@@ -72,7 +72,8 @@ export type RecordIn = {
 };
 
 // what analysis.show adds: where each proposal lands in the test as it is now, or why it no longer applies
-export type ProposalView = Proposal & { cites: Source[]; now?: number; stale?: string };
+export type ProposalView = Proposal & { cites: Source[]; now?: number; stale?: string; drops?: Dropped[] };
+export type Dropped = { column: string; item: string };
 export type AnalysisView = Omit<AnalysisFile, "proposals"> & { proposals: ProposalView[]; changed: boolean };
 
 const fileOf = (project: string, id: string) => join(testDir(project, id), "analysis.json");
@@ -304,6 +305,12 @@ function placeOf(test: Test, a: AnalysisFile, p: Proposal): { at: number } | { s
 
 export function viewOf(project: string, id: string, a: AnalysisFile): AnalysisView {
   const { test, md } = readTest(project, id);
+  const kept = [...rolesOf(project, test, a.columns)].flatMap(([k, r]) => (r === "keep" ? [k] : []));
+  // ponytail: a step taken out takes the team's items with it — said on the proposal, never silently
+  const dropsOf = (s: Step): Dropped[] =>
+    Object.entries(s.fields).flatMap(([column, v]) =>
+      kept.includes(column.toLowerCase()) ? itemsOf(v).map((item) => ({ column, item })) : [],
+    );
   return {
     ...a,
     changed: testMdHash(md) !== a.testHash,
@@ -314,9 +321,9 @@ export function viewOf(project: string, id: string, a: AnalysisFile): AnalysisVi
       });
       if (p.state !== "open") return { ...p, cites };
       const at = placeOf(test, a, p);
-      return "stale" in at
-        ? { ...p, cites, stale: at.stale }
-        : { ...p, cites, now: p.kind === "step" ? at.at : at.at + 1 };
+      if ("stale" in at) return { ...p, cites, stale: at.stale };
+      const drops = p.kind === "remove" ? dropsOf(test.steps[at.at]) : [];
+      return { ...p, cites, now: p.kind === "step" ? at.at : at.at + 1, ...(drops.length ? { drops } : {}) };
     }),
   };
 }

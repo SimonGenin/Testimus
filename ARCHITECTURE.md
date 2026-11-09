@@ -783,7 +783,9 @@ nothing**: it records proposals and the team decides each one.
 - **Where a proposal lands now**: a step is found again by its Xray id, else by its fields as analysed (`steps[].print`,
   the nearest when several match); accepting a change updates that print, a removal marks the step `gone`.
   `analysis.show` gives each open proposal its place now (`now`) or why it no longer applies (`stale`: the step changed
-  or was removed, the cell changed since). The test stays editable while Claude reads.
+  or was removed, the cell changed since), and a step to remove the items of `keep` columns it takes out with it
+  (`drops`, shown on its card: seen in the first real run, where Claude proposed removing a step that carried a
+  requirement typed by hand). The test stays editable while Claude reads.
 - `analysis.decide { id, proposals, decision: accept | reject | reopen }`: accept writes test.md at once, in the order
   given, refusing the whole call (code `stale`) when one no longer applies; an accepted proposal is an ordinary edit
   (undone in the editor, never « rejected »); the review state is untouched — the person accepted each change.

@@ -208,6 +208,29 @@ describe("the analysis pane", () => {
     expect(screen.getByText("Codes saisis par l'équipe.")).toBeInTheDocument();
   });
 
+  it("a step to remove says which of the team's items go with it", async () => {
+    analysis = {
+      ...base,
+      proposals: [
+        {
+          id: "p9",
+          kind: "remove",
+          title: "Retirer le step 2",
+          why: "Doublon.",
+          step: 2,
+          sources: [],
+          cites: [],
+          state: "open",
+          now: 2,
+          drops: [{ column: "Exigence", item: "EXI_2" }],
+        },
+      ],
+    };
+    withApp(<Harness />);
+    expect(await screen.findByText(/Also takes out what the team entered: EXI_2 \(Exigence\)/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove step" })).toBeInTheDocument();
+  });
+
   it("a test that matches the documents says so", async () => {
     analysis = { ...base, proposals: [], unfound: [] };
     withApp(<Harness />);

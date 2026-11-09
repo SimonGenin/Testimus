@@ -53,6 +53,10 @@ const PROPOSAL = z.object({
   decidedAt: z.string().optional().describe("When"),
   now: z.number().optional().describe("Where it lands in the test as it is now: its step, or for a new step its index"),
   stale: z.string().optional().describe("Why it no longer applies to the test as it is now"),
+  drops: z
+    .array(z.object({ column: z.string().describe("A column kept as written"), item: z.string().describe("The item") }))
+    .optional()
+    .describe("A step to remove: the items of the team's columns it takes out with it"),
 });
 
 const ANALYSIS = z.object({
@@ -160,7 +164,9 @@ export const commands = [
         .describe("Every proposal, [] when the test matches the documents"),
     }),
     output: ANALYSIS.omit({ changed: true, proposals: true }).extend({
-      proposals: z.array(PROPOSAL.omit({ now: true, stale: true, cites: true })).describe("The proposals recorded"),
+      proposals: z
+        .array(PROPOSAL.omit({ now: true, stale: true, cites: true, drops: true }))
+        .describe("The proposals recorded"),
     }),
     mutates: true,
     positional: ["id"],

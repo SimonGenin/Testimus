@@ -12,7 +12,15 @@ const D3 = "SOSIE_211_D401-1_3";
 const real = env.spawnClaude;
 let P = "";
 
-type Proposal = { id: string; kind: string; state: string; now?: number; stale?: string; before?: string };
+type Proposal = {
+  id: string;
+  kind: string;
+  state: string;
+  now?: number;
+  stale?: string;
+  before?: string;
+  drops?: { column: string; item: string }[];
+};
 type Analysis = {
   summary: string;
   changed: boolean;
@@ -113,6 +121,8 @@ describe("analysis.record — what Claude proposes is proven before it is kept",
       ["p4", "remove", "open", 5],
     ]);
     expect(a.proposals[1].before).toBe("EXI_MOP_SPF_511_A_1650");
+    expect(a.proposals[3].drops).toEqual([{ column: "Exigence", item: "EXI_MOP_SPF_511_A_1660" }]);
+    expect(a.proposals[0].drops).toBeUndefined();
     expect(a.changed).toBe(false);
   });
 
