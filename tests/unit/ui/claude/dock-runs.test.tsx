@@ -160,12 +160,13 @@ describe("dock run details", () => {
 });
 
 describe("dock contexts", () => {
-  it("lets a run leave a context out, import it back and add a note", async () => {
+  it("lets a run leave a context out and import it back, with no separate note", async () => {
     net.routes["contexts.list"] = () => [{ id: "g", name: "Glossaire", paths: [], files: [], hasNotes: true }];
     net.routes["contexts.ofTest"] = () => ({ effective: ["g", "orphan"] });
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
     mount({}, { focus: focus() });
     const chip = await screen.findByRole("button", { name: "Glossaire" });
+    fireEvent.change(box(), { target: { value: "" } });
     expect(chip).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "false");
@@ -175,11 +176,29 @@ describe("dock contexts", () => {
     fireEvent.click(pick);
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("menuitemcheckbox", { name: /Glossaire/ })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(screen.getByRole("menuitem", { name: "Add a note for this run" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Note for this run" }), { target: { value: " PCC " } });
+    expect(screen.queryByRole("menuitem", { name: /note/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Save the text as a context…" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     ask("Go");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
-    expect(callsOf("claude.run")[0].input).toMatchObject({ contexts: ["g"], note: "PCC" });
+    expect(callsOf("claude.run")[0].input).toMatchObject({ contexts: ["g"] });
+    expect(callsOf("claude.run")[0].input).not.toHaveProperty("note");
+  });
+
+  it("saves what is written in the box as a context and takes it for the run", async () => {
+    net.routes["contexts.list"] = () => [];
+    net.routes["contexts.ofTest"] = () => ({ effective: [] });
+    net.routes["contexts.create"] = (i) => ({ id: "pcc", name: i.name, paths: [], files: [], hasNotes: true });
+    mount({}, { focus: focus() });
+    fireEvent.change(await screen.findByRole("textbox", { name: /^Ask/ }), { target: { value: "PCC means Poste" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Save the text as a context…" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    await waitFor(() => expect(callsOf("contexts.create")).toHaveLength(1));
+    expect(callsOf("contexts.create")[0].input).toMatchObject({ name: "PCC means Poste", notes: "PCC means Poste" });
+    await waitFor(() => expect(box()).toHaveValue(""));
   });
 
   it("reads empty answers as no contexts", async () => {

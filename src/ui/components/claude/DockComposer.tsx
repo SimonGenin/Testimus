@@ -1,22 +1,15 @@
-import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import type { Effort } from "../../../core/types.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { contextLabel } from "../../lib/labels.ts";
-import { space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { ClaudeBlock } from "../ui/ClaudeBlock.tsx";
 import { Menu } from "../ui/Menu.tsx";
-import { Text } from "../ui/Text.tsx";
 import { ContextsDialog } from "./ContextsDialog.tsx";
 import type { ContextSummary } from "./contexts.ts";
 import { effortOptions, useModelChoice } from "./ModelPicker.tsx";
 import { SaveContext } from "./SaveContext.tsx";
-
-const styles = stylex.create({
-  extra: { display: "flex", flexDirection: "column", gap: space.s2, paddingInline: space.s3, paddingBottom: space.s2 },
-});
 
 export type RunContexts = {
   /** what the run reads unless changed here (the test's list, the project's); empty for the documents */
@@ -30,8 +23,8 @@ export const included = (c: RunContexts, id: string) => c.pick[id] ?? c.effectiv
 export const runIds = (c: RunContexts) =>
   [...new Set([...c.effective, ...Object.keys(c.pick)])].filter((id) => included(c, id));
 
-// ponytail: the dock's one box — the Claude block with this run's contexts, the quick asks, a note for this run, the
-// model and effort; the prompt and the note stay when the screen changes
+// ponytail: the dock's one box — the Claude block with this run's contexts, the quick asks, the model and effort; the
+// prompt stays when the screen changes, and what is written there can be saved as a context
 export function DockComposer({
   mode,
   label,
@@ -66,7 +59,7 @@ export function DockComposer({
   onModel: (m: string) => void;
   onEffort: (e: Effort) => void;
   onCancel?: () => void;
-  onSend: (prompt: string, note: string, quickAsk?: string) => void;
+  onSend: (prompt: string, quickAsk?: string) => void;
   keepAfterSend: boolean;
   /** a new value puts the caret in the box (a question handed over by the app) */
   focusKey: number;
@@ -77,8 +70,6 @@ export function DockComposer({
   }, [focusKey]);
   const p = project();
   const [prompt, setPrompt] = useDraft([p, "dock.prompt"]);
-  const [note, setNote] = useDraft([p, "dock.note"]);
-  const [noteOpen, setNoteOpen] = useState(false);
   const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
   const choice = useModelChoice(model, onModel);
   const shownIds = [
@@ -112,12 +103,14 @@ export function DockComposer({
                     keepOpen: true,
                     onSelect: () => toggle(c.id, !included(contexts, c.id)),
                   }))
-                : [{ note: "No saved context yet — write a note and save it as a context." }]),
+                : [{ note: "No saved context yet — write in the box and save the text as a context." }]),
               "separator",
-              ...(!noteOpen && !note.trim()
-                ? [{ label: "Add a note for this run", icon: "text" as const, onSelect: () => setNoteOpen(true) }]
-                : []),
-              { label: "Save the note as a context…", icon: "plus", onSelect: () => setDialog("save") },
+              {
+                label: "Save the text as a context…",
+                icon: "plus",
+                disabled: prompt.trim() ? false : "Write in the box first",
+                onSelect: () => setDialog("save"),
+              },
               { label: "Manage contexts…", icon: "settings", onSelect: () => setDialog("manage") },
               { note: "Ticked contexts go with this run only. The project's defaults are in Settings › Claude." },
             ]}
@@ -134,32 +127,16 @@ export function DockComposer({
         unavailable={unavailable}
         onSubmit={(text) => {
           const asked = quickAsks.find((q) => q.prompt === text)?.label;
-          onSend(text, note, asked);
+          onSend(text, asked);
           if (!keepAfterSend) setPrompt("");
         }}
-      >
-        {(noteOpen || !!note.trim()) && (
-          <div {...stylex.props(styles.extra)}>
-            <Text
-              multiline
-              size="sm"
-              ariaLabel="Note for this run"
-              placeholder="Anything Claude should know for this run…"
-              autoFocus={noteOpen && !note}
-              readOnly={running !== null}
-              value={note}
-              onChange={setNote}
-            />
-          </div>
-        )}
-      </ClaudeBlock>
+      />
       {dialog === "save" && (
         <SaveContext
-          note={note}
+          note={prompt}
           onSaved={(id) => {
             toggle(id, true);
-            setNote("");
-            setNoteOpen(false);
+            setPrompt("");
           }}
           onClose={() => setDialog(null)}
         />

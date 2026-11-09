@@ -134,16 +134,13 @@ export function ClaudeDock({
   }, [cfg?.model, cfg?.effort]);
 
   // a question to the documents — about the open one when it is the scope
-  const docsAgain = (q: string, n: string, onDoc: boolean): Again => ({
+  const docsAgain = (q: string, onDoc: boolean): Again => ({
     mode: "docs",
     text: q,
     model,
     effort,
     contexts: runIds(ctx),
-    note:
-      [onDoc ? `The question is about the document ${docId}: answer from docs/${docId}/doc.md first.` : "", n]
-        .filter(Boolean)
-        .join("\n") || undefined,
+    note: onDoc ? `The question is about the document ${docId}: answer from docs/${docId}/doc.md first.` : undefined,
     label: onDoc && docId ? docId : undefined,
   });
 
@@ -176,7 +173,7 @@ export function ClaudeDock({
     }
     const q = request.prompt?.trim();
     if (request.send && q && !busy && !offline) {
-      void runs.execute(docsAgain(q, "", !!docId));
+      void runs.execute(docsAgain(q, !!docId));
       return;
     }
     if (request.prompt !== undefined) setPrompt(request.prompt);
@@ -196,20 +193,18 @@ export function ClaudeDock({
 
   const docsMode = tab === "docs";
 
-  const send = (text: string, note: string, quickAsk?: string) => {
+  const send = (text: string, quickAsk?: string) => {
     const q = text.trim();
     // ponytail: on a test or the project an empty box still runs — the scope and the house rules are the request
     // (Xray Editor); a question to the documents needs words
     if ((!q && docsMode) || busy) return;
-    const n = note.trim();
     const a: Again = docsMode
-      ? docsAgain(q, n, sub === "doc" && !!docId)
+      ? docsAgain(q, sub === "doc" && !!docId)
       : {
           mode: "test",
           text: q,
           scope: where.scope,
           contexts: ctx.known || Object.keys(ctx.pick).length ? runIds(ctx) : undefined,
-          note: n || undefined,
           label: `${where.word}${quickAsk ? ` · ${quickAsk}` : ""}`,
           model,
           effort,
