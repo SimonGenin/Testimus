@@ -293,6 +293,24 @@ export const HEALTH = {
   info: { label: "Info", tone: "info", icon: "info" },
 } as const satisfies Record<string, Word>;
 
+// what one proposal of Claude's analysis of a test does, and where it stands (Tests › Analysis)
+export const PROPOSAL = {
+  source: { label: "Source", tone: "accent", icon: "quote" },
+  change: { label: "Change", tone: "warning", icon: "circle-dot", ink: "diffModified" },
+  step: { label: "New step", tone: "success", icon: "plus", ink: "diffAdded" },
+  remove: { label: "Remove", tone: "danger", icon: "trash", ink: "diffRemoved" },
+  accepted: { label: "Accepted", tone: "success", icon: "check" },
+  rejected: { label: "Rejected", tone: "neutral", icon: "close" },
+  stale: { label: "Out of date", tone: "warning", icon: "alert-triangle" },
+} as const satisfies Record<string, Word>;
+
+// how Claude's analysis treats a step column
+export const COLUMN_ROLE = {
+  keep: { label: "Kept as written", tone: "neutral", icon: "lock" },
+  open: { label: "Open to changes", tone: "claude" },
+  leave: { label: "Left empty", tone: "neutral", icon: "minus" },
+} as const satisfies Record<string, Word>;
+
 // ponytail: a Jira status is Jira's own word, so it is not a fixed list: its meaning is read from the word — done
 // (Done, Closed, Ready, Passed), under way (In progress, In review, Blocked), else waiting (To Do, Open) — one rule for
 // the tests list and the test's head

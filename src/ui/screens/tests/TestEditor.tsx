@@ -18,7 +18,9 @@ import { addedSteps } from "../../lib/marks.ts";
 import { usePref } from "../../lib/prefs.ts";
 import { takeJump } from "../../lib/search.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
+import { AnalysisPane } from "./analysis/AnalysisPane.tsx";
+import { useAnalysis } from "./analysis/useAnalysis.ts";
 import { type DeleteTarget, DeleteTest } from "./DeleteTest.tsx";
 import { CommentsCard } from "./editor/CommentsCard.tsx";
 import { RestoreConfirm, UndoConfirm } from "./editor/Confirms.tsx";
@@ -46,9 +48,10 @@ import type { WasFrom } from "./step/WasToggle.tsx";
 export type { TestShow };
 
 const styles = stylex.create({
+  split: { flex: 1, minWidth: 0, minHeight: 0, display: "flex" },
   editor: {
     flex: 1,
-    minWidth: 0,
+    minWidth: size.sidebar,
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
@@ -272,6 +275,13 @@ export function TestEditor({
     current: () => idRef.current,
   });
   const busyDl = actions.downloading;
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const analysis = useAnalysis(testId, {
+    save: () => doc.doc.saveNow(),
+    expect: () => doc.expect("analysis"),
+    reload: () => doc.reload("analysis"),
+  });
+  const toDecide = analysis.analysis?.proposals.filter((p) => p.state === "open").length ?? 0;
 
   if (doc.error)
     return (
@@ -358,284 +368,306 @@ export function TestEditor({
   const restoreMissing = dialog?.kind === "restore" ? dialog.base.images.filter((im) => !files.has(im.file)).length : 0;
 
   return (
-    <div {...stylex.props(styles.editor)}>
-      <EditorBar
-        lead={lead}
-        testKey={test.key}
-        folder={test.folder}
-        folders={folders}
-        status={doc.doc.status}
-        activity={busyDl ? "Refreshing from Jira…" : undefined}
-        claude={locked}
-        pushDisabled={pushDisabled}
-        menu={testMenu({ test, remote, dirty, busyDl, locked, actions })}
-        onFolders={() => {
-          setFoldersAsked(true);
-          if (foldersQ.isError) void foldersQ.refetch();
-        }}
-        onFolder={(f) => update((t) => ({ ...t, folder: f }))}
-        onRetry={() => void doc.doc.retry()}
-        onAsk={() => app.askClaude("test")}
-        onPush={() => void actions.askPush()}
-        editing={!!onBack}
-      />
-      <EditorColumn
-        width={width}
-        onWidth={setWidth}
-        inert={busy}
-        top={
-          <>
-            {check === "remote-changed" && !onBack && test.key && (
-              <JiraChanged
-                replacing={busyDl}
-                locked={locked}
-                keepOff={pushDisabled}
-                onCompare={compare}
-                onReplace={actions.askDownload}
-                onKeepMine={() => void actions.askPush()}
-              />
-            )}
-            <EditorBanners
-              busy={busy}
-              busyHere={busyHere}
-              marked={marked}
-              conflict={doc.doc.status === "conflict"}
-              revertConflict={actions.revertConflict}
-              onShowChanges={() => {
-                const first = test.steps.findIndex((s) => markOf(s));
-                if (first >= 0) showStep(first);
-              }}
-              onRevert={() => void actions.revertClaude()}
-              onForceRevert={() => void actions.revertClaude(true)}
-              onKeepRevert={() => actions.setRevertConflict(null)}
-              onReloadDisk={() => doc.doc.takeDisk()}
-              onKeepMine={() => void doc.doc.keepMine()}
-            />
-          </>
-        }
-      >
-        <SummaryCard
-          test={test}
-          sync={sync}
-          edited={data.edited}
-          dirty={dirty}
-          remote={check}
-          readOnly={busy}
-          saveState={lastEdited === "head" ? fieldSave : undefined}
-          jira={
-            test.key && jiraKey ? (
-              <JiraControls
-                testKey={test.key}
-                status={test.status}
-                assignee={test.assignee}
-                assigneeId={test.assigneeId}
-                readOnly={locked}
-                comments={commentsQ.data ? commentsQ.data.comments.length : null}
-                onComments={() =>
-                  document.getElementById("jira-comments")?.scrollIntoView?.({ behavior: "smooth", block: "start" })
-                }
-              />
-            ) : (
-              <JiraOff local={!test.key} status={test.status} assignee={test.assignee} assigneeId={test.assigneeId} />
-            )
-          }
-          onOpenKey={(k) => void actions.openInJira(k)}
-          update={update}
-        />
-        <DetailsCard
-          test={test}
-          remote={remote}
-          before={claudeRun?.test ?? null}
-          open={details}
-          readOnly={busy}
-          onOpen={setDetails}
-          onRestore={(from, was, fields) => {
-            if (refuseWhileClaude()) return;
-            update((t) => restoreDetails(t, was, fields));
-            toast({
-              tone: "success",
-              title: from === "claude" ? "Details put back as before Claude" : "Details back to Jira's version",
-              detail:
-                from === "claude"
-                  ? "As the test was before Claude's run."
-                  : "From the last sync — nothing was downloaded.",
-            });
+    <div {...stylex.props(styles.split)}>
+      <div {...stylex.props(styles.editor)}>
+        <EditorBar
+          lead={lead}
+          testKey={test.key}
+          folder={test.folder}
+          folders={folders}
+          status={doc.doc.status}
+          activity={busyDl ? "Refreshing from Jira…" : undefined}
+          claude={locked}
+          pushDisabled={pushDisabled}
+          menu={testMenu({ test, remote, dirty, busyDl, locked, actions })}
+          onFolders={() => {
+            setFoldersAsked(true);
+            if (foldersQ.isError) void foldersQ.refetch();
           }}
+          onFolder={(f) => update((t) => ({ ...t, folder: f }))}
+          onRetry={() => void doc.doc.retry()}
+          onAsk={() => app.askClaude("test")}
+          analysis={{
+            open: analysisOpen || !!analysis.running,
+            count: toDecide,
+            onToggle: () => setAnalysisOpen((o) => !o),
+          }}
+          onPush={() => void actions.askPush()}
+          editing={!!onBack}
+        />
+        <EditorColumn
+          width={width}
+          onWidth={setWidth}
+          inert={busy}
+          top={
+            <>
+              {check === "remote-changed" && !onBack && test.key && (
+                <JiraChanged
+                  replacing={busyDl}
+                  locked={locked}
+                  keepOff={pushDisabled}
+                  onCompare={compare}
+                  onReplace={actions.askDownload}
+                  onKeepMine={() => void actions.askPush()}
+                />
+              )}
+              <EditorBanners
+                busy={busy}
+                busyHere={busyHere}
+                marked={marked}
+                conflict={doc.doc.status === "conflict"}
+                revertConflict={actions.revertConflict}
+                onShowChanges={() => {
+                  const first = test.steps.findIndex((s) => markOf(s));
+                  if (first >= 0) showStep(first);
+                }}
+                onRevert={() => void actions.revertClaude()}
+                onForceRevert={() => void actions.revertClaude(true)}
+                onKeepRevert={() => actions.setRevertConflict(null)}
+                onReloadDisk={() => doc.doc.takeDisk()}
+                onKeepMine={() => void doc.doc.keepMine()}
+              />
+            </>
+          }
         >
-          <TestDetails
+          <SummaryCard
             test={test}
+            sync={sync}
+            edited={data.edited}
+            dirty={dirty}
+            remote={check}
             readOnly={busy}
             saveState={lastEdited === "head" ? fieldSave : undefined}
-            preconditions={preconditions}
-            contexts={contexts}
-            testContexts={testCtx}
+            jira={
+              test.key && jiraKey ? (
+                <JiraControls
+                  testKey={test.key}
+                  status={test.status}
+                  assignee={test.assignee}
+                  assigneeId={test.assigneeId}
+                  readOnly={locked}
+                  comments={commentsQ.data ? commentsQ.data.comments.length : null}
+                  onComments={() =>
+                    document.getElementById("jira-comments")?.scrollIntoView?.({ behavior: "smooth", block: "start" })
+                  }
+                />
+              ) : (
+                <JiraOff local={!test.key} status={test.status} assignee={test.assignee} assigneeId={test.assigneeId} />
+              )
+            }
+            onOpenKey={(k) => void actions.openInJira(k)}
             update={update}
-            onContexts={(ids) => void actions.setTestContexts(ids)}
-            onManageContexts={() => setDialog({ kind: "contexts" })}
           />
-        </DetailsCard>
-        {test.preconditions.length > 0 && (
-          <PreconditionList
-            keys={test.preconditions}
-            known={preconditions}
-            onOpen={(k) => void actions.openInJira(k)}
-          />
-        )}
-        <StepList
-          test={test}
-          testId={testId}
-          xray={xray}
-          linked={linked}
-          layout={layout as StepLayout}
-          projectModes={pModes}
-          testModes={testCols}
-          columns={cols}
-          gone={gone}
-          readOnly={busy}
-          focus={focus}
-          folded={folded}
-          saveState={fieldSave}
-          savedUid={typeof lastEdited === "number" ? lastEdited : -1}
-          uidOf={uids.uidOf}
-          markOf={(s, i) => {
-            const dm = diff?.marks[i];
-            const cm = cdiff?.marks[i];
-            const theirs = claudeRun?.untouched
-              ? cm === "new"
-                ? "added"
-                : cm === "modified"
-                  ? "changed"
-                  : undefined
-              : undefined;
-            return {
-              claude: markOf(s) ?? theirs,
-              diff: dm,
-              before: dm === "modified" ? remote?.steps.find((b) => b.id === s.id) : undefined,
-              claudeBefore: cm === "modified" ? cdiff?.was[i] : undefined,
-            };
-          }}
-          url={url}
-          addImage={(f) => uploadImage(testId, f)}
-          alive={alive}
-          onLayout={setLayout}
-          onProjectModes={(m) => void actions.setProjectModes(m)}
-          onTestModes={(m) => void actions.setTestModes(m)}
-          onPatch={patchByUid}
-          onFold={(uid, v) =>
-            setFolded((cur) => {
-              const next = new Set(cur);
-              if (v) next.add(uid);
-              else next.delete(uid);
-              return next;
-            })
-          }
-          onFocus={setFocusStep}
-          onMove={steps.move}
-          onInsert={steps.insert}
-          onDelete={(i) => steps.remove(i, alive())}
-          onReorder={steps.reorder}
-          onAsk={(i) => {
-            setFocusStep(i);
-            setFocus({ testId, key: test.key, summary: test.summary, step: i + 1 });
-            app.askClaude("step");
-          }}
-          onDraft={() =>
-            app.askClaude("test", "Draft the steps of this test from its description and the documents it cites.")
-          }
-          onRestore={(base, gone, n, from) =>
-            !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n, from })
-          }
-          onOpenImage={(file, images, step, column) =>
-            setLb({
-              images,
-              step,
-              column,
-              index: Math.max(
-                0,
-                images.findIndex((im) => im.file === file),
-              ),
-            })
-          }
-          onOpenSource={app.openSource}
-          onImageGone={actions.imageGone}
-        />
-        {test.key && jiraKey && (
-          <CommentsCard
-            testKey={test.key}
+          <DetailsCard
+            test={test}
+            remote={remote}
+            before={claudeRun?.test ?? null}
+            open={details}
             readOnly={busy}
-            onOpenInJira={() => void actions.openInJira(test.key as string)}
+            onOpen={setDetails}
+            onRestore={(from, was, fields) => {
+              if (refuseWhileClaude()) return;
+              update((t) => restoreDetails(t, was, fields));
+              toast({
+                tone: "success",
+                title: from === "claude" ? "Details put back as before Claude" : "Details back to Jira's version",
+                detail:
+                  from === "claude"
+                    ? "As the test was before Claude's run."
+                    : "From the last sync — nothing was downloaded.",
+              });
+            }}
+          >
+            <TestDetails
+              test={test}
+              readOnly={busy}
+              saveState={lastEdited === "head" ? fieldSave : undefined}
+              preconditions={preconditions}
+              contexts={contexts}
+              testContexts={testCtx}
+              update={update}
+              onContexts={(ids) => void actions.setTestContexts(ids)}
+              onManageContexts={() => setDialog({ kind: "contexts" })}
+            />
+          </DetailsCard>
+          {test.preconditions.length > 0 && (
+            <PreconditionList
+              keys={test.preconditions}
+              known={preconditions}
+              onOpen={(k) => void actions.openInJira(k)}
+            />
+          )}
+          <StepList
+            test={test}
+            testId={testId}
+            xray={xray}
+            linked={linked}
+            layout={layout as StepLayout}
+            projectModes={pModes}
+            testModes={testCols}
+            columns={cols}
+            gone={gone}
+            readOnly={busy}
+            focus={focus}
+            folded={folded}
+            saveState={fieldSave}
+            savedUid={typeof lastEdited === "number" ? lastEdited : -1}
+            uidOf={uids.uidOf}
+            markOf={(s, i) => {
+              const dm = diff?.marks[i];
+              const cm = cdiff?.marks[i];
+              const theirs = claudeRun?.untouched
+                ? cm === "new"
+                  ? "added"
+                  : cm === "modified"
+                    ? "changed"
+                    : undefined
+                : undefined;
+              return {
+                claude: markOf(s) ?? theirs,
+                diff: dm,
+                before: dm === "modified" ? remote?.steps.find((b) => b.id === s.id) : undefined,
+                claudeBefore: cm === "modified" ? cdiff?.was[i] : undefined,
+              };
+            }}
+            url={url}
+            addImage={(f) => uploadImage(testId, f)}
+            alive={alive}
+            onLayout={setLayout}
+            onProjectModes={(m) => void actions.setProjectModes(m)}
+            onTestModes={(m) => void actions.setTestModes(m)}
+            onPatch={patchByUid}
+            onFold={(uid, v) =>
+              setFolded((cur) => {
+                const next = new Set(cur);
+                if (v) next.add(uid);
+                else next.delete(uid);
+                return next;
+              })
+            }
+            onFocus={setFocusStep}
+            onMove={steps.move}
+            onInsert={steps.insert}
+            onDelete={(i) => steps.remove(i, alive())}
+            onReorder={steps.reorder}
+            onAsk={(i) => {
+              setFocusStep(i);
+              setFocus({ testId, key: test.key, summary: test.summary, step: i + 1 });
+              app.askClaude("step");
+            }}
+            onDraft={() =>
+              app.askClaude("test", "Draft the steps of this test from its description and the documents it cites.")
+            }
+            onRestore={(base, gone, n, from) =>
+              !refuseWhileClaude() && setDialog({ kind: "restore", base, gone, n, from })
+            }
+            onOpenImage={(file, images, step, column) =>
+              setLb({
+                images,
+                step,
+                column,
+                index: Math.max(
+                  0,
+                  images.findIndex((im) => im.file === file),
+                ),
+              })
+            }
+            onOpenSource={app.openSource}
+            onImageGone={actions.imageGone}
+          />
+          {test.key && jiraKey && (
+            <CommentsCard
+              testKey={test.key}
+              readOnly={busy}
+              onOpenInJira={() => void actions.openInJira(test.key as string)}
+            />
+          )}
+        </EditorColumn>
+        {pushing && (
+          <PushDialog
+            testId={testId}
+            testKey={test.key}
+            summary={test.summary}
+            review={test.review}
+            onClose={actions.pushClosed}
+            onDone={actions.pushDone}
+            onCompare={() => {
+              actions.pushClosed();
+              compare();
+            }}
           />
         )}
-      </EditorColumn>
-      {pushing && (
-        <PushDialog
-          testId={testId}
-          testKey={test.key}
-          summary={test.summary}
-          review={test.review}
-          onClose={actions.pushClosed}
-          onDone={actions.pushDone}
-          onCompare={() => {
-            actions.pushClosed();
-            compare();
+        {lb && lb.images.length > 0 && (
+          <Lightbox
+            names={lb.images.map((im) => im.file.split("/").pop() ?? im.file)}
+            urls={lb.images.map((im) => url(im.file))}
+            index={Math.min(lb.index, lb.images.length - 1)}
+            step={lb.step}
+            column={lb.column}
+            onIndex={(index) => setLb({ ...lb, index })}
+            onClose={() => setLb(null)}
+          />
+        )}
+        {actions.replaceDialog}
+        {dialog?.kind === "undo" && remote && (
+          <UndoConfirm loss={lossOf(test, remote)} onConfirm={actions.undoLocal} onClose={() => setDialog(null)} />
+        )}
+        {dialog?.kind === "restore" && (
+          <RestoreConfirm
+            from={dialog.from}
+            gone={!!dialog.gone}
+            n={dialog.n}
+            missing={restoreMissing}
+            onClose={() => setDialog(null)}
+            onConfirm={() => {
+              const d = dialog;
+              setDialog(null);
+              if (refuseWhileClaude()) return;
+              const claude = d.from === "claude";
+              update((t) => (claude ? restoreRunStep(t, d.base, d.gone, d.n) : restoreStep(t, d.base, d.gone)));
+              toast({
+                tone: "success",
+                title: d.gone
+                  ? "Deleted step restored"
+                  : `Step ${d.n} restored ${claude ? "as before Claude" : "from Jira"}`,
+                detail: claude
+                  ? "As the test was before Claude's run."
+                  : "From the last sync — nothing was downloaded.",
+              });
+            }}
+          />
+        )}
+        {dialog?.kind === "delete" && (
+          <DeleteTest
+            target={dialog.target}
+            onClose={() => setDialog(null)}
+            onDeleted={() => {
+              setDialog(null);
+              app.testsChanged();
+              app.navigate("tests");
+            }}
+          />
+        )}
+        {dialog?.kind === "contexts" && (
+          <ContextsDialog
+            onClose={() => {
+              setDialog(null);
+              void invalidate(client, [["contexts.list"], ["contexts.ofTest"], ["contexts.ofProject"]]);
+            }}
+          />
+        )}
+      </div>
+      {(analysisOpen || !!analysis.running) && (
+        <AnalysisPane
+          test={test}
+          state={analysis}
+          defaults={app.info?.project.claude ?? { model: "sonnet", effort: "medium" }}
+          locked={locked}
+          onSelect={(p) => {
+            if (p.now) showStep(p.kind === "step" ? Math.max(p.now - 1, 0) : p.now - 1);
           }}
-        />
-      )}
-      {lb && lb.images.length > 0 && (
-        <Lightbox
-          names={lb.images.map((im) => im.file.split("/").pop() ?? im.file)}
-          urls={lb.images.map((im) => url(im.file))}
-          index={Math.min(lb.index, lb.images.length - 1)}
-          step={lb.step}
-          column={lb.column}
-          onIndex={(index) => setLb({ ...lb, index })}
-          onClose={() => setLb(null)}
-        />
-      )}
-      {actions.replaceDialog}
-      {dialog?.kind === "undo" && remote && (
-        <UndoConfirm loss={lossOf(test, remote)} onConfirm={actions.undoLocal} onClose={() => setDialog(null)} />
-      )}
-      {dialog?.kind === "restore" && (
-        <RestoreConfirm
-          from={dialog.from}
-          gone={!!dialog.gone}
-          n={dialog.n}
-          missing={restoreMissing}
-          onClose={() => setDialog(null)}
-          onConfirm={() => {
-            const d = dialog;
-            setDialog(null);
-            if (refuseWhileClaude()) return;
-            const claude = d.from === "claude";
-            update((t) => (claude ? restoreRunStep(t, d.base, d.gone, d.n) : restoreStep(t, d.base, d.gone)));
-            toast({
-              tone: "success",
-              title: d.gone
-                ? "Deleted step restored"
-                : `Step ${d.n} restored ${claude ? "as before Claude" : "from Jira"}`,
-              detail: claude ? "As the test was before Claude's run." : "From the last sync — nothing was downloaded.",
-            });
-          }}
-        />
-      )}
-      {dialog?.kind === "delete" && (
-        <DeleteTest
-          target={dialog.target}
-          onClose={() => setDialog(null)}
-          onDeleted={() => {
-            setDialog(null);
-            app.testsChanged();
-            app.navigate("tests");
-          }}
-        />
-      )}
-      {dialog?.kind === "contexts" && (
-        <ContextsDialog
-          onClose={() => {
-            setDialog(null);
-            void invalidate(client, [["contexts.list"], ["contexts.ofTest"], ["contexts.ofProject"]]);
-          }}
+          onOpenSource={app.openSource}
+          onClose={() => setAnalysisOpen(false)}
         />
       )}
     </div>

@@ -9,6 +9,7 @@ const PATHS: Rule[] = [
     (m) => [
       ["tests.show", { id: m[1] }],
       ["check.show", { id: m[1] }],
+      ["analysis.show", { id: m[1] }],
       ["claude.before", { testId: m[1] }],
       ["tests.list"],
       ["review.queue"],
@@ -32,6 +33,7 @@ const PATHS: Rule[] = [
     /^tests\/([^/]+)\/check\.json$/,
     (m) => [["check.show", { id: m[1] }], ["tests.show", { id: m[1] }], ["review.queue"], ["tests.list"]],
   ],
+  [/^tests\/([^/]+)\/analysis\.json$/, (m) => [["analysis.show", { id: m[1] }]]],
   [/^tests\/([^/]+)\/images\//, (m) => [["tests.show", { id: m[1] }]]],
   [
     /^tests\/([^/]+)\/local\.json$/,

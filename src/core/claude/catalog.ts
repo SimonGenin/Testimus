@@ -4,6 +4,7 @@ import { prompts as doctor } from "../lib/doctor.ts";
 import { OVERVIEW_PATH, overviewFile, overviewGiven } from "../lib/overview.ts";
 import { shipSkills } from "../lib/shipped.ts";
 import { prompts as actions } from "./actions.ts";
+import { prompts as analyze } from "./analyze.ts";
 import { prompts as chat } from "./chat.ts";
 import { prompts as check } from "./check.ts";
 import { prompts as columns } from "./columns.ts";
@@ -57,6 +58,7 @@ export const BUILT: PromptTemplate[] = [
   ...generate,
   ...genNext,
   ...check,
+  ...analyze,
   ...fix,
   ...scoped,
   ...figures,

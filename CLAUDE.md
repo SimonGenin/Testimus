@@ -52,7 +52,7 @@ bash heredocs (they mangle `\\` in regex literals).
 - **One registry, three faces.** A capability is a command in `src/core/commands/`; CLI, MCP and HTTP are derived from
   it. Never a route, a tool or a button that calls domain code directly — a UI-only feature is one Claude cannot use.
 - **Files are the state.** `test.md`, `doc.json`, `context.md`, `project.json`, `columns.json` are the truth;
-  `index/`, `.testimus/`, `check.json`, `.remote.md`, `xray.json` are derived or managed, never hand-edited.
+  `index/`, `.testimus/`, `check.json`, `analysis.json`, `.remote.md`, `xray.json` are derived or managed, never hand-edited.
 - **Sources are data.** A claim's source is `docId#anchor "quote"`; the quote is findable verbatim in `doc.md` at its
   anchor; anchors are stable across reconversion, never numbered by position.
 - **No column is special.** A step column is a smart column Claude fills from its description; nothing knows a column
@@ -100,5 +100,5 @@ Answer in French. Plain words first; code on request.
 
 Dev skills in `.claude/skills/`: `xray-cloud-api` (Jira / Xray API facts, read-only checks), `port-from-xray-editor`,
 `docx-ingest` (document conversion), `rag-eval` (measuring retrieval). The runtime skills the app ships to every
-project are product code, in `templates/project/.claude/skills/` (generate-tests, plan-tests, check-test, fix-test,
+project are product code, in `templates/project/.claude/skills/` (generate-tests, plan-tests, check-test, analyze-test, fix-test,
 edit-test, ask-docs, define-columns, study-document, draft-comment, overview-documents).

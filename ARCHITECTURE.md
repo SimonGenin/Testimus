@@ -174,7 +174,7 @@ rebuilt; they are never hand-edited.
 <project>/
   CLAUDE.md            project rules for Claude (template, then the team's)
   .mcp.json            declares `testimus mcp` (rewritten by every run)
-  .claude/skills/      shipped skills (generate-tests, plan-tests, check-test, fix-test, edit-test, ask-docs,
+  .claude/skills/      shipped skills (generate-tests, plan-tests, check-test, analyze-test, fix-test, edit-test, ask-docs,
                          define-columns, study-document, draft-comment, overview-documents) + the team's own
   project.json         { name, jiraProject, jiraOffline?, language, labelPrefix, folders, rag: { reference?,
                          queryTask?, passageMaxChars?, retrieval?, claudeHeaders?, describeFigures? },
@@ -188,7 +188,8 @@ rebuilt; they are never hand-edited.
   docs/OVERVIEW.md     how the documents fit together, written by Claude, the team's to edit (§5)
   tests/<id>/          test.md (§7), images/, local.json { contexts?, columns? } (the test's own settings, never
                          part of the test), .remote.md (derived: Jira's last copy), check.json (derived: last
-                         check), .state.json (derived: { remoteChangedAt?, generatedPrint? })
+                         check), analysis.json (managed: Claude's last analysis and what was decided, §9c),
+                         .state.json (derived: { remoteChangedAt?, generatedPrint? })
   test-runs/<run>/     a test run (§9b): run.json (the tests frozen when it was made), results/<testId>.json (what
                          the tester found), results/<testId>/ (screenshots), images/<testId>/ (the tests' pictures)
   eval/behaviors.jsonl the project's retrieval benchmark set (§6)
@@ -754,6 +755,47 @@ after the frontmatter, so a review decision never makes findings stale.
   straight to `validated`), with a run id for Revert. A push of a non-validated test asks for confirmation; on push the
   review state becomes a Jira label (`testimus-validated`…).
 
+## 9c. Analyzing a test against the documents
+
+Any test — written by hand, pulled from Jira or generated — can be read by Claude against the project's documents
+(decided on 2026-11-09, canvas « Testimus — Analyze a test against the documents »). Unlike a fix, **Claude changes
+nothing**: it records proposals and the team decides each one.
+
+- `analysis.run { id, note?, model?, effort?, contexts? }` is a job (kind `analyze`, `claude/analyze.ts`, skill
+  `analyze-test`, run kind `analyze`: the read tools plus `analysis.record`, no Edit/Write; an edit that got through is
+  put back). The run calls `analysis_record` once; the job fails when it does not, and the previous analysis stays.
+- `analysis.record` (Claude's call) is proven as a whole before anything is written: every source line is checked as
+  the mechanical pass checks a step (`docId#anchor "quote"` found at its anchor, at least four words, `@<column>
+  "<item>"` naming an item the cell holds), steps and columns exist, a new step has Action, Expected Result and a source
+  for it. A call with any problem records nothing and lists them all, so Claude fixes them in one go.
+- **Whose a column is** (the user's ask: requirements typed by hand are kept): Claude says per column `keep` (the
+  team's: every item stays word for word; Claude links items to passages and may only add), `open` (may be reworded
+  where a passage says otherwise) or `leave` (stays empty). The core holds two rules whatever Claude says: a Reference
+  source column is `keep`, and a column with no description is `keep` where the test already holds text in it, else
+  `leave`. A change to a `keep` column that drops or rewords an item is refused at record.
+- Proposals: `source` (lines added to a step — backing its expected result or one item of a column), `change` (one
+  cell's whole new text, with its sources; the core stores the cell as it was), `step` (a new step after a step, 0 =
+  first), `remove`. Items no document holds are listed under `unfound` and stay as they are.
+- `tests/<id>/analysis.json` (managed by `lib/analysis.ts` alone, shared with the test): `{ at, testHash, summary,
+  columns: [{ name, role, why }], unfound: [{ step, column, item, why? }], steps: [{ id?, print, gone? }], proposals:
+  [{ id: p1…, kind, title, why, step?, after?, column?, before?, value?, fields?, sources: ["<line>"], state: open |
+  accepted | rejected, decidedBy?, decidedAt? }], run?: { runId, model, effort, note? } }`. A new analysis replaces it.
+- **Where a proposal lands now**: a step is found again by its Xray id, else by its fields as analysed (`steps[].print`,
+  the nearest when several match); accepting a change updates that print, a removal marks the step `gone`.
+  `analysis.show` gives each open proposal its place now (`now`) or why it no longer applies (`stale`: the step changed
+  or was removed, the cell changed since). The test stays editable while Claude reads.
+- `analysis.decide { id, proposals, decision: accept | reject | reopen }`: accept writes test.md at once, in the order
+  given, refusing the whole call (code `stale`) when one no longer applies; an accepted proposal is an ordinary edit
+  (undone in the editor, never « rejected »); the review state is untouched — the person accepted each change.
+- The page (`screens/tests/analysis/`): « Analysis » in the editor's bar (the count left to decide) opens a pane beside
+  the editor (`size.dock`, it gives way down to `size.sidebar`; the editor keeps `size.sidebar`). Before an analysis:
+  the ClaudeBlock that starts one (an optional « look especially at » note, model, effort; while it runs the same box
+  with its timer and Cancel). After: Claude's summary, To decide · Accepted · Rejected, the proposals grouped by the
+  step they are about (the group's name scrolls the editor there), each a Card with its PROPOSAL badge, the change
+  (SourceChips, TextDiff, the new step's columns), why, Reject and Accept; « Accept the n sources » in the foot; the
+  items in no document (warning banner) and « How Claude read the columns » (COLUMN_ROLE badges). Accepting saves the
+  editor's pending edit first and tells the editor the change is its own (`useTestDocument.expect`).
+
 ## 9b. Test runs (the testers' screen)
 
 A **run** is a set of tests a tester plays on a version of the product, test by test: OK / NOK on each step, a
@@ -884,7 +926,7 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   mcp`; development: `node <checkout>/src/faces/cli.ts mcp`), which sets `TESTIMUS_IN_CLAUDE=1`.
 - **Tool access per run kind** (`claude/access.ts`, from the command list the registry hands over — the Claude layer
   never imports the registry): chat, figures, headers, triage → read-only commands only (`mutates: false`, no job, no
-  `system`/`project`/`jobs`/`claude` but `claude.prompts`); check adds `check_record`; generation adds `tests_create/edit/save/addImage`,
+  `system`/`project`/`jobs`/`claude` but `claude.prompts`); check adds `check_record`; analyze adds `analysis_record`; generation adds `tests_create/edit/save/addImage`,
   `check_run`; fix and `claude.run` add `tests_edit/save/addImage`; `action` gets the whole set minus another Claude
   run, Jira writes and the machine. Everything else goes to `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,

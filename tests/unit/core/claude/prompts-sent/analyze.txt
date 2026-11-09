@@ -1,0 +1,21 @@
+Use the analyze-test skill on the test LFRPS12-1420.
+File: tests/LFRPS12-1420/test.md — read it (tests_show); never modify it or any other file: the team accepts or rejects each proposal.
+
+The step columns (columns_list says the same):
+- Action — described « One user action per step, in the imperative, on an object named as the product names it. »
+- Data — described « The values entered or the object aimed at (a code, a record, a file), only when the action needs them. »
+- Expected Result — described « Everything the user observes after the action, checkable on the product, in the words of the document. »
+- Exigence — no description; kept as written (Testimus holds it: its items stay word for word; link them, add to them)
+
+For every column that holds text, judge from its description and from what is written whether it is the team's (keep: every item stays word for word, you only add and link), open to changes (open) or meant to stay empty (leave). A Reference source column is always keep.
+Link what is already right to its passage before proposing anything else; report a requirement or value no document holds under unfound — it stays as it is.
+Record everything with analysis_record exactly once: { id: "LFRPS12-1420", summary, columns, unfound, proposals } — proposals: [] when the test matches the documents. A refused call lists what to fix: fix it and call again.
+Write summary, titles and whys in the project language (fr); the column names as columns_list gives them.
+
+Context to read before you start (reference material, do not edit it):
+- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+Additional context from the user for this run:
+Les exigences de l'étape 2.
+
+Then reply in one line: how many proposals of each kind.

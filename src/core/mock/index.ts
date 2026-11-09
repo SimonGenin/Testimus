@@ -11,6 +11,7 @@ import { mockPace } from "../rag/runtimes/mock.ts";
 import { mockProbeDeps } from "./agents.ts";
 import { mockSpawnClaude } from "./claude.ts";
 import "./claude-actions.ts";
+import "./claude-analyze.ts";
 import "./claude-check.ts";
 import "./claude-columns.ts";
 import "./claude-gen.ts";

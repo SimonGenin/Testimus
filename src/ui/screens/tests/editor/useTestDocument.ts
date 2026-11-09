@@ -30,6 +30,8 @@ export type TestDocument = {
   gen: number;
   /** read the test again; what lands is handed to onLanded with this reason */
   reload: (expected?: unknown) => Promise<void>;
+  /** the next change that lands is this editor's, for this reason (a change asked of the core) */
+  expect: (why: unknown) => void;
   /** read it again as someone else's change */
   recheck: () => Promise<void>;
 };
@@ -133,6 +135,12 @@ export function useTestDocument(
     [q],
   );
 
+  // ponytail: a change the editor asked the core for (an accepted proposal) — said before it lands, so the watcher's
+  // read of it is not taken for someone else's
+  const expect = useCallback((why: unknown) => {
+    expected.current = why;
+  }, []);
+
   // ponytail: someone else may have written test.md (a terminal, Claude Code) — read it again; what lands is theirs
   const recheck = useCallback(async () => {
     const r = await q.refetch();
@@ -152,6 +160,7 @@ export function useTestDocument(
     update,
     gen,
     reload,
+    expect,
     recheck,
   };
 }

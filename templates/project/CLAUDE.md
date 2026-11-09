@@ -53,7 +53,7 @@ project is in **Team notes** at the end.
   asked, how a test did in other runs); a result is a tester's finding: never write one.
 
 Derived files, never edited by hand: `index/`, `.testimus/`, `tests/*/.remote.md`,
-`tests/*/check.json`.
+`tests/*/check.json`, `tests/*/analysis.json` (written through `analysis_record` and the team's decisions).
 
 ## What a run may do
 
@@ -66,6 +66,7 @@ Testimus starts you for one job, with only the tools that job needs. The prompt 
 | Draft a comment on a test's Jira issue | `draft-comment` | nothing; the person sends it |
 | Generate tests | `plan-tests` for a large scope, then `generate-tests` | new tests |
 | Check a test | `check-test` | nothing; findings go through `check_record` |
+| Analyze a test against the documents | `analyze-test` | nothing; proposals go through `analysis_record`, the team decides each one |
 | Fix a test (To fix note) | `fix-test` | that test |
 | A request on a step, a test or a set of tests | `edit-test` | the tests in scope |
 | Study a document / check its conversion | `study-document` | nothing; may propose actions |

@@ -13,7 +13,7 @@ src/core/jobs.ts      long work: progress, steps, processes, cancel, rerun, .tes
 src/core/watch.ts     one recursive watch per open project → `changed` events
 src/core/types.ts     shared types; schemas.ts the zod pieces several groups share
 src/core/shell.ts     which shell runs the core (TESTIMUS_SHELL), loopback NO_PROXY, clean shutdown
-src/core/lib/         the domain modules:
+src/core/lib/         the domain modules (analysis: a test's analysis, its proof and its decisions):
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
                         agents, atomic (every owned write), changed, file-memo (reads per file version), natural (the
                         one collator), creds, project (+ project-info, project-init), doctor (+ doctor-row,
@@ -39,7 +39,7 @@ src/core/rag/         convert* (docx/pdf/html/png/text → doc.md + figures), pd
 src/core/search/      search.all (Ctrl K and the tests list): query, match (accents, French stems, prefixes, typos,
                       codes), tests corpus, vectors (index/tests-vectors.json)
 src/core/claude/      run (claude -p), access (tool access per run kind), stream, snapshot/revert, diagnose, status,
-                      chat, generate (+ gen-prompt, gen-reply), check, fix, review, columns, actions, figures, headers,
+                      chat, generate (+ gen-prompt, gen-reply), check, analyze (a test against the documents: its prompt and run), fix, review, columns, actions, figures, headers,
                       prompt, limits, ledger, schemas, media, study, comment, overview (how the documents fit
                       together: its prompt and run; overview-scope: what its run may write, undone after), scoped
                       (claude.run), catalog (everything
@@ -66,7 +66,7 @@ src/ui/
   styles/             tokens.stylex.ts (generated) and fonts.css
 models/catalog.json   the model catalog (entries, packs, measured figures)
 templates/project/    copied into every project by `project init`: CLAUDE.md, .mcp.json, the runtime skills
-                      (generate-tests, plan-tests, check-test, fix-test, edit-test, ask-docs, define-columns,
+                      (generate-tests, plan-tests, check-test, analyze-test, fix-test, edit-test, ask-docs, define-columns,
                       study-document, draft-comment, overview-documents) — product code; every Claude run refreshes the skills first
                       (lib/shipped.ts)
 templates/reference/  the Syntec reference document (pack quality on every PC)

@@ -66,6 +66,7 @@ export function EditorBar({
   onFolder,
   onRetry,
   onAsk,
+  analysis,
   onPush,
   editing = false,
 }: {
@@ -84,6 +85,8 @@ export function EditorBar({
   onFolder: (folder: string) => void;
   onRetry: () => void;
   onAsk: () => void;
+  /** Claude's analysis of the test against the documents: the pane open, the proposals left to decide */
+  analysis?: { open: boolean; count: number; onToggle: () => void };
   onPush: () => void;
   /** Review › Edit: the bar says « Editing », without folder, push or ⋯ (the way back to the review is in the top bar) */
   editing?: boolean;
@@ -116,6 +119,17 @@ export function EditorBar({
       />
       <TestSave status={status} activity={activity} claude={claude} onRetry={onRetry} />
       <span {...stylex.props(styles.grow)} />
+      {analysis && (
+        <Button
+          size="sm"
+          variant="claude-quiet"
+          icon="verify"
+          label="Analysis"
+          count={analysis.count || undefined}
+          pressed={analysis.open}
+          onClick={analysis.onToggle}
+        />
+      )}
       <Button size="sm" variant="claude-quiet" icon="claude" label="Ask Claude" onClick={onAsk} />
       <Button size="sm" variant="primary" icon="push" label="Push to Jira" disabled={pushDisabled} onClick={onPush} />
       <Menu

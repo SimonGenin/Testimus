@@ -7,6 +7,7 @@ import { startJob } from "../jobs.ts";
 import { migrateOnOpen } from "../lib/media-migrate.ts";
 import type { ClaudeEvent, JobCause } from "../types.ts";
 import { commands as actions } from "./actions.ts";
+import { commands as analysis } from "./analysis.ts";
 import { commands as chat } from "./chat.ts";
 import { commands as check } from "./check.ts";
 import { commands as claude } from "./claude.ts";
@@ -60,6 +61,7 @@ type Defined =
   | (typeof images)[number]
   | (typeof gen)[number]
   | (typeof check)[number]
+  | (typeof analysis)[number]
   | (typeof review)[number]
   | (typeof runs)[number]
   | (typeof xray)[number]
@@ -100,6 +102,7 @@ export const registry: Command[] = [
   ...images,
   ...gen,
   ...check,
+  ...analysis,
   ...review,
   ...runs,
   ...xray,

@@ -159,6 +159,12 @@ describe("the prompts the Claude runs send", () => {
     await expect(sent()).toMatchFileSnapshot(file("check-fix"));
   });
 
+  it("an analysis of a test against the documents, with its note and its contexts", async () => {
+    setup();
+    await call("analysis.run", { id: TEST, contexts: ["spec"], note: "Les exigences de l'étape 2." }, dir);
+    await expect(sent()).toMatchFileSnapshot(file("analyze"));
+  });
+
   it("a question on the documents, and a question on a problem", async () => {
     setup();
     await call("chat.ask", { question: "Quand le sectionneur s'ouvre-t-il ?", contexts: ["spec"], ...RUN }, dir);
