@@ -296,12 +296,12 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     );
   });
 
-  it("the model can be a custom one", async () => {
+  it("a model saved before that the list does not know is shown as it is, with no field to type one", async () => {
     project = claude({ model: "claude-opus-4-1" });
     mountSettings(<ClaudeSection />);
     const model = await screen.findByLabelText("Default model");
-    expect(model).toHaveTextContent("custom…");
-    expect(screen.getByRole("textbox", { name: "Custom model" })).toHaveValue("claude-opus-4-1");
+    expect(model).toHaveTextContent("claude-opus-4-1");
+    expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
     choose(model, "fable");
     await waitFor(() => expect(inputs("project.set")).toEqual([{ claude: { model: "fable" } }]));
   });

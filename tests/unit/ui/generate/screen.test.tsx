@@ -340,23 +340,19 @@ describe("Generate screen", () => {
     expect(checkedRun("Effort")).toBe("Project default · medium");
   });
 
-  it("takes a model the list does not know, typed in, once it is valid", async () => {
+  it("offers the listed models only, no model typed in", async () => {
     base();
     api.routes["gen.tests"] = () => ({});
     mountData(<GenerateScreen />);
     await screen.findByText("Traction");
-    pickRun("Custom…");
-    const typed = screen.getByLabelText("Custom model");
-    fireEvent.change(typed, { target: { value: "bad model" } });
-    fireEvent.blur(typed);
-    expect(screen.getByLabelText("Custom model")).toBeInTheDocument();
-    fireEvent.change(typed, { target: { value: "claude-opus-4-1" } });
-    fireEvent.keyDown(typed, { key: "Enter" });
+    fireEvent.click(runChoice());
+    expect(screen.queryByRole("menuitemcheckbox", { name: "Custom…" })).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    pickRun("Haiku");
     expect(screen.queryByLabelText("Custom model")).toBeNull();
-    expect(runChoice()).toHaveAccessibleName(/^Claude-opus-4-1 · /);
     fireEvent.click(go());
     await waitFor(() => expect(named("gen.tests")).toHaveLength(1));
-    expect(named("gen.tests")[0].input.model).toBe("claude-opus-4-1");
+    expect(named("gen.tests")[0].input.model).toBe("haiku");
   });
 
   it("Ctrl+Enter in the request generates", async () => {

@@ -582,7 +582,7 @@ describe("Claude dock: on a test", () => {
     expect(state.setClaudeRunning).toHaveBeenLastCalledWith(null);
   });
 
-  it("puts a preset in the box, labels the run with it, and starts from a typed model", async () => {
+  it("puts a preset in the box, labels the run with it, and starts from a saved model the list does not know", async () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
     mount(
       {},
@@ -595,10 +595,9 @@ describe("Claude dock: on a test", () => {
         }),
       },
     );
-    expect(screen.getByRole("textbox", { name: "Custom model" })).toHaveValue("my-model-1");
-    expect(runChoice()).toHaveAccessibleName("custom… · high");
-    pickRun("opus");
     expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
+    expect(runChoice()).toHaveAccessibleName("my-model-1 · high");
+    pickRun("opus");
     pickRun("max");
     const chip = screen.getByRole("button", { name: "Add sources" });
     fireEvent.click(chip);

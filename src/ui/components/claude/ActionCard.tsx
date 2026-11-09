@@ -13,7 +13,7 @@ import { GroupSelect } from "../ui/GroupSelect.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { type } from "../ui/type.ts";
 import { useContexts } from "./contexts.ts";
-import { CustomModel, cap, effortOptions, useModelChoice } from "./ModelPicker.tsx";
+import { cap, effortOptions, useModelChoice } from "./ModelPicker.tsx";
 
 const styles = stylex.create({
   card: { flex: "none", display: "flex", flexDirection: "column" },
@@ -87,7 +87,6 @@ function Details({
             { label: "Effort", value: effort, options: effortOptions, onChange: (e) => onEffort(e as Effort) },
           ]}
         />
-        <CustomModel choice={choice} />
       </div>
       {s && (
         <span {...stylex.props(type.small, styles.origin)}>

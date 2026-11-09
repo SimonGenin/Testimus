@@ -11,7 +11,7 @@ import { Menu } from "../ui/Menu.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ContextsDialog } from "./ContextsDialog.tsx";
 import type { ContextSummary } from "./contexts.ts";
-import { CustomModel, effortOptions, useModelChoice } from "./ModelPicker.tsx";
+import { effortOptions, useModelChoice } from "./ModelPicker.tsx";
 import { SaveContext } from "./SaveContext.tsx";
 
 const styles = stylex.create({
@@ -138,21 +138,18 @@ export function DockComposer({
           if (!keepAfterSend) setPrompt("");
         }}
       >
-        {(noteOpen || !!note.trim() || choice.custom) && (
+        {(noteOpen || !!note.trim()) && (
           <div {...stylex.props(styles.extra)}>
-            {(noteOpen || !!note.trim()) && (
-              <Text
-                multiline
-                size="sm"
-                ariaLabel="Note for this run"
-                placeholder="Anything Claude should know for this run…"
-                autoFocus={noteOpen && !note}
-                readOnly={running !== null}
-                value={note}
-                onChange={setNote}
-              />
-            )}
-            <CustomModel choice={choice} />
+            <Text
+              multiline
+              size="sm"
+              ariaLabel="Note for this run"
+              placeholder="Anything Claude should know for this run…"
+              autoFocus={noteOpen && !note}
+              readOnly={running !== null}
+              value={note}
+              onChange={setNote}
+            />
           </div>
         )}
       </ClaudeBlock>

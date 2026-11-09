@@ -5,10 +5,7 @@ const groups = (model: string, effort: string): SelectGroup[] => [
   {
     label: "Model",
     value: model,
-    options: ["fable", "opus", "sonnet", "haiku", "custom"].map((m) => ({
-      value: m,
-      label: m === "custom" ? "custom…" : m,
-    })),
+    options: ["fable", "opus", "sonnet", "haiku"].map((m) => ({ value: m, label: m })),
     onChange: () => {},
   },
   {

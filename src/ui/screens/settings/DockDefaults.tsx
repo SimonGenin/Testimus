@@ -13,11 +13,7 @@ export function DockDefaults({ claude }: { claude: ProjectJson["claude"] }) {
     <Card title="Claude dock">
       <Stack>
         <Grid>
-          <Field
-            htmlFor="set-model"
-            label="Default model"
-            hint="fable · opus · sonnet · haiku, or custom… for a typed alias."
-          >
+          <Field htmlFor="set-model" label="Default model" hint="fable · opus · sonnet · haiku.">
             <ModelPicker
               id="set-model"
               size="md"

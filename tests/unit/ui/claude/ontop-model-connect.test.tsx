@@ -104,34 +104,20 @@ describe("always on top", () => {
 });
 
 describe("ModelPicker", () => {
-  it("picks a listed model, or a typed one handed over on Enter or blur only", () => {
+  it("picks a listed model; one saved before that the list does not know is shown, never typed in", () => {
     const change = vi.fn();
     const { rerender } = render(<ModelPicker value="sonnet" onChange={change} />);
     const select = screen.getByRole("combobox", { name: "Model" });
-    expect(within(openList(select)).getByRole("option", { name: "fable" })).toBeInTheDocument();
+    expect(
+      within(openList(select))
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["fable", "opus", "sonnet", "haiku"]);
     choose(select, "opus");
     expect(change).toHaveBeenLastCalledWith("opus");
-    choose(select, "custom…");
-    const box = screen.getByRole("textbox", { name: "Custom model" });
-    expect(box).toHaveValue("");
-    fireEvent.blur(box);
-    fireEvent.change(box, { target: { value: "bad name!" } });
-    expect(box).toHaveAttribute("aria-invalid", "true");
-    fireEvent.keyDown(box, { key: "Enter" });
-    fireEvent.change(box, { target: { value: "claude-x-1[1m]" } });
-    expect(box).not.toHaveAttribute("aria-invalid");
-    fireEvent.keyDown(box, { key: "a" });
-    expect(change).toHaveBeenCalledTimes(1);
-    fireEvent.keyDown(box, { key: "Enter" });
-    expect(change).toHaveBeenLastCalledWith("claude-x-1[1m]");
-    rerender(<ModelPicker value="claude-x-1[1m]" onChange={change} />);
-    fireEvent.blur(screen.getByRole("textbox", { name: "Custom model" }));
-    expect(change).toHaveBeenCalledTimes(2);
-    rerender(<ModelPicker value="haiku" onChange={change} />);
-    expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("haiku");
     rerender(<ModelPicker value="other-1" onChange={change} />);
-    expect(screen.getByRole("textbox", { name: "Custom model" })).toHaveValue("other-1");
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("other-1");
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("is labelled by its own label when it has an id", () => {
@@ -141,7 +127,7 @@ describe("ModelPicker", () => {
         <ModelPicker id="m" value="mine" onChange={() => {}} />
       </>,
     );
-    expect(screen.getByLabelText("Default model")).toHaveTextContent("custom…");
+    expect(screen.getByLabelText("Default model")).toHaveTextContent("mine");
     expect(cap("")).toBe("");
     expect(cap("opus")).toBe("Opus");
   });

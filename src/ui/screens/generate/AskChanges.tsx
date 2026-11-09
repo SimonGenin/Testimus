@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { Effort } from "../../../core/types.ts";
-import { CustomModel, cap, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
+import { cap, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
@@ -152,7 +152,6 @@ export function AskChanges({
             })
           }
         >
-          <CustomModel choice={choice} />
           {scope === "pick" && (
             <fieldset aria-label="Tests to change" {...stylex.props(styles.picks)}>
               {tests.map((id) => (

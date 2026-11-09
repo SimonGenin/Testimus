@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { DocConversion, Effort } from "../../../core/types.ts";
-import { CustomModel, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
+import { effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
 import { useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
@@ -74,7 +74,6 @@ export function ClaudeChoice() {
           },
         ]}
       />
-      <CustomModel choice={choice} />
     </div>
   );
 }

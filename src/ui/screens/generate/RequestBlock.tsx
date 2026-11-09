@@ -5,12 +5,8 @@ import { SaveContext } from "../../components/claude/SaveContext.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
-import { Text } from "../../components/ui/Text.tsx";
 import { useRead } from "../../lib/data/query.ts";
 import type { GenerateForm } from "./useGenerateForm.ts";
-
-const VALID = /^[A-Za-z0-9.\-[\]:]+$/;
-const CUSTOM = "custom";
 
 type ContextRow = { id: string; name: string; shared?: boolean };
 
@@ -30,20 +26,10 @@ export function RequestBlock({
   const list = useRead("contexts.list", {});
   const all = (list.data ?? []) as ContextRow[];
   const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
-  const [typing, setTyping] = useState(false);
-  const [custom, setCustom] = useState("");
   const name = (id: string) => all.find((c) => c.id === id)?.name ?? id;
 
   const known = form.model && !MODELS.includes(form.model) ? [form.model] : [];
   const fallbackModel = MODELS.includes(form.defaultModel) ? [] : [form.defaultModel];
-  const modelValue = typing ? CUSTOM : form.model;
-  const commit = () => {
-    const t = custom.trim();
-    if (t && VALID.test(t)) {
-      form.setModel(t);
-      setTyping(false);
-    }
-  };
   const add: MenuEntry[] = [
     ...all
       .filter((c) => !form.chips.some((x) => x.id === c.id))
@@ -86,22 +72,13 @@ export function RequestBlock({
           />
         }
         model={{
-          value: modelValue,
-          shown: typing ? undefined : cap(form.model || form.defaultModel),
+          value: form.model,
+          shown: cap(form.model || form.defaultModel),
           options: [
             { value: "", label: `Project default · ${cap(form.defaultModel)}` },
             ...[...fallbackModel, ...MODELS, ...known].map((m) => ({ value: m, label: cap(m) })),
-            { value: CUSTOM, label: "Custom…" },
           ],
-          onChange: (m) => {
-            if (m === CUSTOM) {
-              setCustom("");
-              setTyping(true);
-              return;
-            }
-            setTyping(false);
-            form.setModel(m);
-          },
+          onChange: form.setModel,
         }}
         effort={{
           value: form.effort,
@@ -112,27 +89,8 @@ export function RequestBlock({
           ],
           onChange: form.setEffort,
         }}
-      >
-        {typing && (
-          <Text
-            size="sm"
-            ariaLabel="Custom model"
-            placeholder="Model id or alias"
-            spellCheck={false}
-            autoFocus
-            value={custom}
-            error={custom.trim() && !VALID.test(custom.trim()) ? "Letters, digits and . - [ ] : only" : undefined}
-            onChange={setCustom}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commit();
-              }
-            }}
-          />
-        )}
-      </ClaudeBlock>
+      />
+
       {dialog === "save" && (
         <SaveContext
           note={form.request}
