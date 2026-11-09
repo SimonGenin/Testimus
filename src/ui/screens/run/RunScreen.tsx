@@ -78,7 +78,8 @@ export function RunScreen() {
   const runs = useRead("runs.list", {});
   const list = runs.data?.runs;
   const me = runs.data?.user ?? "";
-  const shown = slug || list?.find((r) => !r.finished)?.slug || list?.[0]?.slug || "";
+  const named = list?.some((r) => r.slug === slug) ? slug : "";
+  const shown = named || list?.find((r) => !r.finished)?.slug || list?.[0]?.slug || "";
   const run = useRead("runs.show", { run: shown }, { enabled: !!shown });
   const open = (s: string, t?: string) => app.navigate("run", t ? `${s}/${t}` : s);
   const playing = test && run.data?.slug === shown ? run.data.tests.find((t) => t.id === test) : undefined;

@@ -58,6 +58,17 @@ describe("the Run screen", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(2);
   });
 
+  it("a run the route names that the project does not have is not read: the first run shows, or « No run yet »", async () => {
+    withApp(<RunScreen />, at("test"));
+    expect(await screen.findByRole("region", { name: "Run Recette J5 — Sectionneurs" })).toBeInTheDocument();
+    expect(callsOf("runs.show").map((c) => (c.input as { run: string }).run)).not.toContain("test");
+    cleanup();
+    rmSync(join(project, "test-runs"), { recursive: true, force: true });
+    withApp(<RunScreen />, at("test/local-3f9a12c0"));
+    expect(await screen.findByText("No run yet")).toBeInTheDocument();
+    expect(screen.queryByText("Could not read this run")).not.toBeInTheDocument();
+  });
+
   it("counts the open questions as the core does: every question not answered, not the tests that have one", async () => {
     const file = join(project, "test-runs", RUN, "results", "local-3f9a12c0.json");
     const r = JSON.parse(readFileSync(file, "utf8"));
