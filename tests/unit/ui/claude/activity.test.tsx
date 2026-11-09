@@ -6,6 +6,7 @@ import { writtenTests } from "../../../../src/core/claude/stream.ts";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { ClaudeActivity as GenActivity, runLine } from "../../../../src/ui/components/claude/ClaudeActivity.tsx";
 import { activityOf, gist, lasted, linesRead, outlineOf } from "../../../../src/ui/lib/activity.ts";
+import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { landedIds } from "../../../../src/ui/screens/generate/GenResult.tsx";
 import { dataWrapper } from "../../helpers/ui-data.tsx";
 import { api, fakeFetch, named } from "../../helpers/ui-desktop.tsx";
@@ -476,6 +477,57 @@ describe("what the index and the check add", () => {
     expect(screen.getByText("Read Q fig:12")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Grouped" }));
     expect(screen.queryByText("Read Q fig:12")).toBeNull();
+  });
+});
+
+describe("What Claude did: its references lead to what they name", () => {
+  it("opens a document, a section's passage and a test from the app; outside it they stay words", async () => {
+    api.routes["docs.show"] = () => ({ ...SHAPE, md: "" });
+    sec = 0;
+    const events: JobEvent[] = [
+      tool("mcp__testimus__rag_passage", { ref: "Q#§2.1" }),
+      tool("mcp__testimus__rag_passage", { ref: "Q#§9" }),
+      tool("mcp__testimus__rag_related", { ref: "Q#2.1" }),
+      tool("mcp__testimus__tests_save", { id: "local-aaaaaaaa", test: { summary: "Retry a job" } }),
+      { jobId: "g", at: at(), type: "progress", message: "Checking 1 new test(s)" },
+      { jobId: "g", at: at(), type: "progress", message: "local-aaaaaaaa: 0 error(s), 0 warning(s)" },
+      { jobId: "g", at: at(), type: "progress", message: "« Named only »: 1 error(s), 0 warning(s)" },
+    ];
+    const navigate = vi.fn();
+    const openSource = vi.fn();
+    const app = { navigate, openSource } as unknown as AppState;
+    render(
+      <AppContext.Provider value={app}>
+        <GenActivity events={events} running={false} now={Date.now()} />
+      </AppContext.Provider>,
+    );
+    fireEvent.click(within(screen.getByRole("heading", { name: "Read Q" })).getByRole("button", { name: "Q" }));
+    expect(navigate).toHaveBeenLastCalledWith("documents", "Q");
+    const legend = (await screen.findByText("2 sections opened from the index")).closest("li") as HTMLElement;
+    fireEvent.click(await within(legend).findByRole("button", { name: "§2.1" }));
+    expect(within(legend).getByText("§9").closest("button")).toBeNull();
+    expect(openSource).toHaveBeenLastCalledWith({ docId: "Q", anchor: "§2.1", quote: "" });
+    const verdicts = screen.getByRole("list", { name: "Check verdicts" });
+    fireEvent.click(within(verdicts).getByRole("button", { name: "Retry a job" }));
+    expect(navigate).toHaveBeenLastCalledWith("tests", "local-aaaaaaaa");
+    navigate.mockClear();
+    fireEvent.click(within(screen.getByText(/^Last written/)).getByRole("button", { name: "“Retry a job”" }));
+    expect(navigate).toHaveBeenLastCalledWith("tests", "local-aaaaaaaa");
+    // a verdict named only by the test's words has no test to open
+    expect(screen.getByText("Named only").closest("button")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Show the \d+ actions$/ })[0]);
+    const opened = screen.getByText("Opened").nextElementSibling as HTMLElement;
+    fireEvent.click(await within(opened).findByRole("button", { name: "§2.1" }));
+    expect(openSource).toHaveBeenCalledTimes(2);
+    // §9 is not in the document: nothing to open
+    expect(within(opened).getByText("§9").closest("button")).toBeNull();
+    const followed = screen.getByText("Followed links from").nextElementSibling as HTMLElement;
+    fireEvent.click(within(followed).getByRole("button", { name: "Q §2.1" }));
+    expect(openSource).toHaveBeenLastCalledWith({ docId: "Q", anchor: "§2.1", quote: "" });
+    cleanup();
+    render(<GenActivity events={events} running={false} now={Date.now()} />);
+    expect(within(screen.getByRole("heading", { name: "Read Q" })).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry a job" })).toBeNull();
   });
 });
 

@@ -104,6 +104,8 @@ const styles = stylex.create({
     textDecorationLine: { default: "none", ":hover": "underline" },
     textUnderlineOffset: space.s1,
     boxShadow: "none",
+    whiteSpace: "normal",
+    textAlign: "start",
   },
   linkHover: { textDecorationLine: "underline" },
   kbdEnd: { marginInlineStart: "auto", marginInlineEnd: 0 },
@@ -173,7 +175,7 @@ export type ButtonProps = {
   /** primary: the screen region's one action · secondary (default) · quiet: toolbars and rows · danger: the confirm
    * of a destructive dialog only · claude / claude-quiet: starts a Claude run · field: a sunken pill that opens a
    * search (the top bar's palette, Ctrl K): words on the left, its shortcut at the right end · link: a place to go
-   * inside a sentence or a value (« § 5.6 », « Review them first »), in the link colour, at the size of the text around */
+   * inside a sentence or a value (« § 5.6 », « Review them first »), in the link colour, at the size of the text around; a long one (a test's name) wraps */
   variant?: ButtonVariant;
   /** xs 24 px (icon-only row actions) · sm 28 px (cards, rows, toasts, the dock's footer) · md 32 px · lg 40 px */
   size?: "xs" | "sm" | "md" | "lg";

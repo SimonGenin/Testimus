@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Fragment, type ReactNode, useMemo } from "react";
+import { Fragment, type ReactNode, useContext, useMemo } from "react";
 import {
   type Lookup,
   lines,
@@ -10,9 +10,11 @@ import {
   type Shape,
   type Span,
 } from "../../lib/activity.ts";
+import { AppContext } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
+import { Button } from "../ui/Button.tsx";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { ReadMap } from "../ui/ReadMap.tsx";
 import { type } from "../ui/type.ts";
@@ -42,6 +44,37 @@ const styles = stylex.create({
 });
 
 export const unique = (xs: string[]) => [...new Set(xs.filter(Boolean))];
+
+export type Go = {
+  section?: (doc: string, anchor: string) => void;
+  doc?: (doc: string) => void;
+  test?: (id: string) => void;
+};
+
+// ponytail: where a reference of « What Claude did » leads — a section opens its passage over the screen (the way to
+// the document is in it), a document and a test are opened on their screen; outside the app (the kit, a test) they
+// stay words
+export function useGo(): Go {
+  const app = useContext(AppContext);
+  return useMemo(
+    () =>
+      app
+        ? {
+            section: (docId: string, anchor: string) => app.openSource({ docId, anchor, quote: "" }),
+            doc: (docId: string) => app.navigate("documents", docId),
+            test: (id: string) => app.navigate("tests", id),
+          }
+        : {},
+    [app],
+  );
+}
+
+// ponytail: a reference in a sentence — the kit's link button when it leads somewhere, else the words as they were
+export function Ref({ label, onOpen, code }: { label: string; onOpen?: () => void; code?: boolean }) {
+  if (onOpen) return <Button variant="link" label={label} onClick={onOpen} />;
+  return code ? <code {...stylex.props(type.code)}>{label}</code> : label;
+}
+
 export const docsOf = (p: Phase) =>
   unique([...p.reads.map((r) => r.doc), ...p.lookups.filter((l) => l.kind === "open").map((l) => l.doc)]);
 
@@ -84,6 +117,7 @@ const nameOf = (anchor: string, title: string) => (/^§\d/.test(anchor) || !titl
 // sections it opened from the index over their extent, the chapters under the bar
 export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[]; hits: Lookup[]; live: boolean }) {
   const outline = useOutline(doc);
+  const go = useGo();
   const known = spans.filter((s): s is { from: number; to: number } => s.to !== null);
   const c = linesRead(spans);
   const total = Math.max(outline?.total ?? 0, c.last);
@@ -103,7 +137,8 @@ export function DocMap({ doc, spans, hits, live }: { doc: string; spans: Span[];
     const title = `${anchor} ${at.title}`.trim();
     // ponytail: a section reaches the next heading; a figure is its one line
     const to = i >= 0 ? (sections[i + 1]?.line ?? total + 1) - 1 : at.line;
-    return { label: nameOf(anchor, at.title), title, from: at.line, to };
+    const onOpen = go.section && (() => go.section?.(doc, anchor));
+    return { label: nameOf(anchor, at.title), title, from: at.line, to, onOpen };
   });
   const read = c.whole && !known.length && total ? [{ from: 1, to: total }] : known;
   return (
@@ -142,9 +177,11 @@ export function Searches({ p }: { p: Phase }) {
 
 function Opened({ l, many }: { l: Lookup; many: boolean }) {
   const at = useOutline(l.doc)?.anchors.get(l.anchor);
+  const go = useGo();
+  const open = at && go.section ? () => go.section?.(l.doc, l.anchor) : !l.anchor && go.doc && (() => go.doc?.(l.doc));
   return (
     <span {...stylex.props(styles.open)}>
-      <code {...stylex.props(type.code)}>{many ? l.text : l.anchor || l.doc}</code>
+      <Ref code label={many ? l.text : l.anchor || l.doc} onOpen={open || undefined} />
       <span>{at?.title ?? ""}</span>
       <span {...stylex.props(styles.muted)}>{at?.line ? `line ${lines(at.line)}` : ""}</span>
     </span>
@@ -156,7 +193,11 @@ export function Lookups({ p }: { p: Phase }) {
   const docs = docsOf(p);
   const seen = new Set<string>();
   const opens = p.lookups.filter((l) => l.kind === "open" && !seen.has(l.text) && seen.add(l.text));
-  const follows = unique(p.lookups.filter((l) => l.kind === "follow").map((l) => l.text));
+  const go = useGo();
+  const followed = new Set<string>();
+  const follows = p.lookups.filter(
+    (l) => l.kind === "follow" && l.text && !followed.has(l.text) && followed.add(l.text),
+  );
   const searches = unique(p.lookups.filter((l) => l.kind === "search").map((l) => l.text));
   const mentions = unique(p.lookups.filter((l) => l.kind === "mention").map((l) => l.text));
   const row = (term: string, body: ReactNode, icon?: IconName) => (
@@ -199,9 +240,12 @@ export function Lookups({ p }: { p: Phase }) {
         row(
           "Followed links from",
           follows.map((f) => (
-            <code key={f} {...stylex.props(type.code)}>
-              {f}
-            </code>
+            <Ref
+              key={f.text}
+              code
+              label={f.text}
+              onOpen={go.section && f.doc && f.anchor ? () => go.section?.(f.doc, f.anchor) : undefined}
+            />
           )),
         )}
       {mentions.length > 0 &&

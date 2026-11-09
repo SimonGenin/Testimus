@@ -52,6 +52,8 @@ export type ReadMapSection = {
   /** its first and last lines */
   from: number;
   to: number;
+  /** its badge is a button that opens the section (its passage) */
+  onOpen?: () => void;
 };
 
 export type ReadMapProps = {
@@ -163,7 +165,14 @@ export function ReadMap({ total, chapters = [], read = [], opened = [], live = f
               <i aria-hidden="true" {...stylex.props(styles.swatch, styles.swatchOpened)} />
               {opened.length === 1 ? "1 section" : `${opened.length} sections`} opened from the index
               {opened.map((o) => (
-                <Badge key={`${o.label}${o.from}`} label={o.label} tone="claude" size="sm" tooltip={o.title} />
+                <Badge
+                  key={`${o.label}${o.from}`}
+                  label={o.label}
+                  tone="claude"
+                  size="sm"
+                  tooltip={o.title}
+                  onClick={o.onOpen}
+                />
               ))}
             </li>
           )}

@@ -32,19 +32,19 @@ export const section: KitSection = {
     },
     {
       head: "Rules",
-      text: "A chapter or a section is named by its number (« §5.6 ») when it has one, else by its heading. Never a pin above the bar: what was opened is drawn on the bar, where it is.",
+      text: "A chapter or a section is named by its number (« §5.6 ») when it has one, else by its heading. Never a pin above the bar: what was opened is drawn on the bar, where it is. A section the owner can open (onOpen: What Claude did opens its passage) has its badge as a button, drawn outline; one the document does not have stays a plain badge.",
     },
   ],
   states: () => (
     <States>
-      <Cell label="read front to back · two sections opened" wide column>
+      <Cell label="read front to back · two sections opened, which open their passage" wide column>
         <ReadMap
           total={30}
           chapters={D401}
           read={[{ from: 1, to: 26 }]}
           opened={[
-            { label: "§5.6", title: "§5.6 Objets de traction", from: 9, to: 12 },
-            { label: "§5.6.6", title: "§5.6.6 Le sectionneur avec TK", from: 13, to: 26 },
+            { label: "§5.6", title: "§5.6 Objets de traction", from: 9, to: 12, onOpen: () => {} },
+            { label: "§5.6.6", title: "§5.6.6 Le sectionneur avec TK", from: 13, to: 26, onOpen: () => {} },
           ]}
           summary="Lines 1–26 of 30, front to back; nothing read twice."
         />

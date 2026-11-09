@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
 import { activityOf, DOING, lasted, type Phase, type Verdict } from "../../lib/activity.ts";
 import { plural } from "../../lib/format.ts";
@@ -14,7 +14,7 @@ import { Disclosure } from "../ui/Disclosure.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Timeline, type TimelineItem } from "../ui/Timeline.tsx";
 import { type } from "../ui/type.ts";
-import { DocMap, docsOf, Lookups, Searches } from "./ActivityParts.tsx";
+import { DocMap, docsOf, type Go, Lookups, Ref, Searches, useGo } from "./ActivityParts.tsx";
 import { kilo } from "./turns.ts";
 import { claudeSaid } from "./useClaudeStatus.ts";
 
@@ -106,7 +106,25 @@ function title(p: Phase, live: boolean, planned: number, afterCheck: boolean): s
   return live ? DOING.prepare : "Got ready";
 }
 
-function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; names: TestNames }) {
+// ponytail: « Read A, B »: each document Claude read leads to it
+function ReadTitle({ p, live, go }: { p: Phase; live: boolean; go: Go }) {
+  return (
+    <>
+      {live ? "Reading" : "Read"}{" "}
+      {docsOf(p).map((d, i) => (
+        <Fragment key={d}>
+          {i > 0 && ", "}
+          <Ref label={d} onOpen={go.doc && (() => go.doc?.(d))} />
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+// ponytail: a verdict the check named by the test's words only (« Name ») has no id to open
+const linkable = (id: string) => !!id && !id.startsWith("«");
+
+function PhaseBody({ phase: p, live, names, go }: { phase: Phase; live: boolean; names: TestNames; go: Go }) {
   const [open, setOpen] = useState(false);
   const [inOrder, setInOrder] = useState(false);
   const last = p.written[p.written.length - 1];
@@ -148,7 +166,11 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
       )}
       {p.kind === "write" && last && (
         <span {...stylex.props(type.compact, styles.quiet)}>
-          Last written: “{last.summary || testNamed(names, last.id)}”
+          Last written:{" "}
+          <Ref
+            label={`“${last.summary || testNamed(names, last.id)}”`}
+            onOpen={go.test && linkable(last.id) ? () => go.test?.(last.id) : undefined}
+          />
           {p.written.some((w) => w.saves > 1) &&
             `; ${plural(p.written.filter((w) => w.saves > 1).length, "test")} written more than once`}
           .
@@ -158,12 +180,16 @@ function PhaseBody({ phase: p, live, names }: { phase: Phase; live: boolean; nam
         <ul aria-label="Check verdicts" {...stylex.props(type.compact, styles.verdicts)}>
           {p.verdicts.map((v) => {
             const { label, tone, kind } = verdictOf(v);
+            const name = v.name ?? names(v.id) ?? (isLocalId(v.id) ? UNTITLED_TEST : "");
+            const toTest = go.test && linkable(v.id) ? () => go.test?.(v.id) : undefined;
             return (
               <li key={v.id} data-verdict={kind} {...stylex.props(styles.verdict)}>
-                {!v.name && !isLocalId(v.id) && <span {...stylex.props(type.code, styles.id)}>{v.id}</span>}
-                <span {...stylex.props(styles.name)}>
-                  {v.name ?? names(v.id) ?? (isLocalId(v.id) ? UNTITLED_TEST : "")}
-                </span>
+                {!v.name && !isLocalId(v.id) && (
+                  <span {...stylex.props(type.code, styles.id)}>
+                    <Ref label={v.id} onOpen={name ? undefined : toTest} />
+                  </span>
+                )}
+                <span {...stylex.props(styles.name)}>{name && <Ref label={name} onOpen={toTest} />}</span>
                 <Badge tone={tone} size="sm" label={label} />
               </li>
             );
@@ -258,6 +284,7 @@ export function ClaudeActivity({
   };
   const [raw, setRaw] = useState(false);
   const nameOf = useTestNames();
+  const go = useGo();
   const phases = activityOf(events, nameOf);
   const head = runLine(events, model, effort);
   const planned = phases.reduce((n, p) => n + p.planned.length, 0);
@@ -280,10 +307,20 @@ export function ClaudeActivity({
     return {
       key: `${p.kind}-${p.from}`,
       state: live ? "running" : p.failed || failedEnd ? "failed" : "done",
-      title: <h3 {...stylex.props(styles.heading)}>{failedEnd ? said.replace(/^Done\b/, "Stopped") : said}</h3>,
+      title: (
+        <h3 {...stylex.props(styles.heading)}>
+          {failedEnd ? (
+            said.replace(/^Done\b/, "Stopped")
+          ) : p.kind === "read" && docsOf(p).length > 0 ? (
+            <ReadTitle p={p} live={live} go={go} />
+          ) : (
+            said
+          )}
+        </h3>
+      ),
       time: `${clock(p.from)}${p.kind !== "end" ? `, ${lasted(p.from, live ? new Date(now).toISOString() : p.to)}` : ""}`,
       note: warned ? <Icon name="alert-triangle" size="sm" label="Warnings" /> : undefined,
-      children: <PhaseBody phase={p} live={live} names={names} />,
+      children: <PhaseBody phase={p} live={live} names={names} go={go} />,
     };
   });
   const line = [head, !shown && phases.length > 0 ? plural(phases.length, "phase") : ""].filter(Boolean).join(" · ");
