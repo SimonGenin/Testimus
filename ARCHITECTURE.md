@@ -1023,7 +1023,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
 - **One kit** (`src/ui/components/ui/`): one component per control, and every drawn piece of the design (Field,
   SaveState, Answer, Ask, Passage, Raw, Facts, Timer, Pane, Tile, Card, Badge vocabularies…). `Text` is every field
   (boxed, inline, bare, table cell) with its save state, Claude's lock and its autosave; `ClaudeBlock` (every place
-  Claude is asked) is built on `Text`. Nothing of the browser's own UI shows (a select's list is the kit's `Menu`, a
+  Claude is asked) is built on `Text`, and its « + » is always `components/claude/ContextMenu` (the saved contexts
+  ticked, the block's own text saved as a context, Manage — no second text box for a note; guard G3). Nothing of the
+  browser's own UI shows (a select's list is the kit's `Menu`, a
   search field's cross is the kit's). Extend a component by an option, then a wrapper, then — only if it resembles
   nothing — a new component; never copy its JSX. `#/kit` (under `--mock`) is the catalogue: every component in each
   state, light and dark.

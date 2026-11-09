@@ -300,7 +300,7 @@ describe("Generate screen", () => {
     expect(await screen.findByRole("button", { name: "Glossaire", pressed: true })).toBeInTheDocument();
     expect(screen.getByText(/1 saved context/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: /Habilitations/ }));
+    fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /Habilitations/ }));
     expect(await screen.findByText(/2 saved contexts/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Habilitations", pressed: true }));
     expect(screen.getByRole("button", { name: "Habilitations", pressed: false })).toBeInTheDocument();

@@ -225,6 +225,22 @@ export function g2FramesOutsideKit(): Violation[] {
   );
 }
 
+// ponytail: G3 — every Claude block's « + » is ContextMenu (the saved contexts ticked, the block's text saved as one,
+// Manage): a screen builds none by hand, and no second « save as a context » lives beside a block
+export function g3ContextMenusByHand(): Violation[] {
+  const list = files("src/ui", /\.tsx$/).filter(
+    (f) =>
+      !f.startsWith("src/ui/screens/kit/") &&
+      f !== "src/ui/components/ui/ClaudeBlock.tsx" &&
+      f !== "src/ui/components/claude/ContextMenu.tsx",
+  );
+  return [
+    ...grep(list, /addContext=\{(?!\s*<ContextMenu\b)/),
+    ...grep(list, /\bonAddContext=/),
+    ...grep(list, /<SaveContext\b/),
+  ];
+}
+
 export const GUARDS = {
   "N1a unknown or dynamic command names in src/ui": n1aUnknownCommands,
   "N1b value imports from src/core or src/shared/run in src/ui": n1bValueImportsFromCore,
@@ -244,6 +260,7 @@ export const GUARDS = {
   "G1 font size, weight, line height, letter spacing or face picked outside the kit": g1TypeOutsideKit,
   "G2 the browser's own select, option or datalist list in src/ui": g2BrowserLists,
   "G2 framed boxes (edge and rounded corners) drawn outside the kit": g2FramesOutsideKit,
+  "G3 a Claude block's context menu built by hand instead of ContextMenu": g3ContextMenusByHand,
 } as const;
 
 export type GuardName = keyof typeof GUARDS;

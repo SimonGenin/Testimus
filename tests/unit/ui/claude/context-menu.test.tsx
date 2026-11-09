@@ -4,8 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
-import { AdditionalContext } from "../../../../src/ui/components/claude/AdditionalContext.tsx";
-import { ImportContexts } from "../../../../src/ui/components/claude/ImportContexts.tsx";
+import { ContextMenu } from "../../../../src/ui/components/claude/ContextMenu.tsx";
 import { SaveContext } from "../../../../src/ui/components/claude/SaveContext.tsx";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
 import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../helpers/ui-data.tsx";
@@ -81,88 +80,76 @@ describe("Save as context", () => {
   });
 });
 
-describe("Import saved contexts for a whole list", () => {
-  it("starts from what is picked, ticks and unticks, and uses the ticked ones at once", async () => {
-    const used = vi.fn();
-    const closed = vi.fn();
-    render(<ImportContexts all={CTX} picked={["c-ops"]} onUse={used} onManage={() => {}} onClose={closed} />);
-    const dialog = screen.getByRole("dialog", { name: "Saved contexts" });
-    expect(within(dialog).getByRole("checkbox", { name: /Operator positions/ })).toBeChecked();
-    fireEvent.click(within(dialog).getByRole("checkbox", { name: /Signalling glossary/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Use 2" }));
-    expect(used).toHaveBeenCalledWith(["c-ops", "c-sig"]);
-    expect(closed).toHaveBeenCalled();
-  });
-
-  it("uses none when everything is unticked, and hands Manage to the caller", () => {
-    const used = vi.fn();
-    const manage = vi.fn();
-    render(<ImportContexts all={CTX} picked={["c-ops"]} onUse={used} onManage={manage} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: /Operator positions/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));
-    expect(manage).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Use none" }));
-    expect(used).toHaveBeenCalledWith([]);
-  });
-});
-
-function Holder({ start, compact, disabled }: { start: string[]; compact?: boolean; disabled?: boolean }) {
+function Holder({ start, text = "", disabled }: { start: string[]; text?: string; disabled?: boolean }) {
   const [ids, setIds] = useState(start);
-  const [note, setNote] = useState("");
+  const [box, setBox] = useState(text);
   return (
     <>
       <output aria-label="ids">{ids.join(",")}</output>
-      <AdditionalContext
-        id="extra"
-        of="the columns"
-        ids={ids}
-        note={note}
-        compact={compact}
+      <output aria-label="box">{box}</output>
+      <ContextMenu
+        isOn={(id) => ids.includes(id)}
+        onToggle={(id, on) => setIds(on ? [...ids, id] : ids.filter((x) => x !== id))}
+        text={box}
+        onSaved={(id) => {
+          setIds([...ids, id]);
+          setBox("");
+        }}
         disabled={disabled}
-        onIds={setIds}
-        onNote={setNote}
+        foot="Ticked contexts go with the columns."
       />
     </>
   );
 }
 
-describe("The extra context of a run", () => {
-  it("shows the picked contexts as chips by name, and leaves one out with its chip", async () => {
-    render(<Holder start={["c-ops", "c-sig", "c-gone"]} />, { wrapper: dataWrapper() });
-    await screen.findByText("Operator positions");
-    expect(screen.queryByText("c-gone")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Leave Operator positions out of the columns" }));
+const open = () => fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+
+describe("The « + » of a Claude block", () => {
+  it("ticks the saved contexts that are on, and switches one on or off in place", async () => {
+    render(<Holder start={["c-ops"]} />, { wrapper: dataWrapper() });
+    open();
+    const ops = await screen.findByRole("menuitemcheckbox", { name: /Operator positions/ });
+    expect(ops).toHaveAttribute("aria-checked", "true");
+    expect(ops).toHaveTextContent("this project");
+    expect(screen.getByRole("menuitemcheckbox", { name: /Signalling glossary/ })).toHaveTextContent("shared");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Signalling glossary/ }));
+    expect(screen.getByRole("status", { name: "ids" })).toHaveTextContent(/^c-ops,c-sig$/);
+    fireEvent.click(ops);
     expect(screen.getByRole("status", { name: "ids" })).toHaveTextContent(/^c-sig$/);
+    expect(screen.getByText("Ticked contexts go with the columns.")).toBeInTheDocument();
   });
 
-  it("while disabled, a chip cannot be removed", async () => {
-    render(<Holder start={["c-ops"]} disabled />, { wrapper: dataWrapper() });
-    await screen.findByText("Operator positions");
-    expect(screen.queryByRole("button", { name: /Leave Operator positions out/ })).toBeNull();
+  it("says how to make one when there is none yet, and cannot save an empty box", async () => {
+    net.routes["contexts.list"] = () => [];
+    render(<Holder start={[]} />, { wrapper: dataWrapper() });
+    open();
+    expect(await screen.findByText(/No saved context yet/)).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Save the text as a context…" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
-  it("compact: the note opens on « Add a note », and a note saved as a context becomes a picked context", async () => {
-    render(<Holder start={[]} compact />, { wrapper: dataWrapper() });
-    expect(screen.queryByRole("textbox", { name: "Note for the columns" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
-    const note = screen.getByRole("textbox", { name: "Note for the columns" });
-    fireEvent.change(note, { target: { value: "Each step names its operator position" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save the note as a context…" }));
+  it("saves the box's text as a context, ticks it and empties the box", async () => {
+    render(<Holder start={[]} text="Each step names its operator position" />, { wrapper: dataWrapper() });
+    open();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save the text as a context…" }));
     fireEvent.click(
       within(screen.getByRole("dialog", { name: "Save as context" })).getByRole("button", { name: "Save" }),
     );
     await waitFor(() => expect(screen.getByRole("status", { name: "ids" })).toHaveTextContent("c-new"));
+    expect(callsOf("contexts.create")[0].input).toMatchObject({ notes: "Each step names its operator position" });
+    expect(screen.getByRole("status", { name: "box" })).toHaveTextContent(/^$/);
     expect(screen.queryByRole("dialog", { name: "Save as context" })).toBeNull();
-    expect(screen.queryByRole("textbox", { name: "Note for the columns" })).toBeNull();
   });
 
-  it("imports a saved context with a tick, and closes the picker with Done", async () => {
-    render(<Holder start={[]} />, { wrapper: dataWrapper() });
-    fireEvent.click(screen.getByRole("button", { name: "Import saved context" }));
-    const dialog = screen.getByRole("dialog", { name: "Saved contexts" });
-    fireEvent.click(await within(dialog).findByRole("checkbox", { name: /Signalling glossary/ }));
-    expect(screen.getByRole("status", { name: "ids" })).toHaveTextContent("c-sig");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-    expect(screen.queryByRole("dialog", { name: "Saved contexts" })).toBeNull();
+  it("opens the contexts manager, and is off while disabled", async () => {
+    const r = render(<Holder start={[]} />, { wrapper: dataWrapper() });
+    open();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Manage contexts…" }));
+    expect(await screen.findByRole("dialog", { name: /Contexts/ })).toBeInTheDocument();
+    r.unmount();
+    render(<Holder start={[]} disabled />, { wrapper: dataWrapper() });
+    expect(screen.getByRole("button", { name: "Add context" })).toBeDisabled();
   });
 });

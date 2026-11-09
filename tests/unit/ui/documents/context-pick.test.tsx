@@ -66,11 +66,14 @@ describe("the saved contexts a document is read with", () => {
     expect(callsOf("docs.set")[0].input).toEqual({ id: "D-1", contexts: ["c-sig"] });
   });
 
-  it("« + » adds a saved context the document does not have yet, as in Generate", async () => {
+  it("« + » ticks a saved context in or out of the document, as in Generate", async () => {
     show({ contexts: ["c-ops"] });
     fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    expect(screen.queryByRole("menuitem", { name: /Operator positions/ })).toBeNull();
-    fireEvent.click(await screen.findByRole("menuitem", { name: /Signalling glossary/ }));
+    expect(await screen.findByRole("menuitemcheckbox", { name: /Operator positions/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Signalling glossary/ }));
     await waitFor(() => expect(callsOf("docs.set")[0]?.input).toEqual({ id: "D-1", contexts: ["c-ops", "c-sig"] }));
   });
 
@@ -84,10 +87,10 @@ describe("the saved contexts a document is read with", () => {
     expect(callsOf("docs.set")).toHaveLength(0);
   });
 
-  it("saves the note as a context: the document then takes it and its note is emptied", async () => {
+  it("saves the note (the box's text) as a context: the document then takes it and its note is emptied", async () => {
     show({ context: "Les positions de l'opérateur", contexts: ["c-ops"] });
     fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Save the note as a context…" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save the text as a context…" }));
     fireEvent.click(
       within(screen.getByRole("dialog", { name: "Save as context" })).getByRole("button", { name: "Save" }),
     );
@@ -98,7 +101,7 @@ describe("the saved contexts a document is read with", () => {
   it("cannot save an empty note as a context, nor change the contexts while disabled", async () => {
     show({ context: "  " });
     fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    expect(await screen.findByRole("menuitem", { name: "Save the note as a context…" })).toHaveAttribute(
+    expect(await screen.findByRole("menuitem", { name: "Save the text as a context…" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );

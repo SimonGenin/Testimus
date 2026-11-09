@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ContextPicker } from "../../../../src/ui/components/claude/ContextPicker.tsx";
+import { ContextMenu } from "../../../../src/ui/components/claude/ContextMenu.tsx";
 import { ContextsDialog } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { DockFolded } from "../../../../src/ui/components/claude/DockFolded.tsx";
 import { runBadges } from "../../../../src/ui/components/claude/turns.ts";
@@ -47,9 +47,13 @@ describe("the dock's and the contexts' icons, as the design draws them", () => {
     expect(runBadges({ ...run, steps: 0 }, true)[0]).toMatchObject({ label: "Nothing changed", tone: "neutral" });
   });
 
-  it("the saved contexts of a run each lead with context", () => {
-    render(<ContextPicker all={[ctx]} isOn={() => true} onToggle={() => {}} foot="" />);
-    expect(iconOf(screen.getByText("Glossaire RATP"))).toBe("context");
+  it("the saved contexts of a run each lead with context", async () => {
+    net.routes["contexts.list"] = () => [ctx];
+    render(<ContextMenu isOn={() => true} onToggle={() => {}} text="" onSaved={() => {}} />, {
+      wrapper: dataWrapper(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    expect(iconOf(await screen.findByRole("menuitemcheckbox", { name: /Glossaire RATP/ }))).toBe("context");
   });
 
   it("the Contexts dialog: each context is a context; the copy names its project with folder and copies with copy", async () => {

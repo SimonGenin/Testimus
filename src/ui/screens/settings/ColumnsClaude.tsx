@@ -4,9 +4,8 @@ import { useRef, useState } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { JobEvent, StepColumn } from "../../../core/types.ts";
 import { toolLabel } from "../../components/claude/ClaudeDock.tsx";
-import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
+import { ContextMenu } from "../../components/claude/ContextMenu.tsx";
 import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
-import { SaveContext } from "../../components/claude/SaveContext.tsx";
 import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { Answer } from "../../components/ui/Answer.tsx";
 import { Badge, COLUMN, type Word } from "../../components/ui/Badge.tsx";
@@ -15,7 +14,6 @@ import { Card } from "../../components/ui/Card.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Facts } from "../../components/ui/Facts.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
-import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
@@ -30,7 +28,6 @@ import { Hint, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   title: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.claudeText },
-  acts: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   reading: { flex: 1, minWidth: 0, color: color.textMuted },
   intro: { margin: 0, color: color.textMuted },
   said: { margin: 0, whiteSpace: "pre-wrap" },
@@ -85,7 +82,6 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const [picked, setPicked] = useDraft(draft("contexts"), "[]");
   const ids = JSON.parse(picked) as string[];
   const setIds = (next: string[]) => setPicked(JSON.stringify(next));
-  const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
   const [kept, setJob, clearJob] = useDraft(draft("job"));
@@ -122,13 +118,6 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const since = job?.startedAt && !Number.isNaN(Date.parse(job.startedAt)) ? Date.parse(job.startedAt) : startedAt;
   const now = useNow(1000, asking);
   const name = (id: string) => all.find((c) => c.id === id)?.name ?? id;
-  const add: MenuEntry[] = [
-    ...all
-      .filter((c) => !ids.includes(c.id))
-      .map((c) => ({ label: c.name, icon: "context" as const, onSelect: () => setIds([...ids, c.id]) })),
-    ...(all.some((c) => !ids.includes(c.id)) ? (["separator"] as MenuEntry[]) : []),
-    { label: "Manage contexts…", onSelect: () => setDialog("manage") },
-  ];
 
   const suggest = async () => {
     setStarting(true);
@@ -227,25 +216,18 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
               if (!on) setIds(ids.filter((y) => y !== x));
             }}
             addContext={
-              <Menu
-                label="Add context"
-                entries={add}
-                trigger={
-                  <Button size="sm" variant="quiet" icon="plus" iconOnly label="Add context" disabled={asking} />
-                }
+              <ContextMenu
+                isOn={(x) => ids.includes(x)}
+                onToggle={(x, on) => setIds(on ? [...ids, x] : ids.filter((y) => y !== x))}
+                text={ask}
+                onSaved={(id) => {
+                  setIds([...ids, id]);
+                  setAsk("");
+                }}
+                disabled={asking}
               />
             }
           />
-          <div {...stylex.props(styles.acts)}>
-            <Button
-              size="sm"
-              variant="quiet"
-              icon="context"
-              label="Save the request as a context…"
-              disabled={asking ? true : !ask.trim() ? "Write a request first" : false}
-              onClick={() => setDialog("save")}
-            />
-          </div>
           {jobId && (
             <span role="status" {...stylex.props(type.small, styles.reading)}>
               {reading}
@@ -253,17 +235,6 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
           )}
         </Stack>
       </Card>
-      {dialog === "save" && (
-        <SaveContext
-          note={ask}
-          onSaved={(id) => {
-            setIds([...ids, id]);
-            setAsk("");
-          }}
-          onClose={() => setDialog(null)}
-        />
-      )}
-      {dialog === "manage" && <ContextsDialog onClose={() => setDialog(null)} />}
       {answer && (
         <Answer
           title="Claude's proposals"
