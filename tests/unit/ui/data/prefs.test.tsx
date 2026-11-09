@@ -21,23 +21,23 @@ describe("presentation preferences", () => {
   it("give their default until set, and keep the stored strings other readers expect", () => {
     expect(readPref("theme")).toBe("system");
     expect(readPref("showDetails")).toBe(true);
-    expect(readPref("dockWidth")).toBeNull();
+    expect(readPref("docsTocWidth")).toBeNull();
     writePref("theme", "dark");
     writePref("showDetails", false);
-    writePref("dockWidth", 420);
+    writePref("docsTocWidth", 420);
     expect(localStorage.getItem("testimus.theme")).toBe("dark");
     expect(localStorage.getItem("testimus.showDetails")).toBe("0");
-    expect(localStorage.getItem("testimus.dockWidth")).toBe("420");
+    expect(localStorage.getItem("testimus.docsTocWidth")).toBe("420");
     expect(readPref("theme")).toBe("dark");
     expect(readPref("showDetails")).toBe(false);
-    expect(readPref("dockWidth")).toBe(420);
+    expect(readPref("docsTocWidth")).toBe(420);
   });
 
   it("ignore a stored value out of range or unknown, and forget a value set back to its default", () => {
     localStorage.setItem("testimus.theme", "purple");
-    localStorage.setItem("testimus.dockWidth", "9000");
+    localStorage.setItem("testimus.docsTocWidth", "9000");
     expect(readPref("theme")).toBe("system");
-    expect(readPref("dockWidth")).toBeNull();
+    expect(readPref("docsTocWidth")).toBeNull();
     writePref("stepLayout", "split");
     writePref("stepLayout", "stacked");
     expect(localStorage.getItem("testimus.stepLayout")).toBeNull();
@@ -71,14 +71,14 @@ describe("presentation preferences", () => {
 
   it("are saved and restored as a whole (the desktop mirror), refusing values they do not know", () => {
     writePref("theme", "light");
-    writePref("sourceWidth", 500);
+    writePref("editorWidth", 900);
     const saved = savedPrefs();
-    expect(saved).toEqual({ "testimus.theme": "light", "testimus.sourceWidth": "500" });
+    expect(saved).toEqual({ "testimus.theme": "light", "testimus.editorWidth": "900" });
     localStorage.clear();
-    restorePrefs({ ...saved, "testimus.queueWidth": "1", "testimus.unknown": "x" });
+    restorePrefs({ ...saved, "testimus.docsTocWidth": "1", "testimus.unknown": "x" });
     expect(readPref("theme")).toBe("light");
-    expect(readPref("sourceWidth")).toBe(500);
-    expect(localStorage.getItem("testimus.queueWidth")).toBeNull();
+    expect(readPref("editorWidth")).toBe(900);
+    expect(localStorage.getItem("testimus.docsTocWidth")).toBeNull();
     expect(localStorage.getItem("testimus.unknown")).toBeNull();
   });
 

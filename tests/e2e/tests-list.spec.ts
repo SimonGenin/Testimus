@@ -78,11 +78,12 @@ test("a new test starts as a local draft with one step", async ({ page }) => {
   await expect(main.getByText("Draft", { exact: true })).toBeVisible();
 });
 
-test("the editor at 1280 px keeps the Claude dock folded", async ({ page }) => {
+test("the editor at 1280 px starts with the Claude tab collapsed to its strip", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 960 });
   await openTest(page, "LFRPS12-1420");
   await expect(
-    page.getByRole("complementary", { name: "Claude" }).getByRole("button", { name: "Open Claude" }),
+    page.getByRole("navigation", { name: "Section 3, collapsed" }).getByRole("button", { name: /^Claude/ }),
   ).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Claude" })).toBeHidden();
   await shoot(page, "tests-editor-1280");
 });

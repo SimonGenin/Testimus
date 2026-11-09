@@ -169,7 +169,7 @@ test("Browse opens a project, the window takes its name, Show in Explorer reveal
 
     await page.getByRole("button", { name: "Back to the app" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
-    const folded = page.getByRole("button", { name: "Show the document list" });
+    const folded = page.getByRole("navigation", { name: /collapsed$/ }).getByRole("button", { name: /^Documents/ });
     await expect(folded.or(page.getByRole("region", { name: "Document list" })).first()).toBeVisible();
     if (await folded.isVisible()) await folded.click();
     const docs = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
@@ -244,17 +244,14 @@ test("documents go to the core by path, the taskbar follows the jobs, their end 
   try {
     await stubMain(app);
     await go(page, "#/documents");
-    // ponytail: an added document opens, and on a window too narrow for the four columns the list folds into a drawer
-    // from the screen's first frame — it is opened to count the rows, then closed (a drawer is modal: the screen's
-    // buttons wait behind it)
+    // ponytail: an added document opens, and on a window too narrow for its sections the list's column folds to its
+    // strip — it is opened from there to count the rows
     const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
     const count = async (n: number) => {
-      const drawer = page.getByRole("button", { name: "Show the document list" });
-      await expect(drawer.or(page.getByRole("region", { name: "Document list" })).first()).toBeVisible();
-      const folded = await drawer.isVisible();
-      if (folded) await drawer.click();
+      const strip = page.getByRole("navigation", { name: /collapsed$/ }).getByRole("button", { name: /^Documents/ });
+      await expect(strip.or(page.getByRole("region", { name: "Document list" })).first()).toBeVisible();
+      if (await strip.isVisible()) await strip.click();
       await expect(rows).toHaveCount(n, { timeout: 60_000 });
-      if (folded) await page.keyboard.press("Escape");
     };
     await count(2);
 

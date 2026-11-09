@@ -2,15 +2,24 @@ import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 import type { Job, JobEvent } from "../../../src/core/types.ts";
+import { ClaudeSlot } from "../../../src/ui/components/claude/ClaudeTab.tsx";
 import { AppContext, type AppState, useApp } from "../../../src/ui/lib/app.ts";
 import { DataProvider } from "../../../src/ui/lib/data/provider.tsx";
 import { createQueryClient } from "../../../src/ui/lib/data/query.ts";
+import { useRevealAsk } from "../../../src/ui/lib/workspace/signals.ts";
 import { app } from "./ui-desktop.tsx";
 
+// ponytail: a screen as the shell sees it — its Claude tab holds the one dock, and what the shell asked of its sections
+// (show Claude, toggle it) is written out
 export function FakeScreen({ name }: { name: string }) {
   const a = useApp();
+  const ask = useRevealAsk();
   return (
     <section aria-label={name}>
+      <output aria-label={`asks of ${name}`}>
+        {ask ? `${ask.tab} ${ask.toggle ? "toggle" : "show"} ${ask.nonce}` : "none"}
+      </output>
+      <ClaudeSlot />
       <span>
         {name} nonce {a.testsNonce} arg {a.route.arg ?? "-"} fields {a.xray.fields.length}
       </span>

@@ -8,7 +8,7 @@ import { type } from "../../components/ui/type.ts";
 import { border, breakpoint, color, darkTheme, lightTheme, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { type Guideline, type KitSection, type PropRow, propsOf } from "./kit.tsx";
 
-const SOURCES = import.meta.glob<string>("../../components/ui/*.tsx", {
+const SOURCES = import.meta.glob<string>("../../components/ui/**/*.tsx", {
   eager: true,
   query: "?raw",
   import: "default",

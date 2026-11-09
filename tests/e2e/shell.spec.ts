@@ -49,13 +49,15 @@ test("the system status opens the system check", async ({ page }) => {
   await expect(page).toHaveURL(/#\/doctor$/);
 });
 
-test("the system status says its state in whole words, even « Not checked »", async ({ page }) => {
+test("the system status says its state in whole words, even « Not checked », in its name and its tooltip", async ({
+  page,
+}) => {
   await page.route("**/api/system/doctor", () => {});
   await boot(page);
   const status = page.getByRole("button", { name: "System: Not checked. Open the system check" });
-  await expect(status).toHaveText("Not checked");
-  const cut = await status.evaluate((b) => [...b.querySelectorAll("span")].some((s) => s.scrollWidth > s.clientWidth));
-  expect(cut).toBe(false);
+  await status.hover();
+  await expect(page.getByRole("tooltip", { name: "Not checked" })).toBeVisible();
+  await expect(status).toHaveAccessibleDescription("Not checked");
 });
 
 test("Ctrl K opens the palette, filters and runs a command", async ({ page }) => {
@@ -83,26 +85,29 @@ test("the palette navigates and closes with Escape", async ({ page }) => {
   await expect(palette).toBeHidden();
 });
 
-test("Ctrl J opens and folds the Claude dock", async ({ page }) => {
-  await boot(page);
+test("Ctrl J shows Claude's tab, and folds its section when it is the tab shown", async ({ page }) => {
+  await boot(page, "#/jobs");
+  const strip = page.getByRole("navigation", { name: "Section 3, collapsed" });
   const dock = page.getByRole("complementary", { name: "Claude" });
-  await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
+  await expect(strip.getByRole("button", { name: "Claude" })).toBeVisible();
+  await expect(dock).toBeHidden();
   await page.keyboard.press("Control+j");
-  await expect(dock.getByRole("heading", { name: "Claude" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Claude" })).toHaveAttribute("aria-selected", "true");
+  await expect(dock).toBeVisible();
   await page.keyboard.press("Control+j");
-  await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
-  await expect(dock.getByRole("heading", { name: "Claude" })).toHaveCount(0);
-  await dock.getByRole("button", { name: "Open Claude" }).click();
-  await dock.getByRole("button", { name: /^Fold the dock/ }).click();
-  await expect(dock.getByRole("button", { name: "Open Claude" })).toBeVisible();
+  await expect(strip).toBeVisible();
+  await expect(dock).toBeHidden();
+  await strip.getByRole("button", { name: "Claude" }).click();
+  await expect(dock).toBeVisible();
 });
 
-test("the dock is folded at start, even on a wide window", async ({ page }) => {
+test("Claude's section starts folded where the screen keeps it so, even on a wide window", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await boot(page);
+  await boot(page, "#/jobs");
   await expect(
-    page.getByRole("complementary", { name: "Claude" }).getByRole("button", { name: "Open Claude" }),
+    page.getByRole("navigation", { name: "Section 3, collapsed" }).getByRole("button", { name: "Claude" }),
   ).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Claude" })).toBeHidden();
 });
 
 test("the theme is chosen in Settings › Appearance, not from the rail, and survives a reload", async ({ page }) => {

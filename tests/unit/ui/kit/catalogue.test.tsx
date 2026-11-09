@@ -56,7 +56,7 @@ describe("Kit catalogue", () => {
     fireEvent.click(option(name));
     const main = screen.getByRole("main", { name: "Component" });
     expect(within(main).getByRole("heading", { level: 1 })).toHaveTextContent(name);
-    expect(within(main).getByText(/^src\/ui\/components\/ui\/\w+\.tsx?$/)).toBeInTheDocument();
+    expect(within(main).getByText(/^src\/ui\/components\/ui\/(\w+\/)?\w+\.tsx?$/)).toBeInTheDocument();
     const light = within(main).getByRole("region", { name: `${name}, Light` });
     const dark = within(main).getByRole("region", { name: `${name}, Dark` });
     const states = figures(light);

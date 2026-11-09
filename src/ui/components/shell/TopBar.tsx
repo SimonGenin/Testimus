@@ -1,8 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { useBar } from "../../lib/workspace/signals.ts";
 import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { type } from "../ui/type.ts";
+import { SectionControls } from "../ui/workspace/SectionControls.tsx";
 import { Activity } from "./Activity.tsx";
 import { OnTopToggle } from "./OnTopToggle.tsx";
 
@@ -64,8 +66,9 @@ export function useTopBarSlots() {
 }
 
 // ponytail: the bar on top of every screen — the way back when the screen went down a level, its title (a screen may
-// put its own, with a trail, a badge and a short line, through ScreenHeader), the screen's actions, the running work,
-// the palette and the pin (desktop); the slots are filled by portals
+// put its own, with a trail, a badge and a short line, through ScreenHeader), the screen's actions, its sections (how
+// many, add a column, split one, reset), the running work, the palette and the pin (desktop); the slots are filled by
+// portals
 export function TopBar({
   title,
   onPalette,
@@ -75,6 +78,7 @@ export function TopBar({
   onPalette: () => void;
   slots: ReturnType<typeof useTopBarSlots>;
 }) {
+  const sections = useBar();
   return (
     <header {...stylex.props(styles.bar)}>
       <span ref={slots.setBack} {...stylex.props(styles.slot)} />
@@ -84,6 +88,7 @@ export function TopBar({
       </h1>
       <span {...stylex.props(styles.spacer)} />
       <span ref={slots.setActions} {...stylex.props(styles.actions)} />
+      {sections && <SectionControls ws={sections} />}
       <Activity />
       <span {...stylex.props(styles.palette)}>
         <Button variant="field" icon="search" label="Search everything" shortcut="Ctrl K" block onClick={onPalette} />

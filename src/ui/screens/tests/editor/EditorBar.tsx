@@ -1,5 +1,4 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
@@ -53,7 +52,6 @@ const styles = stylex.create({
 
 // the editor's one-line bar: which test, where, what its last edit became, and what can be done with it
 export function EditorBar({
-  lead,
   testKey,
   folder,
   folders,
@@ -70,7 +68,6 @@ export function EditorBar({
   onPush,
   editing = false,
 }: {
-  lead?: ReactNode;
   testKey?: string;
   folder: string;
   folders: string[];
@@ -94,7 +91,6 @@ export function EditorBar({
   if (editing)
     return (
       <div role="toolbar" aria-label="Editing in Review" {...stylex.props(styles.bar)}>
-        {lead}
         <span data-testid="test-key" {...stylex.props(type.code, styles.key, !testKey && styles.local)}>
           {testKey ?? "local"}
         </span>
@@ -106,7 +102,6 @@ export function EditorBar({
     );
   return (
     <div {...stylex.props(styles.bar)}>
-      {lead}
       <span data-testid="test-key" {...stylex.props(type.code, styles.key, !testKey && styles.local)}>
         {testKey ?? "local"}
       </span>

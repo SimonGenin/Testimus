@@ -19,8 +19,20 @@ const rowAction = async (name: RegExp, action: string) => {
   fireEvent.focus(r);
   return within(r).getByRole("button", { name: action });
 };
-const side = () =>
-  screen.getByRole("separator", { name: "Resize the test list" }).parentElement?.parentElement as HTMLElement;
+const edge = () => screen.getByRole("separator", { name: "Resize section 1" });
+const keptWidth = () => JSON.parse(localStorage.getItem("testimus.layoutTests") ?? "null")?.columns[0].width;
+// ponytail: a layout kept by an earlier visit, its list column that wide
+const keepLayout = (width: number) =>
+  localStorage.setItem(
+    "testimus.layoutTests",
+    JSON.stringify({
+      columns: [
+        { width, split: null, sections: [{ id: "a", tabs: ["list"], active: "list" }] },
+        { width: null, split: null, sections: [{ id: "b", tabs: ["test"], active: "test" }] },
+        { width: 400, split: null, sections: [{ id: "c", tabs: ["claude"], active: "claude", collapsed: true }] },
+      ],
+    }),
+  );
 
 vi.mock("../../../../src/ui/screens/tests/TestEditor.tsx", () => ({
   TestEditor: ({
@@ -321,89 +333,71 @@ describe("TestsScreen", () => {
     expect(other.state.navigate).not.toHaveBeenCalledWith("tests");
   });
 
-  it("resizes the list, remembers the width and resets it", () => {
+  it("resizes the list's column, keeps the width in the screen's layout and resets it", () => {
     screenOf();
-    const edge = screen.getByRole("separator", { name: "Resize the test list" });
-    fireEvent.pointerUp(edge);
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBeNull();
-    fireEvent.pointerDown(edge, { clientX: 100, pointerId: 1 });
-    fireEvent.pointerMove(edge, { clientX: 400 });
-    expect(side().style.width).toBe("480px");
-    fireEvent.pointerUp(edge);
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("480");
-    fireEvent.pointerDown(edge, { clientX: 100, pointerId: 1 });
-    fireEvent.pointerUp(edge);
-    fireEvent.doubleClick(edge);
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBeNull();
-    expect(side().style.width).toBe("320px");
+    expect(edge()).toHaveAttribute("aria-valuenow", "320");
+    fireEvent.pointerUp(edge());
+    expect(localStorage.getItem("testimus.layoutTests")).toBeNull();
+    fireEvent.pointerDown(edge(), { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(edge(), { clientX: 400 });
+    expect(edge()).toHaveAttribute("aria-valuenow", "620");
+    fireEvent.pointerUp(edge());
+    expect(keptWidth()).toBe(620);
+    fireEvent.doubleClick(edge());
+    expect(edge()).toHaveAttribute("aria-valuenow", "320");
+    expect(keptWidth()).toBe(320);
   });
 
-  it("ignores a stored width below 260 and clamps a drag between 260 and 480", () => {
-    localStorage.setItem("testimus.sidebarWidth", "100");
+  it("clamps a kept width and a drag between 220 and 960 px", () => {
+    keepLayout(100);
     screenOf();
-    expect(side().style.width).toBe("320px");
-    const edge = screen.getByRole("separator", { name: "Resize the test list" });
-    fireEvent.pointerDown(edge, { clientX: 300, pointerId: 1 });
-    fireEvent.pointerMove(edge, { clientX: 250 });
-    expect(side().style.width).toBe("270px");
-    fireEvent.pointerMove(edge, { clientX: 0 });
-    expect(side().style.width).toBe("260px");
-    fireEvent.pointerUp(edge);
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("260");
-    fireEvent.pointerDown(edge, { clientX: 300, pointerId: 1 });
-    fireEvent.pointerMove(edge, { clientX: 2000 });
-    expect(side().style.width).toBe("480px");
-    fireEvent.pointerUp(edge);
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("480");
+    expect(edge()).toHaveAttribute("aria-valuenow", "220");
+    fireEvent.pointerDown(edge(), { clientX: 300, pointerId: 1 });
+    fireEvent.pointerMove(edge(), { clientX: 0 });
+    expect(edge()).toHaveAttribute("aria-valuenow", "220");
+    fireEvent.pointerMove(edge(), { clientX: 2000 });
+    expect(edge()).toHaveAttribute("aria-valuenow", "960");
+    fireEvent.pointerUp(edge());
+    expect(keptWidth()).toBe(960);
   });
 
-  it("starts at a remembered width and ignores one out of range", () => {
-    localStorage.setItem("testimus.sidebarWidth", "360");
+  it("starts at a remembered layout and ignores one it cannot read", () => {
+    keepLayout(360);
     screenOf();
-    expect(side().style.width).toBe("360px");
+    expect(edge()).toHaveAttribute("aria-valuenow", "360");
     cleanup();
-    localStorage.setItem("testimus.sidebarWidth", "9999");
+    localStorage.setItem("testimus.layoutTests", "{");
     screenOf();
-    expect(side().style.width).toBe("320px");
+    expect(edge()).toHaveAttribute("aria-valuenow", "320");
   });
 
   it("copes with a storage that throws", () => {
     const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    const set = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("denied");
     });
     screenOf();
-    fireEvent.doubleClick(screen.getByRole("separator", { name: "Resize the test list" }));
+    fireEvent.doubleClick(edge());
     get.mockRestore();
     set.mockRestore();
   });
 
-  it("on a narrow window, shows the list as a drawer closed by Escape, the scrim and opening a test", async () => {
-    Object.defineProperty(window, "innerWidth", { value: 600, configurable: true });
-    screenOf();
-    expect(screen.queryByRole("separator")).toBeNull();
-    const toggle = screen.getByRole("button", { name: "Show test list" });
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    const drawer = screen.getByRole("dialog", { name: "Tests" });
-    fireEvent.keyDown(drawer, { key: "a" });
-    fireEvent.keyDown(drawer, { key: "Escape" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(toggle);
-    fireEvent.mouseDown(screen.getByRole("dialog", { name: "Tests" }).parentElement as HTMLElement);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(toggle);
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Tests" })).getByRole("button", { name: "Close" }));
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(toggle);
+  it("folds the list's section to a strip of icons, opens it again on the list, and opens a test from it", async () => {
+    const { state } = screenOf();
+    await row(/^Test t1/);
+    expect(screen.getByRole("navigation", { name: "Section 3, collapsed" })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Collapse this section" })[0]);
+    const strip = screen.getByRole("navigation", { name: "Section 1, collapsed" });
+    expect(JSON.parse(localStorage.getItem("testimus.layoutTests") ?? "{}").columns[0].sections[0].collapsed).toBe(
+      true,
+    );
+    expect(screen.queryByRole("separator", { name: "Resize section 1" })).toBeNull();
+    fireEvent.click(within(strip).getByRole("button", { name: "Tests, 2" }));
+    expect(screen.queryByRole("navigation", { name: "Section 1, collapsed" })).toBeNull();
+    expect(edge()).toBeInTheDocument();
     fireEvent.click(await row(/^Test t1/));
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(toggle);
-    Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
-    act(() => void window.dispatchEvent(new Event("resize")));
-    expect(screen.queryByRole("button", { name: "Show test list" })).toBeNull();
-    expect(screen.queryByRole("dialog", { name: "Tests" })).toBeNull();
+    expect(state.navigate).toHaveBeenCalledWith("tests", "t1");
   });
 });

@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { type } from "../../components/ui/type.ts";
-import { border, breakpoint, color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { RunDrop } from "./RunDrop.tsx";
 import { RunShot } from "./RunShot.tsx";
 import type { RunResult } from "./runs.ts";
@@ -10,17 +10,13 @@ import type { RunResult } from "./runs.ts";
 const styles = stylex.create({
   panel: {
     boxSizing: "border-box",
-    flex: "none",
-    width: { default: "23.75rem", [breakpoint.sm]: "auto" },
+    flex: 1,
+    minWidth: 0,
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
     backgroundColor: color.surface,
-    borderInlineStartStyle: "solid",
-    borderInlineStartWidth: border.width,
-    borderInlineStartColor: color.border,
   },
-  sized: (width: string) => ({ width: { default: width, [breakpoint.sm]: "auto" } }),
   body: { flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" },
   section: {
     display: "flex",
@@ -99,21 +95,18 @@ export function ShotsSection({
   );
 }
 
-// ponytail: the testing panel beside the test being run — its sections scroll, the result stays at the foot
+// ponytail: the testing panel, a tab of the run's sections — its sections scroll, the result stays at the foot
 export function RunPanel({
   label = "Testing",
-  width,
   children,
   foot,
 }: {
   label?: string;
-  /** px, once the tester widened it (else the design's) */
-  width?: number;
   children: ReactNode;
   foot: ReactNode;
 }) {
   return (
-    <aside aria-label={label} {...stylex.props(styles.panel, width !== undefined && styles.sized(`${width}px`))}>
+    <aside aria-label={label} {...stylex.props(styles.panel)}>
       <div {...stylex.props(styles.body)}>{children}</div>
       <div {...stylex.props(styles.foot)}>{foot}</div>
     </aside>

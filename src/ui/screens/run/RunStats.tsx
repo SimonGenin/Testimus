@@ -4,7 +4,7 @@ import { Card } from "../../components/ui/Card.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import { breakpoint, color, space } from "../../styles/tokens.stylex.ts";
+import { color, container, space } from "../../styles/tokens.stylex.ts";
 import { inProgress, type RunStatus, type RunView } from "./runs.ts";
 
 const styles = stylex.create({
@@ -17,7 +17,7 @@ const styles = stylex.create({
     display: "grid",
     gridTemplateColumns: {
       default: "repeat(4, minmax(0, 1fr))",
-      [breakpoint.sm]: "repeat(2, minmax(0, 1fr))",
+      [container.paneCompact]: "repeat(2, minmax(0, 1fr))",
     },
     gap: space.s4,
   },

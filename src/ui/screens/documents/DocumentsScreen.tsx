@@ -1,14 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { type DragEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type DragEvent, useEffect, useState } from "react";
+import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
-import { Modal } from "../../components/ui/Modal.tsx";
-import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type } from "../../components/ui/type.ts";
+import { Workspace } from "../../components/ui/workspace/Workspace.tsx";
 import { useApp } from "../../lib/app.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles, pickFolder } from "../../lib/desktop.ts";
@@ -24,13 +24,15 @@ import {
   settled,
   useUploads,
 } from "../../lib/uploads.ts";
+import { column, layoutOf, section } from "../../lib/workspace/layout.ts";
+import { useWorkspace } from "../../lib/workspace/useWorkspace.ts";
 import { border, color, radius, space, z } from "../../styles/tokens.stylex.ts";
 import { DocDetail } from "./DocDetail.tsx";
+import { DocDetails } from "./DocDetails.tsx";
 import { DocList } from "./DocList.tsx";
 import { DocLoading } from "./DocLoading.tsx";
 import { ImagesChoice } from "./ImagesChoice.tsx";
 import { ImportFolder } from "./ImportFolder.tsx";
-import { useDocsLayout } from "./layout.ts";
 import { OverviewPane } from "./OverviewPane.tsx";
 
 const styles = stylex.create({
@@ -51,19 +53,8 @@ const styles = stylex.create({
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
   },
-  body: { flex: 1, minHeight: 0, display: "flex", minWidth: 0 },
-  list: {
-    boxSizing: "border-box",
-    flex: "none",
-    display: "flex",
-    minHeight: 0,
-    backgroundColor: color.surface,
-    borderRightStyle: "solid",
-    borderRightWidth: border.width,
-    borderRightColor: color.border,
-  },
-  listWidth: (w: number) => ({ width: w }),
-  none: { boxSizing: "border-box", flex: 1, display: "flex", alignItems: "flex-start", padding: space.s5 },
+  list: { flex: 1, minHeight: 0, minWidth: 0, display: "flex" },
+  none: { boxSizing: "border-box", flex: 1, display: "flex", padding: space.s7 },
   empty: { flex: 1, minHeight: 0, overflowY: "auto" },
   veil: {
     boxSizing: "border-box",
@@ -97,6 +88,14 @@ const styles = stylex.create({
   veilTitle: { color: color.text },
   veilText: { color: color.textMuted },
 });
+
+// ponytail: the documents on the left, the one open in the middle, its details and Claude on the right
+// (at 1440 px the contents still fit beside the text: 260 + 300 leave the document 790 px)
+const LAYOUT = layoutOf(
+  column(260, section(["documents"])),
+  column(null, section(["document"])),
+  column(300, section(["details", "claude"])),
+);
 
 // ponytail: #/documents/<id>#<anchor> "<quote>" from [review ]<test> step <n> — the document, the place in it, the
 // line to mark and the test that cited it, read in Review or in Tests (the last part is optional)
@@ -135,10 +134,6 @@ export function DocumentsScreen() {
   const rag = useRead("rag.status", {});
   const overview = useRead("docs.overviewShow", {});
   const uploads = useUploads();
-  const body = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
-  const { fold, panes } = useDocsLayout(width);
-  const [listOpen, setListOpen] = useState(false);
   const [drag, setDrag] = useState(false);
   const [choosing, setChoosing] = useState<Picked[] | null>(null);
   const [folder, setFolder] = useState<{ picked: string | null } | null>(null);
@@ -156,24 +151,8 @@ export function DocumentsScreen() {
   const unknown = !!docs && !!routeId && !active && !onOverview;
   const busy = uploads.filter((u) => !settled(u)).length;
   const hasBody = !(docs && !docs.length && !uploads.length);
-  const folded = fold !== "wide";
 
   useEffect(() => forgetSettled, []);
-
-  // ponytail: measured before the first paint — the wide layout drawn for one frame on a narrow window showed the list
-  // the drawer then took away
-  useLayoutEffect(() => {
-    const el = body.current;
-    if (!hasBody || !el || typeof ResizeObserver === "undefined") return;
-    setWidth(el.getBoundingClientRect().width);
-    const watch = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
-    watch.observe(el);
-    return () => watch.disconnect();
-  }, [hasBody]);
-
-  useEffect(() => {
-    if (!folded) setListOpen(false);
-  }, [folded]);
 
   const added = (id?: string) => {
     void invalidate(client, [["docs.list"], ["rag.status"]]);
@@ -224,21 +203,88 @@ export function DocumentsScreen() {
       }
     />
   );
-  const open = (id: string) => {
-    setListOpen(false);
-    app.navigate("documents", id);
-  };
-  const listPane = (head: boolean) => (
-    <DocList
-      docs={docs}
-      uploads={uploads}
-      activeId={activeId}
-      head={head}
-      run={run}
-      overview={overview.data ?? null}
-      onOpen={open}
-    />
-  );
+  const open = (id: string) => app.navigate("documents", id);
+  const claude = useClaudeTab();
+  const warned = !!active && (active.converted?.warnings ?? []).length > 0;
+  const ws = useWorkspace({
+    pref: "layoutDocuments",
+    label: "Documents",
+    defaults: LAYOUT,
+    tabs: [
+      {
+        id: "documents",
+        label: "Documents",
+        icon: "documents",
+        count: docs?.length,
+        content: (
+          <div {...stylex.props(styles.list)}>
+            <DocList
+              docs={docs}
+              uploads={uploads}
+              activeId={activeId}
+              head={false}
+              run={run}
+              overview={overview.data ?? null}
+              onOpen={open}
+            />
+          </div>
+        ),
+      },
+      {
+        id: "document",
+        label: "Document",
+        icon: onOverview ? "layers" : "text",
+        main: true,
+        content: !docs ? (
+          <DocLoading label="Loading the documents" read="docs.list" />
+        ) : onOverview ? (
+          <OverviewPane />
+        ) : active ? (
+          <DocDetail
+            key={`${activeId} ${active.converted?.at ?? ""}`}
+            id={activeId}
+            anchor={anchor}
+            quote={quote}
+            from={from}
+            onClearQuote={() => app.navigate("documents", `${activeId}#${anchor}`)}
+            onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
+            onRemoved={() => {
+              app.navigate("documents");
+              app.refreshInfo();
+            }}
+          />
+        ) : unknown ? (
+          <div {...stylex.props(styles.none)}>
+            <EmptyState
+              icon="documents"
+              title="Document not found"
+              text={`This project has no document ${routeId}: it was deleted, or the link names another project's.`}
+              actions={
+                <Button
+                  variant="primary"
+                  icon="documents"
+                  label="Go to Documents"
+                  onClick={() => app.navigate("documents")}
+                />
+              }
+            />
+          </div>
+        ) : (
+          <div {...stylex.props(styles.none)}>
+            <EmptyState icon="documents" title="No document open" text="Pick a document in the list to read it." />
+          </div>
+        ),
+      },
+      {
+        id: "details",
+        label: "Details",
+        icon: "info",
+        ...(warned ? { dot: "warning" as const } : {}),
+        content: onOverview || !active ? <DocDetails id={null} /> : <DocDetails id={activeId} />,
+      },
+      claude,
+    ],
+  });
   const onDragOver = (e: DragEvent) => {
     if (!e.dataTransfer.types.includes("Files")) return;
     e.preventDefault();
@@ -314,86 +360,7 @@ export function DocumentsScreen() {
           />
         </div>
       ) : (
-        <div ref={body} data-testid="docs-body" data-fold={fold} {...stylex.props(styles.body)}>
-          {!folded && (
-            <>
-              <div {...stylex.props(styles.list, styles.listWidth(panes.list.value))}>{listPane(true)}</div>
-              <ResizeHandle label="Resize the document list" {...panes.list} />
-            </>
-          )}
-          {folded && listOpen && (
-            <Modal title="Documents" drawer="left" flush onClose={() => setListOpen(false)}>
-              {listPane(false)}
-            </Modal>
-          )}
-          {!docs ? (
-            <DocLoading
-              label="Loading the documents"
-              read="docs.list"
-              fold={fold}
-              widths={{ toc: panes.toc.value, side: panes.side.value }}
-            />
-          ) : onOverview ? (
-            <OverviewPane onShowList={folded ? () => setListOpen((o) => !o) : undefined} listOpen={listOpen} />
-          ) : active ? (
-            <DocDetail
-              key={`${activeId} ${active.converted?.at ?? ""}`}
-              id={activeId}
-              anchor={anchor}
-              quote={quote}
-              from={from}
-              onClearQuote={() => app.navigate("documents", `${activeId}#${anchor}`)}
-              fold={fold}
-              panes={panes}
-              listOpen={listOpen}
-              onShowList={folded ? () => setListOpen((o) => !o) : undefined}
-              onAnchor={(a) => app.navigate("documents", `${activeId}#${a}`)}
-              onRemoved={() => {
-                app.navigate("documents");
-                app.refreshInfo();
-              }}
-            />
-          ) : unknown ? (
-            <div {...stylex.props(styles.empty)}>
-              <EmptyState
-                icon="documents"
-                title="Document not found"
-                text={`This project has no document ${routeId}: it was deleted, or the link names another project's.`}
-                actions={
-                  <>
-                    {folded && (
-                      <Button
-                        variant="quiet"
-                        icon="panel-left"
-                        label="Show the document list"
-                        expanded={listOpen}
-                        onClick={() => setListOpen(true)}
-                      />
-                    )}
-                    <Button
-                      variant="primary"
-                      icon="documents"
-                      label="Go to Documents"
-                      onClick={() => app.navigate("documents")}
-                    />
-                  </>
-                }
-              />
-            </div>
-          ) : (
-            <div {...stylex.props(styles.none)}>
-              {folded && (
-                <Button
-                  variant="quiet"
-                  icon="panel-left"
-                  label="Show the document list"
-                  expanded={listOpen}
-                  onClick={() => setListOpen(true)}
-                />
-              )}
-            </div>
-          )}
-        </div>
+        <Workspace ws={ws} />
       )}
       {drag && (
         <div data-testid="drop-veil" aria-hidden="true" {...stylex.props(styles.veil)}>

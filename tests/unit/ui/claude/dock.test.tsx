@@ -10,6 +10,7 @@ import {
   fixOutcome,
   toolLabel,
 } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
+import { dockState } from "../../../../src/ui/components/claude/dockState.ts";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
 import { setFlushHook } from "../../../../src/ui/lib/data/query.ts";
@@ -42,22 +43,20 @@ afterEach(() => {
   setProject(null);
 });
 
-type Props = { folded?: boolean; request?: DockRequest | null };
+type Props = { request?: DockRequest | null };
 
 function mount(props: Props = {}, over: Partial<AppState> = {}) {
   const state = app(over);
-  const onFold = vi.fn();
-  let current: Props = { folded: false, ...props };
+  let current: Props = { ...props };
   const ui = () => (
     <AppContext.Provider value={{ ...state }}>
-      <ClaudeDock folded={!!current.folded} request={current.request} onFold={onFold} />
+      <ClaudeDock request={current.request} />
       <ToastProbe />
     </AppContext.Provider>
   );
   const r = render(ui());
   return {
     state,
-    onFold,
     update: (p: Props = {}, more: Partial<AppState> = {}) => {
       current = { ...current, ...p };
       Object.assign(state, more);
@@ -276,21 +275,15 @@ describe("Claude dock: asking the documents", () => {
     expect(await screen.findByText("Cancelled.")).toBeInTheDocument();
   });
 
-  it("shows Running on the folded strip and opens with it", async () => {
+  it("tells Claude's tab a run is under way, and when it ends", async () => {
     let finish: (v: unknown) => void = () => {};
     net.routes["chat.ask"] = () => new Promise((res) => (finish = res));
-    const { update, onFold } = mount({}, onDoc);
+    mount({}, onDoc);
     ask("Q");
     await waitFor(() => expect(callsOf("chat.ask")).toHaveLength(1));
-    update({ folded: true });
-    expect(screen.getByText(/Claude is working/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open Claude" }));
-    expect(onFold).toHaveBeenCalled();
+    expect(dockState().running).toBe(true);
     await act(async () => finish({ chatId: "c", answer: "done" }));
-    expect(screen.queryByText(/Claude is working/)).toBeNull();
-    update({ folded: false });
-    fireEvent.click(screen.getByRole("button", { name: "Fold the dock (Ctrl+J)" }));
-    expect(onFold).toHaveBeenCalledTimes(2);
+    expect(dockState()).toMatchObject({ running: false, failed: false });
   });
 });
 
@@ -316,7 +309,7 @@ describe("Claude dock: connection", () => {
         detail: "Run `claude` once in a terminal and sign in with your Claude account, then retry.",
       },
     });
-    mount({ folded: false }, { focus: focus() });
+    mount({}, { focus: focus() });
     ask("Ajoute le chemin négatif");
     expect(await screen.findByText("Claude is installed but not signed in")).toBeInTheDocument();
     expect(screen.getByText("Not connected")).toBeInTheDocument();

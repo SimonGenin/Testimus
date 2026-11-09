@@ -3,7 +3,13 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Finding } from "../../../../src/core/types.ts";
-import { notAtAnchor, SourcePanel } from "../../../../src/ui/screens/review/SourcePanel.tsx";
+import {
+  notAtAnchor,
+  SourceFoot,
+  type SourceFootProps,
+  SourcePanel,
+  type SourcePanelProps,
+} from "../../../../src/ui/screens/review/SourcePanel.tsx";
 import { fakeServer, mountReview, named, net, refused } from "./helpers.tsx";
 
 beforeEach(() => {
@@ -26,9 +32,19 @@ const passage = {
   doc: { code: "D401", version: "3", title: "Spécification", status: "validated" },
 };
 
-const panel = (props: Partial<Parameters<typeof SourcePanel>[0]> = {}) =>
+// ponytail: the source tab as Review draws it — the panel, and its foot in the section's foot
+function Both(p: SourcePanelProps & Omit<SourceFootProps, "source">) {
+  return (
+    <>
+      <SourcePanel source={p.source} label={p.label} misplaced={p.misplaced} onClose={p.onClose} />
+      <SourceFoot source={p.source} index={p.index} total={p.total} onOpenDoc={p.onOpenDoc} onStep={p.onStep} />
+    </>
+  );
+}
+
+const panel = (props: Partial<Parameters<typeof Both>[0]> = {}) =>
   mountReview(
-    <SourcePanel
+    <Both
       source={{ docId: "D1", anchor: "§5.2", quote: "ouvert par l'opérateur" }}
       label="Source of step 1"
       index={0}
@@ -67,7 +83,7 @@ describe("Review › the source panel", () => {
     expect(screen.getByRole("button", { name: "Previous source" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Next source" })).toBeDisabled();
     rerender(
-      <SourcePanel
+      <Both
         source={{ docId: "D1", anchor: "§5.2", quote: "" }}
         label="L"
         index={0}
@@ -107,8 +123,8 @@ describe("Review › the source panel", () => {
     net.routes["rag.passage"] = (i) => ({ ...passage, doc: { ...passage.doc, title: String(i.ref) } });
     net.gate = (name, input) => (name === "rag.passage" && String(input.ref).startsWith("A#") ? gate : undefined);
     const props = { label: "L", index: 0, total: 0, onClose: vi.fn(), onOpenDoc: vi.fn() };
-    const { rerender } = mountReview(<SourcePanel {...props} source={{ docId: "A", anchor: "1", quote: "" }} />);
-    rerender(<SourcePanel {...props} source={{ docId: "B", anchor: "2", quote: "" }} />);
+    const { rerender } = mountReview(<Both {...props} source={{ docId: "A", anchor: "1", quote: "" }} />);
+    rerender(<Both {...props} source={{ docId: "B", anchor: "2", quote: "" }} />);
     expect(await screen.findByRole("heading", { name: "B#2" })).toBeInTheDocument();
     release();
     await new Promise((r) => setTimeout(r, 20));

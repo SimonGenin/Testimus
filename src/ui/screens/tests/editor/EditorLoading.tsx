@@ -1,5 +1,4 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
 import { Card } from "../../../components/ui/Card.tsx";
 import { Loading } from "../../../components/ui/Loading.tsx";
 import { Skeleton } from "../../../components/ui/Skeleton.tsx";
@@ -43,11 +42,10 @@ const styles = stylex.create({
 });
 
 // ponytail: the editor while its test is read — the bar, the summary card and three step cards, at their places
-export function EditorLoading({ lead }: { lead?: ReactNode }) {
+export function EditorLoading() {
   return (
     <div role="status" aria-busy="true" aria-label="Loading the test" {...stylex.props(styles.editor)}>
       <div {...stylex.props(styles.bar)}>
-        {lead}
         <Skeleton width="10%" />
         <Skeleton width="14%" />
         <span {...stylex.props(styles.grow)} />

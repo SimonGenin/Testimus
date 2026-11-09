@@ -11,7 +11,15 @@ import { app as appState } from "../../helpers/ui-desktop.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestsScreen.tsx", async () => {
   const { useApp } = await import("../../../../src/ui/lib/app.ts");
-  return { TestsScreen: () => <output aria-label="Claude lock">{useApp().claudeRunning ?? "none"}</output> };
+  const { ClaudeSlot } = await import("../../../../src/ui/components/claude/ClaudeTab.tsx");
+  return {
+    TestsScreen: () => (
+      <>
+        <output aria-label="Claude lock">{useApp().claudeRunning ?? "none"}</output>
+        <ClaudeSlot />
+      </>
+    ),
+  };
 });
 vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", async () => {
   const { useApp } = await import("../../../../src/ui/lib/app.ts");

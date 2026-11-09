@@ -9,20 +9,20 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { goneText } from "../../lib/docGone.ts";
-import { color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 
 export { notAtAnchor } from "./sources.ts";
 
 const styles = stylex.create({
   panel: {
-    flex: "0 1 auto",
-    width: size.dock,
-    minWidth: size.sidebar,
-    display: { default: "flex", [container.reviewSource]: "none" },
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
     flexDirection: "column",
     minHeight: 0,
     backgroundColor: color.surface,
   },
+  foot: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: space.s3 },
   body: {
     boxSizing: "border-box",
     paddingBlock: space.s5,
@@ -51,27 +51,34 @@ const styles = stylex.create({
 export type SourcePanelProps = {
   source: Source;
   label: string;
+  misplaced?: Finding;
+  onClose: () => void;
+};
+
+export type SourceFootProps = {
+  source: Source;
   index: number;
   total: number;
-  misplaced?: Finding;
-  width?: number;
-  onClose: () => void;
   onOpenDoc: (docId: string, anchor: string, quote: string) => void;
   /** the previous or next source of the test */
   onStep?: (by: 1 | -1) => void;
 };
 
-// ponytail: the passage a source names, its quote marked when it is really there — the reviewer's evidence
-export function SourcePanel(p: SourcePanelProps) {
-  const { source } = p;
+// ponytail: the panel and its foot read the same passage (one read, the data layer's cache)
+function usePassage(source: Source) {
   const ref = `${source.docId}#${source.anchor}`;
-  const quote = source.quote;
-  const r = useRead("rag.passage", quote.trim() ? { ref, around: quote } : { ref });
+  const r = useRead("rag.passage", source.quote.trim() ? { ref, around: source.quote } : { ref });
   const passage = r.data as (Passage & { quoteFound?: boolean }) | undefined;
   const gone = r.isError && r.error.code === "doc-gone";
-  const quoted = quote && <p {...stylex.props(type.reading, styles.quote)}>« {quote} »</p>;
-  const foot = (
-    <>
+  return { ref, r, passage, gone };
+}
+
+// ponytail: the source tab's foot — the passage opened in its document, and the walk through the test's sources
+export function SourceFoot(p: SourceFootProps) {
+  const { source } = p;
+  const { gone } = usePassage(source);
+  return (
+    <div {...stylex.props(styles.foot)}>
       {!gone && (
         <Button
           size="sm"
@@ -110,10 +117,18 @@ export function SourcePanel(p: SourcePanelProps) {
           )}
         </>
       )}
-    </>
+    </div>
   );
+}
+
+// ponytail: the passage a source names, its quote marked when it is really there — the reviewer's evidence
+export function SourcePanel(p: SourcePanelProps) {
+  const { source } = p;
+  const quote = source.quote;
+  const { ref, r, passage, gone } = usePassage(source);
+  const quoted = quote && <p {...stylex.props(type.reading, styles.quote)}>« {quote} »</p>;
   return (
-    <div {...stylex.props(styles.panel)} style={p.width ? { width: p.width } : undefined}>
+    <div {...stylex.props(styles.panel)}>
       <Pane
         as="aside"
         label="Source passage"
@@ -122,7 +137,6 @@ export function SourcePanel(p: SourcePanelProps) {
         actions={
           <Button size="sm" variant="quiet" iconOnly icon="close" label="Close the source panel" onClick={p.onClose} />
         }
-        footer={foot}
       >
         <div aria-busy={!passage && !r.isError} {...stylex.props(styles.body)}>
           <div {...stylex.props(type.small, styles.doc)}>

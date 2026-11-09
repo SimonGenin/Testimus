@@ -88,14 +88,11 @@ export function TestEditor({
   testId,
   onSaved,
   onOpen,
-  lead,
   onBack,
 }: {
   testId: string;
   onSaved: (ref: Partial<LocalTestRef> & { id: string }) => void;
   onOpen: (id: string) => void;
-  /** before the key in the bar (the list toggle of a narrow window) */
-  lead?: React.ReactNode;
   /** opened from Review (the top bar leads back there): the bar says « Editing » instead of offering folder, push and ⋯ */
   onBack?: () => void;
 }) {
@@ -286,7 +283,6 @@ export function TestEditor({
   if (doc.error)
     return (
       <div {...stylex.props(styles.editor)}>
-        {lead}
         <div {...stylex.props(styles.empty)}>
           <EmptyState
             icon="alert-circle"
@@ -303,7 +299,7 @@ export function TestEditor({
       </div>
     );
 
-  if (!test || !data) return <EditorLoading lead={lead} />;
+  if (!test || !data) return <EditorLoading />;
 
   uids.carry(test.steps);
   const url = (file: string) => fileUrl(`tests/${testId}/${file}`);
@@ -371,7 +367,6 @@ export function TestEditor({
     <div {...stylex.props(styles.split)}>
       <div {...stylex.props(styles.editor)}>
         <EditorBar
-          lead={lead}
           testKey={test.key}
           folder={test.folder}
           folders={folders}

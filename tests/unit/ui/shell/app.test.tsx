@@ -35,12 +35,8 @@ vi.mock("../../../../src/ui/screens/setup/FirstRunScreen.tsx", async () => ({
   FirstRunScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Setup screen"),
 }));
 vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", () => ({
-  ClaudeDock: ({ folded, request, onFold }: { folded: boolean; request?: DockRequest | null; onFold: () => void }) => (
-    <aside aria-label="Dock" data-folded={String(folded)} data-request={JSON.stringify(request ?? null)}>
-      <button type="button" onClick={onFold}>
-        fold dock
-      </button>
-    </aside>
+  ClaudeDock: ({ request }: { request?: DockRequest | null }) => (
+    <aside aria-label="Dock" data-request={JSON.stringify(request ?? null)} />
   ),
 }));
 
@@ -104,8 +100,12 @@ const mount = () =>
   );
 
 const dock = () => screen.getByRole("complementary", { name: "Dock" });
-const folded = () => dock().getAttribute("data-folded");
 const request = () => JSON.parse(dock().getAttribute("data-request") ?? "null") as DockRequest | null;
+// ponytail: the last ask the shell made of the screen's sections (« claude show 3 »), without its count
+const asked = () =>
+  (
+    screen.getAllByRole("status").find((o) => o.getAttribute("aria-label")?.startsWith("asks of"))?.textContent ?? ""
+  ).replace(/ \d+$/, "");
 const hashIs = (h: string) => waitFor(() => expect(window.location.hash).toBe(h));
 
 describe("parseRoute", () => {
@@ -300,43 +300,17 @@ describe("App routing and layout", () => {
     expect(window.location.hash).toBe("#/tests");
   });
 
-  it("folds the dock by default and around Review, and keeps the user's choice", async () => {
+  it("keeps one dock for the whole app, in the Claude tab of the screen shown, its request kept across screens", async () => {
     mount();
-    await screen.findByRole("region", { name: "Tests screen" });
-    expect(folded()).toBe("true");
-    act(() => {
-      window.innerWidth = 1600;
-      window.dispatchEvent(new Event("resize"));
-    });
-    expect(folded()).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "fold dock" }));
-    expect(folded()).toBe("false");
-    act(() => {
-      window.location.hash = "#/review";
-    });
-    await screen.findByRole("region", { name: "Review screen" });
-    await waitFor(() => expect(folded()).toBe("true"));
+    const tests = await screen.findByRole("region", { name: "Tests screen" });
+    expect(within(tests).getByRole("complementary", { name: "Dock" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ask from Tests screen" }));
     act(() => {
       window.location.hash = "#/jobs";
     });
-    await screen.findByRole("region", { name: "Jobs screen" });
-    await waitFor(() => expect(folded()).toBe("false"));
-    fireEvent.click(screen.getByRole("button", { name: "fold dock" }));
-    expect(folded()).toBe("true");
-    act(() => {
-      window.innerWidth = 1600;
-      window.dispatchEvent(new Event("resize"));
-    });
-    expect(folded()).toBe("true");
-    act(() => {
-      window.location.hash = "#/review";
-    });
-    await screen.findByRole("region", { name: "Review screen" });
-    act(() => {
-      window.location.hash = "#/tests";
-    });
-    await screen.findByRole("region", { name: "Tests screen" });
-    await waitFor(() => expect(folded()).toBe("true"));
+    const jobs = await screen.findByRole("region", { name: "Jobs screen" });
+    expect(within(jobs).getByRole("complementary", { name: "Dock" })).toBeInTheDocument();
+    expect(request()).toMatchObject({ mode: "test", scope: "step", prompt: "why" });
   });
 
   it("toggles the palette with Ctrl K and the dock with Ctrl J, ignoring other keys", async () => {
@@ -350,21 +324,20 @@ describe("App routing and layout", () => {
     expect(screen.getByRole("dialog", { name: "Search everything" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     expect(screen.queryByRole("dialog", { name: "Search everything" })).toBeNull();
-    expect(folded()).toBe("true");
     fireEvent.keyDown(window, { key: "j", ctrlKey: true });
-    expect(folded()).toBe("false");
+    expect(asked()).toBe("claude toggle");
   });
 
   it("hands Claude requests and jobs from the screens to the dock", async () => {
     mount();
     await screen.findByRole("region", { name: "Tests screen" });
-    expect(folded()).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "ask from Tests screen" }));
-    expect(folded()).toBe("false");
+    expect(asked()).toBe("claude show");
     expect(request()).toMatchObject({ mode: "test", scope: "step", prompt: "why" });
-    fireEvent.click(screen.getByRole("button", { name: "fold dock" }));
+    fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+    expect(asked()).toBe("claude toggle");
     fireEvent.click(screen.getByRole("button", { name: "job from Tests screen" }));
-    expect(folded()).toBe("false");
+    expect(asked()).toBe("claude show");
     expect(request()).toMatchObject({ mode: "test", job: { name: "review.fix", testId: "t1" } });
     fireEvent.click(screen.getByRole("button", { name: "changed from Tests screen" }));
     expect(screen.getByText(/nonce 1/)).toBeInTheDocument();
@@ -426,11 +399,9 @@ describe("App palette", () => {
     await pick("follow the system");
     expect(document.documentElement.dataset.theme).toBeUndefined();
     await pick("show or hide claude");
-    expect(folded()).toBe("false");
-    await pick("show or hide claude");
-    expect(folded()).toBe("true");
+    expect(asked()).toBe("claude toggle");
     await pick("une question libre");
-    expect(folded()).toBe("false");
+    expect(asked()).toBe("claude show");
     expect(request()).toMatchObject({ mode: "docs", prompt: "une question libre" });
     await open();
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
@@ -501,7 +472,7 @@ describe("App palette", () => {
     expect(await screen.findByRole("dialog", { name: "Open a project by its Jira key" })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("dialog", { name: "Open a project by its Jira key" }), { key: "Escape" });
     await pick("chat ask");
-    expect(folded()).toBe("false");
+    expect(asked()).toBe("claude show");
     expect(request()).toMatchObject({ mode: "docs" });
     expect(screen.queryByRole("dialog", { name: "Ask the documents" })).toBeNull();
     await pick("xray disconnect");

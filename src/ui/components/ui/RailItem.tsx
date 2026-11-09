@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { MouseEvent, ReactNode, Ref } from "react";
+import type { MouseEvent, ReactElement, ReactNode, Ref } from "react";
 import {
   border,
   color,
@@ -15,6 +15,7 @@ import {
 } from "../../styles/tokens.stylex.ts";
 import type { BadgeTone } from "./Badge.tsx";
 import { Icon, type IconName } from "./Icon.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 
 const styles = stylex.create({
   item: {
@@ -87,6 +88,15 @@ const styles = stylex.create({
     fontWeight: fontWeight.medium,
     fontVariantNumeric: "tabular-nums",
   },
+  compact: {
+    justifyContent: "center",
+    gap: 0,
+    width: size.controlLg,
+    height: size.controlLg,
+    padding: 0,
+    borderRadius: radius.r2,
+  },
+  countCompact: { top: `calc(-1 * ${space.s1})`, right: `calc(-1 * ${space.s1})` },
   dot: { width: size.statusDot, height: size.statusDot, borderRadius: radius.full },
   neutral: { backgroundColor: color.neutral },
   info: { backgroundColor: color.info },
@@ -118,6 +128,10 @@ export type RailItemProps = {
   popup?: { kind: "menu" | "dialog"; open: boolean; controls?: string };
   /** said instead of the label when it needs more words (« Review, 3 waiting ») */
   ariaLabel?: string;
+  /** the icon alone (the rail is icons only): the label is its name and its tooltip */
+  compact?: boolean;
+  /** compact only: no tooltip of its own (a menu's trigger, which the menu wraps) */
+  noTooltip?: boolean;
   ref?: Ref<HTMLButtonElement & HTMLAnchorElement>;
   /** the catalogue only */
   debugState?: "hover" | "focus";
@@ -137,11 +151,14 @@ export function RailItem({
   onClick,
   popup,
   ariaLabel,
+  compact = false,
+  noTooltip = false,
   ref,
   debugState,
 }: RailItemProps) {
   const look = stylex.props(
     styles.item,
+    compact && styles.compact,
     current && styles.current,
     avatar !== undefined && styles.avatarItem,
     avatar === undefined && dot !== undefined && styles.dotItem,
@@ -163,17 +180,27 @@ export function RailItem({
           </span>
         )
       )}
-      <span {...stylex.props(styles.label, mono && styles.mono, dot !== undefined && styles.labelWrap)}>{label}</span>
+      {!compact && (
+        <span {...stylex.props(styles.label, mono && styles.mono, dot !== undefined && styles.labelWrap)}>{label}</span>
+      )}
       {count !== undefined && count > 0 && (
-        <span aria-hidden="true" {...stylex.props(styles.count)}>
+        <span aria-hidden="true" {...stylex.props(styles.count, compact && styles.countCompact)}>
           {count}
         </span>
       )}
     </>
   );
-  const name = ariaLabel ?? (count ? `${label}, ${count}` : undefined);
+  const name = ariaLabel ?? (count ? `${label}, ${count}` : compact ? label : undefined);
+  const tip = (el: ReactElement<{ "aria-describedby"?: string }>) =>
+    compact && !noTooltip ? (
+      <Tooltip label={label} side="right">
+        {el}
+      </Tooltip>
+    ) : (
+      el
+    );
   if (href)
-    return (
+    return tip(
       <a
         ref={ref}
         href={href}
@@ -183,9 +210,9 @@ export function RailItem({
         {...look}
       >
         {body}
-      </a>
+      </a>,
     );
-  return (
+  return tip(
     <button
       ref={ref}
       type="button"
@@ -198,6 +225,6 @@ export function RailItem({
       {...look}
     >
       {body}
-    </button>
+    </button>,
   );
 }

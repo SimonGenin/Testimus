@@ -79,7 +79,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
   it("renamed from Settings › Claude: the dock, the test header and the default contexts all say the new name", async () => {
     render(
       <AppContext.Provider value={state()}>
-        <ClaudeDock folded={false} onFold={() => {}} />
+        <ClaudeDock />
         <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
         <ClaudeSection />
       </AppContext.Provider>,
@@ -116,7 +116,7 @@ describe("a context changed in the Contexts dialog shows at once everywhere it i
     };
     render(
       <AppContext.Provider value={state()}>
-        <ClaudeDock folded={false} onFold={() => {}} />
+        <ClaudeDock />
         <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
         <ClaudeSection />
       </AppContext.Provider>,

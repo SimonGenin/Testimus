@@ -7,7 +7,7 @@ import { Menu } from "../../components/ui/Menu.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
-import { border, breakpoint, color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import {
   countOf,
   folderGroups,
@@ -23,18 +23,7 @@ import {
 import { StepDots } from "./StepDots.tsx";
 
 const styles = stylex.create({
-  side: {
-    boxSizing: "border-box",
-    flex: "none",
-    display: { default: "flex", [container.reviewQueue]: "none" },
-    width: { default: size.sidebar, [breakpoint.sm]: "auto" },
-    minHeight: 0,
-    flexDirection: "column",
-    borderInlineEndStyle: "solid",
-    borderInlineEndWidth: border.width,
-    borderInlineEndColor: color.border,
-  },
-  sized: (width: string) => ({ width: { default: width, [breakpoint.sm]: "auto" } }),
+  side: { boxSizing: "border-box", flex: 1, display: "flex", minWidth: 0, minHeight: 0, flexDirection: "column" },
   head: {
     flex: "none",
     display: "flex",
@@ -76,11 +65,9 @@ function itemOf(t: RunTestView, n: number) {
   };
 }
 
-// ponytail: the run's tests beside the one being played — the run's body is a container of Review's width rule (three
-// panes beside the dock, the same squeeze): under it the list goes and the top bar's way back stays — how far the run is, the tests by folder with their result
-// and their step marks, the same filters and sort as the run's table (one view, kept while the tester moves on)
+// ponytail: the run's tests, a tab beside the one being played — how far the run is, the tests by folder with their
+// result and their step marks, the same filters and sort as the run's table (one view, kept while the tester moves on)
 export function RunTestList({
-  width,
   run,
   open,
   view,
@@ -88,8 +75,6 @@ export function RunTestList({
   onOpen,
   me,
 }: {
-  /** px, once the tester widened it */
-  width?: number;
   /** who records results here (runs.list): « Only tests I ran » */
   me: string;
   run: RunView;
@@ -107,10 +92,7 @@ export function RunTestList({
   const set = (patch: Partial<TestView>) => onView({ ...view, ...patch });
   const sortLabel = TEST_SORTS.find((s) => s.value === view.sort)?.label ?? "";
   return (
-    <nav
-      aria-label="Tests of the run"
-      {...stylex.props(styles.side, width !== undefined && styles.sized(`${width}px`))}
-    >
+    <nav aria-label="Tests of the run" {...stylex.props(styles.side)}>
       <div {...stylex.props(styles.head)}>
         <h2 title={run.name} {...stylex.props(type.titleSm, styles.name)}>
           {run.name}

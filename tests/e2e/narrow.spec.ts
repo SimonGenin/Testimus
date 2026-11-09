@@ -4,16 +4,21 @@ mockServer(4395);
 
 test.use({ viewport: { width: 520, height: 600 } });
 
-test("the editor fits a 520 px window beside Jira: the test bar wraps, the list is a drawer", async ({ page }) => {
+test("the editor fits a 520 px window beside Jira: the test bar wraps, the list folds to its strip", async ({
+  page,
+}) => {
   await openTest(page, "LFRPS12-1420");
   const main = page.getByRole("main");
   await expect(main.getByRole("button", { name: "Push to Jira" })).toBeInViewport();
   await expect(main.getByRole("button", { name: "More actions for this test" })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
-  await page.getByRole("button", { name: "Show test list" }).click();
+  const strip = page.getByRole("navigation", { name: "Section 1, collapsed" });
+  await expect(strip).toBeInViewport();
+  await strip.getByRole("button", { name: /^Tests/ }).click();
   await expect(
     page.getByRole("complementary", { name: "Tests" }).getByRole("searchbox", { name: "Filter tests" }),
   ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   await shoot(page, "narrow-editor", ["light"]);
 });
 
@@ -52,14 +57,19 @@ test("#/tests with no test open fits a 520 px window", async ({ page }) => {
   const main = page.getByRole("main");
   await expect(main).toBeInViewport();
   await expect(main.getByText("No test open", { exact: true })).toBeInViewport();
-  await expect(page.getByRole("button", { name: "Show test list" })).toBeInViewport();
+  await expect(
+    page.getByRole("navigation", { name: "Section 1, collapsed" }).getByRole("button", { name: /^Tests/ }),
+  ).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
-test("the open Claude dock floats over a 520 px window and stays usable", async ({ page }) => {
+test("the Claude tab opens in a 520 px window and stays usable", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
+  await page
+    .getByRole("navigation", { name: "Section 3, collapsed" })
+    .getByRole("button", { name: /^Claude/ })
+    .click();
   const dock = page.getByRole("complementary", { name: "Claude" });
-  await dock.getByRole("button", { name: "Open Claude" }).click();
   const box = dock.getByRole("textbox", { name: /Ask Claude|Ask about/ });
   await expect(box).toBeInViewport();
   const width = await dock.evaluate((el) => el.getBoundingClientRect().width);

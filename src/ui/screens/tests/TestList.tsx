@@ -84,7 +84,6 @@ export function TestList({
   pulling = [],
   onPull,
   onDeleted,
-  narrow = false,
 }: {
   refs: LocalTestRef[];
   loading: boolean;
@@ -94,8 +93,6 @@ export function TestList({
   pulling?: string[];
   onPull?: (key: string, summary: string) => void;
   onDeleted?: (id: string) => void;
-  /** in the drawer of a narrow window: Jira's folders and tests are one above the other, whatever the preference */
-  narrow?: boolean;
 }) {
   const app = useApp();
   const client = useQueryClient();
@@ -111,7 +108,6 @@ export function TestList({
   const treeError = jiraOn && treeQ.error ? message(treeQ.error) : "";
   // ponytail: Jira's folders and tests scroll in their own panes, so the list's body does not scroll around them
   const jiraPanes = v.tab === "jira" && jiraOn && !treeError;
-  const jiraLayout: JiraLayout = narrow ? "rows" : layout;
   const [localPref, setLocalLayout] = usePref("localLayout");
   const localKept = localPref as ListLayout;
   const [busy, setBusy] = useState<string[]>([]);
@@ -311,7 +307,7 @@ export function TestList({
     if (localPanes)
       return (
         <LocalPanes
-          layout={narrow ? "rows" : (localKept as JiraLayout)}
+          layout={localKept as JiraLayout}
           root={shown}
           folder={v.localFolder}
           shut={v.shut}
@@ -364,15 +360,7 @@ export function TestList({
           canReveal={!!activeId && !!project()}
           reveal={!!desktop()}
           layout={
-            narrow
-              ? undefined
-              : v.tab === "local"
-                ? project() && listed.length
-                  ? localKept
-                  : undefined
-                : jiraPanes
-                  ? layout
-                  : undefined
+            v.tab === "local" ? (project() && listed.length ? localKept : undefined) : jiraPanes ? layout : undefined
           }
           withTree={v.tab === "local"}
           onLayout={(l) => (v.tab === "local" ? setLocalLayout(l) : l !== "tree" && setLayout(l))}
@@ -425,7 +413,7 @@ export function TestList({
               <Button size="xs" variant="quiet" label="Disconnect" onClick={() => void disconnect()} />
             </div>
             <JiraTab
-              layout={jiraLayout}
+              layout={layout}
               tree={tree}
               query={query}
               filter={needle}

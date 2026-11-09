@@ -76,8 +76,6 @@ test("no internal id on the main screens, once Claude has checked, fixed, edited
   await page.keyboard.press("Escape");
 
   await page.keyboard.press("Control+j");
-  await expect(
-    page.getByRole("complementary", { name: "Claude" }).getByRole("heading", { name: "Claude", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Claude" })).toBeVisible();
   await noLocalId(page, "the Claude dock");
 });

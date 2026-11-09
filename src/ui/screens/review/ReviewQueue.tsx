@@ -5,13 +5,14 @@ import { FilterBar } from "../../components/filters/FilterBar.tsx";
 import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { Kbd } from "../../components/ui/Kbd.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Pane } from "../../components/ui/Pane.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import { testLabel } from "../../lib/labels.ts";
-import { border, color, container, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { filtered, type QueueFilters, queueOptions } from "./queueFilters.ts";
 import type { QueueGroup } from "./queueGroups.ts";
 import { FilteredEmpty } from "./ReviewEmpty.tsx";
@@ -45,21 +46,12 @@ const SORTS: { value: QueueSort; label: string }[] = [
 
 const styles = stylex.create({
   queue: {
-    flex: "none",
-    width: size.sidebar,
-    display: { default: "flex", [container.reviewQueue]: "none" },
+    flex: 1,
+    display: "flex",
     flexDirection: "column",
     minWidth: 0,
     minHeight: 0,
     backgroundColor: color.surface,
-  },
-  over: {
-    display: "flex",
-    position: { default: "static", [container.reviewQueue]: "absolute" },
-    insetBlock: 0,
-    insetInlineStart: size.controlLg,
-    zIndex: z.drawer,
-    boxShadow: { default: null, [container.reviewQueue]: shadow.s2 },
   },
   tools: {
     flex: "none",
@@ -76,6 +68,9 @@ const styles = stylex.create({
   none: { margin: 0, padding: space.s5, color: color.textMuted },
   notice: { paddingTop: space.s3, paddingInline: space.s3 },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s5 },
+  foot: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted },
+  grow: { flex: 1 },
+  keys: { display: "inline-flex", alignItems: "center", gap: space.s2, whiteSpace: "nowrap" },
 });
 
 function Counts({ item }: { item: QueueItem }) {
@@ -135,9 +130,6 @@ export type ReviewQueueProps = {
   /** a read of the queue that failed, with a way to ask again */
   error?: { message: string; onRetry: () => void };
   notice?: ReactNode;
-  width?: number;
-  /** the queue shown over the test while the screen is too narrow for both (« Show the queue » of the folded strip) */
-  over?: boolean;
 };
 
 // ponytail: the generated tests waiting for a person — the filter bar (words, review state, what the check found,
@@ -147,7 +139,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
   const narrowed = filtered(p.filters);
   const options = queueOptions(p.queued, p.filters);
   return (
-    <div {...stylex.props(styles.queue, p.over && styles.over)} style={p.width ? { width: p.width } : undefined}>
+    <div {...stylex.props(styles.queue)}>
       <Pane
         as="aside"
         label="Review queue"
@@ -247,6 +239,40 @@ export function ReviewQueue(p: ReviewQueueProps) {
           />
         </div>
       </Pane>
+    </div>
+  );
+}
+
+// ponytail: the queue section's foot — where the open test sits in the queue, previous and next (J and K do the same
+// from anywhere, the queue folded or not)
+export function QueueFoot({ at, total, onMove }: { at: number; total: number; onMove: (by: 1 | -1) => void }) {
+  return (
+    <div {...stylex.props(type.small, styles.foot)}>
+      <Button
+        size="sm"
+        variant="quiet"
+        iconOnly
+        icon="chevron-up"
+        label="Previous test (K)"
+        disabled={!total}
+        onClick={() => onMove(-1)}
+      />
+      <span data-testid="queue-position" {...stylex.props(type.tabular)}>
+        {total ? `${Math.max(0, at) + 1} / ${total}` : "0"}
+      </span>
+      <Button
+        size="sm"
+        variant="quiet"
+        iconOnly
+        icon="chevron-down"
+        label="Next test (J)"
+        disabled={!total}
+        onClick={() => onMove(1)}
+      />
+      <span {...stylex.props(styles.grow)} />
+      <span {...stylex.props(styles.keys)}>
+        <Kbd>J</Kbd> <Kbd>K</Kbd> next / previous
+      </span>
     </div>
   );
 }

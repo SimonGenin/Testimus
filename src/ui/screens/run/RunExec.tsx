@@ -1,13 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import { runImage } from "../../../shared/run-image.ts";
+import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
-import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
+import { Workspace } from "../../components/ui/workspace/Workspace.tsx";
 import { useApp } from "../../lib/app.ts";
 import { fileUrl } from "../../lib/data/client.ts";
-import type { PaneWidth } from "../../lib/panes.ts";
 import { usePref } from "../../lib/prefs.ts";
-import { breakpoint, color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { column, layoutOf, section } from "../../lib/workspace/layout.ts";
+import { useWorkspace } from "../../lib/workspace/useWorkspace.ts";
+import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { Lightbox } from "../tests/Lightbox.tsx";
 import type { StepLayout } from "../tests/StepCard.tsx";
 import { RunComments } from "./RunComments.tsx";
@@ -25,27 +27,16 @@ import { useRunPaste } from "./useRunPaste.ts";
 import { useRunTest } from "./useRunTest.ts";
 
 const styles = stylex.create({
-  body: {
-    flex: 1,
-    minHeight: 0,
-    minWidth: 0,
-    containerType: "inline-size",
-    containerName: "review",
-    display: "flex",
-    flexDirection: { default: "row", [breakpoint.sm]: "column" },
-    overflowY: { default: null, [breakpoint.sm]: "auto" },
-  },
   center: {
-    flex: { default: 1, [breakpoint.sm]: "none" },
+    flex: 1,
     minWidth: 0,
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
     backgroundColor: color.canvas,
+    containerType: "inline-size",
   },
-  scroll: { flex: 1, minHeight: 0, overflowY: { default: "auto", [breakpoint.sm]: "visible" } },
-  listEdge: { display: { default: "flex", [container.reviewQueue]: "none", [breakpoint.sm]: "none" } },
-  sideEdge: { display: { default: "flex", [breakpoint.sm]: "none" } },
+  scroll: { flex: 1, minHeight: 0, overflowY: "auto" },
   col: {
     boxSizing: "border-box",
     width: "100%",
@@ -56,16 +47,24 @@ const styles = stylex.create({
     gap: space.s4,
     paddingTop: space.s6,
     paddingBottom: space.s10,
-    paddingInline: { default: space.s7, [breakpoint.narrow]: space.s4 },
+    paddingInline: { default: space.s7, [container.paneCompact]: space.s4 },
   },
 });
 
+// ponytail: a test being run — the run's tests on the left, the frozen test in the middle, the testing panel and
+// Claude on the right
+const LAYOUT = layoutOf(
+  column(300, section(["tests"])),
+  column(null, section(["step"])),
+  column(380, section(["testing", "claude"])),
+);
+
 type Box = { names: string[]; urls: string[]; index: number; step: number } | null;
 
-// ponytail: running one test of a run, laid out like the Tests editor — the run's tests on the left, the frozen test in
-// the middle with OK / NOK on each step (written at once), and a testing panel on the right: screenshots, comments
-// and questions, the same test in other runs, the result (set by the marks as they change, or picked: saved at once;
-// Blocked once its reason is said) and Next test. A screenshot dropped on a step or pasted goes to that step; Claude reads the run from the dock
+// ponytail: running one test of a run, in sections — the run's tests, the frozen test with OK / NOK on each step
+// (written at once), and the testing panel: screenshots, comments and questions, the same test in other runs, the
+// result (set by the marks as they change, or picked: saved at once; Blocked once its reason is said) and Next test.
+// A screenshot dropped on a step or pasted goes to that step; Claude reads the run from its tab
 export function RunExec({
   run,
   test,
@@ -74,13 +73,8 @@ export function RunExec({
   onGo,
   onBack,
   me,
-  listWidth,
-  sideWidth,
 }: {
   me: string;
-  /** the run's tests on the left and the testing panel on the right, widened by the tester (RunScreen keeps them) */
-  listWidth: PaneWidth;
-  sideWidth: PaneWidth;
   run: RunView;
   test: RunTestView;
   view: TestView;
@@ -184,6 +178,142 @@ export function RunExec({
     if (r.steps[cur]?.ok === null) mark(cur, false);
   });
 
+  const claude = useClaudeTab();
+  const ws = useWorkspace({
+    pref: "layoutRunTest",
+    label: "Run",
+    defaults: LAYOUT,
+    tabs: [
+      {
+        id: "tests",
+        label: "Tests of the run",
+        icon: "tree",
+        count: run.tests.length,
+        content: (
+          <RunTestList
+            run={run}
+            open={test.id}
+            view={view}
+            onView={onView}
+            me={me}
+            onOpen={(id) => id !== test.id && onGo(id)}
+          />
+        ),
+      },
+      {
+        id: "step",
+        label: "Step",
+        icon: "play",
+        main: true,
+        content: (
+          <section aria-label={`Test ${test.summary}`} {...stylex.props(styles.center)}>
+            <RunExecBar
+              test={test}
+              at={at + 1}
+              total={run.tests.length}
+              frozenAt={run.createdAt}
+              onPrev={prev ? () => onGo(prev.id) : undefined}
+              onNext={next ? () => onGo(next.id) : undefined}
+              onAsk={() => askClaude("test")}
+              onOpenTest={() => app.navigate("tests", test.id)}
+            />
+            <div {...stylex.props(styles.scroll)}>
+              <div {...stylex.props(styles.col)}>
+                <RunHead test={test} proposed={r.proposed} />
+                <RunStepsHead
+                  result={r}
+                  layout={layout}
+                  fold={fold}
+                  onLayout={setLayout}
+                  onFold={setFold}
+                  onRestOk={restOk}
+                />
+                {test.steps.map((s, i) => (
+                  <RunStep
+                    key={i}
+                    n={i + 1}
+                    step={s}
+                    mark={r.steps[i] ?? { ok: null }}
+                    shots={r.attachments.filter((a) => a.step === i + 1).map((a) => a.file)}
+                    questions={r.comments.filter((c) => c.kind === "question" && !c.answer && c.step === i + 1).length}
+                    current={i === cur}
+                    layout={layout}
+                    folded={fold}
+                    note={noteOf(i)}
+                    url={url}
+                    shotUrl={shotUrl}
+                    onCurrent={() => setCur(i)}
+                    onMark={(ok) => mark(i, ok)}
+                    onNote={(n) => setNotes((x) => ({ ...x, [i]: n }))}
+                    onNoteDone={() => noteDone(i)}
+                    onShot={(files) => shoot(i, files)}
+                    onOpenShot={openShot}
+                    onRemoveShot={(file) => void act.unshot(file)}
+                    onImage={(file) => openImage(i, file)}
+                    onAsk={() => {
+                      setCur(i);
+                      askClaude("step");
+                    }}
+                    onOpenSource={(src) =>
+                      app.openSource(src, { test: test.id, step: i + 1, sources: s.sources ?? [] })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ),
+      },
+      {
+        id: "testing",
+        label: "Testing",
+        icon: "check-circle",
+        content: (
+          <RunPanel
+            foot={
+              <RunVerdict
+                status={status}
+                proposed={r.proposed}
+                recorded={!chosen}
+                reason={reason}
+                busy={act.busy}
+                last={!go}
+                onStatus={pick}
+                onReason={setReason}
+                onReasonDone={reasonDone}
+                onSave={() => void saveNext()}
+              />
+            }
+          >
+            <ShotsSection
+              result={r}
+              step={cur + 1}
+              shotUrl={shotUrl}
+              onShot={(files) => shoot(cur, files)}
+              onOpen={openShot}
+              onRemove={(file) => void act.unshot(file)}
+            />
+            <PanelSection title="Comments and questions" count={r.comments.length}>
+              <RunComments
+                comments={r.comments}
+                steps={test.steps.length}
+                step={cur + 1}
+                onSend={act.comment}
+                onAsk={(q) =>
+                  askClaude("test", `Answer this question of a tester${q.step ? ` on step ${q.step}` : ""}: ${q.text}`)
+                }
+              />
+            </PanelSection>
+            <PanelSection title="This test in other runs">
+              <RunHistory test={test.id} run={run.slug} />
+            </PanelSection>
+          </RunPanel>
+        ),
+      },
+      claude,
+    ],
+  });
+
   return (
     <>
       <ScreenHeader
@@ -191,117 +321,7 @@ export function RunExec({
         back={{ to: "the run", onClick: onBack }}
         crumbs={[{ label: run.name, onClick: onBack }, `Test ${at + 1} of ${run.tests.length}`]}
       />
-      <div {...stylex.props(styles.body)}>
-        <RunTestList
-          run={run}
-          open={test.id}
-          view={view}
-          onView={onView}
-          me={me}
-          onOpen={(id) => id !== test.id && onGo(id)}
-          width={listWidth.moved ? listWidth.width : undefined}
-        />
-        <span {...stylex.props(styles.listEdge)}>
-          <ResizeHandle label="Resize the tests of the run" {...listWidth.handle} />
-        </span>
-        <section aria-label={`Test ${test.summary}`} {...stylex.props(styles.center)}>
-          <RunExecBar
-            test={test}
-            at={at + 1}
-            total={run.tests.length}
-            frozenAt={run.createdAt}
-            onPrev={prev ? () => onGo(prev.id) : undefined}
-            onNext={next ? () => onGo(next.id) : undefined}
-            onAsk={() => askClaude("test")}
-            onOpenTest={() => app.navigate("tests", test.id)}
-          />
-          <div {...stylex.props(styles.scroll)}>
-            <div {...stylex.props(styles.col)}>
-              <RunHead test={test} proposed={r.proposed} />
-              <RunStepsHead
-                result={r}
-                layout={layout}
-                fold={fold}
-                onLayout={setLayout}
-                onFold={setFold}
-                onRestOk={restOk}
-              />
-              {test.steps.map((s, i) => (
-                <RunStep
-                  key={i}
-                  n={i + 1}
-                  step={s}
-                  mark={r.steps[i] ?? { ok: null }}
-                  shots={r.attachments.filter((a) => a.step === i + 1).map((a) => a.file)}
-                  questions={r.comments.filter((c) => c.kind === "question" && !c.answer && c.step === i + 1).length}
-                  current={i === cur}
-                  layout={layout}
-                  folded={fold}
-                  note={noteOf(i)}
-                  url={url}
-                  shotUrl={shotUrl}
-                  onCurrent={() => setCur(i)}
-                  onMark={(ok) => mark(i, ok)}
-                  onNote={(n) => setNotes((x) => ({ ...x, [i]: n }))}
-                  onNoteDone={() => noteDone(i)}
-                  onShot={(files) => shoot(i, files)}
-                  onOpenShot={openShot}
-                  onRemoveShot={(file) => void act.unshot(file)}
-                  onImage={(file) => openImage(i, file)}
-                  onAsk={() => {
-                    setCur(i);
-                    askClaude("step");
-                  }}
-                  onOpenSource={(src) => app.openSource(src, { test: test.id, step: i + 1, sources: s.sources ?? [] })}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-        <span {...stylex.props(styles.sideEdge)}>
-          <ResizeHandle label="Resize the testing panel" {...sideWidth.handle} side="left" />
-        </span>
-        <RunPanel
-          width={sideWidth.moved ? sideWidth.width : undefined}
-          foot={
-            <RunVerdict
-              status={status}
-              proposed={r.proposed}
-              recorded={!chosen}
-              reason={reason}
-              busy={act.busy}
-              last={!go}
-              onStatus={pick}
-              onReason={setReason}
-              onReasonDone={reasonDone}
-              onSave={() => void saveNext()}
-            />
-          }
-        >
-          <ShotsSection
-            result={r}
-            step={cur + 1}
-            shotUrl={shotUrl}
-            onShot={(files) => shoot(cur, files)}
-            onOpen={openShot}
-            onRemove={(file) => void act.unshot(file)}
-          />
-          <PanelSection title="Comments and questions" count={r.comments.length}>
-            <RunComments
-              comments={r.comments}
-              steps={test.steps.length}
-              step={cur + 1}
-              onSend={act.comment}
-              onAsk={(q) =>
-                askClaude("test", `Answer this question of a tester${q.step ? ` on step ${q.step}` : ""}: ${q.text}`)
-              }
-            />
-          </PanelSection>
-          <PanelSection title="This test in other runs">
-            <RunHistory test={test.id} run={run.slug} />
-          </PanelSection>
-        </RunPanel>
-      </div>
+      <Workspace ws={ws} />
       {box && (
         <Lightbox
           names={box.names}

@@ -1,9 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CommandName } from "../../core/commands/index.ts";
 import type { SearchMatch, Source } from "../../core/types.ts";
 import { ClaudeDock } from "../components/claude/ClaudeDock.tsx";
+import { ClaudeHolder } from "../components/claude/ClaudeTab.tsx";
 import { useRunningJobs } from "../components/shell/Activity.tsx";
 import { CommandForm, lossOf } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
@@ -16,15 +18,13 @@ import { TopBar, TopBarContext, useTopBarSlots } from "../components/shell/TopBa
 import { UpdateNotice } from "../components/shell/UpdateNotice.tsx";
 import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
-import { ResizeHandle } from "../components/ui/ResizeHandle.tsx";
 import { Toaster } from "../components/ui/Toast.tsx";
 import { AppContext, type AppState, type ClaudeRun, type Focus, SETUP_FROM_APP, type SourceFrom } from "../lib/app.ts";
 import type { CommandInfo } from "../lib/data/client.ts";
 import { execute } from "../lib/data/query.ts";
-import { usePaneWidth } from "../lib/panes.ts";
 import { jumpTo, rememberHit } from "../lib/search.ts";
 import { errorToast, jobToast, toast } from "../lib/toast.ts";
-import { border, breakpoint, color, radius, shadow, size, space, z } from "../styles/tokens.stylex.ts";
+import { border, color, radius, shadow, space } from "../styles/tokens.stylex.ts";
 import { commandToast, paletteActions } from "./paletteActions.ts";
 import { parseRoute, TITLES, useRoute } from "./routes.ts";
 import { ScreenGuard } from "./ScreenGuard.tsx";
@@ -37,10 +37,7 @@ import { useShellEvents } from "./useShellEvents.ts";
 
 export { parseRoute };
 
-const DOCK = { min: 300, max: 720, initial: 440 };
-
-// ponytail: the dock and the rail redraw for what they read (the context, their props), not each time the shell does —
-// a drag of the dock's edge redraws the shell at every move
+// ponytail: the dock and the rail redraw for what they read (the context, their props), not each time the shell does
 const Dock = memo(ClaudeDock);
 const ShellRail = memo(Rail);
 
@@ -63,6 +60,7 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     marginBlock: space.s3,
+    marginInlineEnd: space.s3,
     borderWidth: border.width,
     borderStyle: "solid",
     borderColor: color.border,
@@ -71,35 +69,13 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   round: { borderRadius: radius.r4 },
-  frameOpen: { marginInlineEnd: { default: 0, [breakpoint.dock]: space.s3 } },
   screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" },
-  dock: {
-    boxSizing: "border-box",
-    flex: "none",
-    display: "flex",
-    width: size.dockFolded,
-    zIndex: `calc(${z.sticky} + 1)`,
-  },
-  dockOpen: {
-    width: "var(--dock-size)",
-    margin: space.s3,
-    borderWidth: border.width,
-    borderStyle: "solid",
-    borderColor: color.border,
-    borderRadius: radius.r4,
-    backgroundColor: color.surface,
-    overflow: "hidden",
-    position: { default: "relative", [breakpoint.dock]: "absolute" },
-    insetBlock: { default: null, [breakpoint.dock]: 0 },
-    insetInlineEnd: { default: null, [breakpoint.dock]: 0 },
-    maxWidth: `calc(100vw - ${size.rail} - ${space.s7})`,
-    boxShadow: { default: shadow.s1, [breakpoint.dock]: shadow.s3 },
-  },
-  edge: { display: { default: "flex", [breakpoint.dock]: "none" } },
+  holder: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
 });
 
-// ponytail: the shell — the rail, the top bar and the screen in their frame, the Claude dock, the palette, the
-// layers above (a command's form, a source, the toasts); what the screens share is in AppContext
+// ponytail: the shell — the rail, the top bar and the screen in their frame, the palette, the layers above (a
+// command's form, a source, the toasts); what the screens share is in AppContext. Claude is a tab of every screen's
+// sections: the shell keeps the one dock (its element is moved into the Claude tab of the screen shown)
 export function App() {
   const client = useQueryClient();
   const [route, navigate] = useRoute();
@@ -114,8 +90,12 @@ export function App() {
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
   const [byKey, setByKey] = useState(false);
-  const dockPane = usePaneWidth("dockWidth", DOCK);
-  const dock = useDock(route.screen);
+  const dock = useDock();
+  const [holder] = useState(() => {
+    const el = document.createElement("div");
+    el.className = stylex.props(styles.holder).className ?? "";
+    return el;
+  });
   const bar = useTopBarSlots();
   const running = useRunningJobs({ quiet: true });
   const { claudeRunning, setClaudeRunning } = useClaudeLock(running);
@@ -255,30 +235,22 @@ export function App() {
       ) : (
         <div {...stylex.props(styles.app)}>
           <ShellRail counts={counts} kit={p.mock} />
-          <div key={p.dir ?? ""} {...stylex.props(styles.frame, styles.round, !dock.folded && styles.frameOpen)}>
+          <div key={p.dir ?? ""} {...stylex.props(styles.frame, styles.round)}>
             <TopBarContext.Provider value={bar.value}>
               <TopBar title={TITLES[route.screen]} onPalette={openPalette} slots={bar} />
               <ServerLost />
               <div {...stylex.props(styles.screen)}>
                 {p.booted && (
-                  <ScreenGuard route={`${route.screen}/${route.arg ?? ""}`}>
-                    <Screens screen={route.screen} />
-                  </ScreenGuard>
+                  <ClaudeHolder.Provider value={holder}>
+                    <ScreenGuard route={`${route.screen}/${route.arg ?? ""}`}>
+                      <Screens screen={route.screen} />
+                    </ScreenGuard>
+                  </ClaudeHolder.Provider>
                 )}
               </div>
             </TopBarContext.Provider>
           </div>
-          {!dock.folded && (
-            <span {...stylex.props(styles.edge)}>
-              <ResizeHandle label="Resize the Claude panel" side="left" quiet {...dockPane.handle} />
-            </span>
-          )}
-          <div
-            {...stylex.props(styles.dock, !dock.folded && styles.dockOpen)}
-            style={dock.folded ? undefined : ({ "--dock-size": `${dockPane.width}px` } as CSSProperties)}
-          >
-            <Dock folded={dock.folded} request={dock.request} onFold={toggleDock} />
-          </div>
+          {createPortal(<Dock request={dock.request} />, holder)}
         </div>
       )}
       {palette && (
@@ -313,7 +285,7 @@ export function App() {
           }}
         />
       )}
-      <Toaster clearEnd={route.screen === "setup" || dock.folded ? undefined : `${dockPane.width}px`} />
+      <Toaster />
       <DesktopBridge booted={p.booted} />
       <UpdateNotice booted={p.booted} />
     </AppContext.Provider>

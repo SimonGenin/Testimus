@@ -18,6 +18,7 @@ const styles = stylex.create({
     minHeight: 0,
     overflowY: "auto",
     backgroundColor: color.canvas,
+    containerType: "inline-size",
   },
   page: {
     boxSizing: "border-box",

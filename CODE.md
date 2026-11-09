@@ -109,6 +109,11 @@ tests/fixtures/       the LFRPS12 sample project (two Word documents, an images,
 
 - A screen assembles kit components; it holds no data logic and no bare control. Missing control → extend the kit:
   an option first, a wrapper second, a new component last (with its reason, in the catalogue). Never copy JSX.
+- A screen is laid out in sections (ARCHITECTURE.md §12 « Layout »): `useWorkspace({ pref, label, tabs, defaults })`
+  (`lib/workspace/`) and `<Workspace ws={ws} />`; each tab is `{ id, label, icon, content, footer?, count?, dot?, main? }`,
+  Claude's is `useClaudeTab()`; the defaults are `layoutOf(column(width | null, section([tabIds], collapsed?)), …)`;
+  the pref is a `layout<Screen>` key of `lib/prefs.ts`. No screen draws its own columns, drawers, resize edges or
+  window breakpoints: a pane's own content may still adapt to its width with a container query.
 - A screen that goes down a level gives `ScreenHeader` its `back` and its `crumbs` (a crumb `{ label, onClick }` is a
   link): the way back is in the top bar, never a « Back » in a pane (ARCHITECTURE.md §12 « Navigation »).
 - Styles: `stylex.create` in the component's own file, values from `tokens.stylex.ts`, text through `type.ts`. No

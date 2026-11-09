@@ -42,10 +42,10 @@ const asDesktop = () => {
 describe("page preferences kept in settings.json (desktop app)", () => {
   it("a new origin (the core changed port) gets the saved preferences back, once", async () => {
     asDesktop();
-    saved = { "testimus.theme": "dark", "testimus.sidebarWidth": "300", other: "x" };
+    saved = { "testimus.theme": "dark", "testimus.docsTocWidth": "300", other: "x" };
     expect(await restorePrefs(client)).toBe(true);
     expect(localStorage.getItem("testimus.theme")).toBe("dark");
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("300");
+    expect(localStorage.getItem("testimus.docsTocWidth")).toBe("300");
     expect(localStorage.getItem("other")).toBeNull();
     expect(await restorePrefs(client)).toBe(false);
   });

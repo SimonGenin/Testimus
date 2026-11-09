@@ -33,6 +33,7 @@ export function SystemStatus({ current, onOpen }: { current?: boolean; onOpen: (
     <RailItem
       label={l.label}
       dot={l.tone}
+      compact
       current={current}
       ariaLabel={`System: ${l.label}. Open the system check`}
       onClick={onOpen}

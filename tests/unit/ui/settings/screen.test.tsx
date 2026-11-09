@@ -98,9 +98,10 @@ describe("Settings screen", () => {
 
   it("the section list can be resized and keeps its width", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings" } });
-    const edge = screen.getByRole("separator", { name: "Resize the section list" });
+    const edge = screen.getByRole("separator", { name: "Resize section 1" });
     fireEvent.keyDown(edge, { key: "ArrowRight" });
-    expect(Number(edge.getAttribute("aria-valuenow"))).toBeGreaterThan(225);
+    expect(Number(edge.getAttribute("aria-valuenow"))).toBeGreaterThan(240);
+    expect(JSON.parse(localStorage.getItem("testimus.layoutSettings") ?? "{}").columns[0].width).toBe(256);
   });
 });
 

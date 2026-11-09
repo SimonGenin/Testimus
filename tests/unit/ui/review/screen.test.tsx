@@ -75,8 +75,7 @@ const key = (k: string, extra: Record<string, unknown> = {}) => fireEvent.keyDow
 
 const step = (n: number) => screen.getByRole("article", { name: `Step ${n}` });
 const queue = () => screen.getByRole("complementary", { name: "Review queue" });
-// the queue is a kit Pane; its place in the screen (width, laid over the test) is the frame around it
-const queueFrame = () => queue().parentElement as HTMLElement;
+const kept = () => JSON.parse(localStorage.getItem("testimus.layoutReview") ?? "null");
 const position = () => screen.getByTestId("queue-position");
 const toast = (title: string) =>
   screen.getAllByRole("status").find((e) => e.textContent?.startsWith(title)) as HTMLElement;
@@ -299,7 +298,7 @@ describe("Review screen", () => {
     await waitFor(() => expect(named("review.queue").at(-1)?.input).toEqual({ sort: "recent" }));
   });
 
-  it("moves between tests with J/K and the strip, and between steps with the arrows", async () => {
+  it("moves between tests with J/K and the queue's foot, and between steps with the arrows", async () => {
     reviewRoutes();
     const { app: a } = show({ route: { screen: "review", arg: "K-2" } });
     await screen.findByRole("heading", { name: "Summary K-2" });
@@ -332,22 +331,21 @@ describe("Review screen", () => {
     input.remove();
   });
 
-  it("« Show the queue » of the strip lays the queue over the test until a test is opened from it", async () => {
+  it("the queue section folds to a strip of its icons, opens again from it, and the fold is kept", async () => {
     reviewRoutes();
+    localStorage.removeItem("testimus.layoutReview");
     const { app: a } = show({ route: { screen: "review", arg: "K-2" } });
     await screen.findByRole("heading", { name: "Summary K-2" });
-    await waitFor(() => expect(position()).toHaveTextContent("2 / 3"));
-    const toggle = screen.getByRole("button", { name: "Show the queue" });
-    const plain = queueFrame().className;
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect(queueFrame().className).not.toBe(plain);
-    fireEvent.click(
-      within(within(queue()).getByRole("listbox", { name: "Tests to review" })).getAllByRole("option")[0],
-    );
-    expect(a.navigate).toHaveBeenLastCalledWith("review", "K-1");
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
-    expect(queueFrame().className).toBe(plain);
+    const bar = screen.getByRole("tablist", { name: "Section 1 · Queue" }).parentElement as HTMLElement;
+    fireEvent.click(within(bar).getByRole("button", { name: "Collapse this section" }));
+    const strip = await screen.findByRole("navigation", { name: "Section 1, collapsed" });
+    await waitFor(() => expect(kept()?.columns[0].sections[0].collapsed).toBe(true));
+    key("j");
+    expect(a.navigate).toHaveBeenLastCalledWith("review", "L-3");
+    fireEvent.click(within(strip).getByRole("button", { name: "Queue, 3" }));
+    expect(await screen.findByRole("tablist", { name: "Section 1 · Queue" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Section 1, collapsed" })).toBeNull();
+    await waitFor(() => expect(kept()?.columns[0].sections[0].collapsed).toBe(false));
   });
 
   it("groups the latest generation's tests first, then Earlier, and J/K walk the order shown", async () => {
@@ -868,16 +866,15 @@ describe("Review screen", () => {
     expect(screen.queryByRole("button", { name: /^Check( again)?$/ })).toBeNull();
   });
 
-  it("the panes keep the widths the reviewer gave them", async () => {
+  it("the sections keep the widths the reviewer gave them", async () => {
     reviewRoutes();
-    localStorage.removeItem("testimus.queueWidth");
+    localStorage.removeItem("testimus.layoutReview");
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    const edge = screen.getByRole("separator", { name: "Resize the review queue" });
+    const edge = screen.getByRole("separator", { name: "Resize section 1" });
     fireEvent.keyDown(edge, { key: "End" });
-    await waitFor(() => expect(localStorage.getItem("testimus.queueWidth")).toBe("480"));
-    expect(queueFrame()).toHaveStyle({ width: "480px" });
+    await waitFor(() => expect(kept()?.columns[0].width).toBe(960));
     fireEvent.keyDown(edge, { key: "Home" });
-    await waitFor(() => expect(localStorage.getItem("testimus.queueWidth")).toBeNull());
+    await waitFor(() => expect(kept()?.columns[0].width).toBe(320));
   });
 });

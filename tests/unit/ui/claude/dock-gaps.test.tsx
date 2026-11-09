@@ -46,7 +46,7 @@ describe("dock remaining paths", () => {
     };
     render(
       <AppContext.Provider value={app({ info: null })}>
-        <ClaudeDock folded={false} onFold={() => {}} />
+        <ClaudeDock />
       </AppContext.Provider>,
     );
     expect(runChoice()).toHaveAccessibleName("opus · high");

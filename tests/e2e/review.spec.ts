@@ -69,9 +69,8 @@ test("J and K move through the queue", async ({ page }) => {
 test("To fix with a note asks Claude to fix it; the test comes back Draft, never Validated", async ({ page }) => {
   await boot(page, "#/review");
   await expect(under(page).getByRole("heading", { level: 2 })).toHaveText(SUMMARY_1420);
-  await under(page)
-    .getByRole("button", { name: /^To fix/ })
-    .click();
+  // ponytail: the decisions sit in the test section's foot, under the test
+  await page.getByRole("button", { name: /^To fix/ }).click();
   const note = page.getByRole("dialog", { name: "What needs fixing?" });
   await note.getByRole("button", { name: /^Mark To fix/ }).click();
   const box = note.getByRole("textbox", { name: /Note for the author/ });

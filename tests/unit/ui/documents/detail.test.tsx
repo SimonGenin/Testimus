@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DocDetail } from "../../../../src/ui/screens/documents/DocDetail.tsx";
+import { DocDetails } from "../../../../src/ui/screens/documents/DocDetails.tsx";
 import { scrolling } from "../../helpers/scrolling.ts";
 import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
@@ -52,7 +53,7 @@ const show = (anchor = "", over: Record<string, unknown> = {}) => {
   const onAnchor = vi.fn();
   const onRemoved = vi.fn();
   api.routes["docs.show"] = (i) => (i.anchor ? { md: `Part ${i.anchor}` } : shown(over));
-  mountDocs(<DocDetail id="D1" anchor={anchor} onAnchor={onAnchor} onRemoved={onRemoved} />);
+  mountDocs(<Doc id="D1" anchor={anchor} onAnchor={onAnchor} onRemoved={onRemoved} />);
   return { onAnchor, onRemoved };
 };
 
@@ -60,12 +61,23 @@ const toc = () => screen.getByRole("navigation", { name: "Sections" });
 const more = () => fireEvent.click(screen.getByRole("button", { name: "More actions for this document" }));
 const status = () => screen.getByRole("radiogroup", { name: "Status" });
 
+// ponytail: the document and its Details tab, as the Documents screen shows them side by side
+function Doc(p: Parameters<typeof DocDetail>[0]) {
+  return (
+    <>
+      <DocDetail {...p} />
+      <DocDetails id={p.id} />
+    </>
+  );
+}
+
 describe("DocDetail", () => {
   it("shows the document, its facts and the first sub-section by default", async () => {
     const { onAnchor } = show();
     expect(await screen.findByRole("heading", { name: "Title D1" })).toBeInTheDocument();
     const region = screen.getByRole("region", { name: "C-D1 details" });
-    expect(within(region).getByRole("complementary", { name: "Document settings" })).toBeInTheDocument();
+    expect(within(region).queryByRole("complementary", { name: "Document settings" })).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Document settings" })).toBeInTheDocument();
     expect(screen.getByText("2026-01-02")).toBeInTheDocument();
     expect(screen.getByText(/Converted from PDF · 3 sections · 2 figures/)).toBeInTheDocument();
     expect(screen.getByText("2 comments dropped")).toBeInTheDocument();
@@ -154,7 +166,7 @@ describe("DocDetail", () => {
               ],
             });
     const onAnchor = vi.fn();
-    mountDocs(<DocDetail id="D1" anchor="" onAnchor={onAnchor} onRemoved={vi.fn()} />);
+    mountDocs(<Doc id="D1" anchor="" onAnchor={onAnchor} onRemoved={vi.fn()} />);
     await screen.findByText("Part §5.6");
     const views = screen.getByRole("tablist", { name: "Document views" });
     expect(within(views).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
@@ -208,7 +220,7 @@ describe("DocDetail", () => {
       if (i.anchor) return { md: `Part ${i.anchor}` };
       return shown();
     };
-    mountDocs(<DocDetail id="D1" anchor="fig:fig-2" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
+    mountDocs(<Doc id="D1" anchor="fig:fig-2" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
     expect(await screen.findByText("Après la figure.")).toBeInTheDocument();
     expect(screen.getByText("Avant la figure.")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Plan" })).toBeInTheDocument();
@@ -277,7 +289,7 @@ describe("DocDetail", () => {
       "[data-picked]": { top: 900, bottom: 1000, height: 100 },
     });
     scrolling('[data-testid="doc-figures"]');
-    mountDocs(<DocDetail id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
+    mountDocs(<Doc id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Show Coupe in Figures" }));
     expect(screen.getByRole("tab", { name: /^Figures/ })).toHaveAttribute("aria-selected", "true");
     const grid = screen.getByRole("list", { name: "Figures" });
@@ -343,11 +355,11 @@ describe("DocDetail", () => {
   it("shows the reason when a part cannot be read, and when the document cannot be opened", async () => {
     api.routes["docs.show"] = () => shown();
     refuse("docs.show", (i) => !!i.anchor, { error: "no such anchor" });
-    mountDocs(<DocDetail id="D1" anchor="§9" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
+    mountDocs(<Doc id="D1" anchor="§9" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
     expect(await screen.findByText("no such anchor")).toBeInTheDocument();
     cleanup();
     delete api.routes["docs.show"];
-    mountDocs(<DocDetail id="DX" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
+    mountDocs(<Doc id="DX" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
     expect(screen.getByRole("region", { name: "DX details" })).toHaveAttribute("aria-busy", "true");
     expect(await screen.findByText("This document could not be opened")).toBeInTheDocument();
     expect(screen.getByText("Unknown command docs.show")).toBeInTheDocument();
@@ -566,7 +578,7 @@ describe("DocDetail", () => {
     };
     const runInDock = vi.fn();
     api.routes["docs.show"] = () => shown();
-    mountDocs(<DocDetail id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />, { runInDock });
+    mountDocs(<Doc id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />, { runInDock });
     const list = await screen.findByRole("list", { name: "Conversion warnings" });
     const run = await within(list).findByRole("button", { name: "Fix a4" });
     expect(within(list).getAllByRole("button")).toHaveLength(1);
@@ -611,7 +623,7 @@ describe("DocDetail", () => {
         return f(url, init);
       }),
     );
-    const { unmount } = mountDocs(<DocDetail id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
+    const { unmount } = mountDocs(<Doc id="D1" anchor="" onAnchor={vi.fn()} onRemoved={vi.fn()} />);
     unmount();
     release();
     await waitFor(() => expect(named("docs.show")).toHaveLength(1));

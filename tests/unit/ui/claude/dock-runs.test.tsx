@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ClaudeDock, type DockRequest, metaLine } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { ContextsDialog } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
+import { dockState } from "../../../../src/ui/components/claude/dockState.ts";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
 import { callsOf, dataWrapper, deferred, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
@@ -24,14 +25,14 @@ afterEach(() => {
   setProject(null);
 });
 
-type Props = { folded?: boolean; request?: DockRequest | null };
+type Props = { request?: DockRequest | null };
 
 function mount(props: Props = {}, over: Partial<AppState> = {}) {
   const state = app(over);
-  let current: Props = { folded: false, ...props };
+  let current: Props = { ...props };
   const ui = () => (
     <AppContext.Provider value={{ ...state }}>
-      <ClaudeDock folded={!!current.folded} request={current.request} onFold={() => {}} />
+      <ClaudeDock request={current.request} />
     </AppContext.Provider>
   );
   const r = render(ui());
@@ -87,16 +88,15 @@ describe("dock run details", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /Send/ })).toBeInTheDocument());
   });
 
-  it("shows a failed run's raw output, even when empty, and marks the last run bad on the folded strip", async () => {
+  it("shows a failed run's raw output, even when empty, and tells Claude's tab the last run failed", async () => {
     net.routes["claude.run"] = () => ({ ok: false, raw: "", changedTests: [] });
-    const { update } = mount({}, { focus: focus(), ...claude({ model: "" }) });
+    mount({}, { focus: focus(), ...claude({ model: "" }) });
     ask("Go");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).not.toHaveProperty("model");
     fireEvent.click(await screen.findByRole("button", { name: "Show raw output" }));
     expect(screen.getByText("(no output)")).toBeInTheDocument();
-    update({ folded: true });
-    expect(screen.getByText(/^Last run · .* · failed$/)).toBeInTheDocument();
+    expect(dockState().failed).toBe(true);
   });
 
   it("runs on the whole project and shows the changes on the first changed test", async () => {

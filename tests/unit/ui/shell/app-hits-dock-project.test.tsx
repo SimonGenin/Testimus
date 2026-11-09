@@ -37,12 +37,8 @@ vi.mock("../../../../src/ui/screens/setup/FirstRunScreen.tsx", async () => ({
   FirstRunScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Setup screen"),
 }));
 vi.mock("../../../../src/ui/components/claude/ClaudeDock.tsx", () => ({
-  ClaudeDock: ({ folded, onFold }: { folded: boolean; request?: DockRequest | null; onFold: () => void }) => (
-    <aside aria-label="Dock" data-folded={String(folded)}>
-      <button type="button" onClick={onFold}>
-        fold dock
-      </button>
-    </aside>
+  ClaudeDock: ({ request }: { request?: DockRequest | null }) => (
+    <aside aria-label="Dock" data-request={JSON.stringify(request ?? null)} />
   ),
 }));
 
@@ -127,22 +123,6 @@ describe("a search hit picked in the palette", () => {
     await mount();
     await pick(hit({ kind: "passage", id: "p1", title: "5.6 Sectionneurs", docId: "SOSIE_211", anchor: "§5.6" }));
     await waitFor(() => expect(route()).toEqual({ screen: "documents", arg: "SOSIE_211#§5.6" }));
-  });
-});
-
-describe("the Claude panel's width", () => {
-  it("is resized from its edge with the keyboard and kept for the next time", async () => {
-    await mount();
-    expect(screen.queryByRole("separator", { name: "Resize the Claude panel" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "fold dock" }));
-    const edge = screen.getByRole("separator", { name: "Resize the Claude panel" });
-    const before = Number(edge.getAttribute("aria-valuenow"));
-    fireEvent.keyDown(edge, { key: "End" });
-    const after = Number(
-      screen.getByRole("separator", { name: "Resize the Claude panel" }).getAttribute("aria-valuenow"),
-    );
-    expect(after).toBeGreaterThan(before);
-    expect(localStorage.getItem("testimus.dockWidth")).toBe(String(after));
   });
 });
 

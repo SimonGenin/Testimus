@@ -1,15 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { DoctorAction, DoctorCheck } from "../../../core/types.ts";
+import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge, HEALTH } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Loading } from "../../components/ui/Loading.tsx";
 import { type } from "../../components/ui/type.ts";
+import { Workspace } from "../../components/ui/workspace/Workspace.tsx";
 import { useApp } from "../../lib/app.ts";
 import { desktop, pickFolder } from "../../lib/desktop.ts";
 import { toast } from "../../lib/toast.ts";
+import { column, layoutOf, section } from "../../lib/workspace/layout.ts";
+import { useWorkspace } from "../../lib/workspace/useWorkspace.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { FolderDialog } from "../settings/models/FolderDialog.tsx";
 import { CheckTable } from "./CheckTable.tsx";
@@ -44,6 +48,9 @@ const SETTINGS_OF: Record<string, string> = {
 
 const MODELS_GB = 3;
 
+// ponytail: one thing to show — the checks, and Claude folded beside them (two sections at least)
+const LAYOUT = layoutOf(column(null, section(["checks"])), column(400, section(["claude"], true)));
+
 const clock = (at: number) => new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 export function DoctorScreen() {
@@ -69,6 +76,69 @@ export function DoctorScreen() {
     (d.busyId === c.id && d.fixing?.action.command === a.command) || (a.command === "system.doctor" && d.signingIn);
   const blocked = () => !!d.fixing && `Wait for « ${d.fixing.action.label} » to finish`;
 
+  const claude = useClaudeTab();
+  const ws = useWorkspace({
+    pref: "layoutDoctor",
+    label: "System check",
+    defaults: LAYOUT,
+    tabs: [
+      {
+        id: "checks",
+        label: "Checks",
+        icon: "verify",
+        main: true,
+        content: (
+          <div {...stylex.props(styles.scroll)}>
+            <div {...stylex.props(styles.page)}>
+              <div {...stylex.props(styles.lead)}>
+                <p {...stylex.props(type.compact, styles.intro)}>
+                  Everything Testimus needs on this PC. Editing, review and push work even when Claude is not available.
+                </p>
+                {d.checks && (
+                  <div {...stylex.props(styles.counts)}>
+                    {counts(d.checks).map(({ look, n }) => (
+                      <Badge key={look} {...HEALTH[look]} label={`${n} ${HEALTH[look].label}`} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              {d.error && (
+                <Banner
+                  tone="danger"
+                  actions={<Button size="sm" label="Try again" loading={d.checking} onClick={d.again} />}
+                >
+                  The check could not run: {d.error}
+                </Banner>
+              )}
+              {!d.checks && !d.error && <Loading read="system.doctor" />}
+              <section aria-label="Checks" aria-busy={!d.checks} {...stylex.props(styles.checks)}>
+                {d.checks
+                  ? sections(d.checks).map((s) => (
+                      <CheckTable
+                        key={s.title}
+                        title={s.title}
+                        checks={s.checks}
+                        busy={busy}
+                        blocked={blocked}
+                        onAct={(c, a) => void act(c, a)}
+                      />
+                    ))
+                  : TITLES.map((t) => (
+                      <CheckTable key={t} title={t} checks={[]} loading busy={busy} onAct={() => {}} />
+                    ))}
+              </section>
+              <p {...stylex.props(type.small, styles.foot)}>
+                The same check from a terminal: <span {...stylex.props(type.code)}>testimus system doctor</span> · the
+                rail's status dot shows the last result.
+              </p>
+            </div>
+          </div>
+        ),
+      },
+      claude,
+    ],
+  });
+
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader
@@ -83,49 +153,7 @@ export function DoctorScreen() {
           onClick={d.again}
         />
       </ScreenHeader>
-      <div {...stylex.props(styles.scroll)}>
-        <div {...stylex.props(styles.page)}>
-          <div {...stylex.props(styles.lead)}>
-            <p {...stylex.props(type.compact, styles.intro)}>
-              Everything Testimus needs on this PC. Editing, review and push work even when Claude is not available.
-            </p>
-            {d.checks && (
-              <div {...stylex.props(styles.counts)}>
-                {counts(d.checks).map(({ look, n }) => (
-                  <Badge key={look} {...HEALTH[look]} label={`${n} ${HEALTH[look].label}`} />
-                ))}
-              </div>
-            )}
-          </div>
-          {d.error && (
-            <Banner
-              tone="danger"
-              actions={<Button size="sm" label="Try again" loading={d.checking} onClick={d.again} />}
-            >
-              The check could not run: {d.error}
-            </Banner>
-          )}
-          {!d.checks && !d.error && <Loading read="system.doctor" />}
-          <section aria-label="Checks" aria-busy={!d.checks} {...stylex.props(styles.checks)}>
-            {d.checks
-              ? sections(d.checks).map((s) => (
-                  <CheckTable
-                    key={s.title}
-                    title={s.title}
-                    checks={s.checks}
-                    busy={busy}
-                    blocked={blocked}
-                    onAct={(c, a) => void act(c, a)}
-                  />
-                ))
-              : TITLES.map((t) => <CheckTable key={t} title={t} checks={[]} loading busy={busy} onAct={() => {}} />)}
-          </section>
-          <p {...stylex.props(type.small, styles.foot)}>
-            The same check from a terminal: <span {...stylex.props(type.code)}>testimus system doctor</span> · the
-            rail's status dot shows the last result.
-          </p>
-        </div>
-      </div>
+      <Workspace ws={ws} />
       {folder && (
         <FolderDialog
           current={folder.value ?? null}

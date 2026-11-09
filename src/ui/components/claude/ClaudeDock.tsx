@@ -7,15 +7,12 @@ import { useApp } from "../../lib/app.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { key, read, useRead } from "../../lib/data/query.ts";
-import { border, breakpoint, color, radius, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
-import { Button } from "../ui/Button.tsx";
-import { Icon } from "../ui/Icon.tsx";
-import { type } from "../ui/type.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { DockActions, useActionChoices } from "./DockActions.tsx";
 import { DockComposer, runIds } from "./DockComposer.tsx";
-import { DockFolded } from "./DockFolded.tsx";
 import { DockLog } from "./DockLog.tsx";
 import { DockScope } from "./DockScope.tsx";
+import { setDockState } from "./dockState.ts";
 import { type Again, docOfRoute } from "./turns.ts";
 import { useClaudeStatus } from "./useClaudeStatus.ts";
 import { type DockJob, useDockRuns } from "./useDockRuns.ts";
@@ -44,39 +41,14 @@ export const PROBLEM_QUESTION = "What causes this, and what can I do?";
 
 const styles = stylex.create({
   dock: {
-    flex: "none",
+    flex: 1,
     boxSizing: "border-box",
-    width: `var(--dock-size, ${size.dock})`,
     minWidth: 0,
+    minHeight: 0,
     display: "flex",
     flexDirection: "column",
-    borderInlineStartStyle: { default: "none", [breakpoint.narrow]: "solid" },
-    borderInlineStartWidth: border.width,
-    borderInlineStartColor: color.border,
     backgroundColor: color.surface,
-    position: { default: "relative", [breakpoint.narrow]: "fixed" },
-    insetBlock: { default: null, [breakpoint.narrow]: 0 },
-    insetInlineEnd: { default: null, [breakpoint.narrow]: 0 },
-    zIndex: { default: null, [breakpoint.narrow]: z.dock },
-    maxWidth: { default: null, [breakpoint.narrow]: `calc(100vw - ${size.rail})` },
-    boxShadow: { default: null, [breakpoint.narrow]: shadow.s3 },
-    borderRadius: { default: null, [breakpoint.narrow]: radius.r4 },
   },
-  head: {
-    boxSizing: "border-box",
-    flex: "none",
-    display: "flex",
-    alignItems: "center",
-    gap: space.s2,
-    height: size.topbar,
-    paddingInlineStart: space.s5,
-    paddingInlineEnd: space.s3,
-    borderBottomStyle: "solid",
-    borderBottomWidth: border.width,
-    borderBottomColor: color.border,
-  },
-  title: { display: "inline-flex", alignItems: "center", gap: space.s2, margin: 0, color: color.claudeText },
-  grow: { flex: 1 },
   foot: {
     boxSizing: "border-box",
     flex: "none",
@@ -86,17 +58,10 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: Claude beside every screen — asks the documents, changes a test, a step or the whole project, runs the
-// actions Claude proposed; folded to a strip (Ctrl J)
-export function ClaudeDock({
-  folded,
-  request,
-  onFold,
-}: {
-  folded: boolean;
-  request?: DockRequest | null;
-  onFold: () => void;
-}) {
+// ponytail: Claude in every screen — asks the documents, changes a test, a step or the whole project, runs the
+// actions Claude proposed. It is the body of each screen's Claude tab (the tab says « Claude », folds it, and shows
+// with a dot what the dock tells it: a run under way, the last one failed, no Claude to talk to)
+export function ClaudeDock({ request }: { request?: DockRequest | null }) {
   const app = useApp();
   const client = useQueryClient();
   const focus = app.focus;
@@ -213,18 +178,10 @@ export function ClaudeDock({
   };
 
   const elapsed = runs.started === null ? 0 : (now - runs.started) / 1000;
-
-  if (folded)
-    return (
-      <DockFolded
-        onOpen={onFold}
-        actions={actions.length}
-        running={runs.busy}
-        seconds={elapsed}
-        offline={offline}
-        last={runs.last}
-      />
-    );
+  const lastFailed = runs.last?.ok === false;
+  useEffect(() => {
+    setDockState({ running: runs.busy, failed: lastFailed, offline });
+  }, [runs.busy, lastFailed, offline]);
 
   return (
     <aside
@@ -237,14 +194,6 @@ export function ClaudeDock({
       }}
       {...stylex.props(styles.dock)}
     >
-      <div {...stylex.props(styles.head)}>
-        <h2 {...stylex.props(type.titleSm, styles.title)}>
-          <Icon name="claude" />
-          Claude
-        </h2>
-        <span {...stylex.props(styles.grow)} />
-        <Button variant="quiet" size="sm" icon="panel-right" iconOnly label="Fold the dock (Ctrl+J)" onClick={onFold} />
-      </div>
       <DockScope
         tab={tab}
         sub={sub}

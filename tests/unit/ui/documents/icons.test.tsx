@@ -53,7 +53,7 @@ describe("the Documents icons, as the design draws them", () => {
     expect(iconOf(within(list).getByText("Not indexed"))).toBe("alert-circle");
   });
 
-  it("the reader's head: Documents panel-left, Details panel-right without a chevron, Show in Explorer folder-open", () => {
+  it("the reader's head: Sections list (when the contents fold), Show in Explorer folder-open; the list and the details are sections", () => {
     fakeDesktop();
     setProject("C:\\p");
     render(
@@ -64,22 +64,18 @@ describe("the Documents icons, as the design draws them", () => {
         running={false}
         view="text"
         onView={() => {}}
-        listOpen={false}
-        onShowList={() => {}}
-        sectionsButton={false}
-        detailsButton
-        drawer={null}
-        onDrawer={() => {}}
+        sectionsButton
+        sectionsOpen={false}
+        onSections={() => {}}
         onConvertAgain={() => {}}
         onDelete={() => {}}
       />,
     );
-    expect(iconOf(screen.getByRole("button", { name: "Show the document list" }))).toBe("panel-left");
-    const details = screen.getByRole("button", { name: "Details" });
-    expect([...details.querySelectorAll("[data-icon]")].map((s) => s.getAttribute("data-icon"))).toEqual([
-      "panel-right",
-    ]);
-    expect(details).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Show the document list" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+    const sections = screen.getByRole("button", { name: "Sections" });
+    expect(iconOf(sections)).toBe("list");
+    expect(sections).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByRole("button", { name: "More actions for this document" }));
     expect(iconOf(screen.getByRole("menuitem", { name: "Show in Explorer" }))).toBe("folder-open");
   });

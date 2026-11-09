@@ -5,21 +5,16 @@ import { Kbd } from "../../components/ui/Kbd.tsx";
 import { Tooltip } from "../../components/ui/Tooltip.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
-import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { color, container, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   foot: {
-    boxSizing: "border-box",
-    flex: "none",
+    flex: 1,
+    minWidth: 0,
     display: "flex",
     alignItems: "center",
     gap: space.s4,
-    paddingBlock: space.s4,
-    paddingInline: { default: space.s6, [container.paneCompact]: space.s5 },
-    borderTopWidth: border.width,
-    borderTopStyle: "solid",
-    borderTopColor: color.border,
-    backgroundColor: color.surface,
+    containerType: "inline-size",
   },
   keys: {
     flexGrow: 0,
@@ -60,7 +55,8 @@ export type ReviewFootProps = {
   onValidate: () => void;
 };
 
-// ponytail: the reviewer's two decisions and the keys that make them; Validate is allowed with open errors
+// ponytail: the reviewer's two decisions and the keys that make them, in the test section's foot; Validate is allowed
+// with open errors
 export function ReviewFoot({ errors, stale, off, fixOpen, marked = false, onToFix, onValidate }: ReviewFootProps) {
   const still = `${plural(errors, "error")} still open${stale ? " · out of date" : ""}`;
   return (

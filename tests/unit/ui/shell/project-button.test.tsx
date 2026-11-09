@@ -62,7 +62,7 @@ describe("ProjectButton", () => {
     net.routes["project.list"] = () => [];
     withData(<ProjectButton />, { info: null });
     const none = screen.getByRole("button", { name: "Open a project" });
-    expect(none).toHaveTextContent("no project");
+    expect(none).not.toHaveTextContent(/[a-z]/i);
     await waitFor(() => expect(callsOf("project.list")).toHaveLength(1));
     openMenu();
     expect(screen.getByRole("menuitem", { name: "No other project known yet" })).toHaveAttribute(

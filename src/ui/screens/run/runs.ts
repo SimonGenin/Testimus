@@ -227,8 +227,3 @@ export function shownRuns(runs: RunSummary[], f: RunsFilters, sort: RunsSort): R
 
 export const runShare = (r: Pick<RunSummary, "total" | "counts">) =>
   Math.round(((r.total - r.counts.notRun) / (r.total || 1)) * 100);
-
-// ponytail: the run's side panes, on the runs page and on a test being run alike: the list on the left, the panel on
-// the right — one width each, kept in lib/prefs once dragged
-export const RUN_LIST = { min: 240, max: 480, initial: 320 };
-export const RUN_SIDE = { min: 300, max: 640, initial: 380 };

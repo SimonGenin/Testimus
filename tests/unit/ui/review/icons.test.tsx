@@ -5,11 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, Test } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
 import { FixNote } from "../../../../src/ui/screens/review/FixNote.tsx";
-import { QueueStrip } from "../../../../src/ui/screens/review/QueueStrip.tsx";
 import { NO_FILTER } from "../../../../src/ui/screens/review/queueFilters.ts";
 import { type BannersProps, ReviewBanners } from "../../../../src/ui/screens/review/ReviewBanners.tsx";
 import { ReviewEmpty } from "../../../../src/ui/screens/review/ReviewEmpty.tsx";
-import { ReviewQueue, type ReviewQueueProps } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
+import { QueueFoot, ReviewQueue, type ReviewQueueProps } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
 import { iconOf } from "../../helpers/icons.ts";
 import { fakeServer, item, mountReview, named, net } from "./helpers.tsx";
 
@@ -77,18 +76,18 @@ describe("Review › the design's icons", () => {
     expect(iconOf(within(row).getByText("No findings"))).toBeUndefined();
   });
 
-  it("the folded queue shows the queue on demand with panel-left (n° 80)", () => {
-    const onShow = vi.fn();
-    const { rerender } = render(<QueueStrip at={0} total={2} shown={false} onShow={onShow} onMove={vi.fn()} />);
-    const show = screen.getByRole("button", { name: "Show the queue" });
-    expect(iconOf(show)).toBe("panel-left");
-    expect(show).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(show);
-    expect(onShow).toHaveBeenLastCalledWith(true);
-    rerender(<QueueStrip at={0} total={2} shown onShow={onShow} onMove={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Show the queue" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Show the queue" }));
-    expect(onShow).toHaveBeenLastCalledWith(false);
+  it("the queue section's foot walks the queue with chevrons, and says where the open test sits (n° 80)", () => {
+    const onMove = vi.fn();
+    const { rerender } = render(<QueueFoot at={1} total={3} onMove={onMove} />);
+    expect(screen.getByTestId("queue-position")).toHaveTextContent("2 / 3");
+    expect(iconOf(screen.getByRole("button", { name: "Previous test (K)" }))).toBe("chevron-up");
+    expect(iconOf(screen.getByRole("button", { name: "Next test (J)" }))).toBe("chevron-down");
+    fireEvent.click(screen.getByRole("button", { name: "Next test (J)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Previous test (K)" }));
+    expect(onMove.mock.calls).toEqual([[1], [-1]]);
+    rerender(<QueueFoot at={-1} total={0} onMove={onMove} />);
+    expect(screen.getByTestId("queue-position")).toHaveTextContent("0");
+    expect(screen.getByRole("button", { name: "Next test (J)" })).toBeDisabled();
   });
 
   it("« Check again » of a test changed since its check is verify (n° 76)", () => {

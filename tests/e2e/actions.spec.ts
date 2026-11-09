@@ -1,4 +1,4 @@
-import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
+import { api, boot, claudeEntry, expect, mockServer, openDock, shoot, test } from "./helpers.ts";
 
 const server = mockServer(4351);
 
@@ -17,19 +17,15 @@ test("a problem Claude can fix becomes a card in the Actions tab and a button be
   await expect.poll(async () => (await open()).length, { timeout: 15_000 }).toBe(1);
 
   await boot(page, `#/documents/${DOC}`);
-  const side = page.getByRole("region", { name: / details$/ });
+  const side = page.getByRole("complementary", { name: "Document settings" });
   await expect(side.getByText(/Figure 41/)).toBeVisible();
   const warnings = page.getByRole("list", { name: "Conversion warnings" });
   await expect(warnings.getByRole("button", { name: "Recover the figure from the PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Recover the figure from the PDF" })).toHaveCount(1);
   await expect(warnings.getByText("on document « Traction »")).toBeVisible();
 
-  const dock = page.getByRole("complementary", { name: "Claude" });
-  const rail = dock.getByRole("button", { name: "Open Claude" });
-  if (await rail.isVisible()) {
-    await expect(dock.getByText("1", { exact: true })).toBeVisible();
-    await rail.click();
-  }
+  await expect(await claudeEntry(page)).toContainText("1");
+  const dock = await openDock(page);
   await expect(dock.getByRole("region", { name: /Claude action/ })).toHaveCount(0);
   const tab = dock.getByRole("tab", { name: /^Actions/ });
   await expect(tab).toContainText("1");
@@ -83,9 +79,7 @@ test("a step's action is a card in the Actions tab, not on its Review row, and i
   await expect(page.getByRole("button", { name: "Make step 2 say what the menu shows" })).toHaveCount(0);
 
   await boot(page, "#/tests");
-  const dock = page.getByRole("complementary", { name: "Claude" });
-  const rail = dock.getByRole("button", { name: "Open Claude" });
-  if (await rail.isVisible()) await rail.click();
+  const dock = await openDock(page);
   await dock.getByRole("tab", { name: /^Actions/ }).click();
   const card = dock.getByRole("region", { name: "Claude action: Make step 2 say what the menu shows" });
   await card.getByRole("button", { name: "Show" }).click();

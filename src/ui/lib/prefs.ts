@@ -38,6 +38,22 @@ function text(fallback: string): Pref<string> {
   return { fallback, parse: (r) => r, show: (v) => v };
 }
 
+// ponytail: a screen's sections and tabs (lib/workspace/layout.ts checks the shape: anything it cannot read is the
+// screen's own layout)
+function layout(): Pref<unknown> {
+  return {
+    fallback: null,
+    parse: (r) => {
+      try {
+        return JSON.parse(r) as unknown;
+      } catch {
+        return undefined;
+      }
+    },
+    show: (v) => (v === null ? "" : JSON.stringify(v)),
+  };
+}
+
 export const PREFS = {
   theme: oneOf(["system", "light", "dark"], "system"),
   stepLayout: oneOf(["stacked", "split"], "stacked"),
@@ -49,24 +65,22 @@ export const PREFS = {
   alwaysOnTop: flag(false),
   project: text(""),
   setupShown: flag(false, true),
-  dockWidth: width(300, 720),
-  sidebarWidth: width(240, 480),
-  sidebarWideWidth: width(480, 1200),
   jiraColumnsShare: share(),
   jiraRowsShare: share(),
   localColumnsShare: share(),
   localRowsShare: share(),
   editorWidth: width(560, 4000),
-  docsListWidth: width(200, 420),
   docsTocWidth: width(180, 420),
-  docsSideWidth: width(260, 520),
-  genFormWidth: width(320, 720),
-  jobsSideWidth: width(360, 820),
-  queueWidth: width(240, 480),
-  sourceWidth: width(300, 720),
-  settingsNavWidth: width(160, 360),
-  runListWidth: width(240, 480),
-  runSideWidth: width(300, 640),
+  layoutReview: layout(),
+  layoutTests: layout(),
+  layoutRun: layout(),
+  layoutRunTest: layout(),
+  layoutDocuments: layout(),
+  layoutGenerate: layout(),
+  layoutJobs: layout(),
+  layoutSettings: layout(),
+  layoutDoctor: layout(),
+  layoutKit: layout(),
 } satisfies Record<string, Pref<unknown>>;
 
 export type PrefName = keyof typeof PREFS;

@@ -1,6 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DocJson } from "../../../core/types.ts";
-import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { Tabs } from "../../components/ui/Tabs.tsx";
@@ -47,8 +46,6 @@ const styles = stylex.create({
     alignSelf: "stretch",
     marginBlock: `calc(-1 * ${space.s2})`,
   },
-  dotWrap: { position: "relative", display: "inline-flex" },
-  dot: { position: "absolute", top: space.s1, right: space.s1, display: "inline-flex", pointerEvents: "none" },
 });
 
 export type View = "text" | "figures" | "images" | "video";
@@ -80,12 +77,9 @@ export function DocHead({
   running,
   view,
   onView,
-  listOpen,
-  onShowList,
   sectionsButton,
-  detailsButton,
-  drawer,
-  onDrawer,
+  sectionsOpen,
+  onSections,
   onConvertAgain,
   onDelete,
   onAddMedia,
@@ -97,12 +91,10 @@ export function DocHead({
   running: boolean;
   view: View;
   onView: (v: View) => void;
-  listOpen: boolean;
-  onShowList?: () => void;
+  /** the contents do not fit beside the text: a button opens them in a drawer */
   sectionsButton: boolean;
-  detailsButton: boolean;
-  drawer: "sections" | "details" | null;
-  onDrawer: (which: "sections" | "details") => void;
+  sectionsOpen: boolean;
+  onSections: () => void;
   onConvertAgain: () => void;
   onDelete: () => void;
   /** an images or video document: add images or videos to it (picked in the browser, or paths from the desktop app) */
@@ -115,7 +107,6 @@ export function DocHead({
   const files = doc.source.files ?? [];
   const converted = !!doc.converted?.at;
   const reading = !running && converted;
-  const warned = !running && (doc.converted?.warnings ?? []).length > 0;
   const dir = project();
   const before: MenuEntry[] = [
     ...(converted ? [{ label: "Convert again…", icon: "refresh" as const, onSelect: onConvertAgain }] : []),
@@ -141,16 +132,6 @@ export function DocHead({
   ];
   return (
     <header {...stylex.props(styles.head)}>
-      {onShowList && (
-        <Button
-          variant="quiet"
-          iconOnly
-          icon="panel-left"
-          label="Show the document list"
-          expanded={listOpen}
-          onClick={onShowList}
-        />
-      )}
       <div {...stylex.props(styles.titles)}>
         <div {...stylex.props(styles.titleLine)}>
           <h2 {...stylex.props(type.title, styles.title)}>{doc.title}</h2>
@@ -246,31 +227,7 @@ export function DocHead({
           />
         )}
         {reading && sectionsButton && view === "text" && (sections > 1 || !media) && (
-          <Button
-            size="sm"
-            variant="quiet"
-            icon="list"
-            label="Sections"
-            expanded={drawer === "sections"}
-            onClick={() => onDrawer("sections")}
-          />
-        )}
-        {detailsButton && (
-          <span {...stylex.props(styles.dotWrap)}>
-            <Button
-              size="sm"
-              variant="quiet"
-              icon="panel-right"
-              label="Details"
-              popup={{ kind: "dialog", open: drawer === "details" }}
-              onClick={() => onDrawer("details")}
-            />
-            {warned && (
-              <span data-testid="details-warned" title="Conversion warnings" {...stylex.props(styles.dot)}>
-                <Badge dot tone="warning" label="Conversion warnings" />
-              </span>
-            )}
-          </span>
+          <Button size="sm" variant="quiet" icon="list" label="Sections" expanded={sectionsOpen} onClick={onSections} />
         )}
         {!running && (
           <Menu

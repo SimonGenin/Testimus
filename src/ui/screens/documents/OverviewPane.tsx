@@ -44,11 +44,9 @@ const styles = stylex.create({
   body: { maxWidth: size.reading, display: "flex", flexDirection: "column", gap: space.s4 },
 });
 
-type Props = { onShowList?: () => void; listOpen?: boolean };
-
 // ponytail: docs/OVERVIEW.md on the Documents screen — the text Claude wrote (rendered, or a field to edit it by hand),
 // the switch that gives it to every run, Update now and Rewrite from scratch, and what the last update changed
-export function OverviewPane({ onShowList, listOpen }: Props) {
+export function OverviewPane() {
   const app = useApp();
   const client = useQueryClient();
   const shown = useRead("docs.overviewShow", {});
@@ -89,16 +87,6 @@ export function OverviewPane({ onShowList, listOpen }: Props) {
     return String(out.mtime);
   };
 
-  const list = onShowList && (
-    <Button
-      variant="quiet"
-      icon="panel-left"
-      iconOnly
-      label="Show the document list"
-      expanded={listOpen}
-      onClick={onShowList}
-    />
-  );
   if (!o)
     return (
       <div {...stylex.props(styles.pane)}>
@@ -110,7 +98,6 @@ export function OverviewPane({ onShowList, listOpen }: Props) {
   if (!o.exists)
     return (
       <div {...stylex.props(styles.pane)}>
-        {list}
         <EmptyState
           icon="layers"
           title={OVERVIEW_TITLE}
@@ -135,7 +122,6 @@ export function OverviewPane({ onShowList, listOpen }: Props) {
   return (
     <section aria-label={OVERVIEW_TITLE} {...stylex.props(styles.pane)}>
       <div {...stylex.props(styles.head)}>
-        {list}
         <div {...stylex.props(styles.titles)}>
           <h2 {...stylex.props(type.titleLg, styles.title)}>{OVERVIEW_TITLE}</h2>
           <p {...stylex.props(type.small, styles.sub)}>

@@ -207,9 +207,10 @@ const rowAction = (row: HTMLElement, name: string) => {
   fireEvent.focus(row);
   return within(row).getByRole("button", { name });
 };
-const listSide = () =>
-  screen.getByRole("separator", { name: "Resize the test list" }).parentElement?.parentElement as HTMLElement;
-const drawer = () => screen.queryByRole("dialog", { name: "Tests" });
+// ponytail: the list is the screen's first section; its width is what the edge after it says
+const listEdge = () => screen.getByRole("separator", { name: "Resize section 1" });
+const listWidth = () => listEdge().getAttribute("aria-valuenow");
+const keptLayout = () => JSON.parse(localStorage.getItem("testimus.layoutTests") ?? "null");
 const toJira = () => fireEvent.click(screen.getByRole("tab", { name: /^Jira/ }));
 const search = (v: string) => fireEvent.change(screen.getByLabelText("Filter tests"), { target: { value: v } });
 const jira = (v: string) => fireEvent.change(screen.getByLabelText("Search Jira"), { target: { value: v } });
@@ -678,59 +679,41 @@ describe("Tests screen › layout", () => {
     routes["xray.folders"] = () => new Promise(() => {});
   });
 
-  afterEach(() => {
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
-  });
-
-  it("resizes the sidebar between 260 and 480 px, remembers it, and resets on double-click", () => {
+  it("resizes the list's column between 220 and 960 px, remembers it, and resets on double-click", () => {
     render(<Harness />);
-    const edge = screen.getByRole("separator", { name: "Resize the test list" });
+    const edge = listEdge();
     fireEvent.pointerDown(edge, { clientX: 0 });
     fireEvent.pointerMove(edge, { clientX: 900 });
-    expect(listSide().style.width).toBe("480px");
+    expect(listWidth()).toBe("960");
     fireEvent.pointerMove(edge, { clientX: 20 });
     fireEvent.pointerUp(edge);
-    expect(listSide().style.width).toBe("340px");
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBe("340");
+    expect(listWidth()).toBe("340");
+    expect(keptLayout().columns[0].width).toBe(340);
     fireEvent.doubleClick(edge);
-    expect(listSide().style.width).toBe("320px");
-    expect(localStorage.getItem("testimus.sidebarWidth")).toBeNull();
+    expect(listWidth()).toBe("320");
+    expect(keptLayout().columns[0].width).toBe(320);
   });
 
-  it("becomes a drawer below 900 px: toggle, scrim, Escape, open a test, and widening", async () => {
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
+  it("folds the list's section to its strip, opens it from the strip's expand button, and opens a test", async () => {
     render(<Harness />);
-    expect(screen.queryByRole("separator", { name: "Resize the test list" })).toBeNull();
-    const toggle = () => screen.getByRole("button", { name: "Show test list" });
-    fireEvent.click(toggle());
-    expect(drawer()).not.toBeNull();
-    fireEvent.mouseDown(drawer()?.parentElement as HTMLElement);
-    expect(drawer()).toBeNull();
-    fireEvent.click(toggle());
-    fireEvent.keyDown(drawer() as HTMLElement, { key: "Escape" });
-    expect(drawer()).toBeNull();
-    fireEvent.click(toggle());
-    fireEvent.click(within(drawer() as HTMLElement).getByRole("button", { name: "Close" }));
-    expect(drawer()).toBeNull();
-    fireEvent.click(toggle());
+    fireEvent.click(screen.getAllByRole("button", { name: "Collapse this section" })[0]);
+    const strip = screen.getByRole("navigation", { name: "Section 1, collapsed" });
+    expect(screen.queryByRole("separator", { name: "Resize section 1" })).toBeNull();
+    expect(keptLayout().columns[0].sections[0].collapsed).toBe(true);
+    fireEvent.click(within(strip).getByRole("button", { name: "Expand this section" }));
+    expect(screen.queryByRole("navigation", { name: "Section 1, collapsed" })).toBeNull();
+    expect(keptLayout().columns[0].sections[0].collapsed).toBe(false);
     routes["tests.show"] = () => new Promise(() => {});
     fireEvent.click(await folder(/Disjoncteur ouvert/));
-    expect(drawer()).toBeNull();
-    fireEvent.click(toggle());
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1200 });
-    act(() => {
-      window.dispatchEvent(new Event("resize"));
-    });
-    expect(drawer()).toBeNull();
-    expect(screen.queryByRole("button", { name: "Show test list" })).toBeNull();
+    expect(nav).toHaveBeenCalledWith("tests", local1398.id);
   });
 
-  it("puts Jira's folders and tests side by side in a wider sidebar, or one above the other, and remembers it", () => {
+  it("puts Jira's folders and tests side by side in a wider list column, or one above the other, and remembers it", () => {
     render(<Harness />);
-    expect(listSide().style.width).toBe("320px");
+    expect(listWidth()).toBe("320");
     expect(screen.queryByRole("radiogroup", { name: "Folders and tests" })).toBeNull();
     toJira();
-    expect(listSide().style.width).toBe("640px");
+    expect(listWidth()).toBe("640");
     expect(screen.getByRole("radio", { name: "Side by side" })).toBeChecked();
     expect(screen.getByRole("separator", { name: "Resize the folders" })).toHaveAttribute(
       "aria-orientation",
@@ -738,15 +721,16 @@ describe("Tests screen › layout", () => {
     );
     fireEvent.click(screen.getByRole("radio", { name: "One above the other" }));
     expect(localStorage.getItem("testimus.jiraLayout")).toBe("rows");
-    expect(listSide().style.width).toBe("320px");
+    expect(listWidth()).toBe("320");
     expect(screen.getByRole("separator", { name: "Resize the folders and the tests" })).toHaveAttribute(
       "aria-orientation",
       "horizontal",
     );
     fireEvent.click(screen.getByRole("radio", { name: "Side by side" }));
     expect(localStorage.getItem("testimus.jiraLayout")).toBeNull();
+    expect(listWidth()).toBe("640");
     fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
-    expect(listSide().style.width).toBe("320px");
+    expect(listWidth()).toBe("320");
   });
 
   it("splits Jira's panes by a share of the sidebar: dragged, kept, and back to half on double-click", () => {
@@ -773,16 +757,6 @@ describe("Tests screen › layout", () => {
     }
   });
 
-  it("keeps Jira's folders above the tests in the narrow window's drawer, with no switch", () => {
-    localStorage.setItem("testimus.jiraLayout", "columns");
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Show test list" }));
-    toJira();
-    expect(screen.queryByRole("radiogroup", { name: "Folders and tests" })).toBeNull();
-    expect(screen.getByRole("separator", { name: "Resize the folders and the tests" })).toBeInTheDocument();
-  });
-
   it("shows the local tests in two panes too — side by side or one above the other — or as one tree, and remembers it", async () => {
     routes["tests.list"] = () => [
       local1398,
@@ -791,10 +765,10 @@ describe("Tests screen › layout", () => {
     ];
     render(<Harness />);
     expect(await screen.findByRole("radio", { name: "One tree" })).toBeChecked();
-    expect(listSide().style.width).toBe("320px");
+    expect(listWidth()).toBe("320");
     fireEvent.click(screen.getByRole("radio", { name: "Side by side" }));
     expect(localStorage.getItem("testimus.localLayout")).toBe("columns");
-    expect(listSide().style.width).toBe("640px");
+    expect(listWidth()).toBe("640");
     expect(screen.getByRole("separator", { name: "Resize the folders" })).toHaveAttribute(
       "aria-orientation",
       "vertical",
@@ -810,7 +784,7 @@ describe("Tests screen › layout", () => {
     expect(screen.getByText("No test directly in this folder")).toBeInTheDocument();
     expect(screen.getByText("1 test in its sub-folders.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "One above the other" }));
-    expect(listSide().style.width).toBe("320px");
+    expect(listWidth()).toBe("320");
     expect(screen.getByRole("separator", { name: "Resize the folders and the tests" })).toBeInTheDocument();
     search("Disjoncteur");
     expect(screen.queryByRole("tree", { name: "Local folders" })).toBeNull();

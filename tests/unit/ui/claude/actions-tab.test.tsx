@@ -53,7 +53,7 @@ function dock(request: DockRequest | null, over: Partial<AppState> = {}) {
   const state = app(over);
   const r = render(
     <AppContext.Provider value={state}>
-      <ClaudeDock folded={false} request={request} onFold={() => {}} />
+      <ClaudeDock request={request} />
     </AppContext.Provider>,
   );
   return { state, r };
@@ -195,7 +195,7 @@ describe("Ask Claude: the Actions tab", () => {
     expect(screen.getByText("No Claude action")).toBeInTheDocument();
     r.rerender(
       <AppContext.Provider value={{ ...state, route: { screen: "documents", arg: DOC } }}>
-        <ClaudeDock folded={false} request={null} onFold={() => {}} />
+        <ClaudeDock request={null} />
       </AppContext.Provider>,
     );
     expect(actionsTab()).toHaveAttribute("aria-selected", "true");

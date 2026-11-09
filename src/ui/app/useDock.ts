@@ -1,26 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { ChatProblem } from "../../core/types.ts";
 import type { DockJob, DockRequest } from "../components/claude/ClaudeDock.tsx";
-import type { Screen } from "../lib/app.ts";
+import { CLAUDE_TAB } from "../components/claude/ClaudeTab.tsx";
+import { askReveal } from "../lib/workspace/signals.ts";
 
-// ponytail: the Claude dock — folded to its strip at start; Review needs its three columns, so the dock folds there
-// and comes back as the user left it after; a request from a screen (Ask Claude, a run, a question) opens it
-export function useDock(screen: Screen) {
-  const [folded, setFolded] = useState(true);
+// ponytail: Claude is a tab of every screen's sections — a request from a screen (Ask Claude, a run, a question)
+// reaches the one dock the shell keeps and shows its tab; Ctrl J shows it, or folds it when it is the one shown
+export function useDock() {
   const [request, setRequest] = useState<DockRequest | null>(null);
-  const userFold = useRef<boolean | null>(null);
 
-  const toggle = useCallback(() => {
-    setFolded((f) => {
-      userFold.current = !f;
-      return !f;
-    });
-  }, []);
+  const toggle = useCallback(() => askReveal(CLAUDE_TAB, true), []);
 
   const open = useCallback((r: Omit<DockRequest, "nonce">) => {
-    userFold.current = false;
-    setFolded(false);
     setRequest({ ...r, nonce: Date.now() } as DockRequest);
+    askReveal(CLAUDE_TAB);
   }, []);
 
   const askClaude = useCallback(
@@ -37,13 +30,5 @@ export function useDock(screen: Screen) {
     [open],
   );
 
-  const last = useRef<Screen | null>(null);
-  useEffect(() => {
-    const was = last.current;
-    last.current = screen;
-    if (screen === "review" && was !== "review") setFolded(true);
-    else if (was === "review" && screen !== "review") setFolded(userFold.current ?? true);
-  }, [screen]);
-
-  return { folded, request, toggle, askClaude, runInDock, askDocs, askAbout };
+  return { request, toggle, askClaude, runInDock, askDocs, askAbout };
 }

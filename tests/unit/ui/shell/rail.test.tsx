@@ -80,7 +80,7 @@ describe("Rail, system status, theme and headers", () => {
     withData(<SystemStatus onOpen={() => {}} />);
     expect(screen.getByRole("button", { name: /System: Not checked/ })).not.toHaveAttribute("aria-current");
     await act(async () => gate.resolve(null));
-    expect(await screen.findByRole("button", { name: /System: To do\./ })).toHaveTextContent("To do");
+    expect(await screen.findByRole("button", { name: /System: To do\./ })).toHaveAccessibleDescription("To do");
   });
 
   it("takes the Claude sign-in probe of the System check in place of its « not checked » row", async () => {
@@ -103,14 +103,14 @@ describe("Rail, system status, theme and headers", () => {
     expect(await screen.findByRole("button", { name: /System: Failed/ })).toBeInTheDocument();
   });
 
-  it("has no theme switch, and shows the version, the number alone, under the system's state", () => {
+  it("has no theme switch, and gives the version, the number alone, under the system's state (icons only)", () => {
     net.routes["system.doctor"] = () => [];
     net.routes["project.list"] = () => [];
     withData(<Rail counts={{}} />);
     expect(screen.queryByRole("button", { name: /Theme/ })).toBeNull();
     const nav = screen.getByRole("navigation");
-    expect(nav.lastElementChild?.textContent).toBe(__VERSION__);
-    expect(nav.lastElementChild?.previousElementSibling).toHaveAccessibleName(/^System: /);
+    expect(nav.lastElementChild?.querySelector("button")).toHaveAccessibleName(`Testimus ${__VERSION__} · what's new`);
+    expect(nav.lastElementChild?.previousElementSibling?.querySelector("button")).toHaveAccessibleName(/^System: /);
   });
 
   it("puts a screen's header in the top bar, and draws it in place outside the shell", () => {

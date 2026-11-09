@@ -1,7 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "../../components/ui/Button.tsx";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { invalidate, useRead } from "../../lib/data/query.ts";
@@ -9,17 +8,16 @@ import { message } from "../../lib/format.ts";
 import { isMedia } from "../../lib/media.ts";
 import { addMedia } from "../../lib/media-uploads.ts";
 import { settled, useUploads } from "../../lib/uploads.ts";
-import { border, color, duration, easing, space } from "../../styles/tokens.stylex.ts";
+import { border, color, duration, easing } from "../../styles/tokens.stylex.ts";
 import { ConvertDoc } from "./ConvertDoc.tsx";
 import { DocFigures } from "./DocFigures.tsx";
 import { DocHead, type View } from "./DocHead.tsx";
 import { DocLoading } from "./DocLoading.tsx";
 import { DocPart, type QuoteFrom } from "./DocPart.tsx";
 import { DocReading } from "./DocReading.tsx";
-import { DocSide } from "./DocSide.tsx";
 import { DocToc } from "./DocToc.tsx";
 import { DocUnreadable } from "./DocUnreadable.tsx";
-import { COLS, type Fold, type Pane } from "./layout.ts";
+import { tocFits, useTocPane } from "./layout.ts";
 import { MediaImages } from "./MediaImages.tsx";
 import { MediaVideo } from "./MediaVideo.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
@@ -31,7 +29,6 @@ const styles = stylex.create({
   doc: { boxSizing: "border-box", flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
   row: { flexDirection: "row" },
   opened: { animationName: fadeIn, animationDuration: duration.slow, animationTimingFunction: easing.enter },
-  alone: { display: "flex", flexDirection: "column", gap: space.s4, padding: space.s5 },
   reader: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
   body: { flex: 1, minHeight: 0, display: "flex", minWidth: 0 },
   toc: {
@@ -44,34 +41,19 @@ const styles = stylex.create({
     borderRightWidth: border.width,
     borderRightColor: color.border,
   },
-  side: {
-    boxSizing: "border-box",
-    flex: "none",
-    display: "flex",
-    minHeight: 0,
-    backgroundColor: color.surface,
-    borderLeftStyle: "solid",
-    borderLeftWidth: border.width,
-    borderLeftColor: color.border,
-  },
   width: (w: number) => ({ width: w }),
   view: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
 });
 
-type Drawer = "sections" | "details" | null;
-
-// ponytail: one document — its head, its contents, the part being read (or its figures, or the conversion going on),
-// and what the team decides about it; the outer panes fold into drawers as the screen narrows
+// ponytail: one document — its head, its contents beside the part being read (or its figures, or the conversion going
+// on); the contents fold into a drawer when the document's section is too narrow for both. What the team decides
+// about it is the screen's Details tab (DocDetails)
 export function DocDetail({
   id,
   anchor,
   quote = "",
   from,
   onClearQuote,
-  fold = "wide",
-  panes,
-  listOpen = false,
-  onShowList,
   onAnchor,
   onRemoved,
 }: {
@@ -80,10 +62,6 @@ export function DocDetail({
   quote?: string;
   from?: QuoteFrom;
   onClearQuote?: () => void;
-  fold?: Fold;
-  panes?: Record<"toc" | "side", Pane>;
-  listOpen?: boolean;
-  onShowList?: () => void;
   onAnchor: (anchor: string) => void;
   onRemoved: () => void;
 }) {
@@ -92,14 +70,16 @@ export function DocDetail({
   const listed = useRead("docs.list", {}).data?.find?.((d) => d.id === id);
   const running = useUploads().find((u) => u.docId === id && u.job === "convert" && !settled(u));
   const [chosen, setView] = useState<View | null>(null);
-  const [drawer, setDrawer] = useState<Drawer>(null);
+  const [drawer, setDrawer] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
   const [ask, setAsk] = useState(false);
   const [again, setAgain] = useState(false);
   const [figure, setFigure] = useState<string>();
   const [opened, setOpened] = useState(false);
   const wasRunning = useRef(false);
-  const sideFolded = fold === "small" || fold === "tiny";
-  const tocFolded = fold === "tiny";
+  const tocPane = useTocPane(width);
+  const tocFolded = !tocFits(width, tocPane.value);
 
   const shown = meta.data;
   const sections = shown?.toc ?? [];
@@ -131,6 +111,18 @@ export function DocDetail({
   });
 
   const settings = useDocSet(id);
+  const loaded = !!meta.data;
+
+  // ponytail: measured before the first paint — the contents drawn for one frame in a narrow section would jump away
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the element observed is another once the document lands
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    setWidth(el.getBoundingClientRect().width);
+    const watch = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [loaded]);
 
   useEffect(() => {
     if (running) wasRunning.current = true;
@@ -141,25 +133,13 @@ export function DocDetail({
   }, [running]);
 
   useEffect(() => {
-    if ((drawer === "details" && !sideFolded) || (drawer === "sections" && !tocFolded)) setDrawer(null);
-  }, [drawer, sideFolded, tocFolded]);
+    if (drawer && !tocFolded) setDrawer(false);
+  }, [drawer, tocFolded]);
 
   const label = `${shown?.doc.code ?? id} details`;
   if (meta.isError)
     return (
       <section aria-label={label} {...stylex.props(styles.doc)}>
-        {onShowList && (
-          <span {...stylex.props(styles.alone)}>
-            <Button
-              variant="quiet"
-              iconOnly
-              icon="panel-left"
-              label="Show the document list"
-              expanded={listOpen}
-              onClick={onShowList}
-            />
-          </span>
-        )}
         <DocUnreadable
           id={id}
           doc={listed}
@@ -174,26 +154,23 @@ export function DocDetail({
     );
   if (!shown)
     return (
-      <DocLoading
-        label={label}
-        read="docs.show"
-        fold={fold}
-        widths={{ toc: panes?.toc.value ?? COLS.toc, side: panes?.side.value ?? COLS.side }}
-      />
+      <div ref={box} {...stylex.props(styles.doc)}>
+        <DocLoading label={label} read="docs.show" toc={!tocFolded} tocWidth={tocPane.value} />
+      </div>
     );
 
   const d = { ...shown.doc, type: shown.type, observed: shown.observed };
   const current = (!part.isPlaceholderData && part.data?.section) || target;
   const go = (a: string) => {
     setView("text");
-    setDrawer(null);
+    setDrawer(false);
     onAnchor(a);
   };
   const toc = (head: boolean) => <DocToc sections={sections} current={current} head={head} onGo={go} />;
-  const side = <DocSide shown={shown} running={!!running} onStatus={settings.status} />;
 
   return (
     <section
+      ref={box}
       aria-label={`${d.code} details`}
       data-opened={opened || undefined}
       {...stylex.props(styles.doc, styles.row, opened && styles.opened)}
@@ -209,12 +186,9 @@ export function DocDetail({
             setFigure(undefined);
             setView(v);
           }}
-          listOpen={listOpen}
-          onShowList={onShowList}
           sectionsButton={tocFolded}
-          detailsButton={sideFolded}
-          drawer={drawer}
-          onDrawer={(w) => setDrawer((o) => (o === w ? null : w))}
+          sectionsOpen={drawer}
+          onSections={() => setDrawer((o) => !o)}
           onConvertAgain={() => setAgain(true)}
           onDelete={() => setAsk(true)}
           onAddMedia={
@@ -233,12 +207,12 @@ export function DocDetail({
         <div {...stylex.props(styles.body)}>
           {reading && !tocFolded && view === "text" && (sections.length > 1 || !media) && (
             <>
-              <div {...stylex.props(styles.toc, styles.width(panes?.toc.value ?? COLS.toc))}>{toc(true)}</div>
-              {panes && <ResizeHandle label="Resize the sections" {...panes.toc} />}
+              <div {...stylex.props(styles.toc, styles.width(tocPane.value))}>{toc(true)}</div>
+              <ResizeHandle label="Resize the sections" {...tocPane} />
             </>
           )}
-          {reading && tocFolded && drawer === "sections" && (
-            <Modal title="Contents" drawer="left" flush onClose={() => setDrawer(null)}>
+          {reading && tocFolded && drawer && (
+            <Modal title="Contents" drawer="left" flush onClose={() => setDrawer(false)}>
               {toc(false)}
             </Modal>
           )}
@@ -273,17 +247,6 @@ export function DocDetail({
           </div>
         </div>
       </div>
-      {!sideFolded && (
-        <>
-          {panes && <ResizeHandle label="Resize the settings" side="left" {...panes.side} />}
-          <div {...stylex.props(styles.side, styles.width(panes?.side.value ?? COLS.side))}>{side}</div>
-        </>
-      )}
-      {sideFolded && drawer === "details" && (
-        <Modal title="About this document" drawer="right" flush onClose={() => setDrawer(null)}>
-          {side}
-        </Modal>
-      )}
       {again && (
         <ConvertDoc
           doc={d}

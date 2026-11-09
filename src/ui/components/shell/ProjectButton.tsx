@@ -47,6 +47,8 @@ export function ProjectButton() {
     <RailItem
       label={app.info ? key || "no key" : "no project"}
       mono
+      compact
+      noTooltip
       {...(app.info ? { avatar: initials(name) } : { icon: "folder" as const })}
       ariaLabel={app.info ? `Project ${key || "not connected to Jira"} ${name}, change project` : "Open a project"}
       onClick={() => void list.refetch()}

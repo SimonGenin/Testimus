@@ -1,0 +1,180 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SectionControls } from "../../../../src/ui/components/ui/workspace/SectionControls.tsx";
+import { Workspace } from "../../../../src/ui/components/ui/workspace/Workspace.tsx";
+import { column, layoutOf, section } from "../../../../src/ui/lib/workspace/layout.ts";
+import { askReveal } from "../../../../src/ui/lib/workspace/signals.ts";
+import { useWorkspace } from "../../../../src/ui/lib/workspace/useWorkspace.ts";
+
+const LAYOUT = layoutOf(
+  column(300, section(["queue"])),
+  column(null, section(["test"])),
+  column(420, section(["source", "claude"])),
+);
+
+function Screen() {
+  const ws = useWorkspace({
+    pref: "layoutReview",
+    label: "Review",
+    defaults: LAYOUT,
+    tabs: [
+      { id: "queue", label: "Queue", icon: "list", count: 2, content: <p>the queue</p> },
+      {
+        id: "test",
+        label: "Test",
+        icon: "tests",
+        main: true,
+        content: <p>the test</p>,
+        footer: <button type="button">Validate</button>,
+      },
+      { id: "source", label: "Source", icon: "quote", content: <input aria-label="note" /> },
+      { id: "claude", label: "Claude", icon: "claude", claude: true, dot: "claude", content: <p>Claude here</p> },
+    ],
+  });
+  return (
+    <>
+      <SectionControls ws={ws} />
+      <Workspace ws={ws} />
+    </>
+  );
+}
+
+const tab = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${name}`) });
+const kept = () => JSON.parse(localStorage.getItem("testimus.layoutReview") ?? "null");
+const tabsKept = () => kept().columns.map((c: { sections: { tabs: string[] }[] }) => c.sections.map((s) => s.tabs));
+
+beforeEach(() => localStorage.clear());
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  vi.restoreAllMocks();
+});
+
+describe("Workspace", () => {
+  it("draws each section's tabs with their icons, the tab shown and its foot", () => {
+    render(<Screen />);
+    expect(screen.getAllByRole("tablist")).toHaveLength(3);
+    expect(tab("Queue")).toHaveAttribute("aria-selected", "true");
+    expect(tab("Queue").querySelector('[data-icon="list"]')).not.toBeNull();
+    expect(tab("Queue")).toHaveTextContent("2");
+    expect(screen.getByRole("tabpanel", { name: /Test/ })).toHaveTextContent("the test");
+    expect(screen.getByRole("button", { name: "Validate" })).toBeInTheDocument();
+    expect(screen.queryByText("Claude here")).toBeNull();
+  });
+
+  it("switches tabs by click and by arrows, keeping what a tab held", () => {
+    render(<Screen />);
+    fireEvent.change(screen.getByRole("textbox", { name: "note" }), { target: { value: "kept" } });
+    fireEvent.click(tab("Claude"));
+    expect(screen.getByText("Claude here")).toBeVisible();
+    expect(tab("Claude")).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(tab("Claude"), { key: "ArrowLeft" });
+    expect(tab("Source")).toHaveAttribute("aria-selected", "true");
+    expect(tab("Source")).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "note" })).toHaveValue("kept");
+    expect(tabsKept()[2]).toEqual([["source", "claude"]]);
+    expect(kept().columns[2].sections[0].active).toBe("source");
+  });
+
+  it("folds a column to its strip of icons, and a click on one opens it on that tab", () => {
+    render(<Screen />);
+    const bars = screen.getAllByRole("tablist");
+    fireEvent.click(
+      within(bars[2].parentElement as HTMLElement).getByRole("button", { name: "Collapse this section" }),
+    );
+    const strip = screen.getByRole("navigation", { name: "Section 3, collapsed" });
+    expect(within(strip).getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true");
+    expect(kept().columns[2].sections[0].collapsed).toBe(true);
+    fireEvent.click(within(strip).getByRole("button", { name: "Claude" }));
+    expect(screen.queryByRole("navigation", { name: "Section 3, collapsed" })).toBeNull();
+    expect(tab("Claude")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("moves a tab with Alt Shift and an arrow, and from the section's menu, saying why when it cannot", async () => {
+    const user = userEvent.setup();
+    render(<Screen />);
+    fireEvent.click(tab("Claude"));
+    fireEvent.keyDown(tab("Claude"), { key: "ArrowLeft", altKey: true, shiftKey: true });
+    expect(tabsKept()).toEqual([[["queue"]], [["test", "claude"]], [["source"]]]);
+    const menus = screen.getAllByRole("button", { name: "Section menu" });
+    await user.click(menus[0]);
+    expect(screen.getByRole("menuitem", { name: /Section 2 · Claude/ })).not.toHaveAttribute("aria-disabled", "true");
+    await user.click(screen.getByRole("menuitem", { name: /A new section below/ }));
+    expect(tabsKept()).toEqual([[["queue"]], [["test", "claude"]], [["source"]]]);
+    await user.click(screen.getAllByRole("button", { name: "Section menu" })[2]);
+    await user.click(screen.getByRole("menuitem", { name: /Section 2 · Claude/ }));
+    expect(tabsKept()).toEqual([[["queue"]], [["test", "claude", "source"]]]);
+    await user.click(screen.getAllByRole("button", { name: "Section menu" })[0]);
+    const refused = screen.getByRole("menuitem", { name: /Section 2 · Source/ });
+    expect(refused).toHaveAttribute("aria-disabled", "true");
+    expect(refused).toHaveAccessibleDescription(/2 sections at least/);
+  });
+
+  it("adds a column from the top bar: it waits for a tab, takes one, or goes on Escape", async () => {
+    const user = userEvent.setup();
+    render(<Screen />);
+    const bar = screen.getByRole("group", { name: "Sections of Review" });
+    expect(bar).toHaveTextContent("3/4");
+    await user.click(within(bar).getByRole("button", { name: "Add column" }));
+    expect(bar).toHaveTextContent("4/4");
+    expect(within(bar).getByRole("button", { name: "Add column" })).toBeDisabled();
+    expect(screen.getByText("Drag a tab here, or move one:")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByText("Drag a tab here, or move one:")).toBeNull();
+    await user.click(within(bar).getByRole("button", { name: "Add column" }));
+    await user.click(screen.getByRole("button", { name: "Claude" }));
+    expect(tabsKept()).toEqual([[["queue"]], [["test"]], [["source"]], [["claude"]]]);
+  });
+
+  it("starts from what was kept, and Reset goes back to the screen's own layout", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(
+      "testimus.layoutReview",
+      JSON.stringify(layoutOf(column(null, section(["test", "queue"])), column(300, section(["claude", "source"])))),
+    );
+    render(<Screen />);
+    expect(screen.getAllByRole("tablist")).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Layout menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Reset the layout of Review" }));
+    expect(screen.getAllByRole("tablist")).toHaveLength(3);
+    expect(tabsKept()).toEqual([[["queue"]], [["test"]], [["source", "claude"]]]);
+  });
+
+  it("shows a tab the shell asks for, and folds it when asked to toggle", () => {
+    render(<Screen />);
+    act(() => askReveal("claude"));
+    expect(tab("Claude")).toHaveAttribute("aria-selected", "true");
+    act(() => askReveal("claude", true));
+    expect(screen.getByRole("navigation", { name: "Section 3, collapsed" })).toBeInTheDocument();
+    act(() => askReveal("claude", true));
+    expect(tab("Claude")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("drops a dragged tab where the pointer leaves it, with the zone it would take", () => {
+    render(<Screen />);
+    const target = document.querySelectorAll<HTMLElement>("[data-ws-section]")[1];
+    target.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 440,
+      right: 400,
+      bottom: 440,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const at = vi.fn(() => target);
+    document.elementFromPoint = at;
+    fireEvent.pointerDown(tab("Source"), { button: 0, clientX: 900, clientY: 10 });
+    fireEvent.pointerMove(window, { clientX: 200, clientY: 420 });
+    expect(screen.getByRole("status")).toHaveTextContent("Split: below");
+    fireEvent.pointerUp(window, { clientX: 200, clientY: 420 });
+    expect(tabsKept()).toEqual([[["queue"]], [["test"], ["source"]], [["claude"]]]);
+    fireEvent.click(tab("Source"));
+    expect(tab("Source")).toHaveAttribute("aria-selected", "true");
+  });
+});

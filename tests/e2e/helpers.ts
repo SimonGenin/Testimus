@@ -124,10 +124,18 @@ export async function boot(page: Page, hash = "#/tests"): Promise<void> {
   await expect(page.getByRole("button", { name: /^Project LFRPS12/ })).toBeVisible();
 }
 
+/** where Claude is reached on the screen shown: its tab, or its button on a collapsed section's strip */
+export async function claudeEntry(page: Page) {
+  const tab = page.getByRole("tab", { name: /^Claude/ });
+  const strip = page.getByRole("button", { name: /^Claude(, \d+)?$/ });
+  await expect(tab.or(strip).first()).toBeVisible();
+  return (await tab.isVisible()) ? tab : strip;
+}
+
 export async function openDock(page: Page) {
   const dock = page.getByRole("complementary", { name: "Claude" });
-  await dock.getByRole("button", { name: "Open Claude" }).click();
-  await expect(dock.getByRole("heading", { name: "Claude", exact: true })).toBeVisible();
+  if (!(await dock.isVisible())) await (await claudeEntry(page)).click();
+  await expect(dock).toBeVisible();
   return dock;
 }
 

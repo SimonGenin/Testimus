@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ComponentType, useEffect, useRef } from "react";
+import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
 import { NoProject } from "../../components/shell/NoProject.tsx";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
@@ -7,12 +8,13 @@ import { Card } from "../../components/ui/Card.tsx";
 import type { IconName } from "../../components/ui/Icon.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
-import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type } from "../../components/ui/type.ts";
+import { Workspace } from "../../components/ui/workspace/Workspace.tsx";
 import { useApp } from "../../lib/app.ts";
-import { usePaneWidth } from "../../lib/panes.ts";
 import { APP_VERSION } from "../../lib/version.ts";
-import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
+import { column, layoutOf, section as sectionOf } from "../../lib/workspace/layout.ts";
+import { useWorkspace } from "../../lib/workspace/useWorkspace.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { ChangelogSection } from "./ChangelogSection.tsx";
@@ -27,21 +29,8 @@ import { UpdatesSection } from "./UpdatesSection.tsx";
 
 const styles = stylex.create({
   screen: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 },
-  frame: { display: "flex", flex: 1, minHeight: 0 },
-  nav: {
-    boxSizing: "border-box",
-    flexShrink: 0,
-    overflowY: "auto",
-    paddingBlock: space.s3,
-    paddingInline: 0,
-    backgroundColor: color.surface,
-    borderRightStyle: "solid",
-    borderRightWidth: border.width,
-    borderRightColor: color.border,
-  },
-  navWidth: (px: number) => ({ width: `${px}px` }),
-  navFold: { maxWidth: { default: "none", [breakpoint.sm]: `calc(${size.sidebar} * 3 / 5)` } },
-  body: { flex: 1, minWidth: 0, overflowY: "auto", backgroundColor: color.canvas },
+  nav: { boxSizing: "border-box", flex: 1, overflowY: "auto", paddingBlock: space.s3, paddingInline: 0 },
+  body: { flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", backgroundColor: color.canvas },
   saved: {
     display: "inline-flex",
     alignItems: "center",
@@ -66,13 +55,17 @@ const SECTIONS: Page[] = [
   { id: "changelog", label: "Changelog", icon: "history", page: ChangelogSection, needsProject: false },
 ];
 
-const NAV = { min: 160, max: 360, initial: 240 };
+// ponytail: the sections on the left, the open one in the middle, Claude folded on the right
+const LAYOUT = layoutOf(
+  column(240, sectionOf(["sections"])),
+  column(null, sectionOf(["page"])),
+  column(400, sectionOf(["claude"], true)),
+);
 
 // ponytail: one page per section, the list names the sections only; #/settings/<section>[-<card>] opens the section
 // and scrolls to the card (a field id is focused)
 export function SettingsScreen() {
   const app = useApp();
-  const nav = usePaneWidth("settingsNavWidth", NAV);
   const arg = app.route.screen === "settings" ? (app.route.arg ?? "") : "";
   const section = SECTIONS.find((s) => s.id === arg.split("-")[0]) ?? SECTIONS[0];
   const Page = section.page;
@@ -98,6 +91,59 @@ export function SettingsScreen() {
     return () => seen.disconnect();
   }, [arg]);
 
+  const claude = useClaudeTab();
+  const ws = useWorkspace({
+    pref: "layoutSettings",
+    label: "Settings",
+    defaults: LAYOUT,
+    tabs: [
+      {
+        id: "sections",
+        label: "Settings",
+        icon: "settings",
+        content: (
+          <nav aria-label="Settings sections" {...stylex.props(styles.nav)}>
+            <List
+              label="Settings sections"
+              items={SECTIONS}
+              getKey={(s) => s.id}
+              selected={section.id}
+              onSelect={(id) => app.navigate("settings", id)}
+              renderItem={(s) => {
+                const waits = !hasProject && s.needsProject;
+                return {
+                  title: waits ? <span {...stylex.props(styles.waits)}>{s.label}</span> : s.label,
+                  lead: <Icon name={s.icon} />,
+                  trail: waits ? "needs a project" : undefined,
+                };
+              }}
+            />
+          </nav>
+        ),
+      },
+      {
+        id: "page",
+        label: section.label,
+        icon: section.icon,
+        main: true,
+        content: (
+          <div ref={body} key={section.id} {...stylex.props(styles.body)}>
+            {!hasProject && section.needsProject ? (
+              <Section id={section.id} title={section.label}>
+                <Card padded={false}>
+                  <NoProject text="Open a project to change its settings. Claude, Models, Access, Appearance, Updates and Changelog work without one." />
+                </Card>
+              </Section>
+            ) : (
+              <Page />
+            )}
+          </div>
+        ),
+      },
+      claude,
+    ],
+  });
+
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader
@@ -119,37 +165,7 @@ export function SettingsScreen() {
           </>
         }
       />
-      <div {...stylex.props(styles.frame)}>
-        <nav aria-label="Settings sections" {...stylex.props(styles.nav, styles.navWidth(nav.width), styles.navFold)}>
-          <List
-            label="Settings sections"
-            items={SECTIONS}
-            getKey={(s) => s.id}
-            selected={section.id}
-            onSelect={(id) => app.navigate("settings", id)}
-            renderItem={(s) => {
-              const waits = !hasProject && s.needsProject;
-              return {
-                title: waits ? <span {...stylex.props(styles.waits)}>{s.label}</span> : s.label,
-                lead: <Icon name={s.icon} />,
-                trail: waits ? "needs a project" : undefined,
-              };
-            }}
-          />
-        </nav>
-        <ResizeHandle label="Resize the section list" {...nav.handle} />
-        <div ref={body} key={section.id} {...stylex.props(styles.body)}>
-          {!hasProject && section.needsProject ? (
-            <Section id={section.id} title={section.label}>
-              <Card padded={false}>
-                <NoProject text="Open a project to change its settings. Claude, Models, Access, Appearance, Updates and Changelog work without one." />
-              </Card>
-            </Section>
-          ) : (
-            <Page />
-          )}
-        </div>
-      </div>
+      <Workspace ws={ws} />
     </div>
   );
 }

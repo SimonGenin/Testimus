@@ -8,7 +8,6 @@ import { Button } from "../ui/Button.tsx";
 import type { IconName } from "../ui/Icon.tsx";
 import { Logo } from "../ui/Logo.tsx";
 import { RailItem } from "../ui/RailItem.tsx";
-import { type } from "../ui/type.ts";
 import { ProjectButton } from "./ProjectButton.tsx";
 import { SystemStatus } from "./SystemStatus.tsx";
 
@@ -24,7 +23,7 @@ export const NAV: { id: Screen; label: string; icon: IconName }[] = [
 const styles = stylex.create({
   rail: {
     flex: "none",
-    width: size.rail,
+    width: `calc(${size.controlLg} + 2 * ${space.s3})`,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -37,12 +36,13 @@ const styles = stylex.create({
   logo: { flex: "none", display: "flex", marginBottom: space.s5 },
   gap: { flex: "none", height: space.s3 },
   spacer: { flex: 1 },
-  version: { flex: "none", color: color.textSubtle, textAlign: "center", whiteSpace: "nowrap" },
+  version: { flex: "none", display: "flex" },
 });
 
-// ponytail: the main navigation — the project on top, the four work screens, then Jobs, Settings, the system's state
-// and the version under it, which opens Settings › Changelog (the theme is chosen in Settings); coming back to a screen from the rail opens what was open there, its own entry clicked again goes
-// to its start
+// ponytail: the main navigation, icons only (each one's name in its tooltip and its accessible name) — the project on
+// top, the work screens, then Jobs, Settings, the system's state and the version under it, which opens Settings ›
+// Changelog (the theme is chosen in Settings); coming back to a screen from the rail opens what was open there, its own
+// entry clicked again goes to its start
 export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, number>>; kit?: boolean }) {
   const app = useApp();
   const at = app.route.screen;
@@ -50,7 +50,15 @@ export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, n
   useEffect(() => keepDraft(`route.${at}`, arg), [at, arg]);
   const go = (s: Screen) => app.navigate(s, s === at ? undefined : draftOf<string>(`route.${s}`));
   const item = (id: Screen, label: string, icon: IconName) => (
-    <RailItem key={id} label={label} icon={icon} current={at === id} count={counts[id]} onClick={() => go(id)} />
+    <RailItem
+      key={id}
+      compact
+      label={label}
+      icon={icon}
+      current={at === id}
+      count={counts[id]}
+      onClick={() => go(id)}
+    />
   );
   return (
     <nav aria-label="Main" {...stylex.props(styles.rail)}>
@@ -65,8 +73,15 @@ export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, n
       {item("jobs", "Jobs", "jobs")}
       {item("settings", "Settings", "settings")}
       <SystemStatus current={at === "doctor"} onOpen={() => go("doctor")} />
-      <span {...stylex.props(type.micro, styles.version)}>
-        <Button variant="link" size="xs" label={APP_VERSION} onClick={() => app.navigate("settings", "changelog")} />
+      <span {...stylex.props(styles.version)}>
+        <Button
+          variant="quiet"
+          size="sm"
+          icon="history"
+          iconOnly
+          label={`Testimus ${APP_VERSION} · what's new`}
+          onClick={() => app.navigate("settings", "changelog")}
+        />
       </span>
     </nav>
   );

@@ -1036,9 +1036,26 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   white panes, one ink-blue accent (#3e63dd) for the primary action, selection and focus; **Claude in violet and
   nothing else in violet**; Inter for the interface, Source Serif 4 for text quoted from a specification, JetBrains Mono
   for keys and anchors; a state is always icon + word; every pair at WCAG AA. UI text in English.
-- **Layout**: left rail (Documents · Generate · Review · Tests · Run · Jobs, then Settings and the system check), main pane,
-  Claude dock on the right everywhere (folded in Review; floats over the screen below 1300 px). Minimum width 520 px.
-  The project at the top of the rail opens a menu of the known projects (a quick switch) and one action, « All
+- **Layout**: a left rail of icons only (Documents · Generate · Review · Tests · Run · Jobs, then Settings, the system
+  check and the version; each name in its tooltip and its accessible name, Review's count in a pill), the top bar, and
+  each screen's **sections** (decided on 2026-11-09, canvas « Testimus — Sections et onglets »; it replaced the dock
+  on the right, the drawers and the breakpoints each screen had of its own). A screen has 2 to 4 sections in columns,
+  at most 2 per column one above the other; each section holds tabs; every content of a screen is a tab with its icon
+  (required by its type: a collapsed section is read from its icons), its count or state dot, its content and its
+  foot (48 px, at the bottom whatever scrolls above). A tab is dragged by its grip to another section (its tab bar,
+  its middle, an edge that splits the column or opens one), sent with Alt Shift and an arrow or the section's menu;
+  a section whose last tab leaves goes, and with 2 sections left a last tab cannot leave (the drop zone says why); a
+  section folds to a strip of its tabs' icons (a column) or to its tab bar (a section of a split column); a narrow
+  window folds the rightmost columns to their strip, the work's (the tab marked `main`, 420 px at least) and the one in
+  use last, the one in use kept when both cannot fit. The
+  top bar's « Sections » group counts them (3/4), adds a column (it arrives empty and offers the screen's tabs; Esc
+  drops it), splits the section in use, resets the screen's own layout; Ctrl Shift B folds the section in use. A
+  screen with one thing to show keeps 2 sections, the second collapsed. The model is `lib/workspace/` (pure
+  `layout.ts`, `useWorkspace` keeping it per screen in lib/prefs `layout<Screen>`), the pieces are the kit's
+  `components/ui/workspace/`. **Claude is a tab of every screen** (`useClaudeTab`): the shell keeps one dock (its
+  conversation and runs survive a change of screen) and moves its element into the Claude tab of the screen shown;
+  a request (Ask Claude, a run, the palette) shows that tab, Ctrl J shows it or folds it. Setup and the kit catalogue
+  have no sections. Minimum width 520 px. The project at the top of the rail opens a menu of the known projects (a quick switch) and one action, « All
   projects… », to First launch › Project — the one place that opens a folder, opens by Jira key, creates, hides,
   deletes or shows a project in Explorer; reached from the app (its route says so, `#/setup/project/app`: the project
   menu, the palette, an empty screen's « Open a project… »), opening one there goes back to the app; on the first
@@ -1048,7 +1065,8 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   through `ScreenHeader`: an arrow before the title, then the trail, where a crumb that is a level is a link to it. The
   arrow alone when it goes up within the screen (its tooltip says where), with its words when it leaves the screen
   (« Back to LFRPS12-1420 »: the trail does not hold the place it goes to). A screen's panes, bars and banners hold no
-  « Back »; a list beside a detail (Review's queue, Tests, Jobs, Settings) is a choice, not a level, and has none.
+  « Back »; a list beside a detail (Review's queue, Tests, Jobs, Settings) is a choice, not a level, and has none:
+  it is a tab of its own section.
   Modals and First launch keep their own steps.
 - **One filter bar** above a list that narrows (New run's tests, Review's queue, the runs —
   `components/filters/FilterBar`): words, then one menu per dimension (a quiet button with its name; ticked, pressed

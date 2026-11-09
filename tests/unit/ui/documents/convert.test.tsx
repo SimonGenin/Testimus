@@ -27,6 +27,9 @@ afterEach(() => {
 });
 
 const listOf = () => screen.getByRole("region", { name: "Document list" });
+// ponytail: what the team decides about the document is the Details tab, beside the document's own section
+const settings = () => screen.getByRole("complementary", { name: "Document settings" });
+
 const running = (i: Record<string, unknown>) => ({
   job: { id: i.id, kind: "x", subject: "", status: "running", startedAt: at },
 });
@@ -53,7 +56,7 @@ describe("Converting a document", () => {
     expect(await within(listOf()).findByText("Not converted")).toBeInTheDocument();
     const side = await screen.findByRole("region", { name: "C-NEW2 details" });
     expect(within(side).getByText(/Word file, not converted · fresh.docx/)).toBeInTheDocument();
-    expect(within(side).getByLabelText("Note for this document")).toBeInTheDocument();
+    expect(within(settings()).getByLabelText("Note for this document")).toBeInTheDocument();
     expect(within(side).getByText("Not converted yet")).toBeInTheDocument();
     expect(within(side).queryByRole("navigation", { name: "Sections" })).toBeNull();
     expect(within(side).queryByText("Context for this conversion only")).toBeNull();
@@ -169,9 +172,9 @@ describe("Converting a document", () => {
     await waitFor(() => expect(named("jobs.cancel").map((c) => c.input)).toEqual([{ id: "conv-5" }]));
     expect(within(reading).getByRole("listitem", { current: "step" })).toHaveTextContent("Reading the file");
     expect(reading.querySelector('[data-testid="reading-scan"]')).not.toBeNull();
-    for (const b of within(within(side).getByRole("radiogroup", { name: "Status" })).getAllByRole("radio"))
+    for (const b of within(within(settings()).getByRole("radiogroup", { name: "Status" })).getAllByRole("radio"))
       expect(b).toBeDisabled();
-    expect(within(side).getByLabelText("Note for this document")).toBeDisabled();
+    expect(within(settings()).getByLabelText("Note for this document")).toBeDisabled();
     expect(within(side).queryByRole("button", { name: "More actions for this document" })).toBeNull();
     expect(within(side).getByText(/Converting from Word · fresh.docx/)).toBeInTheDocument();
 
@@ -233,7 +236,7 @@ describe("Converting a document", () => {
     expect(await within(side).findByRole("navigation", { name: "Sections" })).toBeInTheDocument();
     expect(within(side).queryByRole("region", { name: "Reading the document" })).toBeNull();
     expect(side).toHaveAttribute("data-opened", "true");
-    for (const b of within(within(side).getByRole("radiogroup", { name: "Status" })).getAllByRole("radio"))
+    for (const b of within(within(settings()).getByRole("radiogroup", { name: "Status" })).getAllByRole("radio"))
       expect(b).toBeEnabled();
     expect(named("rag.index")).toEqual([]);
   });

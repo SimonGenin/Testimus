@@ -35,7 +35,8 @@ const detail = () => {
     i.anchor ? { md: "x" } : { doc: doc(String(i.id)), context: "", toc: [], figures: [], md: "" };
 };
 const listOf = () => screen.getByRole("region", { name: "Document list" });
-const listHead = () => listOf().firstElementChild as HTMLElement;
+// ponytail: the list's name and its count are its section's tab
+const listHead = () => screen.getByRole("tab", { name: /^Documents(?![a-z])/ });
 const rows = () => within(listOf()).getAllByRole("option");
 const row = (text: string) => within(listOf()).getAllByText(text)[0].closest('[role="option"]') as HTMLElement;
 const zone = (c: HTMLElement) => c.querySelector('[data-testid="documents-screen"]') as HTMLElement;
@@ -155,7 +156,7 @@ describe("Documents screen", () => {
         ? { md: "Première ligne.\n\nLa **deuxième** ligne,\ncitée.\n\nTroisième." }
         : { doc: doc("D1"), context: "", toc: [{ anchor: "§1", title: "One", level: 1 }], figures: [], md: "" };
     const { tops } = boxes({
-      '[data-testid="docs-body"]': { width: 1600 },
+      '[aria-label="C-D1 details"]': { width: 1600 },
       '[data-testid="doc-part"]': { top: 100, bottom: 300, height: 200 },
       "[data-focus]": { top: 500, bottom: 520, height: 20 },
       '[data-testid="doc-toc"]': { top: 0, bottom: 100, height: 100 },
@@ -183,7 +184,7 @@ describe("Documents screen", () => {
     const part = document.querySelector('[data-testid="doc-part"]') as HTMLElement;
     expect(tops.get(part)).toBe(310);
     expect(tops.get(document.querySelector('[data-testid="doc-toc"]') as HTMLElement)).toBe(70);
-    expect(watch.observe).toHaveBeenCalledWith(document.querySelector('[data-testid="docs-body"]'));
+    expect(watch.observe).toHaveBeenCalledWith(document.querySelector('[aria-label="C-D1 details"]'));
     expect(watch.observe).toHaveBeenCalledWith(document.querySelector('[data-testid="doc-text"]'));
     watch.cb();
     expect(tops.get(part)).toBe(620);

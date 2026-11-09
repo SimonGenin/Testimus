@@ -2,21 +2,23 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { DocRef, Job, StepColumn } from "../../../core/types.ts";
+import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
 import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { useNow } from "../../components/claude/useNow.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Loading } from "../../components/ui/Loading.tsx";
-import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { Workspace } from "../../components/ui/workspace/Workspace.tsx";
 import { useApp } from "../../lib/app.ts";
 import { discardAutosave } from "../../lib/data/autosave.ts";
 import { execute, key, read, useCommand, useRead } from "../../lib/data/query.ts";
-import { usePaneWidth } from "../../lib/panes.ts";
 import { unready } from "../../lib/scope.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { useReindex } from "../../lib/uploads.ts";
-import { border, breakpoint, color, space } from "../../styles/tokens.stylex.ts";
+import { column, layoutOf, section } from "../../lib/workspace/layout.ts";
+import { useWorkspace } from "../../lib/workspace/useWorkspace.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
 import { AskChanges, type AskInput } from "./AskChanges.tsx";
 import { ReplaceTests } from "./ReplaceTests.tsx";
@@ -25,7 +27,12 @@ import { ResultPane } from "./ResultPane.tsx";
 import { useGenerateForm } from "./useGenerateForm.ts";
 import { useGeneration } from "./useGeneration.ts";
 
-const FORM = { min: 320, max: 720, initial: 576 };
+// ponytail: the request on the left, the tests Claude writes in the middle, Claude folded on the right
+const LAYOUT = layoutOf(
+  column(480, section(["request"])),
+  column(null, section(["result"])),
+  column(400, section(["claude"], true)),
+);
 // ponytail: the document work Generate waits for, by what runs
 const WORK: Record<string, "index" | "convert" | "add"> = {
   "rag-index": "index",
@@ -40,23 +47,7 @@ const WAIT: Record<"index" | "convert" | "add", string> = {
 
 const styles = stylex.create({
   screen: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", backgroundColor: color.canvas },
-  panes: {
-    flex: 1,
-    minHeight: 0,
-    display: "flex",
-    flexDirection: { default: "row", [breakpoint.narrow]: "column" },
-    overflow: { default: "hidden", [breakpoint.narrow]: "auto" },
-  },
-  form: (width: string) => ({
-    boxSizing: "border-box",
-    flexShrink: 0,
-    width: { default: width, [breakpoint.narrow]: "auto" },
-    minHeight: 0,
-    borderRightStyle: "solid",
-    borderRightWidth: { default: border.width, [breakpoint.narrow]: 0 },
-    borderRightColor: color.border,
-  }),
-  handle: { display: { default: "flex", [breakpoint.narrow]: "none" } },
+  form: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
   waiting: {
     display: "flex",
     flexDirection: "column",
@@ -70,7 +61,6 @@ const styles = stylex.create({
 export function GenerateScreen() {
   const app = useApp();
   const client = useQueryClient();
-  const formPane = usePaneWidth("genFormWidth", FORM);
   const info = useRead("project.info", {});
   const docsRead = useRead("docs.list", {});
   const docs = (docsRead.data ?? null) as DocRef[] | null;
@@ -203,6 +193,84 @@ export function GenerateScreen() {
   };
 
   const columns = (info.data?.columns ?? []) as StepColumn[];
+  const request = (
+    <div {...stylex.props(styles.form)}>
+      {gen.loading && mode === "ask" ? (
+        <div {...stylex.props(styles.waiting)}>
+          <Skeleton kind="title" width="40%" />
+          <Skeleton lines={4} />
+          <Skeleton kind="block" />
+          <Loading read="jobs.list" />
+        </div>
+      ) : asking && generation ? (
+        <AskChanges
+          key={generation}
+          generation={generation}
+          running={gen.running && gen.job ? Math.round((now - Date.parse(gen.job.startedAt)) / 1000) : null}
+          unavailable={offline ? "Claude is not connected" : undefined}
+          defaults={{ model: form.runModel, effort: form.runEffort }}
+          onAsk={(input) => void askChanges(input)}
+        />
+      ) : (
+        <RequestForm
+          form={form}
+          docs={docs}
+          columns={columns}
+          folders={info.data?.project.folders ?? []}
+          gate={{
+            missing,
+            leftOut,
+            stale,
+            work,
+            docWork,
+            progress: indexJob?.progress,
+            onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
+            onReindex: reindex.reindex,
+            failure: reindex.failure,
+          }}
+          hasJob={!!gen.job}
+          running={gen.running}
+          starting={start.isPending}
+          blocked={blocked}
+          unavailable={offline ? "Claude is not connected" : undefined}
+          onGenerate={() => void generate()}
+          onColumns={() => app.navigate("settings", "columns")}
+          onAddDocuments={() => app.navigate("documents")}
+        />
+      )}
+    </div>
+  );
+  const result = (
+    <section aria-label="Result" {...stylex.props(styles.result)}>
+      <ResultPane
+        key={fresh}
+        gen={gen}
+        status={offline ? status : null}
+        checking={claude.isFetching && !!ask.refresh}
+        noDocs={!!docs && !docs.length}
+        starting={start.isPending}
+        onCheckClaude={() => (ask.refresh ? void claude.refetch() : setAsk({ refresh: true, signIn: true }))}
+        onCancel={() => gen.jobId && cancel(gen.jobId)}
+        onRetry={gen.job?.rerun ? () => void rerun() : undefined}
+        onResume={(generation) =>
+          void begin({ resume: generation, model: form.runModel, effort: form.runEffort } as Parameters<
+            typeof start.mutateAsync
+          >[0])
+        }
+      />
+    </section>
+  );
+  const claudeTab = useClaudeTab();
+  const ws = useWorkspace({
+    pref: "layoutGenerate",
+    label: "Generate",
+    defaults: LAYOUT,
+    tabs: [
+      { id: "request", label: asking ? "Ask for changes" : "Request", icon: "generate", content: request },
+      { id: "result", label: "Tests written", icon: "tests", main: true, content: result },
+      claudeTab,
+    ],
+  });
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader title="Generate">
@@ -210,74 +278,7 @@ export function GenerateScreen() {
           <Button size="sm" variant="quiet" icon="generate" label="New request" onClick={() => setMode("form")} />
         )}
       </ScreenHeader>
-      <div {...stylex.props(styles.panes)}>
-        <div {...stylex.props(styles.form(`${formPane.width}px`))}>
-          {gen.loading && mode === "ask" ? (
-            <div {...stylex.props(styles.waiting)}>
-              <Skeleton kind="title" width="40%" />
-              <Skeleton lines={4} />
-              <Skeleton kind="block" />
-              <Loading read="jobs.list" />
-            </div>
-          ) : asking && generation ? (
-            <AskChanges
-              key={generation}
-              generation={generation}
-              running={gen.running && gen.job ? Math.round((now - Date.parse(gen.job.startedAt)) / 1000) : null}
-              unavailable={offline ? "Claude is not connected" : undefined}
-              defaults={{ model: form.runModel, effort: form.runEffort }}
-              onAsk={(input) => void askChanges(input)}
-            />
-          ) : (
-            <RequestForm
-              form={form}
-              docs={docs}
-              columns={columns}
-              folders={info.data?.project.folders ?? []}
-              gate={{
-                missing,
-                leftOut,
-                stale,
-                work,
-                docWork,
-                progress: indexJob?.progress,
-                onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
-                onReindex: reindex.reindex,
-                failure: reindex.failure,
-              }}
-              hasJob={!!gen.job}
-              running={gen.running}
-              starting={start.isPending}
-              blocked={blocked}
-              unavailable={offline ? "Claude is not connected" : undefined}
-              onGenerate={() => void generate()}
-              onColumns={() => app.navigate("settings", "columns")}
-              onAddDocuments={() => app.navigate("documents")}
-            />
-          )}
-        </div>
-        <span {...stylex.props(styles.handle)}>
-          <ResizeHandle label="Resize the request panel" {...formPane.handle} />
-        </span>
-        <section aria-label="Result" {...stylex.props(styles.result)}>
-          <ResultPane
-            key={fresh}
-            gen={gen}
-            status={offline ? status : null}
-            checking={claude.isFetching && !!ask.refresh}
-            noDocs={!!docs && !docs.length}
-            starting={start.isPending}
-            onCheckClaude={() => (ask.refresh ? void claude.refetch() : setAsk({ refresh: true, signIn: true }))}
-            onCancel={() => gen.jobId && cancel(gen.jobId)}
-            onRetry={gen.job?.rerun ? () => void rerun() : undefined}
-            onResume={(generation) =>
-              void begin({ resume: generation, model: form.runModel, effort: form.runEffort } as Parameters<
-                typeof start.mutateAsync
-              >[0])
-            }
-          />
-        </section>
-      </div>
+      <Workspace ws={ws} />
       {replacing && (
         <ReplaceTests
           ids={replacing}

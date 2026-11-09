@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeDock, metaLine } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
 import { ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
+import { dockState } from "../../../../src/ui/components/claude/dockState.ts";
 import { TopBar, useTopBarSlots } from "../../../../src/ui/components/shell/TopBar.tsx";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
@@ -105,7 +106,7 @@ describe("dock: scope, presets, contexts, models", () => {
     routes["contexts.ofProject"] = () => ({ effective: ["ctx-b"] });
     routes["claude.run"] = () => ({ ok: true, summary: "Done", durationMs: 1200, changedTests: [], raw: "" });
     const state = withClaude({ contexts: [] });
-    render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(state, <ClaudeDock />));
     expect(screen.getByRole("tab", { name: /On the project/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("button", { name: "Change every test" })).toBeNull();
     expect(screen.getByText("Whole project · its tests, documents and contexts")).toBeInTheDocument();
@@ -143,7 +144,7 @@ describe("dock: scope, presets, contexts, models", () => {
     render(
       wrap(
         withClaude({ presets, model: "opus", effort: "high" }, { focus: focus({ key: "LFRPS12-1" }) }),
-        <ClaudeDock folded={false} onFold={() => {}} />,
+        <ClaudeDock />,
       ),
     );
     const suggestions = () => fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
@@ -177,7 +178,7 @@ describe("dock: scope, presets, contexts, models", () => {
     routes["contexts.list"] = () => ctxList;
     routes["contexts.ofTest"] = () => ({ effective: [], own: null, project: [] });
     routes["claude.run"] = () => ({ ok: true, summary: "Done", changedTests: [], raw: "RAW-OUT" });
-    render(wrap(withClaude({}, { focus: focus() }), <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(withClaude({}, { focus: focus() }), <ClaudeDock />));
     fireEvent.change(box(), { target: { value: "Raccourcis" } });
     fireEvent.keyDown(box(), { key: "Enter" });
     expect(callsOf("claude.run")).toHaveLength(0);
@@ -193,14 +194,14 @@ describe("dock: scope, presets, contexts, models", () => {
     routes["contexts.list"] = () => ctxList;
     routes["contexts.ofTest"] = () => ({ effective: [], own: null, project: [] });
     routes["claude.run"] = () => ({ ok: true, summary: "Done", changedTests: [], raw: "" });
-    render(wrap(withClaude({}, { focus: focus() }), <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(withClaude({}, { focus: focus() }), <ClaudeDock />));
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toMatchObject({ prompt: "", scope: { kind: "test", testId: "local-1" } });
     expect(screen.getByText(/No request — Claude works from the scope/)).toBeInTheDocument();
     expect(await screen.findByText("Done")).toBeInTheDocument();
     cleanup();
-    render(wrap(withClaude({}), <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(withClaude({}), <ClaudeDock />));
     expect(screen.getByRole("tab", { name: /On the project/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /Send/ })).toBeEnabled();
   });
@@ -211,7 +212,7 @@ describe("dock: scope, presets, contexts, models", () => {
     let n = 0;
     routes["claude.run"] = () => ({ ok: true, summary: `Answer ${++n}`, runId: `run-${n}`, changedTests: [], raw: "" });
     const state = withClaude({}, { focus: focus() });
-    const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    const r = render(wrap(state, <ClaudeDock />));
     send("Raccourcis");
     expect(await screen.findByText("Answer 1")).toBeInTheDocument();
     expect(box()).toHaveValue("Raccourcis");
@@ -225,9 +226,7 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(callsOf("claude.run")[1].input.conversation).toBe(
       "User (This test): Raccourcis\n\nClaude: Answer 1 (0 steps changed)",
     );
-    r.rerender(
-      wrap({ ...state, focus: focus({ testId: "local-2" }) }, <ClaudeDock folded={false} onFold={() => {}} />),
-    );
+    r.rerender(wrap({ ...state, focus: focus({ testId: "local-2" }) }, <ClaudeDock />));
     expect(screen.getByText("Answer 2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Start over" }));
     expect(screen.queryByText("Answer 2")).toBeNull();
@@ -258,7 +257,7 @@ describe("dock: scope, presets, contexts, models", () => {
       },
     });
     const state = withClaude({}, { focus: focus() });
-    render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(state, <ClaudeDock />));
     send("Raccourcis le pas 2");
     await waitFor(() =>
       expect(state.setLastRun).toHaveBeenCalledWith(
@@ -277,17 +276,17 @@ describe("dock: scope, presets, contexts, models", () => {
       project: [],
     });
     const state = app({ focus: focus() });
-    const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    const r = render(wrap(state, <ClaudeDock />));
     fireEvent.click(await screen.findByRole("button", { name: "Glossary" }));
     expect(screen.getByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "false");
-    r.rerender(wrap({ ...state, focus: focus({ testId: "t2" }) }, <ClaudeDock folded={false} onFold={() => {}} />));
+    r.rerender(wrap({ ...state, focus: focus({ testId: "t2" }) }, <ClaudeDock />));
     await waitFor(() => expect(screen.queryByRole("button", { name: "House style" })).toBeNull());
     expect(await screen.findByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("switches between step, test and project", async () => {
     routes["claude.run"] = () => ({ ok: true, summary: "ok", changedTests: [], raw: "" });
-    render(wrap(app({ focus: focus({ step: 2 }) }), <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(app({ focus: focus({ step: 2 }) }), <ClaudeDock />));
     fireEvent.click(screen.getByRole("radio", { name: "Whole project" }));
     expect(screen.getByRole("radio", { name: "Whole project" })).toHaveAttribute("aria-checked", "true");
     send("A");
@@ -301,7 +300,7 @@ describe("dock: scope, presets, contexts, models", () => {
 
   it("offers fable, opus, sonnet and haiku only", async () => {
     routes["claude.run"] = () => ({ ok: true, summary: "a", changedTests: [], raw: "" });
-    render(wrap(app(), <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(app(), <ClaudeDock />));
     fireEvent.click(runChoice());
     expect(
       within(screen.getByRole("group", { name: "Model" }))
@@ -316,19 +315,18 @@ describe("dock: scope, presets, contexts, models", () => {
 });
 
 describe("dock: run details and failures", () => {
-  it("counts seconds while running, and the folded dock shows the last run", async () => {
+  it("counts seconds while running, and tells Claude's tab how the last run went", async () => {
     let finish: (v: unknown) => void = () => {};
     routes["claude.run"] = () => new Promise((res) => (finish = res));
     const state = app({ focus: focus() });
-    const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(state, <ClaudeDock />));
     send("Go");
     expect(await screen.findByText(/^\d+:\d\d$/)).toBeInTheDocument();
     await act(async () =>
       finish({ ok: true, summary: "Rewrote step 3\nmore", durationMs: 4500, changedTests: [], raw: "" }),
     );
     expect(await screen.findByText(/^4\.5 s · no tokens reported/)).toBeInTheDocument();
-    r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
-    expect(screen.getByText(/^Last run · 4\.5 s/)).toHaveAttribute("title", "Rewrote step 3");
+    expect(dockState()).toEqual({ running: false, failed: false, offline: false });
   });
 
   it("a failed run offers Retry, the raw output and the settings", async () => {
@@ -341,7 +339,7 @@ describe("dock: run details and failures", () => {
       diagnosis: { kind: "limit", title: "Usage limit reached", detail: "It frees up after a while." },
     });
     const state = app({ focus: focus() });
-    render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(state, <ClaudeDock />));
     send("Fix it");
     expect(await screen.findByText("It frees up after a while.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show raw output" }));
@@ -367,12 +365,11 @@ describe("dock: run details and failures", () => {
       connect: [],
     });
     const state = app();
-    const r = render(wrap(state, <ClaudeDock folded={false} onFold={() => {}} />));
+    render(wrap(state, <ClaudeDock />));
     expect(await screen.findByText(/^Claude is optional — everything else works without it/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Set the path myself…" }));
     expect(state.navigate).toHaveBeenCalledWith("settings", "claude-exe");
-    r.rerender(wrap(state, <ClaudeDock folded onFold={() => {}} />));
-    expect(screen.getByText("Claude · not connected")).toBeInTheDocument();
+    expect(dockState().offline).toBe(true);
   });
 
   it("the connect panel shows what the Claude CLI probe answered, in the dock and in Settings", async () => {
@@ -384,7 +381,7 @@ describe("dock: run details and failures", () => {
       exe: "claude",
       detail: probe,
     });
-    const r = render(wrap(app(), <ClaudeDock folded={false} onFold={() => {}} />));
+    const r = render(wrap(app(), <ClaudeDock />));
     const title = await screen.findByText("Claude is installed but not signed in");
     const panel = title.parentElement as HTMLElement;
     expect(within(panel).getByText("What Testimus saw")).toBeInTheDocument();
@@ -592,7 +589,7 @@ describe("always on top", () => {
         <>
           <AppearanceSection />
           <Bar />
-          <ClaudeDock folded={false} onFold={() => {}} />
+          <ClaudeDock />
         </>,
       ),
     );

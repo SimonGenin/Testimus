@@ -21,8 +21,9 @@ test("the list shows each document with status and index state; the detail shows
 
   const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" });
   await expect(detail.getByRole("heading", { level: 2, name: "Traction", exact: true })).toBeVisible();
+  const settings = page.getByRole("complementary", { name: "Document settings" });
   await expect(
-    detail.getByRole("radiogroup", { name: "Status" }).getByRole("radio", { name: "Validated", checked: true }),
+    settings.getByRole("radiogroup", { name: "Status" }).getByRole("radio", { name: "Validated", checked: true }),
   ).toBeVisible();
   await expect(detail.getByRole("heading", { name: "5.6.6 Sectionneur (S)" })).toBeVisible();
   await expect(detail.getByRole("img", { name: /Figure 40/ })).toBeVisible();
@@ -34,8 +35,10 @@ test("the list shows each document with status and index state; the detail shows
 
 test("the context note is edited and saved for Claude", async ({ page }) => {
   await boot(page, "#/documents/SOSIE_211_D401-1_3");
-  const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" });
-  const context = detail.getByRole("textbox", { name: "Note for this document" });
+  await expect(page.getByRole("region", { name: "SOSIE_211_D401-1_3 details" })).toBeVisible();
+  const context = page.getByRole("complementary", { name: "Document settings" }).getByRole("textbox", {
+    name: "Note for this document",
+  });
   await context.fill("Référence traction ligne 92. Les sectionneurs avec TK sont câblés depuis la v01.02.");
   await context.blur();
   await expect
@@ -44,7 +47,7 @@ test("the context note is edited and saved for Claude", async ({ page }) => {
   await page.reload();
   await expect(
     page
-      .getByRole("region", { name: "SOSIE_211_D401-1_3 details" })
+      .getByRole("complementary", { name: "Document settings" })
       .getByRole("textbox", { name: "Note for this document" }),
   ).toHaveValue(/câblés depuis la v01\.02/);
 });
@@ -55,8 +58,10 @@ test("a document's status change is saved", async ({ page }) => {
     .getByRole("region", { name: "Document list" })
     .getByRole("option", { name: /SOSIE_211_D401-1_4/ })
     .click();
-  const detail = page.getByRole("region", { name: "SOSIE_211_D401-1_4 details" });
-  const status = detail.getByRole("radiogroup", { name: "Status" });
+  await expect(page.getByRole("region", { name: "SOSIE_211_D401-1_4 details" })).toBeVisible();
+  const status = page
+    .getByRole("complementary", { name: "Document settings" })
+    .getByRole("radiogroup", { name: "Status" });
   await status.getByRole("radio", { name: "Validated" }).click();
   await expect(status.getByRole("radio", { name: "Validated", checked: true })).toBeVisible();
   await expect

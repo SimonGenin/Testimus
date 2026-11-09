@@ -115,7 +115,10 @@ describe("Generate › Ask for changes", () => {
     fireEvent.click(within(reading).getByRole("button", { name: "Close" }));
     const scope = within(ask).getByRole("combobox", { name: "Scope" });
     expect(scope).toHaveTextContent("All 2 tests");
-    expect(named("actions.list")[0].input).toEqual({ generation: "g1", view: { kind: "generation", id: "g1" } });
+    expect(named("actions.list").map((c) => c.input)).toContainEqual({
+      generation: "g1",
+      view: { kind: "generation", id: "g1" },
+    });
     const proposes = await within(ask).findByRole("region", { name: "Claude proposes" });
     expect(proposes).toHaveTextContent("1 fix on 1 test, each on its test at the right");
     expect(within(ask).queryByText("Fix the 2 errors in « Avec TK »")).toBeNull();

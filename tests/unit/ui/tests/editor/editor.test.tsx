@@ -1525,7 +1525,7 @@ describe("TestEditor › Xray Editor edge cases", () => {
       <WithData client={testClient()}>
         <AppContext.Provider value={state}>
           <TestEditor testId="t1" onSaved={vi.fn()} onOpen={vi.fn()} />
-          <ClaudeDock folded={false} request={null} onFold={vi.fn()} />
+          <ClaudeDock request={null} />
         </AppContext.Provider>
       </WithData>,
     );

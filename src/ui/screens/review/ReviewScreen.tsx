@@ -1,28 +1,30 @@
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
+import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
 import { claudeOn } from "../../components/claude/turns.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
 import { docLink } from "../../components/sources/PassageView.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Workspace } from "../../components/ui/workspace/Workspace.tsx";
 import { type ClaudeRun, useApp } from "../../lib/app.ts";
 import { fileUrl } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { usePaneWidth } from "../../lib/panes.ts";
-import { color, container, size, space } from "../../styles/tokens.stylex.ts";
+import { column, layoutOf, section } from "../../lib/workspace/layout.ts";
+import { useWorkspace, type WorkspaceController } from "../../lib/workspace/useWorkspace.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { Lightbox } from "../tests/Lightbox.tsx";
 import { PushDialog } from "../tests/PushDialog.tsx";
 import { FixNote } from "./FixNote.tsx";
-import { QueueStrip } from "./QueueStrip.tsx";
 import { filtered } from "./queueFilters.ts";
 import { ReviewEdit } from "./ReviewEdit.tsx";
 import { ReviewEmpty, ReviewLoading } from "./ReviewEmpty.tsx";
 import { ReviewFoot } from "./ReviewFoot.tsx";
-import { ReviewQueue } from "./ReviewQueue.tsx";
+import { QueueFoot, ReviewQueue } from "./ReviewQueue.tsx";
 import { ReviewTest } from "./ReviewTest.tsx";
-import { SourcePanel } from "./SourcePanel.tsx";
+import { SourceFoot, SourcePanel } from "./SourcePanel.tsx";
 import { chipOpened, findingOpened, moveOpened, notAtAnchor, openedIndex, refKey, stepOpened } from "./sources.ts";
 import { type Loaded, takeEditAsk, useDecisions, useQueueFilters, useReviewData } from "./useReview.ts";
 import { useReviewActions } from "./useReviewActions.ts";
@@ -31,20 +33,9 @@ import { useReviewView } from "./useReviewView.ts";
 
 const styles = stylex.create({
   screen: { flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" },
-  review: {
-    flex: 1,
-    minHeight: 0,
-    minWidth: 0,
-    display: "flex",
-    containerName: "review",
-    containerType: "inline-size",
-    position: "relative",
-  },
-  queueEdge: { display: { default: "flex", [container.reviewQueue]: "none" } },
-  sourceEdge: { display: { default: "flex", [container.reviewSource]: "none" } },
   main: {
-    flex: "1 1 0",
-    minWidth: size.dock,
+    flex: 1,
+    minWidth: 0,
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
@@ -52,7 +43,15 @@ const styles = stylex.create({
     backgroundColor: color.canvas,
   },
   notice: { padding: space.s5 },
+  none: { flex: 1, display: "flex", padding: space.s6 },
 });
+
+// ponytail: the queue on the left, the test reviewed in the middle, its source and Claude on the right
+const LAYOUT = layoutOf(
+  column(300, section(["queue"])),
+  column(null, section(["test"])),
+  column(420, section(["source", "claude"])),
+);
 
 // ponytail: the message of Claude's last fix of this test, while the test is still in the state the fix left it in
 const fixMessage = (run: ClaudeRun | null, data: Loaded) =>
@@ -74,10 +73,9 @@ export function ReviewScreen() {
   }, [activeId]);
   const running = claudeOn(app.claudeRunning, data?.id);
   const acts = useReviewActions({ app, data, items, act, view, running });
-  const queueW = usePaneWidth("queueWidth", { min: 240, max: 480, initial: 300 });
-  const sourceW = usePaneWidth("sourceWidth", { min: 300, max: 720, initial: 420 });
   const [pushing, setPushing] = useState(false);
-  const [queueOver, setQueueOver] = useState(false);
+  const sections = useRef<WorkspaceController | null>(null);
+  const showSource = () => sections.current?.reveal("source");
   const [lb, setLb] = useState<{ step: number; index: number; column?: string } | null>(null);
   const lbImages = (lb && data?.test.steps[lb.step - 1]?.images) || [];
   const body = useRef<HTMLDivElement>(null);
@@ -135,6 +133,210 @@ export function ReviewScreen() {
         }
       : null;
 
+  const queueTab = (
+    <ReviewQueue
+      items={items}
+      groups={d.groups}
+      counts={d.counts}
+      activeId={activeId}
+      queued={d.queued}
+      filters={filters.value}
+      sort={filters.sort}
+      onWords={filters.setWords}
+      onStates={filters.setStates}
+      onChecks={filters.setChecks}
+      onFolders={filters.setFolders}
+      onSort={filters.setSort}
+      onClearFilters={filters.clear}
+      onOpen={open}
+      error={d.queueError ? { message: d.queueError, onRetry: d.retryQueue } : undefined}
+      notice={
+        d.needsCheck.length > 0 && (
+          <Banner
+            compact
+            actions={
+              <Button
+                size="sm"
+                icon="review"
+                label="Check all"
+                loading={act.checking}
+                onClick={() => act.check(d.needsCheck)}
+              />
+            }
+          >
+            {d.unchecked.length === d.needsCheck.length
+              ? `${plural(d.unchecked.length, "test")} not checked yet.`
+              : `${plural(d.needsCheck.length, "test")} not checked yet, or changed since their check.`}
+          </Banner>
+        )
+      }
+    />
+  );
+
+  const testTab = (
+    <section aria-label="Test under review" {...stylex.props(styles.main)}>
+      {editing && data ? (
+        <ReviewEdit id={data.id} onBack={editing.done} onOpen={(id) => app.navigate("tests", id)} />
+      ) : d.loadError ? (
+        <div {...stylex.props(styles.notice)}>
+          <Banner tone="danger" title="This test could not be opened">
+            {d.loadError}
+          </Banner>
+        </div>
+      ) : !activeId ? (
+        items && (
+          <ReviewEmpty
+            validated={d.counts?.validated ?? 0}
+            narrowed={filtered(filters.value) ? { onClear: filters.clear } : undefined}
+            onGenerate={() => app.navigate("generate")}
+            onTests={() => app.navigate("tests")}
+          />
+        )
+      ) : !data ? (
+        <ReviewLoading />
+      ) : (
+        <ReviewTest
+          bodyRef={body}
+          test={data.test}
+          testId={data.id}
+          sync={data.sync}
+          edited={data.edited}
+          check={data.check}
+          stale={data.stale}
+          xray={app.xray}
+          folded={view.folded}
+          activeStep={view.activeStep}
+          selected={sel?.mark ?? ""}
+          selectedStep={sel ? sel.step : undefined}
+          marks={view.marks}
+          claudeRun={data.id === activeId ? (claudeQ.data ?? null) : null}
+          claudeRunning={running}
+          claudeReady={d.claudeReady}
+          url={(file) => fileUrl(`tests/${data.id}/${file}`)}
+          onFold={view.fold}
+          onFoldAll={(f) => view.foldAll(f, data.test.steps.length)}
+          onSelect={(source, step, finding) => {
+            const next =
+              finding !== undefined
+                ? findingOpened(data.test, data.check, finding, source)
+                : step
+                  ? chipOpened(data.test, step, source)
+                  : null;
+            const same = !!next && sel?.mark === next.mark;
+            view.patch({ sel: same ? null : next, ...(step ? { activeStep: step - 1 } : {}) });
+            if (next && !same) showSource();
+          }}
+          onOpenImage={(file, step, column) => {
+            const images = data.test.steps[step - 1]?.images ?? [];
+            setLb({
+              step,
+              column,
+              index: Math.max(
+                0,
+                images.findIndex((im) => im.file === file),
+              ),
+            });
+          }}
+          onEdit={() => view.patch({ editing: true })}
+          onRevert={() => acts.undo()}
+          revertConflict={acts.revertConflict}
+          fixMessage={fixMessage(app.lastRun, data)}
+          onRevertAnyway={() => acts.undo(true)}
+          onKeepAfterRun={acts.keepAfterRun}
+          onCompare={() => view.patch({ editing: true })}
+          onTakeJira={() => data.test.key && act.takeJira(data.id, data.test.key)}
+          onKeepMine={() => setPushing(true)}
+          pulling={act.pulling(data.id)}
+          checking={act.checking}
+          onCheck={() => act.check([data.id])}
+          onAskFix={acts.askFix}
+          onEditNote={() => view.patch({ fixOpen: true })}
+          onToDraft={acts.toDraft}
+        />
+      )}
+    </section>
+  );
+
+  const decisions =
+    !view.editing && activeId ? (
+      <ReviewFoot
+        errors={findings.filter((f) => f.severity === "error").length}
+        stale={!!data?.stale}
+        off={!data || acts.busy || (running && "Claude is working on this test — wait for it to finish")}
+        fixOpen={view.fixOpen}
+        marked={data?.test.review === "to-fix"}
+        onToFix={() => view.patch({ fixOpen: !view.fixOpen })}
+        onValidate={acts.validate}
+      />
+    ) : undefined;
+
+  const openDoc = (docId: string, anchor: string, quote: string) =>
+    app.navigate(
+      "documents",
+      docLink(
+        docId,
+        anchor,
+        quote,
+        data && sel ? { test: data.id, ...(sel.step && { step: sel.step }), screen: "review" } : undefined,
+      ),
+    );
+  const stepSource = (by: 1 | -1) => {
+    const next = data && sel && moveOpened(data.test, data.check, sel, by);
+    if (next) view.patch({ sel: next });
+  };
+  const sourceTab = sel ? (
+    <SourcePanel
+      source={sel.source}
+      label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
+      misplaced={notAtAnchor(findings, selKey, sel.step)}
+      onClose={() => view.patch({ sel: null })}
+    />
+  ) : (
+    <div {...stylex.props(styles.none)}>
+      <EmptyState
+        icon="quote"
+        title="No source open"
+        text="Click a source of a step, or a finding, to read the passage it names here."
+        compact
+      />
+    </div>
+  );
+
+  const claude = useClaudeTab();
+  const ws = useWorkspace({
+    pref: "layoutReview",
+    label: "Review",
+    defaults: LAYOUT,
+    tabs: [
+      {
+        id: "queue",
+        label: "Queue",
+        icon: "list",
+        count: d.counts ? d.counts.toFix + d.counts.draft : undefined,
+        content: queueTab,
+        footer: <QueueFoot at={at} total={items?.length ?? 0} onMove={move} />,
+      },
+      { id: "test", label: "Test", icon: "tests", main: true, content: testTab, footer: decisions },
+      {
+        id: "source",
+        label: "Source",
+        icon: "quote",
+        content: sourceTab,
+        footer: sel ? (
+          <SourceFoot
+            source={sel.source}
+            index={openedIndex(sel)}
+            total={sel.list.length}
+            onOpenDoc={openDoc}
+            onStep={stepSource}
+          />
+        ) : undefined,
+      },
+      claude,
+    ],
+  });
+  sections.current = ws;
+
   return (
     <div {...stylex.props(styles.screen)}>
       <ScreenHeader
@@ -142,176 +344,7 @@ export function ReviewScreen() {
         back={editing ? { to: "review", onClick: editing.done } : undefined}
         crumbs={editing ? [{ label: editing.name, onClick: editing.done }, "Editing"] : []}
       />
-      <div {...stylex.props(styles.review)}>
-        <ReviewQueue
-          items={items}
-          groups={d.groups}
-          counts={d.counts}
-          activeId={activeId}
-          queued={d.queued}
-          filters={filters.value}
-          sort={filters.sort}
-          onWords={filters.setWords}
-          onStates={filters.setStates}
-          onChecks={filters.setChecks}
-          onFolders={filters.setFolders}
-          onSort={filters.setSort}
-          onClearFilters={filters.clear}
-          onOpen={(id) => {
-            setQueueOver(false);
-            open(id);
-          }}
-          over={queueOver}
-          width={queueW.moved ? queueW.width : undefined}
-          error={d.queueError ? { message: d.queueError, onRetry: d.retryQueue } : undefined}
-          notice={
-            d.needsCheck.length > 0 && (
-              <Banner
-                compact
-                actions={
-                  <Button
-                    size="sm"
-                    icon="review"
-                    label="Check all"
-                    loading={act.checking}
-                    onClick={() => act.check(d.needsCheck)}
-                  />
-                }
-              >
-                {d.unchecked.length === d.needsCheck.length
-                  ? `${plural(d.unchecked.length, "test")} not checked yet.`
-                  : `${plural(d.needsCheck.length, "test")} not checked yet, or changed since their check.`}
-              </Banner>
-            )
-          }
-        />
-        <div {...stylex.props(styles.queueEdge)}>
-          <ResizeHandle label="Resize the review queue" {...queueW.handle} />
-        </div>
-        <QueueStrip at={at} total={items?.length ?? 0} shown={queueOver} onShow={setQueueOver} onMove={move} />
-        <section aria-label="Test under review" {...stylex.props(styles.main)}>
-          {editing && data ? (
-            <ReviewEdit id={data.id} onBack={editing.done} onOpen={(id) => app.navigate("tests", id)} />
-          ) : d.loadError ? (
-            <div {...stylex.props(styles.notice)}>
-              <Banner tone="danger" title="This test could not be opened">
-                {d.loadError}
-              </Banner>
-            </div>
-          ) : !activeId ? (
-            items && (
-              <ReviewEmpty
-                validated={d.counts?.validated ?? 0}
-                narrowed={filtered(filters.value) ? { onClear: filters.clear } : undefined}
-                onGenerate={() => app.navigate("generate")}
-                onTests={() => app.navigate("tests")}
-              />
-            )
-          ) : !data ? (
-            <ReviewLoading />
-          ) : (
-            <ReviewTest
-              bodyRef={body}
-              test={data.test}
-              testId={data.id}
-              sync={data.sync}
-              edited={data.edited}
-              check={data.check}
-              stale={data.stale}
-              xray={app.xray}
-              folded={view.folded}
-              activeStep={view.activeStep}
-              selected={sel?.mark ?? ""}
-              selectedStep={sel ? sel.step : undefined}
-              marks={view.marks}
-              claudeRun={data.id === activeId ? (claudeQ.data ?? null) : null}
-              claudeRunning={running}
-              claudeReady={d.claudeReady}
-              url={(file) => fileUrl(`tests/${data.id}/${file}`)}
-              onFold={view.fold}
-              onFoldAll={(f) => view.foldAll(f, data.test.steps.length)}
-              onSelect={(source, step, finding) => {
-                const next =
-                  finding !== undefined
-                    ? findingOpened(data.test, data.check, finding, source)
-                    : step
-                      ? chipOpened(data.test, step, source)
-                      : null;
-                const same = !!next && sel?.mark === next.mark;
-                view.patch({ sel: same ? null : next, ...(step ? { activeStep: step - 1 } : {}) });
-              }}
-              onOpenImage={(file, step, column) => {
-                const images = data.test.steps[step - 1]?.images ?? [];
-                setLb({
-                  step,
-                  column,
-                  index: Math.max(
-                    0,
-                    images.findIndex((im) => im.file === file),
-                  ),
-                });
-              }}
-              onEdit={() => view.patch({ editing: true })}
-              onRevert={() => acts.undo()}
-              revertConflict={acts.revertConflict}
-              fixMessage={fixMessage(app.lastRun, data)}
-              onRevertAnyway={() => acts.undo(true)}
-              onKeepAfterRun={acts.keepAfterRun}
-              onCompare={() => view.patch({ editing: true })}
-              onTakeJira={() => data.test.key && act.takeJira(data.id, data.test.key)}
-              onKeepMine={() => setPushing(true)}
-              pulling={act.pulling(data.id)}
-              checking={act.checking}
-              onCheck={() => act.check([data.id])}
-              onAskFix={acts.askFix}
-              onEditNote={() => view.patch({ fixOpen: true })}
-              onToDraft={acts.toDraft}
-            />
-          )}
-          {!view.editing && activeId && (
-            <ReviewFoot
-              errors={findings.filter((f) => f.severity === "error").length}
-              stale={!!data?.stale}
-              off={!data || acts.busy || (running && "Claude is working on this test — wait for it to finish")}
-              fixOpen={view.fixOpen}
-              marked={data?.test.review === "to-fix"}
-              onToFix={() => view.patch({ fixOpen: !view.fixOpen })}
-              onValidate={acts.validate}
-            />
-          )}
-        </section>
-        {sel && (
-          <>
-            <div {...stylex.props(styles.sourceEdge)}>
-              <ResizeHandle label="Resize the source panel" {...sourceW.handle} side="left" />
-            </div>
-            <SourcePanel
-              source={sel.source}
-              label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
-              index={openedIndex(sel)}
-              total={sel.list.length}
-              misplaced={notAtAnchor(findings, selKey, sel.step)}
-              width={sourceW.moved ? sourceW.width : undefined}
-              onClose={() => view.patch({ sel: null })}
-              onOpenDoc={(docId, anchor, quote) =>
-                app.navigate(
-                  "documents",
-                  docLink(
-                    docId,
-                    anchor,
-                    quote,
-                    data ? { test: data.id, ...(sel.step && { step: sel.step }), screen: "review" } : undefined,
-                  ),
-                )
-              }
-              onStep={(by) => {
-                const next = data && moveOpened(data.test, data.check, sel, by);
-                if (next) view.patch({ sel: next });
-              }}
-            />
-          </>
-        )}
-      </div>
+      <Workspace ws={ws} />
       {view.fixOpen && data && (
         <FixNote
           id={data.id}

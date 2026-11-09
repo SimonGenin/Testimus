@@ -1,20 +1,21 @@
 import * as stylex from "@stylexjs/stylex";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { CredsStatus, LocalTestRef } from "../../../core/types.ts";
+import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
 import { NoProject } from "../../components/shell/NoProject.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
-import { Modal } from "../../components/ui/Modal.tsx";
-import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { type } from "../../components/ui/type.ts";
+import { Workspace } from "../../components/ui/workspace/Workspace.tsx";
 import { useApp } from "../../lib/app.ts";
 import { project } from "../../lib/data/client.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { keepDraft } from "../../lib/drafts.ts";
-import { usePaneWidth } from "../../lib/panes.ts";
 import { usePref } from "../../lib/prefs.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { column, layoutOf, locate, section, sectionOf } from "../../lib/workspace/layout.ts";
+import { useWorkspace } from "../../lib/workspace/useWorkspace.ts";
+import { color, size, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "../settings/ConnectAtlassian.tsx";
 import { useNewTest } from "./list/newTest.ts";
 import type { Listed } from "./list/tree.ts";
@@ -24,26 +25,29 @@ import { abandonPulls, cancelPull, onPullLanded, startPull, usePullStage, usePul
 import { TestEditor } from "./TestEditor.tsx";
 import { TestList } from "./TestList.tsx";
 
-export const NARROW = 900;
-const SIDEBAR = { min: 260, max: 480, initial: 320 };
-// ponytail: folders and tests side by side (Jira's, or the local ones) need about two lists' width
-const SIDEBAR_WIDE = { min: 480, max: 1200, initial: 640 };
+// ponytail: the tests on the left, the one open in the middle, Claude folded on the right; the list's own layouts
+// (folders and tests side by side) want the list's column widened, which its edge does and the layout keeps
+const LAYOUT = layoutOf(
+  column(320, section(["list"])),
+  column(null, section(["test"])),
+  column(400, section(["claude"], true)),
+);
+
+// ponytail: folders and tests side by side (Jira's, or the local ones) need about two lists' width: choosing it widens
+// the list's column to it, leaving it narrows a column wider than one list back
+const LIST = { one: 320, oneMax: 480, two: 640 };
 
 const styles = stylex.create({
-  screen: { display: "flex", flex: 1, minWidth: 0, minHeight: 0, height: "100%", backgroundColor: color.canvas },
-  side: {
-    boxSizing: "border-box",
-    position: "relative",
-    flex: "none",
+  screen: { display: "flex", flex: 1, minWidth: 0, minHeight: 0, height: "100%", flexDirection: "column" },
+  side: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+  main: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
     display: "flex",
     flexDirection: "column",
-    minHeight: 0,
-    borderInlineEndStyle: "solid",
-    borderInlineEndWidth: border.width,
-    borderInlineEndColor: color.border,
+    backgroundColor: color.canvas,
   },
-  edge: { position: "absolute", top: 0, bottom: 0, right: 0, display: "flex" },
-  main: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" },
   pane: {
     boxSizing: "border-box",
     flex: 1,
@@ -59,19 +63,8 @@ const styles = stylex.create({
   title: { margin: 0 },
 });
 
-// ponytail: the narrow breakpoint is a presentation fact of the window, read from its width
-function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW);
-  useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth < NARROW);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  return narrow;
-}
-
-// ponytail: Tests — the list of the project's tests on the left (a drawer when the window is narrow), the open test, a
-// Jira test being pulled, or what to do when none is open
+// ponytail: Tests — the project's tests, the open test (a Jira test being pulled, or what to do when none is open) and
+// Claude, each a tab of the screen's sections
 export function TestsScreen() {
   const app = useApp();
   const activeId = app.route.screen === "tests" ? (app.route.arg ?? "") : "";
@@ -79,19 +72,6 @@ export function TestsScreen() {
   const has = !!project();
   const listQ = useRead("tests.list", {}, { enabled: has });
   const refs = (Array.isArray(listQ.data) ? listQ.data : []) as LocalTestRef[];
-  const narrow = useNarrow();
-  const tab = useListView().tab;
-  const [jiraLayout] = usePref("jiraLayout");
-  const jiraOn = !!app.info?.project?.jiraProject && !app.info.project.jiraOffline;
-  const [localLayout] = usePref("localLayout");
-  const wide =
-    !narrow &&
-    ((tab === "jira" && jiraOn && jiraLayout === "columns") ||
-      (tab === "local" && localLayout === "columns" && refs.length > 0));
-  const slim = usePaneWidth("sidebarWidth", SIDEBAR);
-  const broad = usePaneWidth("sidebarWideWidth", SIDEBAR_WIDE);
-  const side = wide ? broad : slim;
-  const [drawer, setDrawer] = useState(false);
   const pulls = usePulls();
   // ponytail: while Jira or Xray access is incomplete the empty pane is the connection form (Xray Editor shows its
   // « Connect to Jira and Xray » screen in place of the editor until both files are complete)
@@ -153,14 +133,7 @@ export function TestsScreen() {
     navigate("review", activeId);
   }, [refs, activeId, navigate]);
 
-  useEffect(() => {
-    if (!narrow) setDrawer(false);
-  }, [narrow]);
-
-  const open = (id: string) => {
-    setDrawer(false);
-    navigate("tests", id);
-  };
+  const open = (id: string) => navigate("tests", id);
 
   // ponytail: no test is open here, so New test follows the list's rule with no open folder (the Jira folder picked, else
   // the root)
@@ -173,7 +146,6 @@ export function TestsScreen() {
     <TestList
       key={dir ?? ""}
       refs={refs}
-      narrow={narrow}
       loading={has && listQ.isPending}
       activeId={activeId}
       onOpen={open}
@@ -193,103 +165,111 @@ export function TestsScreen() {
   const pull = pulls.find((p) => p.key === activeId);
   const stage = usePullStage(pull?.jobId);
   const others = pulls.filter((p) => !p.error && p.key !== activeId);
-  const lead = narrow ? (
-    <Button
-      variant="quiet"
-      size="sm"
-      iconOnly
-      icon="menu"
-      label="Show test list"
-      expanded={drawer}
-      onClick={() => setDrawer((d) => !d)}
+
+  const work = pull ? (
+    <PullPane
+      pull={{ ...pull, ...stage }}
+      others={others}
+      onCancel={() => {
+        cancelPull(pull);
+        navigate("tests");
+      }}
+      onRetry={() => {
+        cancelPull(pull);
+        startPull(pull.key, pull.summary);
+      }}
+      onBack={() => {
+        cancelPull(pull);
+        navigate("tests");
+      }}
     />
-  ) : undefined;
+  ) : activeId ? (
+    <TestEditor key={activeId} testId={activeId} onOpen={open} onSaved={() => {}} />
+  ) : (
+    <div {...stylex.props(styles.pane, has && access === false && styles.top)}>
+      {!has ? (
+        <NoProject text="Tests live in a project folder, next to the documents they come from. Open one, or start a new project." />
+      ) : access === false ? (
+        <div {...stylex.props(styles.connect)}>
+          <h2 {...stylex.props(type.title, styles.title)}>Connect to Jira and Xray</h2>
+          <ConnectAtlassian
+            lead="Testimus pulls and pushes your tests with your own Jira and Xray access — the same files Xray Editor uses."
+            onStatus={() => void credsQ.refetch()}
+          />
+        </div>
+      ) : listQ.isSuccess && !refs.length ? (
+        <EmptyState
+          icon="tests"
+          title="No test yet"
+          text="Generate tests from a document, or write one by hand."
+          actions={
+            <>
+              <Button variant="primary" icon="generate" label="Generate tests" onClick={() => navigate("generate")} />
+              <Button icon="plus" label="New test" onClick={() => void newTest()} />
+            </>
+          }
+        />
+      ) : (
+        <EmptyState
+          icon="tests"
+          title="No test open"
+          text="Pick one in the list, or start a new one. A Jira test is pulled the first time you open it."
+          actions={<Button icon="plus" label="New test" onClick={() => void newTest()} />}
+        />
+      )}
+    </div>
+  );
+
+  const tab = useListView().tab;
+  const [jiraLayout] = usePref("jiraLayout");
+  const [localLayout] = usePref("localLayout");
+  const jiraOn = !!app.info?.project?.jiraProject && !app.info.project.jiraOffline;
+  const wide =
+    (tab === "jira" && jiraOn && jiraLayout === "columns") ||
+    (tab === "local" && localLayout === "columns" && refs.length > 0);
+
+  const claude = useClaudeTab();
+  const ws = useWorkspace({
+    pref: "layoutTests",
+    label: "Tests",
+    defaults: LAYOUT,
+    tabs: [
+      {
+        id: "list",
+        label: "Tests",
+        icon: "tree",
+        count: refs.length || undefined,
+        content: <div {...stylex.props(styles.side)}>{list}</div>,
+      },
+      {
+        id: "test",
+        label: "Test",
+        icon: "tests",
+        main: true,
+        content: <main {...stylex.props(styles.main)}>{work}</main>,
+      },
+      claude,
+    ],
+  });
+
+  const latest = useRef(ws);
+  latest.current = ws;
+  const was = useRef<boolean | null>(null);
+  useEffect(() => {
+    const before = was.current;
+    was.current = wide;
+    if (before === wide || (before === null && !wide)) return;
+    const { layout, resizeColumn } = latest.current;
+    const at = locate(layout, sectionOf(layout, "list")?.id ?? "");
+    const width = at ? layout.columns[at.column].width : null;
+    if (!at || width === null) return;
+    if (wide && width < LIST.two) resizeColumn(at.column, LIST.two, true);
+    else if (!wide && width > LIST.oneMax) resizeColumn(at.column, LIST.one, true);
+  }, [wide]);
 
   return (
     <div {...stylex.props(styles.screen)}>
-      {!narrow && (
-        <div {...stylex.props(styles.side)} style={{ width: side.width }}>
-          {list}
-          <span {...stylex.props(styles.edge)}>
-            <ResizeHandle label="Resize the test list" {...side.handle} />
-          </span>
-        </div>
-      )}
-      {narrow && drawer && (
-        <Modal title="Tests" drawer="left" flush onClose={() => setDrawer(false)}>
-          {list}
-        </Modal>
-      )}
-      <main {...stylex.props(styles.main)}>
-        {pull ? (
-          <>
-            {lead}
-            <PullPane
-              pull={{ ...pull, ...stage }}
-              others={others}
-              onCancel={() => {
-                cancelPull(pull);
-                navigate("tests");
-              }}
-              onRetry={() => {
-                cancelPull(pull);
-                startPull(pull.key, pull.summary);
-              }}
-              onBack={() => {
-                cancelPull(pull);
-                navigate("tests");
-              }}
-            />
-          </>
-        ) : activeId ? (
-          <TestEditor key={activeId} testId={activeId} lead={lead} onOpen={open} onSaved={() => {}} />
-        ) : (
-          <>
-            {lead}
-            <div {...stylex.props(styles.pane, has && access === false && styles.top)}>
-              {!has ? (
-                <NoProject text="Tests live in a project folder, next to the documents they come from. Open one, or start a new project." />
-              ) : access === false ? (
-                <div {...stylex.props(styles.connect)}>
-                  <h2 {...stylex.props(type.title, styles.title)}>Connect to Jira and Xray</h2>
-                  <ConnectAtlassian
-                    lead="Testimus pulls and pushes your tests with your own Jira and Xray access — the same files Xray Editor uses."
-                    onStatus={() => void credsQ.refetch()}
-                  />
-                </div>
-              ) : listQ.isSuccess && !refs.length ? (
-                <EmptyState
-                  icon="tests"
-                  title="No test yet"
-                  text="Generate tests from a document, or write one by hand."
-                  actions={
-                    <>
-                      <Button
-                        variant="primary"
-                        icon="generate"
-                        label="Generate tests"
-                        onClick={() => navigate("generate")}
-                      />
-                      <Button icon="plus" label="New test" onClick={() => void newTest()} />
-                    </>
-                  }
-                />
-              ) : (
-                <EmptyState
-                  icon="tests"
-                  title="No test open"
-                  text={
-                    narrow
-                      ? "Open the test list to pick one; a Jira test is pulled the first time you open it."
-                      : "Pick one on the left, or start a new one. A Jira test is pulled the first time you open it."
-                  }
-                  actions={<Button icon="plus" label="New test" onClick={() => void newTest()} />}
-                />
-              )}
-            </div>
-          </>
-        )}
-      </main>
+      <Workspace ws={ws} />
     </div>
   );
 }
