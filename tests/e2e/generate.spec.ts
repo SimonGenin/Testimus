@@ -123,18 +123,18 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
   const ask = page.getByRole("region", { name: "Ask for changes" });
   await expect(ask).toBeVisible();
   await expect(ask.getByRole("button", { name: "All 2 tests" })).toHaveAttribute("aria-pressed", "true");
-  const suggested = ask.getByRole("region", { name: "Suggested by the results" });
+  const proposes = ask.getByRole("region", { name: "Claude proposes" });
   await expect(
-    suggested.getByRole("button", { name: "Write the 2 tests skipped for « Pas de source pour le résultat attendu »" }),
+    proposes.getByText("Write the 2 tests skipped for « Pas de source pour le résultat attendu »"),
   ).toBeVisible();
-  await expect(
-    suggested.getByRole("button", { name: /^Fix the \d+ (error|warning)s? in « Sectionneur/ }).first(),
-  ).toBeVisible();
-  await expect(
-    suggested.getByRole("region", { name: /^Generation · Le menu contextuel du sectionneur$/ }),
-  ).toBeVisible();
-  await expect(suggested.getByRole("region", { name: /^Test · Sectionneur/ }).first()).toBeVisible();
-  await expect(suggested.getByRole("heading", { level: 3 }).nth(1)).toContainText("Generation");
+  await expect(proposes).toContainText(/\d+ fix(es)? on \d+ tests?, each on its test at the right/);
+  await expect(ask.getByRole("button", { name: /^Fix the \d+/ })).toHaveCount(0);
+  const onCards = page
+    .getByRole("region", { name: "Tests written" })
+    .getByRole("list", { name: "Fixes Claude proposes" });
+  await expect(onCards.first()).toContainText(/^Fix the \d+ (error|warning)s? in « Sectionneur/);
+  await expect(onCards.first().getByRole("button", { name: "Fix", exact: true })).toBeVisible();
+  await expect(ask.getByRole("button", { name: /^The \d+ with a fix$/ })).toBeVisible();
   await shoot(page, "generate-ask");
 
   await ask

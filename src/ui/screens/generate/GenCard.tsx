@@ -5,10 +5,12 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
+import type { Action } from "../../lib/actions.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { testLabel } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
+import { GenFixes } from "./GenFixes.tsx";
 import type { GenCheck } from "./GenResult.tsx";
 
 export type Landed = { id: string; test?: Test; ref?: LocalTestRef; check?: CheckFile | null };
@@ -50,11 +52,13 @@ export type GenCardProps = {
   item: Landed;
   check?: GenCheck;
   onOpen: () => void;
+  /** the fixes Claude proposes on this test, from the generation's actions */
+  fixes?: { list: Action[]; onFix: (a: Action) => void; onDismiss: (a: Action) => void };
 };
 
-// ponytail: once the generation has ended, Generate shows what was written — title, state, findings — and Review is
-// where a test is read; while it runs, WritingCard shows each test read only
-export function GenCard({ item, check, onOpen }: GenCardProps) {
+// ponytail: once the generation has ended, Generate shows what was written — title, state, findings, the fixes Claude
+// proposes on it — and Review is where a test is read; while it runs, WritingCard shows each test read only
+export function GenCard({ item, check, onOpen, fixes }: GenCardProps) {
   if (!item.test)
     return (
       <div role="status" aria-busy="true" aria-label="Loading a test">
@@ -91,6 +95,7 @@ export function GenCard({ item, check, onOpen }: GenCardProps) {
         <Badge tone="claude" icon="claude" size="sm" label="Generated" />
         <Findings refItem={item.ref} check={check} />
       </span>
+      {fixes && <GenFixes fixes={fixes.list} onFix={fixes.onFix} onDismiss={fixes.onDismiss} />}
     </Card>
   );
 }

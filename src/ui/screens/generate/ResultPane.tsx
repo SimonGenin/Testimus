@@ -7,14 +7,17 @@ import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
 import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
 import { color, container, space } from "../../styles/tokens.stylex.ts";
 import { LandedCard } from "./GenCard.tsx";
 import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
 import type { Generation } from "./useGeneration.ts";
+import { useGenFixes } from "./useGenFixes.ts";
 import { WritingTests } from "./WritingTests.tsx";
 
 const styles = stylex.create({
@@ -30,6 +33,8 @@ const styles = stylex.create({
   },
   summary: { display: "flex", flexDirection: "column", gap: space.s4 },
   muted: { margin: 0, color: color.textMuted },
+  fixes: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.claudeText },
+  grow: { flex: "1 1 16rem", minWidth: 0, color: color.textMuted },
   cards: { display: "flex", flexDirection: "column", gap: space.s4 },
   split: {
     display: "grid",
@@ -71,6 +76,8 @@ export function ResultPane({
   const [fold, setFold] = useState<Fold>({ all: true, flip: new Set() });
   const [now, setNow] = useState(Date.now());
   const refs = useRead("tests.list", { generating: true }, { enabled: gen.ids.length > 0 });
+  const fixes = useGenFixes(gen.result?.generation ?? null);
+  const [onlyFixes, setOnlyFixes] = useState(false);
   const { job, result, stopped, ids, running } = gen;
 
   useEffect(() => {
@@ -159,6 +166,22 @@ export function ResultPane({
             onOpenChange={(o) => o !== isOpen(SKIPPED) && toggle(SKIPPED)}
           />
         )}
+        {fixes.count > 0 && !running && (
+          <div {...stylex.props(type.compact, styles.fixes)}>
+            <Icon name="claude" size="sm" />
+            <span {...stylex.props(styles.grow)}>
+              Claude proposes {fixes.count} {fixes.count === 1 ? "fix" : "fixes"} on{" "}
+              {plural(fixes.tests.length, "test")}: each sits on its test below.
+            </span>
+            <Button
+              size="sm"
+              variant="quiet"
+              pressed={onlyFixes}
+              label={onlyFixes ? "Show all the tests" : `Show only these ${fixes.tests.length}`}
+              onClick={() => setOnlyFixes(!onlyFixes)}
+            />
+          </div>
+        )}
         {result?.diagnosis && job && !failedRun(job, result) && (
           <p {...stylex.props(type.compact, styles.muted)}>
             <DiagnosisText text={result.diagnosis.detail} />
@@ -167,13 +190,14 @@ export function ResultPane({
       </div>
     </Card>
   );
-  const cards = ids.map((id) => (
+  const cards = (onlyFixes && fixes.count ? ids.filter((id) => fixes.tests.includes(id)) : ids).map((id) => (
     <LandedCard
       key={id}
       id={id}
       refs={refs.data as LocalTestRef[] | undefined}
       check={checkOf(id)}
       onOpen={() => app.navigate("review", id)}
+      fixes={{ list: fixes.of(id), onFix: fixes.run, onDismiss: fixes.dismiss }}
     />
   ));
   const asked = askedOf(job, app.info?.project.claude);

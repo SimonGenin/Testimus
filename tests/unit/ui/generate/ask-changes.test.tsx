@@ -6,7 +6,7 @@ import type { DocRef } from "../../../../src/core/types.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
 import { api, named, xray } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
-import { at, job, output, ref } from "./fixtures.ts";
+import { at, job, output, ref, test } from "./fixtures.ts";
 import { freshPage, mountData } from "./harness.tsx";
 
 beforeEach(freshPage);
@@ -79,7 +79,24 @@ function done() {
       stale: false,
       target: { kind: "test", id: B, name: "Avec TK" },
     },
+    {
+      id: "act-2",
+      title: "Write the 2 tests skipped for « Commandes »",
+      scope: { kind: "tests", testIds: [] },
+      where: "gen:g1",
+      problem: "2 tests not written",
+      why: "w",
+      plan: [],
+      stamp: "s",
+      proposedBy: { run: "generate", model: "sonnet", effort: "medium", at },
+      state: "open",
+      at,
+      stale: false,
+      target: { kind: "generation", id: "g1", name: "Le sectionneur" },
+    },
   ];
+  api.routes["actions.dismiss"] = (i) => ({ id: i.id });
+  api.routes["tests.show"] = (i) => ({ id: i.id, test: test(i.id === B ? "Avec TK" : "Sectionneur sans TK") });
   api.routes["gen.revise"] = () => ({ jobId: "g2" });
 }
 
@@ -90,33 +107,63 @@ describe("Generate › Ask for changes", () => {
     const ask = await screen.findByRole("region", { name: "Ask for changes" });
     expect(within(ask).getByText("On the 2 tests of this generation")).toBeInTheDocument();
     expect(within(ask).queryByText("Le sectionneur")).not.toBeInTheDocument();
-    fireEvent.click(within(ask).getByRole("button", { name: "The request" }));
-    expect(within(ask).getByText("Le sectionneur")).toBeInTheDocument();
+    fireEvent.click(within(ask).getByRole("button", { name: "Read the request" }));
+    const reading = screen.getByRole("dialog", { name: "The request" });
+    expect(within(reading).getByText("Le sectionneur")).toBeInTheDocument();
+    fireEvent.click(within(reading).getByRole("button", { name: "Close" }));
     const all = within(ask).getByRole("button", { name: "All 2 tests" });
     expect(all).toHaveAttribute("aria-pressed", "true");
-    const suggested = within(ask).getByRole("region", { name: "Suggested by the results" });
-    fireEvent.click(within(suggested).getByRole("button", { name: "Fix the 2 errors in « Avec TK »" }));
+    expect(named("actions.list")[0].input).toEqual({ generation: "g1", view: { kind: "generation", id: "g1" } });
+    const proposes = await within(ask).findByRole("region", { name: "Claude proposes" });
+    expect(proposes).toHaveTextContent("1 fix on 1 test, each on its test at the right");
+    expect(within(ask).queryByText("Fix the 2 errors in « Avec TK »")).toBeNull();
+    fireEvent.click(within(proposes).getByRole("button", { name: "Run" }));
     expect(app.runInDock).toHaveBeenCalledWith({
+      name: "actions.run",
+      input: { id: "act-2" },
+      label: "Write the 2 tests skipped for « Commandes »",
+      testId: "",
+    });
+
+    const written = await screen.findByRole("region", { name: "Tests written" });
+    const onCard = await within(written).findByRole("list", { name: "Fixes Claude proposes" });
+    expect(onCard).toHaveTextContent("Fix the 2 errors in « Avec TK »");
+    expect(onCard).toHaveTextContent("The check found 2 errors");
+    fireEvent.click(within(onCard).getByRole("button", { name: "Fix" }));
+    expect(app.runInDock).toHaveBeenLastCalledWith({
       name: "actions.run",
       input: { id: "act-1" },
       label: "Fix the 2 errors in « Avec TK »",
       testId: "",
     });
-    expect(named("actions.list")[0].input).toEqual({ generation: "g1", view: { kind: "generation", id: "g1" } });
-    expect(within(suggested).getByRole("region", { name: "Test · Avec TK" })).toBeInTheDocument();
+    expect(within(written).getAllByRole("region")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Show only these 1" }));
+    expect(within(written).getAllByRole("region")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Show all the tests" }));
+    fireEvent.click(within(onCard).getByRole("button", { name: "Dismiss « Fix the 2 errors in « Avec TK » »" }));
+    await waitFor(() => expect(named("actions.dismiss")[0]?.input).toEqual({ id: "act-1" }));
+
+    fireEvent.click(within(ask).getByRole("button", { name: "The 1 with a fix" }));
+    fireEvent.change(within(ask).getByRole("textbox", { name: "What should change?" }), {
+      target: { value: "Corrige" },
+    });
+    fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
+    await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
+    expect(named("gen.revise")[0].input).toMatchObject({ mode: "change", tests: [B] });
+    fireEvent.click(within(ask).getByRole("button", { name: "All 2 tests" }));
 
     const box = within(ask).getByRole("textbox", { name: "What should change?" });
     fireEvent.change(box, { target: { value: "Précise les actions" } });
     fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
-    await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
-    expect(named("gen.revise")[0].input).toMatchObject({
+    await waitFor(() => expect(named("gen.revise")).toHaveLength(2));
+    expect(named("gen.revise")[1].input).toMatchObject({
       generation: "g1",
       request: "Précise les actions",
       mode: "change",
       model: "sonnet",
       effort: "medium",
     });
-    expect(named("gen.revise")[0].input).not.toHaveProperty("tests");
+    expect(named("gen.revise")[1].input).not.toHaveProperty("tests");
 
     fireEvent.click(screen.getByRole("button", { name: "New request" }));
     expect(screen.queryByRole("region", { name: "Ask for changes" })).toBeNull();

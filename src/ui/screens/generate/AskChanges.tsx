@@ -2,32 +2,40 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { Effort } from "../../../core/types.ts";
 import { CustomModel, cap, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
-import { Disclosure } from "../../components/ui/Disclosure.tsx";
+import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { UNTITLED_TEST, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { GenSuggestions } from "./GenSuggestions.tsx";
+import { useGenFixes } from "./useGenFixes.ts";
 
 const styles = stylex.create({
-  pane: {
+  pane: { boxSizing: "border-box", height: "100%", minHeight: 0, overflowY: "auto" },
+  stack: {
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: space.s5,
     paddingBlock: space.s6,
     paddingInline: space.s7,
-    height: "100%",
-    minHeight: 0,
-    overflow: "auto",
   },
   head: { display: "flex", flexDirection: "column", gap: space.s1 },
   title: { margin: 0 },
   muted: { margin: 0, color: color.textMuted },
-  request: { margin: 0, color: color.textMuted, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+  line: {
+    margin: 0,
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: space.s2,
+    color: color.textMuted,
+  },
+  request: { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
   picks: {
     display: "flex",
     flexDirection: "column",
@@ -39,7 +47,7 @@ const styles = stylex.create({
   },
 });
 
-export type Scope = "all" | "add" | "pick";
+export type Scope = "all" | "fixes" | "add" | "pick";
 
 export type AskInput = {
   generation: string;
@@ -62,7 +70,8 @@ const QUICK = [
 ];
 
 // ponytail: after a generation, its column asks Claude for changes on the tests it wrote (all, or the ones picked) or
-// for more tests under the same generation — gen.revise; the original request stays folded (it may be pages long)
+// for more tests under the same generation — gen.revise; the original request opens in a dialog (it may be pages long),
+// the fixes Claude proposes sit on their tests' cards and are only counted here
 export function AskChanges({
   generation,
   running,
@@ -85,72 +94,80 @@ export function AskChanges({
   const [model, setModel] = useState(defaults.model);
   const [effort, setEffort] = useState<Effort>(defaults.effort);
   const choice = useModelChoice(model, setModel);
+  const fixes = useGenFixes(generation);
+  const [reading, setReading] = useState(false);
   const request = shown.data?.request?.trim();
   const nothing = scope === "pick" && !picked.length ? "Pick the tests to change" : undefined;
   return (
     <section aria-label="Ask for changes" {...stylex.props(styles.pane)}>
-      <div {...stylex.props(styles.head)}>
-        <h2 {...stylex.props(type.titleSm, styles.title)}>Ask for changes</h2>
-        <p {...stylex.props(type.small, styles.muted)}>On the {plural(tests.length, "test")} of this generation</p>
-      </div>
-      {request && (
-        <Disclosure summary="The request" quiet>
-          <p {...stylex.props(type.small, styles.request)}>{request}</p>
-        </Disclosure>
-      )}
-      <ClaudeBlock
-        id="gen-revise"
-        ariaLabel="What should change?"
-        value=""
-        placeholder={
-          scope === "add"
-            ? "What tests should be added? e.g. « les cas où la TK est en défaut »"
-            : "What should change? e.g. « ajoute les cas où la TK est en défaut »"
-        }
-        scopes={[
-          { value: "all", label: `All ${plural(tests.length, "test")}` },
-          { value: "add", label: "Add tests" },
-          { value: "pick", label: "Pick tests…" },
-        ]}
-        scopeValue={scope}
-        onScope={(v) => setScope(v as Scope)}
-        quickAsks={QUICK}
-        model={{
-          value: choice.selected,
-          shown: cap(model),
-          options: choice.options,
-          onChange: choice.pick,
-        }}
-        effort={{ value: effort, options: effortOptions, onChange: (e) => setEffort(e as Effort) }}
-        submitLabel="Ask Claude"
-        running={running}
-        unavailable={unavailable ?? nothing}
-        onSubmit={(prompt) =>
-          onAsk({
-            generation,
-            request: prompt,
-            mode: scope === "add" ? "add" : "change",
-            ...(scope === "pick" ? { tests: picked } : {}),
-            model,
-            effort,
-          })
-        }
-      >
-        <CustomModel choice={choice} />
-        {scope === "pick" && (
-          <fieldset aria-label="Tests to change" {...stylex.props(styles.picks)}>
-            {tests.map((id) => (
-              <Checkbox
-                key={id}
-                label={names(id) ?? UNTITLED_TEST}
-                checked={picked.includes(id)}
-                onChange={(on) => setPicked((p) => (on ? [...p, id] : p.filter((x) => x !== id)))}
-              />
-            ))}
-          </fieldset>
+      <div {...stylex.props(styles.stack)}>
+        <div {...stylex.props(styles.head)}>
+          <h2 {...stylex.props(type.titleSm, styles.title)}>Ask for changes</h2>
+          <p {...stylex.props(type.small, styles.line)}>
+            <span>On the {plural(tests.length, "test")} of this generation</span>
+            {request && <Button size="sm" variant="link" label="Read the request" onClick={() => setReading(true)} />}
+          </p>
+        </div>
+        {reading && request && (
+          <Modal title="The request" subtitle="What this generation was asked" onClose={() => setReading(false)}>
+            <p {...stylex.props(type.reading, styles.request)}>{request}</p>
+          </Modal>
         )}
-      </ClaudeBlock>
-      <GenSuggestions generation={generation} />
+        <ClaudeBlock
+          id="gen-revise"
+          ariaLabel="What should change?"
+          value=""
+          placeholder={
+            scope === "add"
+              ? "What tests should be added? e.g. « les cas où la TK est en défaut »"
+              : "What should change? e.g. « ajoute les cas où la TK est en défaut »"
+          }
+          scopes={[
+            { value: "all", label: `All ${plural(tests.length, "test")}` },
+            ...(fixes.tests.length ? [{ value: "fixes", label: `The ${fixes.tests.length} with a fix` }] : []),
+            { value: "add", label: "Add tests" },
+            { value: "pick", label: "Pick tests…" },
+          ]}
+          scopeValue={scope}
+          onScope={(v) => setScope(v as Scope)}
+          quickAsks={QUICK}
+          model={{
+            value: choice.selected,
+            shown: cap(model),
+            options: choice.options,
+            onChange: choice.pick,
+          }}
+          effort={{ value: effort, options: effortOptions, onChange: (e) => setEffort(e as Effort) }}
+          submitLabel="Ask Claude"
+          running={running}
+          unavailable={unavailable ?? nothing}
+          onSubmit={(prompt) =>
+            onAsk({
+              generation,
+              request: prompt,
+              mode: scope === "add" ? "add" : "change",
+              ...(scope === "pick" ? { tests: picked } : scope === "fixes" ? { tests: fixes.tests } : {}),
+              model,
+              effort,
+            })
+          }
+        >
+          <CustomModel choice={choice} />
+          {scope === "pick" && (
+            <fieldset aria-label="Tests to change" {...stylex.props(styles.picks)}>
+              {tests.map((id) => (
+                <Checkbox
+                  key={id}
+                  label={names(id) ?? UNTITLED_TEST}
+                  checked={picked.includes(id)}
+                  onChange={(on) => setPicked((p) => (on ? [...p, id] : p.filter((x) => x !== id)))}
+                />
+              ))}
+            </fieldset>
+          )}
+        </ClaudeBlock>
+        <GenSuggestions fixes={fixes} />
+      </div>
     </section>
   );
 }

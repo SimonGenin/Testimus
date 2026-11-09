@@ -692,10 +692,14 @@ after the frontmatter, so a review decision never makes findings stale.
   so the same kind of item keeps the same words across runs. « Cover the skipped items » is an *add* (a quick ask may
   carry a scope: `ClaudeBlock` `quickAsks[].scope`). Both are snapshotted like any generation. `gen.show` reads a generation: its name, request, date, tests still there and
   skipped items. On Generate, once a generation is done, the left column is « Ask for changes » (`AskChanges`: the
-  kit's `ClaudeBlock` with scope chips All N tests · Add tests · Pick tests…, quick asks, model · effort); « New
-  request » in the top bar brings the request form back, and a run keeps the column it was started from; until the
-  project's last generation is known the column is a skeleton, so the form never shows and then flips. Under it,
-  « Suggested by the results »: the generation's Claude actions (below and §11).
+  kit's `ClaudeBlock` with scope chips All N tests · The n with a fix · Add tests · Pick tests…, quick asks, model ·
+  effort; « Read the request » opens the original request in a dialog); « New request » in the top bar brings the
+  request form back, and a run keeps the column it was started from; until the project's last generation is known the
+  column is a skeleton, so the form never shows and then flips. **The generation's Claude actions sit where they act**
+  (`useGenFixes`, decided on 2026-11-09, canvas « Testimus — Generate, after a generation »): a fix proposed on a test
+  is on that test's card in the result (its title, its problem in two lines, Fix runs it in the dock, × dismisses it;
+  running and failed say so), the result's head counts them with « Show only these n »; beside the ask, « Claude
+  proposes » counts them and lists what is proposed on the generation itself (the categories not written, Run).
 - **The core proposes actions after a generation** (`claude/gen-actions.ts`, at the end of `gen.tests` and
   `gen.revise`): one per test of the generation with errors or warnings (« Fix the 2 errors in « summary » », where
   `test:<id>`, stale once the test changes) and one per category of tests not written (« Write the 2 tests skipped for
