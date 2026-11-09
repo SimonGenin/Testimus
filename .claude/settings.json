@@ -12,5 +12,19 @@
       "D:\\SVN\\B040L00320_Ratp_Sosie_Sources\\.claude\\skills\\testr4",
       "C:\\Users\\s.genin\\Transurb\\2_SIM - Documents\\02_Projects\\L.00320 - France - RATP - SOSIE\\01 - Manage\\01 - Client\\14 - Livraisons documentaires\\J5\\D401-1 Specifications Fonctionnelles - J5"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/changelog-hook.ts\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
   }
 }

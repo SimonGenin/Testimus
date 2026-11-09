@@ -92,6 +92,11 @@ at once — use one freely. When the user says « commit » or « merge », the 
 into `master` (fast-forward when possible), and leave the checkout on `master`. Never push unless asked. Other
 sessions may edit this checkout at the same time: never stash, `checkout --` or reset files you did not change.
 
+**Every commit the team would notice updates `CHANGELOG.md` « ## Unreleased »** (French, for the team): first look
+for a line about the same thing and rewrite it (or drop a line the change makes false); only otherwise add one line —
+brief, simple, clear, what the team sees or can do, never file or test names. A hook stops `git commit` without it;
+refactors, tests and tooling put `[no changelog]` in the message. `npm run publish` turns Unreleased into the version.
+
 ## Talking to the user
 
 Answer in French. Plain words first; code on request.

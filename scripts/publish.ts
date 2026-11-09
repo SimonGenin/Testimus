@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { addUnreleased, notesOf, parseChangelog, releaseChangelog } from "../src/core/lib/changelog.ts";
 import { publishFolder, publishRelease, ROOT, release, uncPath } from "./release.ts";
 
 export const VERSION = /^\d+\.\d+\.\d+$/;
@@ -37,9 +38,20 @@ export function withVersion(packageJson: string, version: string): string {
   return packageJson.replace(/"version":\s*"[^"]*"/, `"version": "${version}"`);
 }
 
+// ponytail: the version takes CHANGELOG.md's « Unreleased » lines (and --notes as one more line); its notes are those lines
+export function changelogFor(
+  text: string,
+  version: string,
+  notes: string,
+  date: string,
+): { text: string; notes: string } {
+  const next = releaseChangelog(addUnreleased(text, notes), version, date);
+  return { text: next, notes: notesOf(parseChangelog(next).find((e) => e.version === version)?.items ?? []) };
+}
+
 // ponytail: npm run publish <x.x.x> [-- --notes "what is new"] [-- --to <shared folder>] — refuses a version the
-// folder already holds before building anything, sets package.json's version, builds the release and publishes it;
-// a failed build puts package.json back
+// folder already holds or a CHANGELOG.md with nothing under « Unreleased » before building anything, sets package.json's
+// version and the changelog's, builds the release and publishes it; a failed build puts both back
 if (import.meta.main) {
   (async () => {
     const args = publishArgs(process.argv.slice(2));
@@ -49,13 +61,18 @@ if (import.meta.main) {
     const there = await alreadyPublished(folder, args.version);
     if (there) throw new Error(`release ${args.version} already exists: ${there}`);
     const pkgFile = join(ROOT, "package.json");
+    const logFile = join(ROOT, "CHANGELOG.md");
     const before = readFileSync(pkgFile, "utf8");
+    const log = readFileSync(logFile, "utf8");
+    const next = changelogFor(log, args.version, args.notes, new Date().toISOString().slice(0, 10));
     writeFileSync(pkgFile, withVersion(before, args.version));
+    writeFileSync(logFile, next.text);
     let out = "";
     try {
-      out = await release({ reuseUi: false, skipNode: false, notes: args.notes });
+      out = await release({ reuseUi: false, skipNode: false, notes: next.notes });
     } catch (e) {
       writeFileSync(pkgFile, before);
+      writeFileSync(logFile, log);
       throw e;
     }
     const channel = uncPath(folder);

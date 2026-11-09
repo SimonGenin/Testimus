@@ -4,6 +4,7 @@ import { type ProbeDeps, probeAgents, probeDeps } from "../claude/limits.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { AGENTS_CAP, AGENTS_DEFAULT, clampAgents } from "../lib/agents.ts";
+import { readChangelog, UNRELEASED } from "../lib/changelog.ts";
 import { credsStatus, saveCreds, savedSecrets } from "../lib/creds.ts";
 import { jiraCheck, runDoctor, xrayCheck } from "../lib/doctor.ts";
 import { readSettings, writeSettings } from "../lib/project.ts";
@@ -118,6 +119,12 @@ const release = z.object({
   folder: z.string().describe("The release folder (its install.ps1 installs it)"),
   notes: z.string().describe("What is new, from its release.json; empty if none"),
   built: z.string().describe("When it was built (ISO); empty if unknown"),
+});
+
+const entry = z.object({
+  version: z.string().describe("The version, or Unreleased for what is committed but not published yet"),
+  date: z.string().describe("When it was published (YYYY-MM-DD); empty if not yet"),
+  items: z.array(z.string()).describe("What changes for the team, one line each"),
 });
 
 const verdict = {
@@ -407,11 +414,28 @@ export const commands = [
       problem: z.string().describe("Why no update can be offered (folder missing, unreadable, empty); empty if fine"),
       latest: release.nullable().describe("The newest release in the folder"),
       available: z.boolean().describe("The newest release is newer than what runs (and than what waits)"),
+      newer: z.array(entry).describe("The releases of the folder newer than what runs, newest first, with their notes"),
     }),
     mutates: false,
     global: true,
     async run() {
       return readUpdates(pkg.version, readSettings());
+    },
+  }),
+  command({
+    name: "system.changelog",
+    summary:
+      "What changed in each version of Testimus up to the one running (its CHANGELOG.md), newest first; Unreleased on top in a development copy. Newer versions not installed yet are in system.updates (newer).",
+    input: z.object({}),
+    output: z.object({
+      current: z.string().describe("The version running now"),
+      entries: z.array(entry).describe("Newest first; Unreleased (when it has lines) before the versions"),
+    }),
+    mutates: false,
+    global: true,
+    async run() {
+      const entries = readChangelog().filter((e) => e.version !== UNRELEASED || e.items.length);
+      return { current: pkg.version, entries };
     },
   }),
   command({

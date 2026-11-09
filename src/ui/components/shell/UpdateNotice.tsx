@@ -1,14 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useApp } from "../../lib/app.ts";
 import { toast } from "../../lib/toast.ts";
-import { canRestart, firstLine, restartApp, restartHint, useStartUpdate, useUpdates } from "../../lib/updates.ts";
+import { canRestart, restartApp, restartHint, useUpdates } from "../../lib/updates.ts";
 
-// ponytail: told once per page and version — « 0.4.0 is available » with Update, then « 0.4.0 is installed » with
-// Restart; letting the toast go is « later »: Settings › Updates keeps the whole state
+// ponytail: told once per page and version — « 0.4.0 is available » with What's new (Settings › Changelog, where its
+// lines and Update are), then « 0.4.0 is installed » with Restart; letting the toast go is « later »
 export function UpdateNotice({ booted }: { booted: boolean }) {
   const app = useApp();
   const updates = useUpdates(booted);
-  const start = useStartUpdate(app.navigate);
   const told = useRef(new Set<string>());
   const u = updates.data;
 
@@ -21,7 +20,9 @@ export function UpdateNotice({ booted }: { booted: boolean }) {
         tone: "success",
         title: `Testimus ${u.pending} is installed`,
         detail: restartHint(u.pending),
-        action: canRestart() ? { label: "Restart", run: restartApp } : undefined,
+        action: canRestart()
+          ? { label: "Restart", run: restartApp }
+          : { label: "What's new", run: () => app.navigate("settings", "changelog") },
         left: 60,
       });
       return;
@@ -32,11 +33,11 @@ export function UpdateNotice({ booted }: { booted: boolean }) {
     toast({
       tone: "neutral",
       title: `Testimus ${v} is available`,
-      detail: firstLine(u.latest?.notes ?? "") || `You have ${u.current}.`,
-      action: { label: "Update", run: () => void start(v) },
+      detail: `You have ${u.current}.`,
+      action: { label: "What's new", run: () => app.navigate("settings", "changelog") },
       left: 30,
     });
-  }, [u, start]);
+  }, [u, app.navigate]);
 
   return null;
 }

@@ -62,9 +62,3 @@ export const restartHint = (version: string): string =>
   canRestart()
     ? `Restart Testimus to use ${version}.`
     : `Close Testimus and start it again (Start menu, or testimus serve) to use ${version}.`;
-
-export const firstLine = (text: string): string =>
-  text
-    .split(/\r?\n/)
-    .find((l) => l.trim())
-    ?.trim() ?? "";

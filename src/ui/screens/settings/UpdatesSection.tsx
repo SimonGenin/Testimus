@@ -19,7 +19,6 @@ import { Anchor, Hint, Section, Stack } from "./Section.tsx";
 const styles = stylex.create({
   row: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
   muted: { color: color.textMuted, overflowWrap: "anywhere" },
-  notes: { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: color.text },
 });
 
 export function stateBadge(u: Updates): { label: string; tone: "success" | "info" | "warning" | "neutral" } {
@@ -137,7 +136,13 @@ export function UpdatesSection() {
               u?.available &&
               u.latest && (
                 <Stack>
-                  {u.latest.notes && <p {...stylex.props(type.compact, styles.notes)}>{u.latest.notes}</p>}
+                  <div {...stylex.props(styles.row)}>
+                    <Button
+                      variant="link"
+                      label={`What's new in ${u.latest.version}`}
+                      onClick={() => app.navigate("settings", "changelog")}
+                    />
+                  </div>
                   <div {...stylex.props(styles.row)}>
                     <Button
                       variant="primary"

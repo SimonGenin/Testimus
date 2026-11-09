@@ -203,8 +203,12 @@ and dark) into `dist/screens/` — the material handed to design work (`scripts/
 ## Shipping
 
 `npm run publish <x.x.x> [-- --notes "…"] [-- --to <dir>]` is the usual way: it refuses a version the team folder
-already holds (before building), sets `package.json`'s version, builds the release and publishes it (folder: `--to`,
+already holds (before building), turns `CHANGELOG.md`'s « Unreleased » into the version (refused when empty;
+`--notes` adds one line), sets `package.json`'s version, builds the release and publishes it (folder: `--to`,
 else this PC's Settings › Updates, else the channel of the installed copy in `%LOCALAPPDATA%\Testimus\install.json`).
+Every commit that changes what the team sees edits « Unreleased » first: one short French line per change, or the
+line already about it rewritten (the commit hook in `.claude/settings.json` reminds it; `[no changelog]` for
+refactors, tests and tooling).
 `npm run release` builds only (`--publish`, `--channel`, `--publish-only`). See ARCHITECTURE.md §15.
 
 ## Outside this repo (on the dev PC)

@@ -36,6 +36,7 @@ export const SKIP_PACKAGES = new Set(["onnxruntime-web", "adm-zip", "global-agen
 // repo path → path next to the bundle (app/testimus.mjs)
 export const PATH_MAP: [string, string][] = [
   ["package.json", "package.json"],
+  ["CHANGELOG.md", "CHANGELOG.md"],
   ["templates", "templates"],
   ["tests/fixtures", "fixtures"],
   ["dist/ui", "ui"],
@@ -66,6 +67,7 @@ export const LAYOUT = [
   "node/node.exe",
   "app/testimus.mjs",
   "app/package.json",
+  "app/CHANGELOG.md",
   "app/ui/index.html",
   "app/templates/project",
   "app/templates/run-pages/index.html",
@@ -578,6 +580,13 @@ function readme(version: string, node: string, electron: string, models: string)
   ].join("\r\n");
 }
 
+// ponytail: a release's notes are its CHANGELOG.md section, unless --notes says otherwise
+export async function changelogNotes(version: string): Promise<string> {
+  const { parseChangelog, notesOf } = await import("../src/core/lib/changelog.ts");
+  const entry = parseChangelog(readFileSync(join(ROOT, "CHANGELOG.md"), "utf8")).find((e) => e.version === version);
+  return notesOf(entry?.items ?? []);
+}
+
 export async function release(opts: { reuseUi: boolean; skipNode: boolean; notes?: string }): Promise<string> {
   const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string };
   const out = join(ROOT, "dist", `testimus-${pkg.version}-win-x64`);
@@ -617,6 +626,7 @@ export async function release(opts: { reuseUi: boolean; skipNode: boolean; notes
     join(app, "package.json"),
     `${JSON.stringify({ name: "testimus", version: pkg.version, type: "module", private: true }, null, 2)}\n`,
   );
+  cpSync(join(ROOT, "CHANGELOG.md"), join(app, "CHANGELOG.md"));
   cpSync(join(ROOT, "dist", "ui"), join(app, "ui"), { recursive: true });
   cpSync(join(ROOT, "templates"), join(app, "templates"), { recursive: true });
   cpSync(join(ROOT, "tests", "fixtures"), join(app, "fixtures"), { recursive: true });
@@ -659,7 +669,7 @@ export async function release(opts: { reuseUi: boolean; skipNode: boolean; notes
       `node ${part("node").toFixed(0)} MB, app ${part("app").toFixed(0)} MB, Electron shell ${shellMb} MB), ` +
       `Electron ${electron}, externals: ${packages.join(", ")}; ${((Date.now() - t0) / 1000).toFixed(0)} s\n`,
   );
-  writeManifest(out, pkg.version, opts.notes ?? "");
+  writeManifest(out, pkg.version, opts.notes ?? (await changelogNotes(pkg.version)));
   return out;
 }
 

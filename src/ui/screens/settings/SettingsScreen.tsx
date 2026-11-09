@@ -15,6 +15,7 @@ import { APP_VERSION } from "../../lib/version.ts";
 import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
+import { ChangelogSection } from "./ChangelogSection.tsx";
 import { ClaudeSection } from "./ClaudeSection.tsx";
 import { ColumnsSection } from "./ColumnsSection.tsx";
 import { ContextSection } from "./ContextSection.tsx";
@@ -62,6 +63,7 @@ const SECTIONS: Page[] = [
   { id: "access", label: "Access", icon: "key", page: AccessSection, needsProject: false },
   { id: "appearance", label: "Appearance", icon: "sun", page: AppearanceSection, needsProject: false },
   { id: "updates", label: "Updates", icon: "download", page: UpdatesSection, needsProject: false },
+  { id: "changelog", label: "Changelog", icon: "history", page: ChangelogSection, needsProject: false },
 ];
 
 const NAV = { min: 160, max: 360, initial: 240 };
@@ -103,7 +105,12 @@ export function SettingsScreen() {
         badge={
           <>
             <span {...stylex.props(type.code)}>
-              <Badge label={APP_VERSION} outline />
+              <Badge
+                label={APP_VERSION}
+                outline
+                tooltip="What changed in each version"
+                onClick={() => app.navigate("settings", "changelog")}
+              />
             </span>
             <span {...stylex.props(type.small, styles.saved)}>
               <Icon name="check" size="sm" />
@@ -135,7 +142,7 @@ export function SettingsScreen() {
           {!hasProject && section.needsProject ? (
             <Section id={section.id} title={section.label}>
               <Card padded={false}>
-                <NoProject text="Open a project to change its settings. Claude, Models, Access and Appearance work without one." />
+                <NoProject text="Open a project to change its settings. Claude, Models, Access, Appearance, Updates and Changelog work without one." />
               </Card>
             </Section>
           ) : (

@@ -1163,6 +1163,15 @@ first-class: every screen works without the bridge.
 - **Updates** from the team folder: `npm run publish <x.x.x>` (refuses a version the folder already holds, sets
   `package.json`, builds, copies as a hidden `.partial` renamed whole); installed copies read the folder from Settings ›
   Updates (`system.updates` / `system.update`, two versions kept); `--channel` moves the folder.
+- **Changelog**: `CHANGELOG.md` at the root is the one record of what each version changes for the team — `## <x.y.z>
+  — <date>` then one short line per change, in French, newest first, `## Unreleased` on top. Each commit that changes
+  what the team sees edits Unreleased (a Claude Code hook, `scripts/changelog-hook.ts`, stops a `git commit` without
+  it unless the commit is only tests, docs or tooling, or says `[no changelog]`); a line about the same thing is
+  rewritten, not doubled. `npm run publish` turns Unreleased into the version (refused when empty), and the
+  release's `release.json` notes are those lines; the file ships as `app/CHANGELOG.md`. Settings › Changelog
+  (`system.changelog`, plus `system.updates`' `newer`: the lines of the folder's newer releases) lists them newest
+  first; the version in the rail and in Settings opens it, and the « available » toast links there instead of
+  quoting notes.
 - **Proxy**: downloads and Jira calls honour `HTTPS_PROXY` (`NODE_USE_ENV_PROXY=1`, set by the shim and the shell).
   Node 26 has no loopback exemption, so both append `localhost,127.0.0.1,::1` to `NO_PROXY` (else passages and the
   llama-server key would go to the proxy); the doctor fails its `proxy` row when that is missing.

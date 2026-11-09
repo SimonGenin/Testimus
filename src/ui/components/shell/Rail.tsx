@@ -4,6 +4,7 @@ import { type Screen, useApp } from "../../lib/app.ts";
 import { draftOf, keepDraft } from "../../lib/drafts.ts";
 import { APP_VERSION } from "../../lib/version.ts";
 import { color, size, space } from "../../styles/tokens.stylex.ts";
+import { Button } from "../ui/Button.tsx";
 import type { IconName } from "../ui/Icon.tsx";
 import { Logo } from "../ui/Logo.tsx";
 import { RailItem } from "../ui/RailItem.tsx";
@@ -40,7 +41,7 @@ const styles = stylex.create({
 });
 
 // ponytail: the main navigation — the project on top, the four work screens, then Jobs, Settings, the system's state
-// and the version under it (the theme is chosen in Settings); coming back to a screen from the rail opens what was open there, its own entry clicked again goes
+// and the version under it, which opens Settings › Changelog (the theme is chosen in Settings); coming back to a screen from the rail opens what was open there, its own entry clicked again goes
 // to its start
 export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, number>>; kit?: boolean }) {
   const app = useApp();
@@ -64,8 +65,8 @@ export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, n
       {item("jobs", "Jobs", "jobs")}
       {item("settings", "Settings", "settings")}
       <SystemStatus current={at === "doctor"} onOpen={() => go("doctor")} />
-      <span title={`Testimus ${APP_VERSION}`} {...stylex.props(type.micro, styles.version)}>
-        {APP_VERSION}
+      <span {...stylex.props(type.micro, styles.version)}>
+        <Button variant="link" size="xs" label={APP_VERSION} onClick={() => app.navigate("settings", "changelog")} />
       </span>
     </nav>
   );

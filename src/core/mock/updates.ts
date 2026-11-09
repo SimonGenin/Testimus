@@ -28,7 +28,7 @@ export function setupUpdatesMock(root: string): void {
       fakeRelease(
         join(channel, `testimus-${v}-win-x64`),
         v,
-        `Testimus ${v}: a sample of release notes.\nThe tests list can be split in two panes.`,
+        `- Testimus ${v}: a sample of release notes.\n- The tests list can be split in two panes.`,
       );
   fakeRelease(join(home, pkg.version), pkg.version, "");
   writeFileSync(join(home, "current.txt"), pkg.version);

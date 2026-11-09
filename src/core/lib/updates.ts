@@ -6,6 +6,7 @@ import { isCancelled, timeout } from "../../shared/run/work.ts";
 import { type Ctx, UserError } from "../command.ts";
 import { withProcess } from "../jobs.ts";
 import type { Settings } from "../types.ts";
+import { type ChangelogEntry, itemsOf } from "./changelog.ts";
 import { natural } from "./natural.ts";
 
 export type Release = { version: string; folder: string; notes: string; built: string };
@@ -34,6 +35,7 @@ export type UpdateState = {
   problem: string;
   latest: Release | null;
   available: boolean;
+  newer: ChangelogEntry[];
 };
 
 const CHECK_MS = 15_000;
@@ -167,12 +169,20 @@ export async function checkUpdates(
       problem: "No update folder: set one here, or install Testimus from the team folder once.",
       latest: null,
       available: false,
+      newer: [],
     };
   let releases: Release[];
   try {
     releases = await timeout(ms, () => scanReleases(source.path));
   } catch (e) {
-    return { ...base, reachable: false, problem: unreadable(source.path, e), latest: null, available: false };
+    return {
+      ...base,
+      reachable: false,
+      problem: unreadable(source.path, e),
+      latest: null,
+      available: false,
+      newer: [],
+    };
   }
   const latest = releases[0] ?? null;
   const have = pending && compareVersions(pending, current) > 0 ? pending : current;
@@ -182,6 +192,9 @@ export async function checkUpdates(
     problem: latest ? "" : `No Testimus release in ${source.path}.`,
     latest,
     available: !!latest && compareVersions(latest.version, have) > 0,
+    newer: releases
+      .filter((r) => compareVersions(r.version, current) > 0)
+      .map((r) => ({ version: r.version, date: r.built.slice(0, 10), items: itemsOf(r.notes) })),
   };
 }
 

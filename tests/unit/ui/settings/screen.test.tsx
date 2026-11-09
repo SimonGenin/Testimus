@@ -110,7 +110,7 @@ describe("Settings › the list names the sections only", () => {
     expect(option("Models")).toHaveAttribute("aria-selected", "true");
     for (const card of ["This machine", "Models folder", "Packs", "Model catalog"])
       expect(within(nav()).queryByRole("option", { name: card })).toBeNull();
-    expect(within(nav()).getAllByRole("option")).toHaveLength(9);
+    expect(within(nav()).getAllByRole("option")).toHaveLength(10);
   });
 
   it("lists no card under Claude either", () => {

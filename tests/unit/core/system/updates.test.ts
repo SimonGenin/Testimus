@@ -311,6 +311,14 @@ describe("system.updates, system.update and system.set through the registry", ()
     );
     expect(before).toMatchObject({ installed: true, available: true, latest: { version: "99.1.0" } });
     expect(before.latest.notes).toContain("release notes");
+    expect((before as unknown as { newer: unknown }).newer).toEqual([
+      {
+        version: "99.1.0",
+        date: "2026-11-05",
+        items: ["Testimus 99.1.0: a sample of release notes.", "The tests list can be split in two panes."],
+      },
+      expect.objectContaining({ version: "0.9.0" }),
+    ]);
     const out = await call<{ version: string; previous: string }>("system.update", {}, null, { wait: true });
     expect(out).toMatchObject({ version: "99.1.0", previous: pkg.version });
     expect(await call("system.updates", {}, null)).toMatchObject({ pending: "99.1.0", available: false });

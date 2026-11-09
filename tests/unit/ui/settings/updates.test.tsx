@@ -3,7 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UpdateNotice } from "../../../../src/ui/components/shell/UpdateNotice.tsx";
-import { firstLine, restartHint } from "../../../../src/ui/lib/updates.ts";
+import { restartHint } from "../../../../src/ui/lib/updates.ts";
+import { ChangelogSection, markOf } from "../../../../src/ui/screens/settings/ChangelogSection.tsx";
 import { sourceLine, stateBadge, UpdatesSection } from "../../../../src/ui/screens/settings/UpdatesSection.tsx";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeNet, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
@@ -21,6 +22,7 @@ const state = (o: Partial<U> = {}): U => ({
   problem: "",
   latest,
   available: true,
+  newer: [{ version: "0.4.0", date: "2026-11-10", items: ["Two panes.", "And more."] }],
   ...o,
 });
 
@@ -42,7 +44,7 @@ beforeEach(() => {
 afterEach(reset);
 
 describe("updates: words", () => {
-  it("the badge, the source line, the restart hint and a notes line", () => {
+  it("the badge, the source line and the restart hint", () => {
     expect(stateBadge(state())).toEqual({ label: "0.4.0 available", tone: "info" });
     expect(stateBadge(state({ pending: "0.4.0", available: false }))).toMatchObject({ tone: "success" });
     expect(stateBadge(state({ available: false, latest: null, problem: "x", reachable: false }))).toEqual({
@@ -57,16 +59,16 @@ describe("updates: words", () => {
     expect(restartHint("0.4.0")).toContain("Close Testimus and start it again");
     fakeDesktop();
     expect(restartHint("0.4.0")).toBe("Restart Testimus to use 0.4.0.");
-    expect(firstLine("\n  first \nsecond")).toBe("first");
-    expect(firstLine("")).toBe("");
   });
 });
 
 describe("Settings › Updates", () => {
-  it("shows what is new and starts the update as a job", async () => {
-    mountSettings(<UpdatesSection />, { info: null });
+  it("links to what is new and starts the update as a job", async () => {
+    const { app } = mountSettings(<UpdatesSection />, { info: null });
     expect(await screen.findByText("0.4.0 available")).toBeInTheDocument();
-    expect(screen.getByText(/Two panes\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Two panes\./)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "What's new in 0.4.0" }));
+    expect(app.navigate).toHaveBeenCalledWith("settings", "changelog");
     expect(screen.getByText(/Running 0\.3\.0/)).toBeInTheDocument();
     expect(screen.getByLabelText(label("Folder"))).toHaveAttribute(
       "placeholder",
@@ -116,15 +118,64 @@ describe("Settings › Updates", () => {
   });
 });
 
+describe("Settings › Changelog", () => {
+  const log = {
+    current: "0.3.0",
+    entries: [
+      { version: "Unreleased", date: "", items: ["Work in progress."] },
+      { version: "0.3.0", date: "2026-11-05", items: ["Run screen."] },
+      { version: "0.2.0", date: "2026-11-01", items: [] },
+    ],
+  };
+
+  it("lists the versions newest first: the one waiting in the folder with Update, then this copy's", async () => {
+    net.routes["system.changelog"] = () => log;
+    mountSettings(<ChangelogSection />, { info: null });
+    expect(await screen.findByText("Two panes.")).toBeInTheDocument();
+    const titles = screen.getAllByText(/^(0\.\d\.0|Unreleased)$/).map((e) => e.textContent);
+    expect(titles).toEqual(["0.4.0", "Unreleased", "0.3.0", "0.2.0"]);
+    expect(screen.getByText("Not installed")).toBeInTheDocument();
+    expect(screen.getByText("Not published yet")).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
+    expect(screen.getByText("No notes for this version.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Update to 0.4.0" }));
+    await waitFor(() => expect(inputs("system.update")).toEqual([{ version: "0.4.0" }]));
+  });
+
+  it("an installed version waits for a restart, with no Update", async () => {
+    net.routes["system.changelog"] = () => log;
+    updates = state({ pending: "0.4.0", available: false });
+    mountSettings(<ChangelogSection />, { info: null });
+    expect(await screen.findByText("Installed — restart")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Update to/ })).toBeNull();
+  });
+
+  it("marks only what it knows", () => {
+    const none = new Set<string>();
+    expect(markOf("0.1.0", "0.3.0", "", none)).toBeNull();
+    expect(markOf("0.4.0", "0.3.0", "", new Set(["0.4.0"]))).toEqual({ label: "Not installed", tone: "info" });
+  });
+});
+
 describe("the update notice", () => {
-  it("says once that a version is available, and Update starts it", async () => {
-    const { rerender } = mountSettings(<UpdateNotice booted />, { info: null });
+  it("says once that a version is available, with a link to the changelog instead of its notes", async () => {
+    const { rerender, app } = mountSettings(<UpdateNotice booted />, { info: null });
     expect(await screen.findByText("Testimus 0.4.0 is available")).toBeInTheDocument();
-    expect(screen.getByText("Two panes.")).toBeInTheDocument();
+    expect(screen.getByText("You have 0.3.0.")).toBeInTheDocument();
+    expect(screen.queryByText(/Two panes/)).toBeNull();
     rerender(<UpdateNotice booted />);
     expect(screen.getAllByText("Testimus 0.4.0 is available")).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Update" }));
-    await waitFor(() => expect(inputs("system.update")).toEqual([{ version: "0.4.0" }]));
+    fireEvent.click(screen.getByRole("button", { name: "What's new" }));
+    expect(app.navigate).toHaveBeenCalledWith("settings", "changelog");
+    expect(inputs("system.update")).toEqual([]);
+  });
+
+  it("in a browser, an installed version links to the changelog", async () => {
+    updates = state({ pending: "0.4.0", available: false });
+    const { app } = mountSettings(<UpdateNotice booted />, { info: null });
+    expect(await screen.findByText("Testimus 0.4.0 is installed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "What's new" }));
+    expect(app.navigate).toHaveBeenCalledWith("settings", "changelog");
   });
 
   it("says an installed version waits for a restart, with Restart in the desktop app", async () => {

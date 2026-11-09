@@ -251,6 +251,16 @@
       "url": "http://127.0.0.1:4379"
     },
     {
+      "name": "testimus-mock-changelog",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4385", "--no-open"],
+      "port": 4385,
+      "url": "http://127.0.0.1:4385",
+      "env": {
+        "TESTIMUS_MOCK_UPDATES": "0.0.8"
+      }
+    },
+    {
       "name": "testimus-mock-review",
       "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
       "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4381", "--no-open"],
