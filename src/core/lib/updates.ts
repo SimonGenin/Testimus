@@ -194,7 +194,7 @@ export async function checkUpdates(
     available: !!latest && compareVersions(latest.version, have) > 0,
     newer: releases
       .filter((r) => compareVersions(r.version, current) > 0)
-      .map((r) => ({ version: r.version, date: r.built.slice(0, 10), items: itemsOf(r.notes) })),
+      .map((r) => ({ version: r.version, items: itemsOf(r.notes) })),
   };
 }
 

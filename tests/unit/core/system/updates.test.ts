@@ -314,7 +314,6 @@ describe("system.updates, system.update and system.set through the registry", ()
     expect((before as unknown as { newer: unknown }).newer).toEqual([
       {
         version: "99.1.0",
-        date: "2026-11-05",
         items: ["Testimus 99.1.0: a sample of release notes.", "The tests list can be split in two panes."],
       },
       expect.objectContaining({ version: "0.9.0" }),

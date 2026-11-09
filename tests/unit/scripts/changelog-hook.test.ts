@@ -50,16 +50,9 @@ describe("the changelog hook", () => {
 
 describe("publish and the changelog", () => {
   it("takes Unreleased (and --notes as one more line) for the version, its notes are those lines", () => {
-    const out = changelogFor(
-      "# C\n\n## Unreleased\n\n- A.\n\n## 0.0.1 — 2026-11-01\n\n- Old.\n",
-      "0.0.2",
-      "B.",
-      "2026-11-10",
-    );
+    const out = changelogFor("# C\n\n## Unreleased\n\n- A.\n\n## 0.0.1\n\n- Old.\n", "0.0.2", "B.");
     expect(out.notes).toBe("- A.\n- B.");
-    expect(out.text).toContain("## Unreleased\n\n## 0.0.2 — 2026-11-10\n\n- A.\n- B.\n\n## 0.0.1");
-    expect(() => changelogFor("## Unreleased\n\n## 0.0.1\n- Old.\n", "0.0.2", "", "2026-11-10")).toThrow(
-      "nothing under",
-    );
+    expect(out.text).toBe("# C\n\n## Unreleased\n\n## 0.0.2\n\n- A.\n- B.\n\n## 0.0.1\n\n- Old.\n");
+    expect(() => changelogFor("## Unreleased\n\n## 0.0.1\n- Old.\n", "0.0.2", "")).toThrow("nothing under");
   });
 });

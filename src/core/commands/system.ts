@@ -123,7 +123,6 @@ const release = z.object({
 
 const entry = z.object({
   version: z.string().describe("The version, or Unreleased for what is committed but not published yet"),
-  date: z.string().describe("When it was published (YYYY-MM-DD); empty if not yet"),
   items: z.array(z.string()).describe("What changes for the team, one line each"),
 });
 

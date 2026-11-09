@@ -3,12 +3,13 @@ import { compareVersions, parseVersion } from "./updates.ts";
 
 export const UNRELEASED = "Unreleased";
 
-export type ChangelogEntry = { version: string; date: string; items: string[] };
+export type ChangelogEntry = { version: string; items: string[] };
 
-const HEADING = /^##\s+(\S+)(?:\s+[—–-]\s+(\S+))?\s*$/;
+const HEADING = /^##\s+(\S+)(?:\s+[—–-]\s+\S+)?\s*$/;
 
-// ponytail: CHANGELOG.md is « ## <version> — <date> » then « - » lines (a line that does not start with « - » continues
-// the one above); « Unreleased » first, then the versions newest first whatever their order in the file
+// ponytail: CHANGELOG.md is « ## <version> » (no date: the team reads what changed, not when) then « - » lines (a line
+// that does not start with « - » continues the one above); « Unreleased » first, then the versions newest first
+// whatever their order in the file
 export function parseChangelog(text: string): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
   let at: ChangelogEntry | null = null;
@@ -16,7 +17,7 @@ export function parseChangelog(text: string): ChangelogEntry[] {
     const line = raw.trim();
     const h = HEADING.exec(line);
     if (h && (h[1] === UNRELEASED || parseVersion(h[1]))) {
-      at = { version: h[1], date: h[2] ?? "", items: [] };
+      at = { version: h[1], items: [] };
       entries.push(at);
     } else if (line.startsWith("#")) at = null;
     else if (!at || !line) continue;
@@ -35,16 +36,16 @@ export function itemsOf(notes: string): string[] {
   return listed.length ? listed : notes.trim() ? [notes.trim().replace(/\s*\r?\n\s*/g, " ")] : [];
 }
 
-// ponytail: publishing <version> renames « Unreleased » to it with today's date and opens an empty « Unreleased » above;
-// refused when nothing is written there, or when the version is already in the file
-export function releaseChangelog(text: string, version: string, date: string): string {
+// ponytail: publishing <version> renames « Unreleased » to it and opens an empty « Unreleased » above; refused when
+// nothing is written there, or when the version is already in the file
+export function releaseChangelog(text: string, version: string): string {
   const entries = parseChangelog(text);
   if (entries.some((e) => e.version === version)) throw new Error(`CHANGELOG.md already has a section ${version}.`);
   if (!entries.find((e) => e.version === UNRELEASED)?.items.length)
     throw new Error(
       `CHANGELOG.md has nothing under « ## ${UNRELEASED} »: say there what ${version} changes, then publish.`,
     );
-  return text.replace(UNRELEASED_HEADING, `## ${UNRELEASED}\n\n## ${version} — ${date}`);
+  return text.replace(UNRELEASED_HEADING, `## ${UNRELEASED}\n\n## ${version}`);
 }
 
 const UNRELEASED_HEADING = /^##[ \t]+Unreleased[ \t]*\r?$/m;

@@ -39,13 +39,8 @@ export function withVersion(packageJson: string, version: string): string {
 }
 
 // ponytail: the version takes CHANGELOG.md's « Unreleased » lines (and --notes as one more line); its notes are those lines
-export function changelogFor(
-  text: string,
-  version: string,
-  notes: string,
-  date: string,
-): { text: string; notes: string } {
-  const next = releaseChangelog(addUnreleased(text, notes), version, date);
+export function changelogFor(text: string, version: string, notes: string): { text: string; notes: string } {
+  const next = releaseChangelog(addUnreleased(text, notes), version);
   return { text: next, notes: notesOf(parseChangelog(next).find((e) => e.version === version)?.items ?? []) };
 }
 
@@ -64,7 +59,7 @@ if (import.meta.main) {
     const logFile = join(ROOT, "CHANGELOG.md");
     const before = readFileSync(pkgFile, "utf8");
     const log = readFileSync(logFile, "utf8");
-    const next = changelogFor(log, args.version, args.notes, new Date().toISOString().slice(0, 10));
+    const next = changelogFor(log, args.version, args.notes);
     writeFileSync(pkgFile, withVersion(before, args.version));
     writeFileSync(logFile, next.text);
     let out = "";

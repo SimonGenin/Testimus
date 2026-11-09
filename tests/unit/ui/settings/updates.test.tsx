@@ -22,7 +22,7 @@ const state = (o: Partial<U> = {}): U => ({
   problem: "",
   latest,
   available: true,
-  newer: [{ version: "0.4.0", date: "2026-11-10", items: ["Two panes.", "And more."] }],
+  newer: [{ version: "0.4.0", items: ["Two panes.", "And more."] }],
   ...o,
 });
 
@@ -122,9 +122,9 @@ describe("Settings › Changelog", () => {
   const log = {
     current: "0.3.0",
     entries: [
-      { version: "Unreleased", date: "", items: ["Work in progress."] },
-      { version: "0.3.0", date: "2026-11-05", items: ["Run screen."] },
-      { version: "0.2.0", date: "2026-11-01", items: [] },
+      { version: "Unreleased", items: ["Work in progress."] },
+      { version: "0.3.0", items: ["Run screen."] },
+      { version: "0.2.0", items: [] },
     ],
   };
 

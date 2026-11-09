@@ -17,7 +17,6 @@ type Entry = CommandOutput<"system.changelog">["entries"][number];
 
 const styles = stylex.create({
   title: { display: "inline-flex", alignItems: "baseline", gap: space.s3, flexWrap: "wrap" },
-  date: { color: color.textMuted },
   list: { margin: 0, paddingInlineStart: space.s5, display: "flex", flexDirection: "column", gap: space.s2 },
   item: { overflowWrap: "anywhere" },
   empty: { margin: 0, color: color.textMuted },
@@ -43,7 +42,6 @@ function EntryCard({ entry, mark, action }: { entry: Entry; mark: Mark; action?:
       title={
         <span {...stylex.props(styles.title)}>
           <span>{entry.version}</span>
-          {entry.date && <span {...stylex.props(type.small, styles.date)}>{entry.date}</span>}
           {mark && <Badge label={mark.label} tone={mark.tone} />}
         </span>
       }

@@ -41,25 +41,25 @@ Intro text, not a version.
 describe("CHANGELOG.md", () => {
   it("reads Unreleased first, then the versions newest first, with wrapped lines joined", () => {
     expect(parseChangelog(`﻿${LOG}`)).toEqual([
-      { version: "Unreleased", date: "", items: ["New thing."] },
-      { version: "0.0.10", date: "2026-11-09", items: ["Ten."] },
-      { version: "0.0.2", date: "2026-11-05", items: ["Two wrapped."] },
+      { version: "Unreleased", items: ["New thing."] },
+      { version: "0.0.10", items: ["Ten."] },
+      { version: "0.0.2", items: ["Two wrapped."] },
     ]);
   });
 
   it("publishing renames Unreleased to the version and opens an empty one above", () => {
-    const next = releaseChangelog(LOG, "0.0.11", "2026-11-10");
+    const next = releaseChangelog(LOG, "0.0.11");
     expect(parseChangelog(next).slice(0, 2)).toEqual([
-      { version: "Unreleased", date: "", items: [] },
-      { version: "0.0.11", date: "2026-11-10", items: ["New thing."] },
+      { version: "Unreleased", items: [] },
+      { version: "0.0.11", items: ["New thing."] },
     ]);
-    expect(() => releaseChangelog(LOG, "0.0.10", "2026-11-10")).toThrow("already has a section 0.0.10");
-    expect(() => releaseChangelog(next, "0.0.12", "2026-11-10")).toThrow("nothing under « ## Unreleased »");
+    expect(() => releaseChangelog(LOG, "0.0.10")).toThrow("already has a section 0.0.10");
+    expect(() => releaseChangelog(next, "0.0.12")).toThrow("nothing under « ## Unreleased »");
   });
 
   it("--notes adds one line at the end of Unreleased, even an empty one", () => {
     expect(parseChangelog(addUnreleased(LOG, " Extra. "))[0]?.items).toEqual(["New thing.", "Extra."]);
-    const empty = releaseChangelog(LOG, "0.0.11", "2026-11-10");
+    const empty = releaseChangelog(LOG, "0.0.11");
     expect(parseChangelog(addUnreleased(empty, "Only."))[0]?.items).toEqual(["Only."]);
     expect(addUnreleased(LOG, "  ")).toBe(LOG);
     expect(parseChangelog(addUnreleased("## Unreleased\n", "Last."))[0]?.items).toEqual(["Last."]);

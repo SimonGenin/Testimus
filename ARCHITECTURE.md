@@ -1163,8 +1163,8 @@ first-class: every screen works without the bridge.
 - **Updates** from the team folder: `npm run publish <x.x.x>` (refuses a version the folder already holds, sets
   `package.json`, builds, copies as a hidden `.partial` renamed whole); installed copies read the folder from Settings ›
   Updates (`system.updates` / `system.update`, two versions kept); `--channel` moves the folder.
-- **Changelog**: `CHANGELOG.md` at the root is the one record of what each version changes for the team — `## <x.y.z>
-  — <date>` then one short line per change, in French, newest first, `## Unreleased` on top. Each commit that changes
+- **Changelog**: `CHANGELOG.md` at the root is the one record of what each version changes for the team — `## <x.y.z>`
+  (no date) then one short line per change, in French, newest first, `## Unreleased` on top. Each commit that changes
   what the team sees edits Unreleased (a Claude Code hook, `scripts/changelog-hook.ts`, stops a `git commit` without
   it unless the commit is only tests, docs or tooling, or says `[no changelog]`); a line about the same thing is
   rewritten, not doubled. `npm run publish` turns Unreleased into the version (refused when empty), and the
