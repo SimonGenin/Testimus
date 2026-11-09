@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { FilterBar } from "../../components/filters/FilterBar.tsx";
 import { type CheckNode, CheckTree } from "../../components/pick/CheckTree.tsx";
-import { ReviewBadge } from "../../components/ui/Badge.tsx";
+import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
@@ -10,8 +10,10 @@ import { Loading } from "../../components/ui/Loading.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import {
+  flatChain,
   keepTests,
   NO_PICK_FILTER,
   type PickFilters,
@@ -60,23 +62,54 @@ const toChecks = (nodes: TestNode[]): CheckNode[] =>
           meta: (
             <>
               <span {...stylex.props(type.code, styles.key)}>{n.test.key ?? "local"}</span>
+              {!!n.test.findings?.errors && (
+                <Badge size="sm" tone="danger" icon="x-circle" label={plural(n.test.findings.errors, "error")} />
+              )}
+              {!n.test.findings?.errors && !!n.test.findings?.warnings && (
+                <Badge
+                  size="sm"
+                  tone="warning"
+                  icon="alert-triangle"
+                  label={plural(n.test.findings.warnings, "warning")}
+                />
+              )}
+              {n.test.fix && <Badge size="sm" tone="claude" icon="claude" label="Fix proposed" />}
               <ReviewBadge state={n.test.review} size="sm" />
             </>
           ),
         },
   );
 
-// ponytail: the tests of a new run, picked as Generate picks sections — the project's tests by folder, a folder ticking
-// all its tests; the filter bar above narrows what the tree shows, and what it hides stays picked. onChange gives the
-// picked tests in the tree's order: the order the run plays them
-export function TestPicker({ onChange }: { onChange: (ids: string[]) => void }) {
+// ponytail: tests picked as Generate picks sections — the project's tests by folder (or only some of them: Generate's
+// pick among a generation's tests), a folder ticking all its tests; the filter bar above narrows what the tree shows, and
+// what it hides stays picked. onChange gives the picked tests in the tree's order: the order a run plays them
+export function TestPicker({
+  onChange,
+  only,
+  fixes,
+  initial,
+}: {
+  onChange: (ids: string[]) => void;
+  /** pick among these tests only */
+  only?: string[];
+  /** the tests Claude proposes a fix on: the Findings menu gets « With a fix » */
+  fixes?: string[];
+  /** picked at first */
+  initial?: string[];
+}) {
   const r = useRead("tests.list", {});
-  const tests = (r.data ?? null) as PickTest[] | null;
+  const tests = useMemo(() => {
+    const all = r.data as PickTest[] | undefined;
+    if (!all) return null;
+    return all
+      .filter((t) => !only || only.includes(t.id))
+      .map((t) => (fixes?.includes(t.id) ? { ...t, fix: true } : t));
+  }, [r.data, only, fixes]);
   const [filters, setFilters] = useState<PickFilters>(NO_PICK_FILTER);
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(initial));
   const order = useMemo(() => (tests ? treeOrder(testTree(tests)) : []), [tests]);
   const shown = useMemo(() => (tests ? keepTests(tests, filters) : []), [tests, filters]);
-  const tree = useMemo(() => toChecks(testTree(shown)), [shown]);
+  const tree = useMemo(() => toChecks(flatChain(testTree(shown))), [shown]);
   if (!tests)
     return (
       <Card padded={false}>
@@ -137,6 +170,14 @@ export function TestPicker({ onChange }: { onChange: (ids: string[]) => void }) 
               options: options.labels,
               selected: filters.labels,
               onChange: set("labels"),
+            },
+            {
+              key: "findings",
+              label: "Findings",
+              options: options.findings,
+              selected: filters.findings,
+              onChange: set("findings"),
+              note: "What its last check found. Ticks add up: a test shows when it has any of them.",
             },
             {
               key: "review",

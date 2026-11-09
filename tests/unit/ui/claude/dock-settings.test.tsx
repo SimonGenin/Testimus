@@ -124,7 +124,7 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(state.setClaudeRunning).toHaveBeenCalledWith("*project*");
   });
 
-  it("a preset fills the box, shows pressed and labels the run; typing deselects it", async () => {
+  it("a preset of the Suggestions menu fills the box, even two of one label", async () => {
     routes["contexts.list"] = () => ctxList;
     routes["contexts.ofTest"] = () => ({ effective: ["ctx-a", "ctx-b"], own: null, project: [] });
     routes["claude.run"] = () => ({
@@ -146,17 +146,13 @@ describe("dock: scope, presets, contexts, models", () => {
         <ClaudeDock folded={false} onFold={() => {}} />,
       ),
     );
-    const [first, second] = screen.getAllByRole("button", { name: "Rephrase" });
-    expect(first).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(second);
+    const suggestions = () => fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
+    suggestions();
+    fireEvent.click(screen.getAllByRole("menuitem", { name: /^Rephrase/ })[1]);
     expect(box()).toHaveValue("Same label, other prompt");
-    expect(second).toHaveAttribute("aria-pressed", "true");
-    expect(first).toHaveAttribute("aria-pressed", "false");
-    fireEvent.change(box(), { target: { value: "Same label, other prompt!" } });
-    expect(second).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(first);
+    suggestions();
+    fireEvent.click(screen.getAllByRole("menuitem", { name: /^Rephrase/ })[0]);
     expect(box()).toHaveValue("Rephrase in house style");
-    expect(first).toHaveAttribute("aria-pressed", "true");
     expect(callsOf("claude.run")).toHaveLength(0);
     const glossary = await screen.findByRole("button", { name: "Glossary" });
     fireEvent.click(glossary);

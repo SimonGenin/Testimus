@@ -4,6 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef } from "../../../../src/core/types.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
+import { choose } from "../../helpers/select.ts";
 import { api, named, xray } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
 import { at, job, output, ref, test } from "./fixtures.ts";
@@ -111,8 +112,8 @@ describe("Generate › Ask for changes", () => {
     const reading = screen.getByRole("dialog", { name: "The request" });
     expect(within(reading).getByText("Le sectionneur")).toBeInTheDocument();
     fireEvent.click(within(reading).getByRole("button", { name: "Close" }));
-    const all = within(ask).getByRole("button", { name: "All 2 tests" });
-    expect(all).toHaveAttribute("aria-pressed", "true");
+    const scope = within(ask).getByRole("combobox", { name: "Scope" });
+    expect(scope).toHaveTextContent("All 2 tests");
     expect(named("actions.list")[0].input).toEqual({ generation: "g1", view: { kind: "generation", id: "g1" } });
     const proposes = await within(ask).findByRole("region", { name: "Claude proposes" });
     expect(proposes).toHaveTextContent("1 fix on 1 test, each on its test at the right");
@@ -143,14 +144,14 @@ describe("Generate › Ask for changes", () => {
     fireEvent.click(within(onCard).getByRole("button", { name: "Dismiss « Fix the 2 errors in « Avec TK » »" }));
     await waitFor(() => expect(named("actions.dismiss")[0]?.input).toEqual({ id: "act-1" }));
 
-    fireEvent.click(within(ask).getByRole("button", { name: "The 1 with a fix" }));
+    choose(scope, "The 1 with a fix");
     fireEvent.change(within(ask).getByRole("textbox", { name: "What should change?" }), {
       target: { value: "Corrige" },
     });
     fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
     await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
     expect(named("gen.revise")[0].input).toMatchObject({ mode: "change", tests: [B] });
-    fireEvent.click(within(ask).getByRole("button", { name: "All 2 tests" }));
+    choose(scope, "All 2 tests");
 
     const box = within(ask).getByRole("textbox", { name: "What should change?" });
     fireEvent.change(box, { target: { value: "Précise les actions" } });
@@ -170,21 +171,27 @@ describe("Generate › Ask for changes", () => {
     expect(screen.getByLabelText("What should be tested?")).toBeInTheDocument();
   });
 
-  it("Add tests asks for more under the same generation; Pick tests sends only the ones ticked", async () => {
+  it("New tests asks for more under the same generation; Pick tests opens the picker and sends only the ones used", async () => {
     done();
     mountData(<GenerateScreen />);
     const ask = await screen.findByRole("region", { name: "Ask for changes" });
-    fireEvent.click(within(ask).getByRole("button", { name: "Add tests" }));
+    const scope = within(ask).getByRole("combobox", { name: "Scope" });
+    choose(scope, /^New tests/);
     const box = within(ask).getByRole("textbox", { name: "What should change?" });
     fireEvent.change(box, { target: { value: "Le défaut de la TK" } });
     fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
     await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
     expect(named("gen.revise")[0].input).toMatchObject({ mode: "add", request: "Le défaut de la TK" });
 
-    fireEvent.click(within(ask).getByRole("button", { name: "Pick tests…" }));
-    const picks = within(ask).getByRole("group", { name: "Tests to change" });
-    expect(within(ask).getByRole("button", { name: /^Ask Claude/ })).toBeDisabled();
-    fireEvent.click(within(picks).getByRole("checkbox", { name: "Avec TK" }));
+    choose(scope, /^Pick tests…/);
+    const dialog = screen.getByRole("dialog", { name: "Pick the tests to change" });
+    expect(within(dialog).getByRole("button", { name: "Use these tests" })).toBeDisabled();
+    const tree = await within(dialog).findByRole("list", { name: "Tests to run" });
+    expect(within(tree).getAllByRole("checkbox")).toHaveLength(2);
+    fireEvent.click(within(tree).getByRole("checkbox", { name: "Avec TK" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Use these 1 test" }));
+    expect(screen.queryByRole("dialog", { name: "Pick the tests to change" })).toBeNull();
+    expect(scope).toHaveTextContent("1 test picked");
     fireEvent.change(box, { target: { value: "Raccourcis" } });
     fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
     await waitFor(() => expect(named("gen.revise")).toHaveLength(2));
@@ -215,8 +222,9 @@ describe("Generate › Ask for changes", () => {
     done();
     mountData(<GenerateScreen />);
     const ask = await screen.findByRole("region", { name: "Ask for changes" });
-    fireEvent.click(within(ask).getByRole("button", { name: "Cover the skipped items" }));
-    expect(within(ask).getByRole("button", { name: "Add tests" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(ask).getByRole("button", { name: "Suggestions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Cover the skipped items/ }));
+    expect(within(ask).getByRole("combobox", { name: "Scope" })).toHaveTextContent("New tests");
     fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
     await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
     expect(named("gen.revise")[0].input).toMatchObject({

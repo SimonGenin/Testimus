@@ -72,7 +72,8 @@ test("On this test: Claude changes a step, the editor marks it, Revert puts it b
 test("Revert from the editor banner undoes a run", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   const dock = await openDock(page);
-  await dock.getByRole("button", { name: "Rephrase in house style" }).click();
+  await dock.getByRole("button", { name: "Suggestions" }).click();
+  await page.getByRole("menuitem", { name: /^Rephrase in house style/ }).click();
   await dock.getByRole("button", { name: "Send" }).click();
   const main = page.getByRole("main");
   await expect(main.getByText(/Claude changed 1 step/)).toBeVisible({ timeout: 20_000 });

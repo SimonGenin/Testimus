@@ -599,9 +599,8 @@ describe("Claude dock: on a test", () => {
     expect(runChoice()).toHaveAccessibleName("my-model-1 · high");
     pickRun("opus");
     pickRun("max");
-    const chip = screen.getByRole("button", { name: "Add sources" });
-    fireEvent.click(chip);
-    expect(chip).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Add sources/ }));
     expect(box()).toHaveValue("Cite them");
     expect(callsOf("claude.run")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));

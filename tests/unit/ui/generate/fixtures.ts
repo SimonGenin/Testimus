@@ -42,6 +42,7 @@ export const ref = (id: string, over: Partial<LocalTestRef> = {}): LocalTestRef 
     id,
     summary: id,
     folder: "/",
+    labels: [],
     review: "draft",
     generated: false,
     edited: false,

@@ -23,7 +23,7 @@ export function GenSuggestions({ fixes }: { fixes: GenFixes }) {
       {fixes.count > 0 && (
         <p {...stylex.props(type.compact, styles.text)}>
           {fixes.count} {fixes.count === 1 ? "fix" : "fixes"} on {plural(fixes.tests.length, "test")}, each on its test
-          at the right. To ask for them all at once, pick « The {fixes.tests.length} with a fix » above.
+          at the right. To ask for them all at once, choose « The {fixes.tests.length} with a fix » as the scope.
         </p>
       )}
       {fixes.general.length > 0 && (

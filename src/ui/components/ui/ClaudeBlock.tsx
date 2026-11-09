@@ -18,6 +18,8 @@ import { GroupSelect, type SelectGroup } from "./GroupSelect.tsx";
 import { halo } from "./halo.ts";
 import { Icon } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
+import { Menu } from "./Menu.tsx";
+import { Select } from "./Select.tsx";
 import { Spinner } from "./Spinner.tsx";
 import { Text, type TextProps } from "./Text.tsx";
 import { Timer } from "./Timer.tsx";
@@ -48,7 +50,6 @@ const styles = stylex.create({
     paddingTop: space.s3,
     paddingInline: space.s3,
   },
-  fieldset: { marginInline: 0, marginBlock: 0, paddingBottom: 0, borderWidth: 0, minWidth: 0 },
   rowLabel: {
     fontSize: fontSize.small,
     lineHeight: lineHeight.small,
@@ -59,11 +60,12 @@ const styles = stylex.create({
     boxSizing: "border-box",
     containerType: "inline-size",
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: space.s2,
     minHeight: size.controlLg,
     paddingBlock: space.s2,
-    paddingInlineStart: space.s4,
+    paddingInlineStart: space.s3,
     paddingInlineEnd: space.s2,
     backgroundColor: "transparent",
   },
@@ -114,12 +116,13 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   addContext?: ReactNode;
   /** inside the frame, under the text and above the foot (an additional note, a custom model's name) */
   children?: ReactNode;
-  /** what the run works on, one chip pressed among them (« All 3 tests · Add tests · Pick tests… »), above the text */
-  scopes?: { value: string; label: string }[];
+  /** what the run works on, one of them (« All 3 tests · Add tests · Pick tests… »): a select in the foot, before the
+   * model — a setting of the run, never a chip */
+  scopes?: { value: string; label: string; hint?: string }[];
   scopeValue?: string;
   onScope?: (value: string) => void;
-  /** chips that put their prompt in the box; typing clears the pressed one. One with a scope also presses that scope
-   * chip (« Cover the skipped items » is an Add) */
+  /** suggestions to start from, in a menu of the foot: one picked writes its prompt in the box; one with a scope also
+   * sets it (« Cover the skipped items » is an Add) */
   quickAsks?: { label: string; prompt: string; scope?: string }[];
   model?: Choice;
   effort?: Choice;
@@ -176,12 +179,10 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
   const [draft, setDraft, clearDraft] = useDraft(autosave ? null : (text.draftKey ?? null), text.value);
   const [plainValue, setPlainValue] = useState(text.value);
   const value = autosave ? text.value : text.draftKey ? draft : text.onChange ? text.value : plainValue;
-  const [pressed, setPressed] = useState<number | null>(null);
   const busy = running !== null && running !== undefined;
   const off = unavailable !== undefined;
 
   const change = (v: string) => {
-    if (pressed !== null && quickAsks?.[pressed]?.prompt !== v) setPressed(null);
     if (text.draftKey && !autosave) setDraft(v);
     else if (!text.onChange) setPlainValue(v);
     text.onChange?.(v);
@@ -195,7 +196,6 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
     });
     if (text.draftKey) clearDraft();
     else if (!text.onChange) setPlainValue("");
-    setPressed(null);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (autosave || e.key !== "Enter" || e.nativeEvent.isComposing) return;
@@ -257,41 +257,6 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
             ))}
         </div>
       )}
-      {scopes && scopes.length > 0 && (
-        <fieldset aria-label="Scope" {...stylex.props(styles.row, styles.fieldset)}>
-          <span {...stylex.props(styles.rowLabel)}>Scope</span>
-          {scopes.map((s) => (
-            <Chip
-              key={s.value}
-              label={s.label}
-              tone="claude"
-              pressed={s.value === scopeValue}
-              disabled={busy}
-              onToggle={() => s.value !== scopeValue && onScope?.(s.value)}
-            />
-          ))}
-        </fieldset>
-      )}
-      {quickAsks && quickAsks.length > 0 && !off && (
-        <div {...stylex.props(styles.row)}>
-          {quickAsks.map((q, i) => (
-            <Chip
-              key={q.label}
-              label={q.label}
-              tone="claude"
-              pressed={pressed === i}
-              disabled={busy}
-              onToggle={() => {
-                const next = pressed === i ? null : i;
-                setPressed(next);
-                change(next === null ? "" : q.prompt);
-                if (next !== null) setPressed(next);
-                if (next !== null && q.scope && q.scope !== scopeValue) onScope?.(q.scope);
-              }}
-            />
-          ))}
-        </div>
-      )}
       <Text
         {...text}
         value={value}
@@ -307,7 +272,40 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
       {children}
       {!autosave && (
         <div {...stylex.props(styles.foot, busy && styles.footRunning, off && styles.footWrap)}>
-          {scope && !busy && (
+          {scopes && scopes.length > 0 && !busy && (
+            <span {...stylex.props(styles.keep)}>
+              <Select
+                label="Scope"
+                size="sm"
+                icon="target"
+                value={scopeValue ?? null}
+                options={scopes}
+                disabled={off ? unavailable : false}
+                onChange={(v) => v !== scopeValue && onScope?.(v)}
+              />
+            </span>
+          )}
+          {quickAsks && quickAsks.length > 0 && !off && !busy && (
+            <span {...stylex.props(styles.keep)}>
+              <Menu
+                label="Suggestions"
+                trigger={
+                  <Button size="sm" variant="claude-quiet" icon="claude" iconAfter="chevron-down" label="Suggestions" />
+                }
+                entries={quickAsks.map((q) => ({
+                  label: q.label,
+                  description: q.scope
+                    ? `${q.prompt} (${scopes?.find((x) => x.value === q.scope)?.label ?? q.scope})`
+                    : q.prompt,
+                  onSelect: () => {
+                    change(q.prompt);
+                    if (q.scope && q.scope !== scopeValue) onScope?.(q.scope);
+                  },
+                }))}
+              />
+            </span>
+          )}
+          {scope && !scopes?.length && !busy && (
             <span {...stylex.props(styles.scope, off && styles.whole)}>
               <Icon name="target" size="sm" />
               <span {...stylex.props(styles.clip)}>{scope}</span>

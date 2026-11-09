@@ -1,15 +1,25 @@
-import type { Review } from "../../../core/types.ts";
+import type { FindingCounts, Review } from "../../../core/types.ts";
 import type { FilterOption } from "../../components/filters/FilterMenu.tsx";
 import { fold } from "../../lib/format.ts";
 
-export type PickTest = { id: string; key?: string; summary: string; folder: string; labels: string[]; review: Review };
+export type PickTest = {
+  id: string;
+  key?: string;
+  summary: string;
+  folder: string;
+  labels: string[];
+  review: Review;
+  findings?: FindingCounts;
+  /** Claude proposes a fix on it (Generate's pick) */
+  fix?: boolean;
+};
 
 export type TestBranch = { kind: "branch"; key: string; label: string; children: TestNode[] };
 export type TestLeaf = { kind: "leaf"; key: string; test: PickTest };
 export type TestNode = TestBranch | TestLeaf;
 
-export type PickFilters = { words: string; folders: string[]; labels: string[]; reviews: string[] };
-export const NO_PICK_FILTER: PickFilters = { words: "", folders: [], labels: [], reviews: [] };
+export type PickFilters = { words: string; folders: string[]; labels: string[]; reviews: string[]; findings: string[] };
+export const NO_PICK_FILTER: PickFilters = { words: "", folders: [], labels: [], reviews: [], findings: [] };
 
 const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 const parts = (folder: string) => folder.split("/").filter(Boolean);
@@ -25,6 +35,14 @@ const REVIEWS: { value: Review; label: string }[] = [
   { value: "to-fix", label: "To fix" },
 ];
 
+const FINDINGS: { value: string; label: string; has: (t: PickTest) => boolean }[] = [
+  { value: "errors", label: "Errors", has: (t) => !!t.findings?.errors },
+  { value: "warnings", label: "Warnings", has: (t) => !!t.findings?.warnings },
+  { value: "clean", label: "No findings", has: (t) => !!t.findings && !t.findings.errors && !t.findings.warnings },
+  { value: "unchecked", label: "Not checked yet", has: (t) => !t.findings },
+  { value: "fix", label: "With a fix", has: (t) => !!t.fix },
+];
+
 const keeps = (t: PickTest, f: PickFilters, skip?: keyof PickFilters) => {
   const words = fold(f.words).split(/\s+/).filter(Boolean);
   const hay = fold([t.summary, t.key ?? "", t.id].join(" "));
@@ -32,7 +50,8 @@ const keeps = (t: PickTest, f: PickFilters, skip?: keyof PickFilters) => {
     (skip === "words" || words.every((w) => hay.includes(w))) &&
     (skip === "folders" || !f.folders.length || f.folders.some((x) => under(t.folder, x))) &&
     (skip === "labels" || !f.labels.length || t.labels.some((l) => f.labels.includes(l))) &&
-    (skip === "reviews" || !f.reviews.length || f.reviews.includes(t.review))
+    (skip === "reviews" || !f.reviews.length || f.reviews.includes(t.review)) &&
+    (skip === "findings" || !f.findings.length || FINDINGS.some((x) => f.findings.includes(x.value) && x.has(t)))
   );
 };
 
@@ -59,6 +78,9 @@ export function pickOptions(tests: PickTest[], f: PickFilters) {
     ),
     reviews: REVIEWS.map(
       (r): FilterOption => ({ ...r, count: rest("reviews").filter((t) => t.review === r.value).length }),
+    ),
+    findings: FINDINGS.filter((x) => x.value !== "fix" || tests.some((t) => t.fix)).map(
+      (x): FilterOption => ({ value: x.value, label: x.label, count: rest("findings").filter(x.has).length }),
     ),
   };
 }
@@ -88,6 +110,14 @@ export function testTree(tests: PickTest[]): TestNode[] {
       .map((t): TestNode => ({ kind: "leaf", key: t.id, test: t })),
   ];
   return nodes(root, "");
+}
+
+// ponytail: a tree that is one folder inside another down to its tests (a generation writes into one folder) shows its
+// tests alone: a folder ticking everything says nothing the picker's own « Pick all » does not
+export function flatChain(nodes: TestNode[]): TestNode[] {
+  let at = nodes;
+  while (at.length === 1 && at[0].kind === "branch") at = at[0].children;
+  return at.every((n) => n.kind === "leaf") ? at : nodes;
 }
 
 export const leavesOf = (n: TestNode): string[] => (n.kind === "leaf" ? [n.key] : n.children.flatMap(leavesOf));

@@ -3,15 +3,14 @@ import { useState } from "react";
 import type { Effort } from "../../../core/types.ts";
 import { cap, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { UNTITLED_TEST, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { GenSuggestions } from "./GenSuggestions.tsx";
+import { PickTests } from "./PickTests.tsx";
 import { useGenFixes } from "./useGenFixes.ts";
 
 const styles = stylex.create({
@@ -36,15 +35,6 @@ const styles = stylex.create({
     color: color.textMuted,
   },
   request: { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
-  picks: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s1,
-    margin: 0,
-    padding: space.s3,
-    borderWidth: 0,
-    minWidth: 0,
-  },
 });
 
 export type Scope = "all" | "fixes" | "add" | "pick";
@@ -88,9 +78,9 @@ export function AskChanges({
 }) {
   const shown = useRead("gen.show", { generation });
   const tests = shown.data?.tests ?? [];
-  const names = useTestNames();
   const [scope, setScope] = useState<Scope>("all");
   const [picked, setPicked] = useState<string[]>([]);
+  const [picking, setPicking] = useState(false);
   const [model, setModel] = useState(defaults.model);
   const [effort, setEffort] = useState<Effort>(defaults.effort);
   const choice = useModelChoice(model, setModel);
@@ -125,11 +115,17 @@ export function AskChanges({
           scopes={[
             { value: "all", label: `All ${plural(tests.length, "test")}` },
             ...(fixes.tests.length ? [{ value: "fixes", label: `The ${fixes.tests.length} with a fix` }] : []),
-            { value: "add", label: "Add tests" },
-            { value: "pick", label: "Pick tests…" },
+            picked.length
+              ? { value: "pick", label: `${plural(picked.length, "test")} picked` }
+              : { value: "pick", label: "Pick tests…", hint: "Opens the picker" },
+            ...(picked.length ? [{ value: "repick", label: "Change the picked tests…" }] : []),
+            { value: "add", label: "New tests", hint: "Under this generation" },
           ]}
           scopeValue={scope}
-          onScope={(v) => setScope(v as Scope)}
+          onScope={(v) => {
+            if (v === "repick" || (v === "pick" && !picked.length)) setPicking(true);
+            else setScope(v as Scope);
+          }}
           quickAsks={QUICK}
           model={{
             value: choice.selected,
@@ -151,20 +147,20 @@ export function AskChanges({
               effort,
             })
           }
-        >
-          {scope === "pick" && (
-            <fieldset aria-label="Tests to change" {...stylex.props(styles.picks)}>
-              {tests.map((id) => (
-                <Checkbox
-                  key={id}
-                  label={names(id) ?? UNTITLED_TEST}
-                  checked={picked.includes(id)}
-                  onChange={(on) => setPicked((p) => (on ? [...p, id] : p.filter((x) => x !== id)))}
-                />
-              ))}
-            </fieldset>
-          )}
-        </ClaudeBlock>
+        ></ClaudeBlock>
+        {picking && (
+          <PickTests
+            tests={tests}
+            fixes={fixes.tests}
+            picked={picked}
+            onClose={() => setPicking(false)}
+            onPick={(ids) => {
+              setPicked(ids);
+              setScope("pick");
+              setPicking(false);
+            }}
+          />
+        )}
         <GenSuggestions fixes={fixes} />
       </div>
     </section>

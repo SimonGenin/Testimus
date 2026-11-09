@@ -8,6 +8,7 @@ import { ClaudeBlock } from "../../../../src/ui/components/ui/ClaudeBlock.tsx";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { createQueryClient, type Key } from "../../../../src/ui/lib/data/query.ts";
 import { noRunChoice, pickRun, runChoice } from "../../helpers/run-choice.ts";
+import { choose } from "../../helpers/select.ts";
 
 const client = createQueryClient();
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -94,7 +95,7 @@ describe("ClaudeBlock", () => {
     expect(onAdd).toHaveBeenCalled();
   });
 
-  it("puts a quick ask's prompt in the box; typing releases it", () => {
+  it("Suggestions is a menu in the foot: one picked writes its prompt in the box", () => {
     render(
       <ClaudeBlock
         ariaLabel="Prompt"
@@ -103,20 +104,15 @@ describe("ClaudeBlock", () => {
         onSubmit={() => {}}
       />,
     );
-    const chip = screen.getByRole("button", { name: "Shorten" });
-    fireEvent.click(chip);
-    expect(chip).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Shorten" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
+    const item = screen.getByRole("menuitem", { name: /^Shorten/ });
+    expect(item).toHaveTextContent("Make every step shorter.");
+    fireEvent.click(item);
     expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveValue("Make every step shorter.");
-    fireEvent.change(screen.getByRole("textbox", { name: "Prompt" }), {
-      target: { value: "Make every step shorter!" },
-    });
-    expect(chip).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(chip);
-    fireEvent.click(chip);
-    expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveValue("");
   });
 
-  it("offers its scopes as chips, one pressed; another one is chosen, the pressed one is not chosen again", () => {
+  it("the scope is a select in the foot, never a chip; another one is chosen, the one chosen is not chosen again", () => {
     const onScope = vi.fn();
     render(
       <ClaudeBlock
@@ -124,24 +120,23 @@ describe("ClaudeBlock", () => {
         value=""
         scopes={[
           { value: "all", label: "All 3 tests" },
-          { value: "add", label: "Add tests" },
+          { value: "add", label: "Add tests", hint: "Under this generation" },
         ]}
         scopeValue="all"
         onScope={onScope}
         onSubmit={() => {}}
       />,
     );
-    const group = screen.getByRole("group", { name: "Scope" });
-    expect(group).toHaveTextContent("Scope");
-    expect(screen.getByRole("button", { name: "All 3 tests" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Add tests" })).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(screen.getByRole("button", { name: "All 3 tests" }));
+    expect(screen.queryByRole("group", { name: "Scope" })).toBeNull();
+    const scope = screen.getByRole("combobox", { name: "Scope" });
+    expect(scope).toHaveTextContent("All 3 tests");
+    choose(scope, "All 3 tests");
     expect(onScope).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Add tests" }));
+    choose(scope, /^Add tests/);
     expect(onScope).toHaveBeenCalledWith("add");
   });
 
-  it("a quick ask with a scope also presses that scope", () => {
+  it("a suggestion with a scope also sets that scope, and its line says so", () => {
     const onScope = vi.fn();
     render(
       <ClaudeBlock
@@ -160,9 +155,13 @@ describe("ClaudeBlock", () => {
         onSubmit={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Shorten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Shorten/ }));
     expect(onScope).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Cover the skipped items" }));
+    fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
+    const cover = screen.getByRole("menuitem", { name: /^Cover the skipped items/ });
+    expect(cover).toHaveTextContent("Write them. (Add tests)");
+    fireEvent.click(cover);
     expect(onScope).toHaveBeenCalledWith("add");
     expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveValue("Write them.");
   });
@@ -304,7 +303,7 @@ describe("ClaudeBlock foot (design: dock, dock running, dock offline)", () => {
     render(<ClaudeBlock {...full} unavailable="Claude is not connected" />);
     expect(screen.getByText("Whole project")).toBeInTheDocument();
     expect(runChoice()).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Shorten" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Suggestions" })).toBeNull();
     expect(screen.getAllByText("Claude is not connected")[0]).toBeInTheDocument();
     expect(screen.queryByText("Ctrl+Enter")).toBeNull();
   });

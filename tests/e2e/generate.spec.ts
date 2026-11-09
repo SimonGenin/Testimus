@@ -122,7 +122,7 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
 
   const ask = page.getByRole("region", { name: "Ask for changes" });
   await expect(ask).toBeVisible();
-  await expect(ask.getByRole("button", { name: "All 2 tests" })).toHaveAttribute("aria-pressed", "true");
+  await expect(ask.getByRole("combobox", { name: "Scope" })).toHaveText(/All 2 tests/);
   const proposes = ask.getByRole("region", { name: "Claude proposes" });
   await expect(
     proposes.getByText("Write the 2 tests skipped for « Pas de source pour le résultat attendu »"),
@@ -134,7 +134,9 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
     .getByRole("list", { name: "Fixes Claude proposes" });
   await expect(onCards.first()).toContainText(/^Fix the \d+ (error|warning)s? in « Sectionneur/);
   await expect(onCards.first().getByRole("button", { name: "Fix", exact: true })).toBeVisible();
-  await expect(ask.getByRole("button", { name: /^The \d+ with a fix$/ })).toBeVisible();
+  await ask.getByRole("combobox", { name: "Scope" }).click();
+  await expect(page.getByRole("option", { name: /^The \d+ with a fix$/ })).toBeVisible();
+  await page.keyboard.press("Escape");
   await shoot(page, "generate-ask");
 
   await ask

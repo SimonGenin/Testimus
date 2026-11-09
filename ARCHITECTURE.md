@@ -692,8 +692,11 @@ after the frontmatter, so a review decision never makes findings stale.
   so the same kind of item keeps the same words across runs. « Cover the skipped items » is an *add* (a quick ask may
   carry a scope: `ClaudeBlock` `quickAsks[].scope`). Both are snapshotted like any generation. `gen.show` reads a generation: its name, request, date, tests still there and
   skipped items. On Generate, once a generation is done, the left column is « Ask for changes » (`AskChanges`: the
-  kit's `ClaudeBlock` with scope chips All N tests · The n with a fix · Add tests · Pick tests…, quick asks, model ·
-  effort; « Read the request » opens the original request in a dialog); « New request » in the top bar brings the
+  kit's `ClaudeBlock`: in its foot a Scope select — All N tests · The n with a fix · Pick tests… · New tests — then
+  « Suggestions », a menu whose items write their prompt in the box, then model · effort; « Pick tests… » opens New
+  run's picker on the generation's tests only (`PickTests`, `TestPicker only`, « With a fix » among its findings; a
+  tree that is one folder chain shows its tests alone); « Read the request » opens the original request in a dialog);
+  in every ClaudeBlock a chip is a value of a set (the contexts), never a choice of the run (decided on 2026-11-09); « New request » in the top bar brings the
   request form back, and a run keeps the column it was started from; until the project's last generation is known the
   column is a skeleton, so the form never shows and then flips. **The generation's Claude actions sit where they act**
   (`useGenFixes`, decided on 2026-11-09, canvas « Testimus — Generate, after a generation »): a fix proposed on a test

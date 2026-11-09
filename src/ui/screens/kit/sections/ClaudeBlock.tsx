@@ -72,7 +72,7 @@ export const section: KitSection = {
   guidelines: [
     {
       head: "Anatomy",
-      text: "Optional *Context* row (toggle chips: the effective contexts of this run, each switchable off for this run only, + Add context) · optional *Scope* row (one chip pressed among a few: what the run works on) · optional *Quick asks* row (chips that put their prompt in the box; typing clears the pressed one) · the text · footer: scope (« Step 2 », « Whole test », « Whole project »), model, effort, then the submit area. No attachment: no Claude run takes a file today.",
+      text: "Optional *Context* row (toggle chips: the effective contexts of this run, each switchable off for this run only, + Add context) · the text · footer: the scope — a Select when the run may work on one of a few things (« All 3 tests · The 2 with a fix · Pick tests… · New tests »), else its words (« Step 2 », « Whole test », « Whole project ») —, *Suggestions* (a menu in Claude's colour whose items put their prompt in the box; one with a scope also sets it), model, effort, then the submit area. A chip is a value of a set (the contexts), never a choice of the run. No attachment: no Claude run takes a file today.",
     },
     {
       head: "Options and where each combination is used",
@@ -82,7 +82,7 @@ export const section: KitSection = {
         "Dock, ask the documents — yes — no — yes — no — Ctrl+Enter → Ask",
         "« Ask Claude » popover on a test or a step — no (inherits) — yes — yes — no — Ctrl+Enter → Send",
         "« To fix » note (Review) — no — no — no — no — autosave; the dialog's « Mark To fix » / « Ask Claude to fix it »",
-        "Generate, after a generation (« Ask for changes ») — no — yes — yes — scopes: All N tests · Add tests · Pick tests… — Ctrl+Enter → Ask Claude",
+        "Generate, after a generation (« Ask for changes ») — no — yes (Suggestions) — yes — scope Select: All N tests · The n with a fix · Pick tests… · New tests — Ctrl+Enter → Ask Claude",
         "A context's notes (Contexts dialog) — no — no — no — no — autosave",
         "A quick ask's prompt (Settings › Claude) — no — no — no — no — autosave",
       ],
