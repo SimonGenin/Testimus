@@ -30,7 +30,7 @@ test("the Run screen lists the runs, and a test is run step by step, saved, then
   await side.getByRole("button", { name: "Add" }).click();
   await expect(side.locator("p", { hasText: "Poste 3, image du 6/11." })).toBeVisible();
   await shoot(page, "run/run-test");
-  await page.getByRole("button", { name: /^Save the result/ }).click();
+  await page.getByRole("button", { name: /^Finish/ }).click();
 
   await expect(run).toBeVisible();
   const row = run.getByRole("row", { name: /Disjoncteur/ });
@@ -41,7 +41,9 @@ test("the Run screen lists the runs, and a test is run step by step, saved, then
   await expect(runs.getByRole("group", { name: "Finished" })).toContainText("Recette J5 — Sectionneurs");
 });
 
-test("the keyboard marks the steps: J / K move, O and N mark, Ctrl+Enter saves", async ({ page }) => {
+test("the keyboard marks the steps: J / K move, O and N mark and set the result, Ctrl+Enter moves on", async ({
+  page,
+}) => {
   await boot(page, `#/run/${RUN}/LFRPS12-1420`);
   const t = page.getByRole("region", { name: /^Test Sectionneur sans TK/ });
   await expect(
@@ -53,17 +55,22 @@ test("the keyboard marks the steps: J / K move, O and N mark, Ctrl+Enter saves",
     "aria-pressed",
     "true",
   );
+  const verdict = page.getByRole("radiogroup", { name: "Result of the test" });
+  await expect(verdict.getByRole("radio", { name: /Problem/ })).toBeChecked();
   await page.keyboard.press("o");
   await expect(
     t.getByRole("group", { name: "Step 2" }).getByRole("button", { name: "OK", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  await expect(verdict.getByRole("radio", { name: /Passed/ })).toBeChecked();
   await page.keyboard.press("n");
   await expect(t.getByRole("group", { name: "Step 2" }).getByRole("button", { name: "NOK" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  const verdict = page.getByRole("radiogroup", { name: "Result of the test" });
+  await expect(verdict.getByRole("radio", { name: /Problem/ })).toBeChecked();
+  await verdict.getByRole("radio", { name: /Passed/ }).click();
   await expect(verdict.getByRole("radio", { name: /Passed/ })).toBeChecked();
+  await expect(verdict).toContainText("What the marks say");
   await verdict.getByRole("radio", { name: /Problem/ }).click();
   await expect(verdict.getByRole("radio", { name: /Problem/ })).toBeChecked();
   await page.keyboard.press("Control+Enter");
@@ -74,13 +81,15 @@ test("the keyboard marks the steps: J / K move, O and N mark, Ctrl+Enter saves",
   await expect(row).toContainText("4 OK · 1 NOK");
 });
 
-test("New run… freezes the tests of a folder into a run of its own", async ({ page }) => {
+test("New run… freezes the tests of a folder, ticked in the tree, into a run of its own", async ({ page }) => {
   await boot(page, "#/run");
   await page.getByRole("button", { name: "New run…" }).click();
   const dialog = page.getByRole("dialog", { name: "New run" });
   await dialog.getByRole("textbox", { name: "Name" }).fill("Essai sur site — Bobigny");
-  await dialog.getByRole("textbox", { name: "Version under test" }).fill("2.4.0");
-  await expect(dialog).toContainText("3 tests:");
+  const tree = dialog.getByRole("list", { name: "Tests to run" });
+  await tree.getByRole("checkbox", { name: "Traction" }).check();
+  await expect(tree.getByRole("checkbox", { name: "Sectionneurs" })).toBeChecked();
+  await expect(dialog.getByRole("status").filter({ hasText: "picked" })).toContainText("3 picked of 3");
   await shoot(page, "run/run-new");
   await dialog.getByRole("button", { name: "Make the run (3 tests)" }).click();
   await expect(page).toHaveURL(/#\/run\/essai-sur-site-bobigny$/);
@@ -91,7 +100,6 @@ test("New run… freezes the tests of a folder into a run of its own", async ({ 
   await expect(
     run.getByRole("table", { name: "Tests of the run — Traction / Disjoncteurs" }).getByRole("row"),
   ).toHaveCount(2);
-  await expect(run).toContainText("Version 2.4.0");
 });
 
 test("Claude reads the test being run: the bar's Ask Claude opens the dock on the run, its answer changes nothing", async ({

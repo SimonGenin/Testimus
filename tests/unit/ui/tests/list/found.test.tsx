@@ -13,6 +13,7 @@ import { testClient, WithData } from "../data-helpers.tsx";
 const ref = (o: Partial<LocalTestRef> & { id: string }): LocalTestRef => ({
   summary: o.id,
   folder: "/",
+  labels: [],
   review: "draft",
   generated: false,
   edited: false,

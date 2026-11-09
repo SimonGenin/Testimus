@@ -62,6 +62,7 @@ export type LocalTestRef = {
   key?: string;
   summary: string;
   folder: string;
+  labels: string[];
   status?: string;
   assignee?: string;
   assigneeId?: string;

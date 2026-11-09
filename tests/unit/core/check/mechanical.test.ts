@@ -13,13 +13,11 @@ import {
   type Corpus,
   type DocText,
   loadCorpus,
-  mechanicalCheck,
   mechanicalFindings,
   occurrences,
   recordSemantic,
   scopeOf,
   semanticOf,
-  testEvidence,
   whereIs,
 } from "../../../../src/core/lib/check.ts";
 import { osUser, patchReview, setReview } from "../../../../src/core/lib/review.ts";
@@ -250,46 +248,6 @@ describe("loadCorpus", () => {
     expect([...c.docs.keys()].sort()).toEqual(["C3", "D1", "D2", "D3"]);
     expect(c.docs.get("D1")?.id).toBe("D1");
     expect(c.docs.get("C3")?.id).toBe("D3");
-  });
-});
-
-describe("test evidence", () => {
-  const MD = [
-    "# SPEC — Spécification",
-    "",
-    "## 1 Général <!-- § 1 -->",
-    "",
-    "La vue détaillée s'ouvre par un double clic sur le poste.",
-    "",
-    "## 3 Matrice <!-- § 3 -->",
-    "",
-    "Rien ici.",
-  ].join("\n");
-
-  beforeEach(() => {
-    addDoc("SPEC", MD);
-    write(
-      "tests/T-1/test.md",
-      testMd(
-        ["project: T", "summary: s", "folder: /", "labels: []", "review: none", "generated_by: gen-1"],
-        `\n## Description\n\nd\n\n## Step 1\n\n### Action\n\na\n\n### Expected Result\n\nb\n\n### Sources\n\n- SPEC#§1 "La vue détaillée s'ouvre par un double clic sur le poste."\n`,
-      ),
-    );
-  });
-
-  it("without a ledger: no job, nothing read", () => {
-    expect(testEvidence(dir, "T-1")).toEqual({ testId: "T-1", jobId: null, consulted: [], read: [], searched: [] });
-  });
-
-  it("with the generation's ledger: what was read and whether a step cites it; the check adds nothing", () => {
-    write(".testimus/gen/gen-1.json", JSON.stringify({ consulted: ["SPEC#§1", "SPEC#§3"], searched: [] }));
-    const e = testEvidence(dir, "T-1");
-    expect(e.jobId).toBe("gen-1");
-    expect(e.read).toEqual([
-      { ref: "SPEC#§1", title: "Général", cited: true },
-      { ref: "SPEC#§3", title: "Matrice", cited: false },
-    ]);
-    expect(mechanicalCheck(dir, "T-1")).toEqual([]);
   });
 });
 

@@ -29,6 +29,7 @@ export const TEST_REF = z.object({
   key: z.string().optional().describe("Jira key, once the test is in Jira"),
   summary: z.string().describe("Test summary"),
   folder: z.string().describe("Xray folder path"),
+  labels: z.array(z.string()).describe("Its Jira labels"),
   review: REVIEW.describe("Review state"),
   generated: z
     .boolean()

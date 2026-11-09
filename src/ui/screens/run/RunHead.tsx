@@ -31,7 +31,7 @@ export function RunHead({ test, proposed }: { test: RunTestView; proposed: RunSt
             <span {...stylex.props(type.small, styles.proposed)}>
               <Icon name="arrow-right" size="sm" />
               <Badge {...RUN_STATUS[proposed]} outline />
-              proposed by the marks
+              by the marks
             </span>
           )}
           {test.key ? <Badge label={test.key} icon="external" outline /> : <Badge {...SYNC.local} outline />}

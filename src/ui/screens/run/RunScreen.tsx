@@ -5,9 +5,11 @@ import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Loading } from "../../components/ui/Loading.tsx";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { usePaneWidth } from "../../lib/panes.ts";
 import { border, breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
 import { ExportRun } from "./ExportRun.tsx";
 import { ImportRun } from "./ImportRun.tsx";
@@ -16,7 +18,7 @@ import { RunDetail } from "./RunDetail.tsx";
 import { RunExec } from "./RunExec.tsx";
 import { RunFindings } from "./RunFindings.tsx";
 import { RunList } from "./RunList.tsx";
-import { routeOf, TEST_VIEW, type TestView } from "./runs.ts";
+import { RUN_LIST, RUN_SIDE, routeOf, TEST_VIEW, type TestView } from "./runs.ts";
 
 const styles = stylex.create({
   screen: {
@@ -48,6 +50,8 @@ const styles = stylex.create({
     borderInlineEndWidth: border.width,
     borderInlineEndColor: color.border,
   },
+  sized: (width: string) => ({ width: { default: width, [breakpoint.narrow]: "auto" } }),
+  listEdge: { display: { default: "flex", [breakpoint.narrow]: "none" } },
   findings: { display: { default: "flex", [breakpoint.queue]: "none" }, minHeight: 0 },
   none: { boxSizing: "border-box", flex: 1, display: "flex", padding: space.s7 },
   loading: {
@@ -69,6 +73,8 @@ export function RunScreen() {
   const [creating, setCreating] = useState(false);
   const [pages, setPages] = useState<"export" | "import" | null>(null);
   const [view, setView] = useState<TestView>(TEST_VIEW);
+  const listW = usePaneWidth("runListWidth", RUN_LIST);
+  const sideW = usePaneWidth("runSideWidth", RUN_SIDE);
   const runs = useRead("runs.list", {});
   const list = runs.data?.runs;
   const me = runs.data?.user ?? "";
@@ -122,6 +128,8 @@ export function RunScreen() {
           me={me}
           onGo={(t) => open(shown, t)}
           onBack={() => open(shown)}
+          listWidth={listW}
+          sideWidth={sideW}
         />
       </div>
     );
@@ -133,9 +141,14 @@ export function RunScreen() {
       </ScreenHeader>
       <div {...stylex.props(styles.body)}>
         {(!list || list.length > 0) && (
-          <nav aria-label="Runs" {...stylex.props(styles.list)}>
-            <RunList runs={list} selected={shown} onOpen={(s) => open(s)} />
-          </nav>
+          <>
+            <nav aria-label="Runs" {...stylex.props(styles.list, listW.moved && styles.sized(`${listW.width}px`))}>
+              <RunList runs={list} selected={shown} onOpen={(s) => open(s)} />
+            </nav>
+            <span {...stylex.props(styles.listEdge)}>
+              <ResizeHandle label="Resize the list of runs" {...listW.handle} />
+            </span>
+          </>
         )}
         {runs.error ? (
           <div {...stylex.props(styles.none)}>
@@ -165,7 +178,9 @@ export function RunScreen() {
               }
             />
             <div {...stylex.props(styles.findings)}>
+              <ResizeHandle label="Resize what the run found" {...sideW.handle} side="left" />
               <RunFindings
+                width={sideW.moved ? sideW.width : undefined}
                 run={overview}
                 onOpenTest={(t) => open(shown, t)}
                 onAsk={(prompt) => askClaude("run", prompt)}

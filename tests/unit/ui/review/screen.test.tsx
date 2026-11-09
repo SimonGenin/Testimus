@@ -3,10 +3,11 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState, ClaudeRun } from "../../../../src/ui/lib/app.ts";
+import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { apply } from "../../../../src/ui/lib/data/events.ts";
 import { ReviewScreen } from "../../../../src/ui/screens/review/ReviewScreen.tsx";
 import { openInEditor } from "../../../../src/ui/screens/review/useReview.ts";
-import { choose, openList } from "../../helpers/select.ts";
+import { choose } from "../../helpers/select.ts";
 import { clearToasts, fakeServer, item, mountReview, named, net, refused, reviewRoutes, testOf } from "./helpers.tsx";
 
 vi.mock("../../../../src/ui/screens/tests/TestEditor.tsx", () => ({
@@ -51,6 +52,7 @@ vi.mock("../../../../src/ui/screens/tests/PushDialog.tsx", () => ({
 }));
 
 beforeEach(() => {
+  clearDrafts();
   fakeServer();
   vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
     cb(0);
@@ -263,38 +265,38 @@ describe("Review screen", () => {
   });
 
   it("filters that leave nothing: the main column says what the queue says, and clears them too", async () => {
-    reviewRoutes({ queue: [] });
-    net.routes["review.queue"] = (i) =>
-      i.withFindings ? { tests: [], counts: { toFix: 0, draft: 0, unchecked: 0 } } : null;
+    reviewRoutes({ queue: [item("K-1"), item("K-2")] });
     show({ route: { screen: "review" } });
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Only with findings" }));
+    fireEvent.click(await within(queue()).findByRole("button", { name: "Findings" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /^Errors/ }));
     const main = screen.getByRole("region", { name: "Test under review" });
     expect(await within(main).findByText("No test matches these filters")).toBeInTheDocument();
     expect(within(queue()).getByText("No test matches these filters")).toBeInTheDocument();
     expect(within(main).queryByText("Nothing to review")).toBeNull();
     fireEvent.click(within(main).getByRole("button", { name: "Clear the filters" }));
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Only with findings" })).not.toBeChecked());
+    await waitFor(() =>
+      expect(within(queue()).getByRole("button", { name: "Findings" })).not.toHaveAttribute("aria-pressed", "true"),
+    );
   });
 
-  it("sends the queue filters, folder and findings switch", async () => {
+  it("filters the queue in the page, and reads it again only for another sort", async () => {
     reviewRoutes({ queue: [item("K-1"), item("K-2", { folder: "/G" }), item("L-3", { folder: "" })] });
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    const states = screen.getByRole("radiogroup", { name: "Filter by review state" });
-    fireEvent.click(within(states).getByRole("radio", { name: /To fix/ }));
-    await waitFor(() => expect(named("review.queue").at(-1)?.input).toEqual({ state: ["to-fix"], sort: "anomalies" }));
-    fireEvent.click(within(states).getByRole("radio", { name: /Validated/ }));
+    const asked = named("review.queue").length;
+    fireEvent.click(within(queue()).getByRole("button", { name: "Folder" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /^\/G/ }));
     await waitFor(() =>
-      expect(named("review.queue").at(-1)?.input).toEqual({ state: ["validated"], sort: "anomalies" }),
+      expect(within(screen.getByRole("listbox", { name: "Tests to review" })).getAllByRole("option")).toHaveLength(1),
     );
-    const folder = screen.getByRole("combobox", { name: "Filter by folder" });
-    await waitFor(() => expect(within(openList(folder)).getByRole("option", { name: "/F" })).toBeInTheDocument());
-    choose(folder, "/F");
-    await waitFor(() => expect(named("review.queue").at(-1)?.input).toMatchObject({ folder: "/F" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Only with findings" }));
-    await waitFor(() => expect(named("review.queue").at(-1)?.input).toMatchObject({ withFindings: true }));
+    expect(within(queue()).getByRole("status")).toHaveTextContent("1 of 3 shown");
+    fireEvent.change(within(queue()).getByRole("searchbox", { name: "Filter the queue" }), {
+      target: { value: "zzz" },
+    });
+    expect(await within(queue()).findByText("No test matches these filters")).toBeInTheDocument();
+    expect(named("review.queue")).toHaveLength(asked);
     choose(screen.getByRole("combobox", { name: "Sort the queue" }), "Recent");
-    await waitFor(() => expect(named("review.queue").at(-1)?.input).toMatchObject({ sort: "recent" }));
+    await waitFor(() => expect(named("review.queue").at(-1)?.input).toEqual({ sort: "recent" }));
   });
 
   it("moves between tests with J/K and the strip, and between steps with the arrows", async () => {
@@ -433,20 +435,6 @@ describe("Review screen", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "a.png" })).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Open in document" }));
     expect(a.navigate).toHaveBeenCalledWith("documents", 'D#§2 "q2" from review K-1 step 2');
-  });
-
-  it("evidence picks: a step source keeps its step, another read one is labelled", async () => {
-    reviewRoutes({ findings: [] });
-    show();
-    await screen.findByRole("heading", { name: "Summary K-1" });
-    fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
-    fireEvent.click(screen.getAllByRole("button", { name: /D §2/ })[0]);
-    fireEvent.click(await screen.findByRole("button", { name: /Sources read/ }));
-    fireEvent.click(await screen.findByRole("option", { name: /E#§7/ }));
-    expect(await screen.findByRole("heading", { name: "Read by the generation" })).toBeInTheDocument();
-    expect(screen.getByText("1 of 1 source")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("option", { name: /^D#§2/ }));
-    expect(await screen.findByText("Source of step 2")).toBeInTheDocument();
   });
 
   it("validates with the button, opens the next test from the queue read again, or the empty queue after the last one", async () => {
@@ -635,6 +623,17 @@ describe("Review screen", () => {
     );
     fireEvent.click(within(note).getByRole("button", { name: "Edit the note" }));
     expect(within(dialog()).getByLabelText(/Note for the author/)).toHaveValue("Step 2 is vague");
+  });
+
+  it("a test marked To fix goes back to draft without being validated, and stays open", async () => {
+    reviewRoutes({ tests: { "K-1": { review: "to-fix", reviewNote: "Step 2 is vague", reviewedBy: "Ana" } } });
+    const { app: a } = show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    const note = screen.getByRole("note", { name: "To fix note" });
+    fireEvent.click(within(note).getByRole("button", { name: "Back to draft" }));
+    await waitFor(() => expect(named("review.set")[0]?.input).toEqual({ id: "K-1", decision: "draft" }));
+    await waitFor(() => expect(toast("Back to Draft")).toHaveTextContent("K-1"));
+    expect(a.navigate).not.toHaveBeenCalled();
   });
 
   it("a test changed in Jira: compare in the editor, replace with Jira's version (or fail), keep mine through the push", async () => {
@@ -834,21 +833,17 @@ describe("Review screen", () => {
     fireEvent.click(within(notice.closest("[role=status]") as HTMLElement).getByRole("button", { name: "Check all" }));
     await waitFor(() => expect(named("check.run")).toHaveLength(1));
     expect(named("check.run")[0].input).toEqual({ ids: ["K-1", "K-2", "L-3"] });
-    fireEvent.click(within(queue()).getAllByRole("button", { name: "Check all" })[0]);
-    await waitFor(() => expect(named("check.run")).toHaveLength(2));
-    expect(named("check.run")[1].input).toEqual({ ids: ["K-1", "K-2", "L-3"] });
     const under = screen.getByRole("region", { name: "Test under review" });
     fireEvent.click(within(under).getByRole("button", { name: "Check" }));
-    await waitFor(() => expect(named("check.run")).toHaveLength(3));
-    expect(named("check.run")[2].input).toEqual({ ids: ["K-1"] });
+    await waitFor(() => expect(named("check.run")).toHaveLength(2));
+    expect(named("check.run")[1].input).toEqual({ ids: ["K-1"] });
     cleanup();
     reviewRoutes({ queue: [item("K-1")], stale: true, findings: [] });
     net.routes["check.run"] = () => refused("Claude is busy");
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
     expect(screen.queryByText(/not checked yet/)).toBeNull();
-    expect(within(queue()).getAllByRole("button", { name: "Check all" })).toHaveLength(1);
-    expect(within(queue()).getByRole("button", { name: "Check all" })).toBeDisabled();
+    expect(within(queue()).queryByRole("button", { name: "Check all" })).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "Check again" }));
     expect(await screen.findByText("Could not check the test")).toBeInTheDocument();
     expect(named("check.run").at(-1)?.input).toEqual({ ids: ["K-1"] });

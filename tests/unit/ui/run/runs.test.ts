@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   folderGroups,
   marksLine,
+  NO_RUNS_FILTER,
   type RunSummary,
+  type RunsFilters,
+  type RunsSort,
   type RunTestView,
+  runsOptions,
   shownRuns,
   shownTests,
   TEST_VIEW,
@@ -101,16 +105,35 @@ describe("the runs, filtered and sorted", () => {
     }),
     run("j5", {
       updatedAt: "2026-11-08T00:00:00Z",
-      version: "2.4",
+      createdBy: "ana",
       counts: { passed: 1, problem: 2, blocked: 0, notRun: 1 },
     }),
     run("j6", { openQuestions: 2 }),
   ];
-  it("keeps by state, questions and words, and sorts by activity, name, progress or problems", () => {
-    expect(shownRuns(R, "open", "", "activity").map((r) => r.slug)).toEqual(["j5", "j6"]);
-    expect(shownRuns(R, "questions", "", "activity").map((r) => r.slug)).toEqual(["j6"]);
-    expect(shownRuns(R, "all", "2.4", "activity").map((r) => r.slug)).toEqual(["j5"]);
-    expect(shownRuns(R, "all", "", "progress").map((r) => r.slug)).toEqual(["j6", "j5", "j4"]);
-    expect(shownRuns(R, "all", "", "problems").map((r) => r.slug)).toEqual(["j5", "j4", "j6"]);
+  const f = (o: Partial<RunsFilters>): RunsFilters => ({ ...NO_RUNS_FILTER, ...o });
+  it("keeps by state, who made it, what it has and words, and sorts by activity, name, progress or problems", () => {
+    const slugs = (o: Partial<RunsFilters>, sort: RunsSort = "activity") => shownRuns(R, f(o), sort).map((r) => r.slug);
+    expect(slugs({ states: ["open"] })).toEqual(["j5", "j6"]);
+    expect(slugs({ states: ["open", "finished"] })).toEqual(["j5", "j4", "j6"]);
+    expect(slugs({ has: ["questions"] })).toEqual(["j6"]);
+    expect(slugs({ has: ["questions", "problems"] })).toEqual(["j5", "j4", "j6"]);
+    expect(slugs({ by: ["ana"] })).toEqual(["j5"]);
+    expect(slugs({ words: "ana" })).toEqual(["j5"]);
+    expect(slugs({ states: ["open"], has: ["problems"] })).toEqual(["j5"]);
+    expect(slugs({}, "progress")).toEqual(["j6", "j5", "j4"]);
+    expect(slugs({}, "problems")).toEqual(["j5", "j4", "j6"]);
+  });
+
+  it("each menu counts what it would show with the other filters on, its own left out", () => {
+    const o = runsOptions(R, f({ states: ["open"] }));
+    expect(o.states).toEqual([
+      { value: "open", label: "In progress", count: 2 },
+      { value: "finished", label: "Finished", count: 1 },
+    ]);
+    expect(o.by).toEqual([
+      { value: "ana", label: "ana", count: 1 },
+      { value: "simon", label: "simon", count: 1 },
+    ]);
+    expect(o.has.map((h) => h.count)).toEqual([1, 0, 1]);
   });
 });

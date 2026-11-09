@@ -65,6 +65,8 @@ export const PREFS = {
   queueWidth: width(240, 480),
   sourceWidth: width(300, 720),
   settingsNavWidth: width(160, 360),
+  runListWidth: width(240, 480),
+  runSideWidth: width(300, 640),
 } satisfies Record<string, Pref<unknown>>;
 
 export type PrefName = keyof typeof PREFS;

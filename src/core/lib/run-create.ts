@@ -99,7 +99,7 @@ export function freezeTest(project: string, id: string, order: readonly string[]
   };
 }
 
-export type NewRun = { name: string; version?: string; environment?: string; ids: string[] };
+export type NewRun = { name: string; ids: string[] };
 
 export function createRun(project: string, n: NewRun): string {
   const name = n.name.trim();
@@ -123,8 +123,6 @@ export function createRun(project: string, n: NewRun): string {
       }
     const run: RunFile = {
       name,
-      ...(n.version?.trim() ? { version: n.version.trim() } : {}),
-      ...(n.environment?.trim() ? { environment: n.environment.trim() } : {}),
       createdAt: env.now().toISOString(),
       createdBy: osUser(),
       tests,

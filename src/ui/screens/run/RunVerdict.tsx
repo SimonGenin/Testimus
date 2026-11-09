@@ -37,8 +37,9 @@ const MEANS: Record<RunStatus, string> = {
 
 const EDGE = { passed: "success", problem: "danger", blocked: "warning", "not-run": undefined } as const;
 
-// ponytail: the test's result — while it is not run, proposed by the marks (a NOK proposes Problem, all OK Passed);
-// the tester's to choose, a recorded result is never replaced by a proposal; Blocked needs its reason
+// ponytail: the test's result — set by the marks as they change (a NOK is Problem, all OK Passed) and saved at once;
+// another one picked is saved at once too and stands until the marks change, their word shown beside it; Blocked is
+// saved once its reason is said. The button only moves on
 export function RunVerdict({
   status,
   proposed,
@@ -48,18 +49,20 @@ export function RunVerdict({
   last,
   onStatus,
   onReason,
+  onReasonDone,
   onSave,
 }: {
   status: RunStatus;
-  /** the result the marks propose (shown beside a test not run yet) */
+  /** what the marks say, when the result picked differs */
   proposed: RunStatus | null;
-  /** the result shown is the one the file holds */
+  /** the result shown is the one the file holds (false: Blocked waits for its reason) */
   recorded: boolean;
   reason: string;
   busy: boolean;
   last: boolean;
   onStatus: (s: RunStatus) => void;
   onReason: (r: string) => void;
+  onReasonDone: () => void;
   onSave: () => void;
 }) {
   const missing = status === "blocked" && !reason.trim();
@@ -80,7 +83,7 @@ export function RunVerdict({
             title={<Badge {...RUN_STATUS[s]} />}
           >
             <span {...stylex.props(type.caption, styles.option)}>
-              {proposed === s && status !== s ? "Proposed by the marks" : MEANS[s]}
+              {proposed === s && status !== s ? "What the marks say" : MEANS[s]}
             </span>
           </Card>
         ))}
@@ -92,21 +95,21 @@ export function RunVerdict({
           label="Why is it blocked?"
           value={reason}
           onChange={onReason}
+          onBlur={onReasonDone}
           placeholder="The bench, the data or the access that was missing…"
           hint="A blocked test needs its reason: what stopped it from being run."
         />
       )}
-      {proposed && proposed === status && !recorded && (
+      {proposed && proposed !== status && (
         <p {...stylex.props(type.small, styles.hint)}>
           <Icon name="info" size="sm" />
-          {proposed === "problem" ? "A step is NOK" : "Every step is OK"} — {RUN_STATUS[proposed].label} is proposed.
-          Save to record it.
+          {proposed === "problem" ? "A step is NOK" : "Every step is OK"}: the next mark sets the result again.
         </p>
       )}
       <Button
         variant="primary"
         block
-        label={last ? "Save the result" : "Save and go to the next test"}
+        label={last ? "Finish" : "Next test"}
         shortcut="Ctrl Enter"
         loading={busy}
         disabled={missing ? "Say why the test is blocked first" : false}

@@ -88,7 +88,10 @@ describe("Generate › Ask for changes", () => {
     done();
     const { app } = mountData(<GenerateScreen />);
     const ask = await screen.findByRole("region", { name: "Ask for changes" });
-    expect(within(ask).getByText(/On the 2 tests of this generation · « Le sectionneur »/)).toBeInTheDocument();
+    expect(within(ask).getByText("On the 2 tests of this generation")).toBeInTheDocument();
+    expect(within(ask).queryByText("Le sectionneur")).not.toBeInTheDocument();
+    fireEvent.click(within(ask).getByRole("button", { name: "The request" }));
+    expect(within(ask).getByText("Le sectionneur")).toBeInTheDocument();
     const all = within(ask).getByRole("button", { name: "All 2 tests" });
     expect(all).toHaveAttribute("aria-pressed", "true");
     const suggested = within(ask).getByRole("region", { name: "Suggested by the results" });

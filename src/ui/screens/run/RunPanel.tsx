@@ -20,6 +20,7 @@ const styles = stylex.create({
     borderInlineStartWidth: border.width,
     borderInlineStartColor: color.border,
   },
+  sized: (width: string) => ({ width: { default: width, [breakpoint.sm]: "auto" } }),
   body: { flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" },
   section: {
     display: "flex",
@@ -101,15 +102,18 @@ export function ShotsSection({
 // ponytail: the testing panel beside the test being run — its sections scroll, the result stays at the foot
 export function RunPanel({
   label = "Testing",
+  width,
   children,
   foot,
 }: {
   label?: string;
+  /** px, once the tester widened it (else the design's) */
+  width?: number;
   children: ReactNode;
   foot: ReactNode;
 }) {
   return (
-    <aside aria-label={label} {...stylex.props(styles.panel)}>
+    <aside aria-label={label} {...stylex.props(styles.panel, width !== undefined && styles.sized(`${width}px`))}>
       <div {...stylex.props(styles.body)}>{children}</div>
       <div {...stylex.props(styles.foot)}>{foot}</div>
     </aside>

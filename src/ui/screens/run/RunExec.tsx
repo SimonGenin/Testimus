@@ -2,10 +2,12 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import { runImage } from "../../../shared/run-image.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
+import { ResizeHandle } from "../../components/ui/ResizeHandle.tsx";
 import { useApp } from "../../lib/app.ts";
 import { fileUrl } from "../../lib/data/client.ts";
+import type { PaneWidth } from "../../lib/panes.ts";
 import { usePref } from "../../lib/prefs.ts";
-import { breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
+import { breakpoint, color, container, size, space } from "../../styles/tokens.stylex.ts";
 import { Lightbox } from "../tests/Lightbox.tsx";
 import type { StepLayout } from "../tests/StepCard.tsx";
 import { RunComments } from "./RunComments.tsx";
@@ -42,6 +44,8 @@ const styles = stylex.create({
     backgroundColor: color.canvas,
   },
   scroll: { flex: 1, minHeight: 0, overflowY: { default: "auto", [breakpoint.sm]: "visible" } },
+  listEdge: { display: { default: "flex", [container.reviewQueue]: "none", [breakpoint.sm]: "none" } },
+  sideEdge: { display: { default: "flex", [breakpoint.sm]: "none" } },
   col: {
     boxSizing: "border-box",
     width: "100%",
@@ -60,8 +64,8 @@ type Box = { names: string[]; urls: string[]; index: number; step: number } | nu
 
 // ponytail: running one test of a run, laid out like the Tests editor — the run's tests on the left, the frozen test in
 // the middle with OK / NOK on each step (written at once), and a testing panel on the right: screenshots, comments
-// and questions, the same test in other runs, the result (proposed by the marks while the test is not run) and Save
-// and next. A screenshot dropped on a step or pasted goes to that step; Claude reads the run from the dock
+// and questions, the same test in other runs, the result (set by the marks as they change, or picked: saved at once;
+// Blocked once its reason is said) and Next test. A screenshot dropped on a step or pasted goes to that step; Claude reads the run from the dock
 export function RunExec({
   run,
   test,
@@ -70,8 +74,13 @@ export function RunExec({
   onGo,
   onBack,
   me,
+  listWidth,
+  sideWidth,
 }: {
   me: string;
+  /** the run's tests on the left and the testing panel on the right, widened by the tester (RunScreen keeps them) */
+  listWidth: PaneWidth;
+  sideWidth: PaneWidth;
   run: RunView;
   test: RunTestView;
   view: TestView;
@@ -96,7 +105,7 @@ export function RunExec({
   const [chosen, setChosen] = useState<RunStatus | null>(null);
   const [reason, setReason] = useState(r.blockedReason ?? "");
   const [box, setBox] = useState<Box>(null);
-  const status: RunStatus = chosen ?? r.proposed ?? r.status;
+  const status: RunStatus = chosen ?? r.status;
   const noteOf = (i: number) => notes[i] ?? r.steps[i]?.note ?? "";
   const prev = run.tests[at - 1];
   const next = run.tests[at + 1];
@@ -123,17 +132,31 @@ export function RunExec({
     setCur(i);
     void act.shot(files, i + 1);
   };
+  const pick = (s: RunStatus) => {
+    if (s === "blocked" && !reason.trim()) {
+      setChosen("blocked");
+      return;
+    }
+    setChosen(null);
+    if (s !== r.status || (s === "blocked" && reason.trim() !== (r.blockedReason ?? "")))
+      void act.save({ status: s, ...(s === "blocked" ? { blockedReason: reason } : {}) });
+  };
+  const reasonDone = () => {
+    if (status === "blocked" && reason.trim() && reason.trim() !== (r.blockedReason ?? "")) pick("blocked");
+  };
   const saveNext = async () => {
     if (status === "blocked" && !reason.trim()) return;
     const steps = Object.entries(notes)
       .filter(([i, n]) => n !== (r.steps[Number(i)]?.note ?? ""))
       .map(([i, n]) => ({ step: Number(i) + 1, ok: r.steps[Number(i)].ok, note: n }));
-    const ok = await act.save({
-      status,
-      ...(status === "blocked" ? { blockedReason: reason } : {}),
-      ...(steps.length ? { steps } : {}),
-    });
-    if (!ok) return;
+    const blocked = status === "blocked" && (chosen || reason.trim() !== (r.blockedReason ?? ""));
+    if (steps.length || blocked) {
+      const ok = await act.save({
+        ...(blocked ? { status, blockedReason: reason } : {}),
+        ...(steps.length ? { steps } : {}),
+      });
+      if (!ok) return;
+    }
     if (go) onGo(go.id);
     else onBack();
   };
@@ -176,7 +199,11 @@ export function RunExec({
           onView={onView}
           me={me}
           onOpen={(id) => id !== test.id && onGo(id)}
+          width={listWidth.moved ? listWidth.width : undefined}
         />
+        <span {...stylex.props(styles.listEdge)}>
+          <ResizeHandle label="Resize the tests of the run" {...listWidth.handle} />
+        </span>
         <section aria-label={`Test ${test.summary}`} {...stylex.props(styles.center)}>
           <RunExecBar
             test={test}
@@ -231,17 +258,22 @@ export function RunExec({
             </div>
           </div>
         </section>
+        <span {...stylex.props(styles.sideEdge)}>
+          <ResizeHandle label="Resize the testing panel" {...sideWidth.handle} side="left" />
+        </span>
         <RunPanel
+          width={sideWidth.moved ? sideWidth.width : undefined}
           foot={
             <RunVerdict
               status={status}
               proposed={r.proposed}
-              recorded={!chosen && status === r.status}
+              recorded={!chosen}
               reason={reason}
               busy={act.busy}
               last={!go}
-              onStatus={setChosen}
+              onStatus={pick}
               onReason={setReason}
+              onReasonDone={reasonDone}
               onSave={() => void saveNext()}
             />
           }

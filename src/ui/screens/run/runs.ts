@@ -1,5 +1,5 @@
 import type { CommandOutput } from "../../../core/commands/index.ts";
-import { initials, plural } from "../../lib/format.ts";
+import { fold, initials, plural } from "../../lib/format.ts";
 
 export type RunView = CommandOutput<"runs.show">;
 export type RunTestView = RunView["tests"][number];
@@ -168,7 +168,6 @@ export function folderGroups(tests: RunTestView[]): { label: string; keys: strin
 
 export const countOf = (tests: RunTestView[], f: TestFilter) => tests.filter(keepTest[f]).length;
 
-export type RunsFilter = "all" | "open" | "finished" | "questions";
 export type RunsSort = "activity" | "name" | "progress" | "problems";
 export const RUNS_SORTS: { value: RunsSort; label: string }[] = [
   { value: "activity", label: "Last activity" },
@@ -176,21 +175,46 @@ export const RUNS_SORTS: { value: RunsSort; label: string }[] = [
   { value: "progress", label: "Least done first" },
   { value: "problems", label: "Most problems first" },
 ];
-export const keepRun: Record<RunsFilter, (r: RunSummary) => boolean> = {
-  all: () => true,
-  open: (r) => !r.finished,
-  finished: (r) => r.finished,
-  questions: (r) => r.openQuestions > 0,
+
+export type RunsFilters = { words: string; states: string[]; by: string[]; has: string[] };
+export const NO_RUNS_FILTER: RunsFilters = { words: "", states: [], by: [], has: [] };
+
+const RUN_STATES: { value: string; label: string; is: (r: RunSummary) => boolean }[] = [
+  { value: "open", label: "In progress", is: (r) => !r.finished },
+  { value: "finished", label: "Finished", is: (r) => r.finished },
+];
+const RUN_HAS: { value: string; label: string; is: (r: RunSummary) => boolean }[] = [
+  { value: "problems", label: "Problems", is: (r) => r.counts.problem > 0 },
+  { value: "blocked", label: "Blocked tests", is: (r) => r.counts.blocked > 0 },
+  { value: "questions", label: "Open questions", is: (r) => r.openQuestions > 0 },
+];
+
+const keeps = (r: RunSummary, f: RunsFilters, skip?: keyof RunsFilters) => {
+  const words = fold(f.words).split(/\s+/).filter(Boolean);
+  const hay = fold([r.name, r.createdBy].join(" "));
+  return (
+    (skip === "words" || words.every((w) => hay.includes(w))) &&
+    (skip === "states" || !f.states.length || RUN_STATES.some((s) => f.states.includes(s.value) && s.is(r))) &&
+    (skip === "by" || !f.by.length || f.by.includes(r.createdBy)) &&
+    (skip === "has" || !f.has.length || RUN_HAS.some((h) => f.has.includes(h.value) && h.is(r)))
+  );
 };
+
+// ponytail: each menu counts what it would show with the other filters as they are, its own left out
+export function runsOptions(runs: RunSummary[], f: RunsFilters) {
+  const rest = (skip: keyof RunsFilters) => runs.filter((r) => keeps(r, f, skip));
+  const people = [...new Set(runs.map((r) => r.createdBy).filter(Boolean))].sort(natural);
+  return {
+    states: RUN_STATES.map((s) => ({ value: s.value, label: s.label, count: rest("states").filter(s.is).length })),
+    by: people.map((p) => ({ value: p, label: p, count: rest("by").filter((r) => r.createdBy === p).length })),
+    has: RUN_HAS.map((h) => ({ value: h.value, label: h.label, count: rest("has").filter(h.is).length })),
+  };
+}
+
 const doneShare = (r: RunSummary) => (r.total ? (r.total - r.counts.notRun) / r.total : 1);
 
-export function shownRuns(runs: RunSummary[], filter: RunsFilter, words: string, sort: RunsSort): RunSummary[] {
-  const q = words.trim().toLowerCase();
-  const kept = runs.filter(
-    (r) =>
-      keepRun[filter](r) &&
-      (!q || [r.name, r.version ?? "", r.environment ?? "", r.createdBy].join(" ").toLowerCase().includes(q)),
-  );
+export function shownRuns(runs: RunSummary[], f: RunsFilters, sort: RunsSort): RunSummary[] {
+  const kept = runs.filter((r) => keeps(r, f));
   const last = (r: RunSummary) => r.updatedAt ?? r.createdAt;
   const by: Record<RunsSort, (a: RunSummary, b: RunSummary) => number> = {
     activity: (a, b) => last(b).localeCompare(last(a)),
@@ -203,3 +227,8 @@ export function shownRuns(runs: RunSummary[], filter: RunsFilter, words: string,
 
 export const runShare = (r: Pick<RunSummary, "total" | "counts">) =>
   Math.round(((r.total - r.counts.notRun) / (r.total || 1)) * 100);
+
+// ponytail: the run's side panes, on the runs page and on a test being run alike: the list on the left, the panel on
+// the right — one width each, kept in lib/prefs once dragged
+export const RUN_LIST = { min: 240, max: 480, initial: 320 };
+export const RUN_SIDE = { min: 300, max: 640, initial: 380 };

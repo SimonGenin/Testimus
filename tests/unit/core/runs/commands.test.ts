@@ -25,14 +25,22 @@ describe("runs.list and runs.show", () => {
     expect(runs.map((r: any) => r.slug)).toEqual([RUN, "recette-j4-traction"]);
     expect(runs[0]).toMatchObject({
       name: "Recette J5 — Sectionneurs",
-      version: "SOSIE 2.4.0-rc2",
-      environment: "Simulator room B",
       total: 3,
       counts: { passed: 1, problem: 1, blocked: 0, notRun: 1 },
       openQuestions: 1,
       finished: false,
     });
     expect(runs[1]).toMatchObject({ total: 1, finished: true, counts: { passed: 1 } });
+  });
+
+  it("a run made with a version and a place before they were dropped shows neither", async () => {
+    const file = join(project, "test-runs", RUN, "run.json");
+    const raw = JSON.parse(readFileSync(file, "utf8"));
+    writeFileSync(file, JSON.stringify({ ...raw, version: "SOSIE 2.4.0-rc2", environment: "Simulator room B" }));
+    const { runs } = await call<any>("runs.list", {}, project);
+    expect(runs[0]).not.toHaveProperty("version");
+    expect(runs[0]).not.toHaveProperty("environment");
+    expect(await show()).not.toHaveProperty("version");
   });
 
   it("shows each frozen test with its result; a test without a result file is not run, one mark per step", async () => {
@@ -73,17 +81,14 @@ describe("runs.list and runs.show", () => {
 
 describe("runs.create", () => {
   it("freezes the tests named, in their order, with copies of their pictures", async () => {
-    const out = await call<any>(
-      "runs.create",
-      { name: "Recette J6 — Sectionneurs", version: "2.5", tests: [TLOCAL, T1420] },
-      project,
-    );
+    const out = await call<any>("runs.create", { name: "Recette J6 — Sectionneurs", tests: [TLOCAL, T1420] }, project);
     expect(out).toMatchObject({ slug: "recette-j6-sectionneurs", dryRun: false });
     expect(out.tests.map((t: any) => t.id)).toEqual([TLOCAL, T1420]);
     const dir = join(project, "test-runs", out.slug);
     expect(existsSync(join(dir, "images", T1420, "fig-40.png"))).toBe(true);
     const run = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
-    expect(run).toMatchObject({ name: "Recette J6 — Sectionneurs", version: "2.5", createdBy: osUser() });
+    expect(run).toMatchObject({ name: "Recette J6 — Sectionneurs", createdBy: osUser() });
+    expect(run).not.toHaveProperty("version");
     expect(run.tests.map((t: any) => t.folder)).toEqual(["/Traction/Sectionneurs", "/Traction/Sectionneurs"]);
     expect((await show(out.slug)).tests[0].folder).toBe("/Traction/Sectionneurs");
     const step1 = run.tests[1].steps[0];
@@ -149,7 +154,25 @@ describe("runs.setResult", () => {
       project,
     );
     expect(keep.result.steps[0]).toEqual({ ok: true, note: "Le disjoncteur reste fermé." });
-    expect(keep.result.status).toBe("problem");
+    expect(keep.result.status).toBe("passed");
+  });
+
+  it("a change of the marks sets the result; a result picked stands until the marks change; blocked stays", async () => {
+    const set = (input: object) => call<any>("runs.setResult", { run: RUN, test: T1420, ...input }, project);
+    const steps = (await show()).tests[0].steps.length;
+    expect((await set({ steps: [{ step: 2, ok: null }] })).result).toMatchObject({ status: "not-run", proposed: null });
+    expect((await set({ steps: [{ step: 2, ok: false }] })).result.status).toBe("problem");
+    const picked = await set({ status: "passed" });
+    expect(picked.result).toMatchObject({ status: "passed", proposed: "problem" });
+    expect((await set({ steps: [{ step: 2, ok: false, note: "Rien" }] })).result.status).toBe("passed");
+    expect((await set({ steps: [{ step: 2, ok: null }] })).result).toMatchObject({ status: "not-run", proposed: null });
+    const all = Array.from({ length: steps }, (_, i) => ({ step: i + 1, ok: true }));
+    expect((await set({ steps: all })).result.status).toBe("passed");
+    await set({ status: "blocked", blockedReason: "TK non câblée" });
+    expect((await set({ steps: [{ step: 1, ok: false }] })).result).toMatchObject({
+      status: "blocked",
+      proposed: null,
+    });
   });
 
   it("asks a reason for blocked and drops it when the test is no longer blocked", async () => {

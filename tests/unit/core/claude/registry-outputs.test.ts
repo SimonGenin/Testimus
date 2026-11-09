@@ -77,7 +77,6 @@ describe("check.* and review.*", () => {
     expect(await call("review.fix", { id: TEST, note: "Le step 2 doit nommer les commandes." }, P)).toMatchObject({
       ok: true,
     });
-    expect(await call("review.evidence", { testId: TEST }, P)).toMatchObject({ testId: TEST });
   });
 });
 

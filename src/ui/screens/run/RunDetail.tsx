@@ -48,7 +48,7 @@ const STATE = {
   done: { label: "Finished", tone: "success", icon: "check-circle" },
 } as const;
 
-// ponytail: one run — its facts (version, place, how many tests, its folder), how far it is (a bar and a tile per
+// ponytail: one run — its facts (how many tests, its folder), how far it is (a bar and a tile per
 // result), its tests with their results; Continue opens the next test not run yet
 export function RunDetail({
   run,
@@ -89,18 +89,6 @@ export function RunDetail({
             </div>
             <h2 {...stylex.props(type.titleLg, styles.title)}>{run.name}</h2>
             <div {...stylex.props(type.compact, styles.facts)}>
-              {run.version && (
-                <span {...stylex.props(styles.fact)}>
-                  <Icon name="tag" size="sm" />
-                  Version <span {...stylex.props(type.medium, styles.strong)}>{run.version}</span>
-                </span>
-              )}
-              {run.environment && (
-                <span {...stylex.props(styles.fact)}>
-                  <Icon name="monitor" size="sm" />
-                  <span {...stylex.props(type.medium, styles.strong)}>{run.environment}</span>
-                </span>
-              )}
               <span {...stylex.props(styles.fact)}>
                 <Icon name="tests" size="sm" />
                 {plural(run.tests.length, "frozen test")}

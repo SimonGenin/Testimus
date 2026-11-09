@@ -40,7 +40,7 @@ export function RunStats({ run }: { run: RunView }) {
   const questions = run.tests.reduce((n, t) => n + t.result.openQuestions, 0);
   const sub: Record<RunStatus, string> = {
     passed: `${Math.round(share(c.passed))} % of the run`,
-    problem: proposedProblems ? `${plural(proposedProblems, "more")} proposed by the marks` : "No other NOK",
+    problem: proposedProblems ? `${plural(proposedProblems, "more")} NOK under another result` : "No other NOK",
     blocked: blocked?.result.blockedReason ? `« ${blocked.result.blockedReason} »` : "Nothing blocked",
     "not-run": playing ? `${playing} in progress` : questions ? plural(questions, "open question") : "None left",
   };

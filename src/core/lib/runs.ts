@@ -23,8 +23,6 @@ export type RunTest = {
 };
 export type RunFile = {
   name: string;
-  version?: string;
-  environment?: string;
   createdAt: string;
   createdBy: string;
   importedAt?: string;
@@ -89,8 +87,6 @@ export function readRunFile(project: string, slug: string): RunFile {
 export function normalRun(raw: Partial<RunFile>, fallbackName: string): RunFile {
   return {
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallbackName,
-    ...(raw.version ? { version: String(raw.version) } : {}),
-    ...(raw.environment ? { environment: String(raw.environment) } : {}),
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : "",
     createdBy: typeof raw.createdBy === "string" ? raw.createdBy : "",
     ...(raw.importedAt ? { importedAt: String(raw.importedAt) } : {}),
@@ -193,14 +189,20 @@ export function normalResult(raw: unknown, steps: number): RunResult {
   };
 }
 
-// ponytail: the one rule of the result the marks propose — only while the test is not run (a recorded result is the
-// tester's, never replaced): any NOK proposes Problem, every step OK Passed, else nothing yet. The exported page keeps
-// a copy (templates/run-pages/run.js), tested equal to this one
+// ponytail: the one rule of the result the marks give — any NOK is Problem, every step OK Passed, else not run yet. A
+// change of the marks sets the result by it (Blocked, the tester's call with its reason, stays); a result the tester
+// picks stands until the marks change again, and the marks' word beside it is the proposal. The exported page keeps a
+// copy of both (templates/run-pages/run.js), tested equal to these
+export function marksStatus(steps: StepMark[]): RunStatus {
+  if (steps.some((s) => s.ok === false)) return "problem";
+  if (steps.length && steps.every((s) => s.ok === true)) return "passed";
+  return "not-run";
+}
+
 export function proposedStatus(r: Pick<RunResult, "status" | "steps">): RunStatus | null {
-  if (r.status !== "not-run") return null;
-  if (r.steps.some((s) => s.ok === false)) return "problem";
-  if (r.steps.length && r.steps.every((s) => s.ok === true)) return "passed";
-  return null;
+  if (r.status === "blocked") return null;
+  const m = marksStatus(r.steps);
+  return m !== "not-run" && m !== r.status ? m : null;
 }
 
 export const openQuestionsOf = (r: RunResult) => r.comments.filter((c) => c.kind === "question" && !c.answer).length;
@@ -240,8 +242,6 @@ export function runSummary(project: string, slug: string) {
   return {
     slug,
     name: run.name,
-    ...(run.version ? { version: run.version } : {}),
-    ...(run.environment ? { environment: run.environment } : {}),
     createdAt: run.createdAt,
     createdBy: run.createdBy,
     ...(run.importedAt ? { importedAt: run.importedAt } : {}),

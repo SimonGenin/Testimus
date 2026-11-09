@@ -71,6 +71,7 @@ const local: LocalTestRef = {
   id: "t1",
   key: "K-1",
   summary: "Local one",
+  labels: [],
   folder: "/",
   review: "draft",
   generated: false,

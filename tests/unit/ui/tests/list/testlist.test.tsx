@@ -26,6 +26,7 @@ vi.mock("../../../../../src/ui/lib/toast.ts", async (importOriginal) => {
 const ref = (o: Partial<LocalTestRef> & { id: string }): LocalTestRef => ({
   summary: o.id,
   folder: "/",
+  labels: [],
   review: "draft",
   generated: false,
   edited: false,

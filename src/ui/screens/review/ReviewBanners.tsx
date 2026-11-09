@@ -42,6 +42,8 @@ export type BannersProps = {
   onKeepMine: () => void;
   onAskFix?: () => void;
   onEditNote?: () => void;
+  /** takes the To fix mark off: the test is a draft again */
+  onToDraft?: () => void;
 };
 
 function ClaudeFixing({ testId }: { testId?: string }) {
@@ -136,6 +138,16 @@ export function ReviewBanners(p: BannersProps) {
                   />
                 )}
                 {p.onEditNote && <Button size="sm" variant="quiet" label="Edit the note" onClick={p.onEditNote} />}
+                {p.onToDraft && (
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    icon="undo"
+                    label="Back to draft"
+                    disabled={p.claudeRunning}
+                    onClick={p.onToDraft}
+                  />
+                )}
               </>
             }
           >

@@ -2,7 +2,7 @@ import { boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 mockServer(4369);
 
-test("a generated test shows the sources it read; a misplaced quote is not highlighted", async ({ page }) => {
+test("a misplaced quote is not highlighted, and the panel lists no sources read", async ({ page }) => {
   await boot(page, "#/generate");
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
@@ -25,17 +25,6 @@ test("a generated test shows the sources it read; a misplaced quote is not highl
   await expect(panel.getByRole("alert").filter({ hasText: "The quote is not at this anchor" })).toBeVisible();
   await expect(panel.locator("mark")).toHaveCount(0);
 
-  const head = panel.getByRole("button", { name: /^Sources read/ });
-  await expect(head).toHaveAttribute("aria-expanded", "false");
-  await expect(panel.getByText("2 read", { exact: true })).toBeVisible();
-  await head.click();
-  const evidence = panel.getByRole("region", { name: "Sources read" });
-  await expect(evidence.getByText("Read by the generation")).toBeVisible();
-  const read = evidence.getByRole("option", { name: /SOSIE_211_D401-1_3#§5\.6\.6/ });
-  await expect(read).toBeVisible();
-  await expect(evidence).toContainText("Cited");
+  await expect(panel.getByRole("button", { name: /^Sources read/ })).toHaveCount(0);
   await shoot(page, "review-evidence-e2e");
-
-  await read.click();
-  await expect(panel).toContainText("Selon le type de sectionneur");
 });

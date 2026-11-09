@@ -3,7 +3,6 @@ import { fixTest } from "../claude/fix.ts";
 import { decide, needTest, reviewQueue } from "../claude/review.ts";
 import { CHECK_FILE, DIAGNOSIS, REVIEW, TEST_REF } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
-import { testEvidence } from "../lib/check.ts";
 import { testName } from "../lib/names.ts";
 
 const queueItem = z.object({
@@ -31,12 +30,14 @@ export const commands = [
   command({
     name: "review.set",
     summary:
-      "Record the reviewer's decision on a test: validate (review: validated) or to-fix with a note (review: to-fix); stamps reviewed_by and reviewed_at.",
+      "Record the reviewer's decision on a test: validate (review: validated) or to-fix with a note (review: to-fix), stamping reviewed_by and reviewed_at; draft takes a decision back (review: draft, the note and the stamp removed).",
     input: z.object({
       id: TEST_REF,
       decision: z
-        .enum(["validate", "to-fix"])
-        .describe("validate = the test is right; to-fix = it needs changes (note required)"),
+        .enum(["validate", "to-fix", "draft"])
+        .describe(
+          "validate = the test is right; to-fix = it needs changes (note required); draft = no decision any more: back to awaiting review",
+        ),
       note: z.string().optional().describe("What to fix, in the reviewer's words (required for to-fix)"),
     }),
     output: z.object({
@@ -132,46 +133,6 @@ export const commands = [
       needTest(project, input.id);
       if (input.note?.trim()) decide(project, input.id, "to-fix", input.note);
       return await fixTest(ctx, project, input.id, { note: input.note, semantic: input.semantic });
-    },
-  }),
-  command({
-    name: "review.evidence",
-    summary:
-      "What the generation of a test really read (its evidence ledger): the passages it opened, each marked cited or not, and the searches it made — « sources read ».",
-    input: z.object({ testId: TEST_REF }),
-    output: z.object({
-      testId: z.string().describe("The test"),
-      jobId: z
-        .string()
-        .nullable()
-        .describe("The generation job that wrote it (generated_by); null when it has no evidence ledger"),
-      consulted: z
-        .array(z.string())
-        .describe("Every docId#anchor the generation opened, from its tool calls (.testimus/gen/<job>.json)"),
-      read: z
-        .array(
-          z.object({
-            ref: z.string().describe("docId#anchor opened by the generation"),
-            title: z.string().describe("Section title or figure caption"),
-            cited: z.boolean().describe("A step's Sources cite it or one of its sub-sections"),
-          }),
-        )
-        .describe("Sources read"),
-      searched: z
-        .array(
-          z.object({
-            tool: z.string().describe("rag_search, rag_mentions or Grep"),
-            query: z.string().describe("What was searched"),
-          }),
-        )
-        .describe("The searches the generation made"),
-    }),
-    mutates: false,
-    positional: ["testId"],
-    run: async (ctx, input) => {
-      const project = projectOf(ctx);
-      needTest(project, input.testId);
-      return testEvidence(project, input.testId);
     },
   }),
 ];

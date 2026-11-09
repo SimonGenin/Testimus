@@ -1,7 +1,5 @@
 {
   "name": "Recette J5 — Sectionneurs",
-  "version": "SOSIE 2.4.0-rc2",
-  "environment": "Simulator room B",
   "createdAt": "2026-11-06T09:30:00.000Z",
   "createdBy": "tester",
   "tests": [

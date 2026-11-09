@@ -5,6 +5,7 @@ import { env } from "../env.ts";
 import { writeAtomic } from "./atomic.ts";
 import { osUser } from "./review.ts";
 import {
+  marksStatus,
   type RunComment,
   type RunResult,
   type RunStatus,
@@ -51,8 +52,10 @@ export type ResultPatch = {
 export function setResult(project: string, slug: string, testId: string, p: ResultPatch) {
   const t = testOf(project, slug, testId);
   const r = readResult(project, slug, t);
+  let marked = false;
   for (const s of p.steps ?? []) {
     const i = stepIndex(t, s.step);
+    if (r.steps[i].ok !== s.ok) marked = true;
     const note = s.note === undefined ? r.steps[i].note : s.note.trim();
     r.steps[i] = { ok: s.ok, ...(note ? { note } : {}) };
   }
@@ -62,6 +65,7 @@ export function setResult(project: string, slug: string, testId: string, p: Resu
     else delete r.blockedReason;
   }
   if (p.status) r.status = p.status;
+  else if (marked && r.status !== "blocked") r.status = marksStatus(r.steps);
   if (r.status === "blocked" && !r.blockedReason)
     throw new UserError(
       "A blocked test needs its reason.",

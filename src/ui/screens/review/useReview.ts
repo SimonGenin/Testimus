@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type { CommandInput } from "../../../core/commands/index.ts";
 import type { CheckFile, SyncState, Test } from "../../../core/types.ts";
 import type { Screen } from "../../lib/app.ts";
 import { flushAutosaves, useDraft } from "../../lib/data/autosave.ts";
@@ -9,8 +8,9 @@ import { execute, type Prefix, read, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast, jobToast, toast } from "../../lib/toast.ts";
 import { useReplaceWithJira } from "../tests/replace.tsx";
+import { keepQueued, type QueueCheck, type QueueFilters } from "./queueFilters.ts";
 import { byGeneration } from "./queueGroups.ts";
-import type { QueueCounts, QueueFilter, QueueItem, QueueSort } from "./ReviewQueue.tsx";
+import type { QueueCounts, QueueItem, QueueSort } from "./ReviewQueue.tsx";
 import { useJobRun } from "./useJobRun.ts";
 
 export type Loaded = {
@@ -22,55 +22,56 @@ export type Loaded = {
   stale: boolean;
 };
 
-const STATES: Record<QueueFilter, CommandInput<"review.queue">["state"]> = {
-  all: undefined,
-  draft: ["draft"],
-  "to-fix": ["to-fix"],
-  validated: ["validated"],
-};
-
 const NONE: QueueItem[] = [];
 
 const draft = (name: string) => [project(), `review.${name}`] as const;
+const list = (v: string): string[] => (v ? JSON.parse(v) : []);
 
-// ponytail: the queue's filters are presentation kept for the life of the page, like any unsent choice
+// ponytail: the queue's filters are presentation kept for the life of the page, like any unsent choice; the queue is
+// read whole (draft and to-fix) and narrowed here (queueFilters.ts), so every menu can count what it holds
 export function useQueueFilters() {
-  const [filter, setFilter] = useDraft(draft("filter"), "all");
+  const [words, setWords] = useDraft(draft("words"), "");
+  const [states, setStates] = useDraft(draft("states"), "");
+  const [checks, setChecks] = useDraft(draft("checks"), "");
+  const [folders, setFolders] = useDraft(draft("folders"), "");
   const [sort, setSort] = useDraft(draft("sort"), "anomalies");
-  const [folder, setFolder] = useDraft(draft("folder"), "");
-  const [findings, setFindings] = useDraft(draft("withFindings"), "");
+  const value = useMemo<QueueFilters>(
+    () => ({
+      words,
+      states: list(states) as QueueFilters["states"],
+      checks: list(checks) as QueueCheck[],
+      folders: list(folders),
+    }),
+    [words, states, checks, folders],
+  );
   return {
-    filter: filter as QueueFilter,
+    value,
     sort: sort as QueueSort,
-    folder,
-    withFindings: findings === "1",
-    setFilter: (f: QueueFilter) => setFilter(f),
+    setWords,
+    setStates: (v: string[]) => setStates(v.length ? JSON.stringify(v) : ""),
+    setChecks: (v: string[]) => setChecks(v.length ? JSON.stringify(v) : ""),
+    setFolders: (v: string[]) => setFolders(v.length ? JSON.stringify(v) : ""),
     setSort: (s: QueueSort) => setSort(s),
-    setFolder,
-    setWithFindings: (on: boolean) => setFindings(on ? "1" : ""),
     clear: () => {
-      setFilter("all");
-      setFolder("");
-      setFindings("");
+      setWords("");
+      setStates("");
+      setChecks("");
+      setFolders("");
     },
   };
 }
 
 export type Filters = ReturnType<typeof useQueueFilters>;
 
-export const queueInput = (f: Pick<Filters, "filter" | "folder" | "withFindings" | "sort">) => ({
-  ...(STATES[f.filter] ? { state: STATES[f.filter] } : {}),
-  ...(f.folder ? { folder: f.folder } : {}),
-  ...(f.withFindings ? { withFindings: true } : {}),
-  sort: f.sort,
-});
+export const queueInput = (f: Pick<Filters, "sort">) => ({ sort: f.sort });
 
 export function useReviewData(routeId: string, filters: Filters) {
   const input = queueInput(filters);
   const queue = useRead("review.queue", input, { keepPrevious: true });
   const whole = useRead("review.queue", {});
-  const listed = queue.isSuccess ? (queue.data?.tests ?? NONE) : undefined;
-  const grouped = useMemo(() => (listed ? byGeneration(listed as QueueItem[]) : null), [listed]);
+  const fetched = queue.isSuccess ? ((queue.data?.tests ?? NONE) as QueueItem[]) : undefined;
+  const listed = useMemo(() => (fetched ? keepQueued(fetched, filters.value) : undefined), [fetched, filters.value]);
+  const grouped = useMemo(() => (listed ? byGeneration(listed) : null), [listed]);
   const items: QueueItem[] | null = grouped ? grouped.items : queue.isError ? [] : null;
   const all = whole.data?.tests ?? [];
   const activeId = routeId || items?.[0]?.id || "";
@@ -97,7 +98,7 @@ export function useReviewData(routeId: string, filters: Filters) {
     counts: (queue.data?.counts ?? null) as QueueCounts | null,
     queueError: queue.isError ? queue.error.message : "",
     retryQueue: () => void queue.refetch(),
-    folders: [...new Set(all.map((t) => t.folder).filter(Boolean))].sort(),
+    queued: fetched ?? NONE,
     unchecked: all.filter((t) => t.unchecked).map((t) => t.id),
     needsCheck: all.filter((t) => t.unchecked || t.stale).map((t) => t.id),
     activeId,
@@ -119,6 +120,7 @@ const decided = (id: string): Prefix[] => [
 // ponytail: the reviewer's gestures, one command each; the queue read again after a decision says which test is next
 export function useDecisions(
   input: ReturnType<typeof queueInput>,
+  filters: QueueFilters,
   open: (id: string | null) => void,
   navigate: (screen: Screen, arg?: string) => void,
 ) {
@@ -128,7 +130,7 @@ export function useDecisions(
 
   const next = async (id: string, before: QueueItem[]) => {
     const at = before.findIndex((t) => t.id === id);
-    const list = byGeneration((await read(client, "review.queue", input)).tests).items;
+    const list = byGeneration(keepQueued((await read(client, "review.queue", input)).tests, filters)).items;
     const after = list.find((t, i) => i >= at && t.id !== id) ?? list.filter((t) => t.id !== id).pop();
     open(after?.id ?? null);
   };
@@ -155,6 +157,19 @@ export function useDecisions(
 
   return {
     validate: (id: string, label: string, before: QueueItem[]) => decide(id, label, before),
+    toDraft: async (id: string, label: string) => {
+      try {
+        await execute(
+          client,
+          "review.set",
+          { id, decision: "draft" },
+          { invalidates: decided(id), flushFirst: [["tests.show", { id }]] },
+        );
+        toast({ tone: "neutral", title: "Back to Draft", detail: label });
+      } catch (e) {
+        errorToast(e, "Could not take the To fix mark off");
+      }
+    },
     markToFix: (id: string, label: string, before: QueueItem[], note: string) => decide(id, label, before, note),
     flush: (id: string) => flushAutosaves([["tests.show", { id }]]),
     checking: check.running,

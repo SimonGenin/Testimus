@@ -115,6 +115,7 @@ function deferred<T>() {
 const ref = (over: Partial<LocalTestRef> & { id: string }): LocalTestRef => ({
   summary: over.id,
   folder: "/",
+  labels: [],
   review: "draft",
   generated: false,
   edited: false,

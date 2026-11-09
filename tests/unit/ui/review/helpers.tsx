@@ -163,16 +163,6 @@ export function reviewRoutes(s: Setup = {}) {
     figures: [],
     doc: { code: "D", title: `Passage ${i.ref}`, version: "1", status: "validated" },
   });
-  net.routes["review.evidence"] = () => ({
-    testId: "K-1",
-    jobId: "j",
-    consulted: [],
-    read: [
-      { ref: "D#§2", title: "", cited: true },
-      { ref: "E#§7", title: "Seven", cited: false },
-    ],
-    searched: [],
-  });
   net.routes["review.set"] = () => ({});
   return { setQueue: (q: QueueItem[]) => (queue = q) };
 }

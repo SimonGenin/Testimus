@@ -94,7 +94,7 @@ in permission lists; `testimus help` lists them all). Prefer them to guessing:
   documents are indexed; fall back to `Grep` and `Read` on `docs/*/doc.md`.
 - **Tests**: `tests_list`, `tests_show`, `search_all` (find existing tests before writing one that
   may already exist), `columns_list` (the smart columns and their descriptions), `check_show`,
-  `review_queue`, `review_evidence` (what a generation read for a test, and what it should have).
+  `review_queue`.
 - **Writing tests** (generation, fix, edit runs only): `tests_create`, `tests_edit`, `tests_save`,
   `tests_addImage`; `check_run` (from a Claude run it does the mechanical pass only — you are the
   semantic check).

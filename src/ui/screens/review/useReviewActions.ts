@@ -80,6 +80,10 @@ export function useReviewActions({ app, data, items, act, view, running }: Args)
       else void decide(() => act.markToFix(data.id, label, items ?? [], note));
     },
     askFix: () => askFix(),
+    toDraft: () => {
+      if (!data || running) return;
+      void decide(() => act.toDraft(data.id, label));
+    },
     undo: (force?: boolean) => void undo(force),
   };
 }

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Finding, Step, Test } from "../../../../src/core/types.ts";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 import { FixNote } from "../../../../src/ui/screens/review/FixNote.tsx";
+import { NO_FILTER } from "../../../../src/ui/screens/review/queueFilters.ts";
 import { type QueueItem, ReviewQueue } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
 import { FindingSources, findingSummary, ReviewStep } from "../../../../src/ui/screens/review/ReviewStep.tsx";
 import { ReviewTest } from "../../../../src/ui/screens/review/ReviewTest.tsx";
@@ -127,39 +128,38 @@ describe("ReviewQueue", () => {
   });
   const props = (over: Partial<Parameters<typeof ReviewQueue>[0]> = {}) => ({
     items: [] as QueueItem[] | null,
+    queued: [] as QueueItem[],
     counts: null,
     activeId: "",
-    filter: "all" as const,
+    filters: NO_FILTER,
     sort: "anomalies" as const,
-    folder: "",
-    folders: ["/A", "/B"],
-    withFindings: false,
-    onFilter: vi.fn(),
+    onWords: vi.fn(),
+    onStates: vi.fn(),
+    onChecks: vi.fn(),
+    onFolders: vi.fn(),
     onSort: vi.fn(),
-    onFolder: vi.fn(),
-    onWithFindings: vi.fn(),
     onOpen: vi.fn(),
     ...over,
   });
 
-  it("shows counts, sorts, filters by folder and by findings", () => {
+  it("shows its rows with their counts, and sorts from the pane's head", () => {
+    const items = [
+      item("a", { key: "K-1", errors: 1, warnings: 2, infos: 3 }),
+      item("b", { summary: "", folder: "", errors: 1, warnings: 1, infos: 1, stale: true, edited: true }),
+      item("c"),
+      item("d", { unchecked: true }),
+    ];
     const p = props({
-      items: [
-        item("a", { key: "K-1", errors: 1, warnings: 2, infos: 3 }),
-        item("b", { summary: "", folder: "", errors: 1, warnings: 1, infos: 1, stale: true, edited: true }),
-        item("c"),
-        item("d", { unchecked: true }),
-      ],
+      items,
+      queued: items,
       counts: { toFix: 2, draft: 4, unchecked: 0, validated: 4 },
       activeId: "b",
-      folder: "/A",
     });
     render(<ReviewQueue {...p} />);
-    const seg = screen.getByRole("radiogroup", { name: "Filter by review state" });
-    expect(within(seg).getByRole("radio", { name: /All/ })).toHaveTextContent("6");
-    expect(within(seg).getByRole("radio", { name: /Validated/ })).toHaveTextContent("4");
-    fireEvent.click(within(seg).getByRole("radio", { name: /To fix/ }));
-    expect(p.onFilter).toHaveBeenCalledWith("to-fix");
+    expect(screen.getByRole("complementary", { name: "Review queue" })).toHaveTextContent("6");
+    expect(screen.queryByRole("radiogroup", { name: "Filter by review state" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Only with findings" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Check all" })).toBeNull();
     const rows = within(screen.getByRole("listbox", { name: "Tests to review" })).getAllByRole("option");
     expect(rows[0]).toHaveTextContent("1 error");
     expect(rows[0]).toHaveTextContent("2 warnings");
@@ -177,24 +177,58 @@ describe("ReviewQueue", () => {
     expect(rows[3]).toHaveTextContent("Not checked yet");
     choose(screen.getByRole("combobox", { name: "Sort the queue" }), "Folder");
     expect(p.onSort).toHaveBeenCalledWith("folder");
-    fireEvent.click(screen.getByRole("checkbox", { name: "Only with findings" }));
-    expect(p.onWithFindings).toHaveBeenCalledWith(true);
-    const folder = screen.getByRole("combobox", { name: "Filter by folder" });
-    expect(folder).toHaveTextContent("/A");
-    choose(folder, "/B");
-    expect(p.onFolder).toHaveBeenCalledWith("/B");
-    choose(folder, "All folders");
-    expect(p.onFolder).toHaveBeenCalledWith("");
   });
 
-  it("shows the folder filter only when the queue spans several folders, or one is chosen", () => {
-    const { rerender } = render(<ReviewQueue {...props({ folders: ["/A"] })} />);
-    expect(screen.queryByRole("combobox", { name: "Filter by folder" })).toBeNull();
-    expect(screen.getByRole("combobox", { name: "Sort the queue" })).toBeInTheDocument();
-    rerender(<ReviewQueue {...props({ folders: [] })} />);
-    expect(screen.queryByRole("combobox", { name: "Filter by folder" })).toBeNull();
-    rerender(<ReviewQueue {...props({ folders: ["/A"], folder: "/A" })} />);
-    expect(screen.getByRole("combobox", { name: "Filter by folder" })).toBeInTheDocument();
+  it("filters by words, state, what the check found and folder, each tick counted", () => {
+    const queued = [
+      item("a", { review: "to-fix", folder: "/A", errors: 1 }),
+      item("b", { folder: "/A/x", warnings: 2 }),
+      item("c", { folder: "/B" }),
+      item("d", { folder: "/B", unchecked: true }),
+    ];
+    const p = props({ items: queued, queued });
+    render(<ReviewQueue {...p} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter the queue" }), { target: { value: "sect" } });
+    expect(p.onWords).toHaveBeenCalledWith("sect");
+    fireEvent.click(screen.getByRole("button", { name: "State" }));
+    expect(screen.getByRole("menuitemcheckbox", { name: /Draft/ })).toHaveTextContent("3");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /To fix/ }));
+    expect(p.onStates).toHaveBeenCalledWith(["to-fix"]);
+    fireEvent.click(screen.getByRole("button", { name: "Findings" }));
+    expect(screen.getByRole("menuitemcheckbox", { name: /^Errors/ })).toHaveTextContent("1");
+    expect(screen.getByRole("menuitemcheckbox", { name: /No findings/ })).toHaveTextContent("1");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Not checked yet/ }));
+    expect(p.onChecks).toHaveBeenCalledWith(["unchecked"]);
+    fireEvent.click(screen.getByRole("button", { name: "Folder" }));
+    expect(screen.getByRole("menuitemcheckbox", { name: /^\/A(?!\/)/ })).toHaveTextContent("2");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /^\/B/ }));
+    expect(p.onFolders).toHaveBeenCalledWith(["/B"]);
+  });
+
+  it("a menu on says what it keeps, and the bar says how many are shown with Clear", () => {
+    const queued = [item("a", { review: "to-fix" }), item("b"), item("c")];
+    const onClearFilters = vi.fn();
+    render(
+      <ReviewQueue
+        {...props({
+          items: [queued[0]],
+          queued,
+          filters: { ...NO_FILTER, states: ["to-fix"] },
+          onClearFilters,
+        })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "State: to fix" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 3 shown");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Clear the filters" }));
+    expect(onClearFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves out a menu with a single value", () => {
+    const queued = [item("a"), item("b")];
+    render(<ReviewQueue {...props({ items: queued, queued })} />);
+    expect(screen.queryByRole("button", { name: "Folder" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Findings" })).toBeInTheDocument();
   });
 
   it("loading, empty and filtered-empty states", () => {
@@ -204,32 +238,10 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("The queue is empty.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear the filters" })).toBeNull();
     const onClearFilters = vi.fn();
-    rerender(<ReviewQueue {...props({ withFindings: true, onClearFilters })} />);
+    rerender(<ReviewQueue {...props({ filters: { ...NO_FILTER, checks: ["errors"] }, onClearFilters })} />);
     expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Only with findings" })).toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Clear the filters" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear the filters" }).at(-1) as HTMLElement);
     expect(onClearFilters).toHaveBeenCalledTimes(1);
-    rerender(<ReviewQueue {...props({ folder: "/A", onClearFilters })} />);
-    expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
-    rerender(<ReviewQueue {...props({ filter: "draft", onClearFilters })} />);
-    expect(screen.getByText("No test matches these filters")).toBeInTheDocument();
-    rerender(<ReviewQueue {...props({ filter: "validated", onClearFilters })} />);
-    expect(screen.getByText("No generated test validated yet")).toBeInTheDocument();
-    expect(screen.getByText(/stays readable here once validated/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Clear the filters" })).toBeInTheDocument();
-  });
-
-  it("Check all runs the check on the tests that need it, and says when none does", () => {
-    const onCheck = vi.fn();
-    const { rerender } = render(<ReviewQueue {...props({ checkAll: { ids: ["a"], running: false, onCheck } })} />);
-    fireEvent.click(screen.getByRole("button", { name: "Check all" }));
-    expect(onCheck).toHaveBeenCalled();
-    rerender(<ReviewQueue {...props({ checkAll: { ids: [], running: false, onCheck } })} />);
-    const off = screen.getByRole("button", { name: "Check all" });
-    expect(off).toBeDisabled();
-    expect(off).toHaveAccessibleDescription(/checked and up to date/);
-    rerender(<ReviewQueue {...props({ checkAll: { ids: ["a"], running: true, onCheck } })} />);
-    expect(screen.getByRole("button", { name: "Check all" })).toHaveAttribute("aria-busy", "true");
   });
 });
 

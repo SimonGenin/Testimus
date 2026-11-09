@@ -34,6 +34,7 @@ const styles = stylex.create({
     borderInlineEndWidth: border.width,
     borderInlineEndColor: color.border,
   },
+  sized: (width: string) => ({ width: { default: width, [breakpoint.sm]: "auto" } }),
   head: {
     flex: "none",
     display: "flex",
@@ -79,6 +80,7 @@ function itemOf(t: RunTestView, n: number) {
 // panes beside the dock, the same squeeze): under it the list goes and the top bar's way back stays — how far the run is, the tests by folder with their result
 // and their step marks, the same filters and sort as the run's table (one view, kept while the tester moves on)
 export function RunTestList({
+  width,
   run,
   open,
   view,
@@ -86,6 +88,8 @@ export function RunTestList({
   onOpen,
   me,
 }: {
+  /** px, once the tester widened it */
+  width?: number;
   /** who records results here (runs.list): « Only tests I ran » */
   me: string;
   run: RunView;
@@ -103,16 +107,14 @@ export function RunTestList({
   const set = (patch: Partial<TestView>) => onView({ ...view, ...patch });
   const sortLabel = TEST_SORTS.find((s) => s.value === view.sort)?.label ?? "";
   return (
-    <nav aria-label="Tests of the run" {...stylex.props(styles.side)}>
+    <nav
+      aria-label="Tests of the run"
+      {...stylex.props(styles.side, width !== undefined && styles.sized(`${width}px`))}
+    >
       <div {...stylex.props(styles.head)}>
         <h2 title={run.name} {...stylex.props(type.titleSm, styles.name)}>
           {run.name}
         </h2>
-        {(run.version || run.environment) && (
-          <span {...stylex.props(type.small, styles.meta)}>
-            {[run.version, run.environment].filter(Boolean).join(" · ")}
-          </span>
-        )}
         <Progress
           label="Run progress"
           detail={`${done} of ${run.tests.length} done`}

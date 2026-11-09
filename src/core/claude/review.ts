@@ -39,8 +39,10 @@ export function needTest(project: string, t: string): void {
     throw new UserError(`No test ${t} in this project.`, "testimus tests list shows the tests.");
 }
 
-// ponytail: the reviewer's decision — validate, or to-fix with what is wrong; who and when are stamped
-export function decide(project: string, id: string, decision: "validate" | "to-fix", rawNote?: string): Test {
+// ponytail: the reviewer's decision — validate, or to-fix with what is wrong; who and when are stamped. draft takes a
+// decision back: the test awaits review again, without a note or a reviewer
+export function decide(project: string, id: string, decision: "validate" | "to-fix" | "draft", rawNote?: string): Test {
+  if (decision === "draft") return setReview(project, id, { review: "draft", note: null, by: null, at: null });
   const note = rawNote?.trim() || null;
   if (decision === "to-fix" && !note)
     throw new UserError("A To fix decision needs a note.", 'Say what is wrong, e.g. --note "Step 2 must check …".');

@@ -16,6 +16,7 @@ import { Lightbox } from "../tests/Lightbox.tsx";
 import { PushDialog } from "../tests/PushDialog.tsx";
 import { FixNote } from "./FixNote.tsx";
 import { QueueStrip } from "./QueueStrip.tsx";
+import { filtered } from "./queueFilters.ts";
 import { ReviewEdit } from "./ReviewEdit.tsx";
 import { ReviewEmpty, ReviewLoading } from "./ReviewEmpty.tsx";
 import { ReviewFoot } from "./ReviewFoot.tsx";
@@ -64,7 +65,7 @@ export function ReviewScreen() {
   const d = useReviewData(routeId, filters);
   const { items, data, activeId } = d;
   const open = (id: string | null) => (id ? app.navigate("review", id) : app.navigate("review"));
-  const act = useDecisions(d.input, open, app.navigate);
+  const act = useDecisions(d.input, filters.value, open, app.navigate);
   const view = useReviewView(activeId, data, app.lastRun);
   const claudeQ = useRead("claude.before", { testId: activeId }, { enabled: !!activeId });
   // biome-ignore lint/correctness/useExhaustiveDependencies: taken once, when that test shows
@@ -126,20 +127,6 @@ export function ReviewScreen() {
     off: view.fixOpen || pushing,
   });
 
-  const pick = (ref: string) => {
-    const steps = data?.test.steps ?? [];
-    const at = steps.findIndex((s) => s.sources.some((x) => refKey(x) === ref));
-    const cited = at >= 0 ? steps[at].sources.find((x) => refKey(x) === ref) : undefined;
-    const i = ref.indexOf("#");
-    const source = { docId: ref.slice(0, i), anchor: ref.slice(i + 1), quote: "" };
-    view.patch({
-      sel:
-        data && cited
-          ? chipOpened(data.test, at + 1, cited)
-          : { source, step: null, label: "Read by the generation", mark: `read:${ref}`, list: [source] },
-    });
-  };
-
   const editing =
     view.editing && data
       ? {
@@ -161,15 +148,14 @@ export function ReviewScreen() {
           groups={d.groups}
           counts={d.counts}
           activeId={activeId}
-          filter={filters.filter}
+          queued={d.queued}
+          filters={filters.value}
           sort={filters.sort}
-          folder={filters.folder}
-          folders={d.folders}
-          withFindings={filters.withFindings}
-          onFilter={filters.setFilter}
+          onWords={filters.setWords}
+          onStates={filters.setStates}
+          onChecks={filters.setChecks}
+          onFolders={filters.setFolders}
           onSort={filters.setSort}
-          onFolder={filters.setFolder}
-          onWithFindings={filters.setWithFindings}
           onClearFilters={filters.clear}
           onOpen={(id) => {
             setQueueOver(false);
@@ -177,7 +163,6 @@ export function ReviewScreen() {
           }}
           over={queueOver}
           width={queueW.moved ? queueW.width : undefined}
-          checkAll={{ ids: d.needsCheck, running: act.checking, onCheck: () => act.check(d.needsCheck) }}
           error={d.queueError ? { message: d.queueError, onRetry: d.retryQueue } : undefined}
           notice={
             d.needsCheck.length > 0 && (
@@ -216,15 +201,8 @@ export function ReviewScreen() {
           ) : !activeId ? (
             items && (
               <ReviewEmpty
-                validated={filters.filter === "all" ? (d.counts?.validated ?? 0) : 0}
-                narrowed={
-                  filters.filter !== "all" || filters.folder || filters.withFindings
-                    ? {
-                        onlyValidated: filters.filter === "validated" && !filters.folder && !filters.withFindings,
-                        onClear: filters.clear,
-                      }
-                    : undefined
-                }
+                validated={d.counts?.validated ?? 0}
+                narrowed={filtered(filters.value) ? { onClear: filters.clear } : undefined}
                 onGenerate={() => app.navigate("generate")}
                 onTests={() => app.navigate("tests")}
               />
@@ -287,6 +265,7 @@ export function ReviewScreen() {
               onCheck={() => act.check([data.id])}
               onAskFix={acts.askFix}
               onEditNote={() => view.patch({ fixOpen: true })}
+              onToDraft={acts.toDraft}
             />
           )}
           {!view.editing && activeId && (
@@ -311,7 +290,6 @@ export function ReviewScreen() {
               label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
               index={openedIndex(sel)}
               total={sel.list.length}
-              testId={data?.id ?? ""}
               misplaced={notAtAnchor(findings, selKey, sel.step)}
               width={sourceW.moved ? sourceW.width : undefined}
               onClose={() => view.patch({ sel: null })}
@@ -326,7 +304,6 @@ export function ReviewScreen() {
                   ),
                 )
               }
-              onPick={pick}
               onStep={(by) => {
                 const next = data && moveOpened(data.test, data.check, sel, by);
                 if (next) view.patch({ sel: next });

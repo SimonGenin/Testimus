@@ -39,7 +39,7 @@ export const commands = [
   command({
     name: "runs.list",
     summary:
-      "The test runs of the project (test-runs/<run>/), newest first: name, version, environment, who made it, how many tests passed, have a problem, are blocked or not run, open questions, finished or not; and who records results from here.",
+      "The test runs of the project (test-runs/<run>/), newest first: name, who made it, how many tests passed, have a problem, are blocked or not run, open questions, finished or not; and who records results from here.",
     input: z.object({}),
     output: z.object({
       runs: z.array(SUMMARY).describe("Every run, newest first"),
@@ -83,8 +83,6 @@ export const commands = [
         .describe(
           "The run's name (« Recette J5 — Sectionneurs »); its folder name comes from it (a dry run ignores it)",
         ),
-      version: z.string().optional().describe("The version under test (« SOSIE 2.4.0-rc2 »)"),
-      environment: z.string().optional().describe("Where it is run (« Simulator room B »)"),
       tests: z.array(z.string()).optional().describe("Test ids or Jira keys to put in the run"),
       folder: z.string().optional().describe("Add every test of this Xray folder and below (« / » = all)"),
       labels: z.array(z.string()).optional().describe("Add every test holding one of these labels"),

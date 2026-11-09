@@ -1,10 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { covers, readLedger, type Searched } from "../claude/ledger.ts";
 import { env } from "../env.ts";
-import { normalizeAnchor, normalizeRef } from "../rag/anchors.ts";
+import { normalizeAnchor } from "../rag/anchors.ts";
 import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
-import { refInfo } from "../rag/related.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Step, Test } from "../types.ts";
 import { stepColumns } from "./columns.ts";
 import { findDoc } from "./docs.ts";
@@ -364,32 +362,6 @@ export function mechanicalCheck(project: string, id: string, corpus: Corpus = lo
     .filter((c) => c.referenceSource)
     .map((c) => c.name);
   return mechanicalFindings(test, corpus, linked);
-}
-
-export type TestEvidence = {
-  testId: string;
-  jobId: string | null;
-  consulted: string[];
-  read: { ref: string; title: string; cited: boolean }[];
-  searched: Searched[];
-};
-
-export function testEvidence(project: string, id: string): TestEvidence {
-  const test = readTest(project, id).test;
-  const ledger = readLedger(project, test.generatedBy);
-  const consulted = ledger?.consulted ?? [];
-  const cites = test.steps.flatMap((s) => s.sources.map((x) => normalizeRef(`${x.docId}#${x.anchor}`)));
-  return {
-    testId: id,
-    jobId: ledger?.jobId ?? null,
-    consulted,
-    read: consulted.map((ref) => ({
-      ref,
-      title: refInfo(project, ref).title,
-      cited: cites.some((c) => c === ref || covers([ref], c)),
-    })),
-    searched: ledger?.searched ?? [],
-  };
 }
 
 const bySteps = (fs: Finding[]) =>

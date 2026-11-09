@@ -930,21 +930,6 @@ function fixtureShots(): Shot[] {
           .waitFor({ timeout: T });
       },
     },
-    {
-      id: "review-sources-read",
-      note: "Source panel › Sources read unfolded (a freshly generated test)",
-      hash: "#/review",
-      prep: async (p) => {
-        await openGenerated(p);
-        const expand = step(p, 2).getByRole("button", { name: "Expand step 2" });
-        if (await expand.isVisible()) await expand.click();
-        await step(p, 2)
-          .getByRole("button", { name: /La fenêtre Propriétés affiche/ })
-          .first()
-          .click({ timeout: T });
-        await tap(p.getByRole("complementary", { name: "Source passage" }), /^Sources read/);
-      },
-    },
     { id: "review-after-generate", note: "Review of a freshly generated test", hash: "#/review", prep: openGenerated },
     {
       id: "review-misplaced-quote",
@@ -1028,7 +1013,8 @@ function fixtureShots(): Shot[] {
         await tap(p, "New run…");
         await dialog(p, "New run");
         await p.getByRole("textbox", { name: "Name" }).fill("Recette J6 — Disjoncteurs");
-        await see(p, /^\d+ tests?:/);
+        await p.getByRole("checkbox", { name: "Disjoncteurs" }).click({ timeout: T });
+        await see(p, /^\d+ picked of/);
       },
     },
     { id: "jobs", note: "Jobs, first job open", hash: "#/jobs" },

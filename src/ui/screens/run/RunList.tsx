@@ -1,46 +1,39 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
+import { FilterBar } from "../../components/filters/FilterBar.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
-import { Chip } from "../../components/ui/Chip.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Progress } from "../../components/ui/Progress.tsx";
 import { Select } from "../../components/ui/Select.tsx";
-import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import {
   day,
-  keepRun,
+  NO_RUNS_FILTER,
   RUNS_SORTS,
   type RunSummary,
-  type RunsFilter,
+  type RunsFilters,
   type RunsSort,
   runShare,
+  runsOptions,
   shownRuns,
 } from "./runs.ts";
 
 const styles = stylex.create({
-  tools: { flex: "none", display: "flex", flexDirection: "column", gap: space.s2, paddingBottom: space.s3 },
-  chips: { display: "flex", flexWrap: "wrap", gap: space.s1, margin: 0, padding: 0, borderWidth: 0, minWidth: 0 },
+  head: { flex: "none", display: "flex", alignItems: "center", gap: space.s2, paddingInlineStart: space.s2 },
+  title: { margin: 0 },
+  grow: { flex: 1 },
+  tools: { flex: "none", display: "flex", flexDirection: "column", gap: space.s2, paddingBlock: space.s3 },
   meta: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0, paddingBlock: space.s1 },
   line: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0, color: color.textMuted },
   words: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   empty: { color: color.textMuted },
 });
 
-const FILTERS: { value: RunsFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "open", label: "In progress" },
-  { value: "finished", label: "Finished" },
-  { value: "questions", label: "With questions" },
-];
-
 function meta(r: RunSummary) {
   const c = r.counts;
   const share = (n: number) => (n / (r.total || 1)) * 100;
-  const what = r.importedAt
-    ? `Imported from pages · ${day(r.importedAt)}`
-    : [r.version, r.environment].filter(Boolean).join(" · ") || `by ${r.createdBy}`;
+  const what = r.importedAt ? `Imported from pages · ${day(r.importedAt)}` : `by ${r.createdBy}`;
   return (
     <span {...stylex.props(styles.meta)}>
       <span {...stylex.props(styles.words)}>{what}</span>
@@ -65,7 +58,7 @@ function meta(r: RunSummary) {
   );
 }
 
-// ponytail: the runs — filtered by words and state, sorted, those still being played first; each with its bar split by
+// ponytail: the runs — the filter bar (words, state, who made it, what it has), sorted in the head, those still being played first; each with its bar split by
 // result, how far it is, its problems, blocked tests and open questions
 export function RunList({
   runs,
@@ -76,8 +69,7 @@ export function RunList({
   selected: string;
   onOpen: (slug: string) => void;
 }) {
-  const [filter, setFilter] = useState<RunsFilter>("all");
-  const [words, setWords] = useState("");
+  const [filters, setFilters] = useState<RunsFilters>(NO_RUNS_FILTER);
   const [sort, setSort] = useState<RunsSort>("activity");
   if (!runs)
     return (
@@ -90,40 +82,55 @@ export function RunList({
         reading="runs.list"
       />
     );
-  const shown = shownRuns(runs, filter, words, sort);
+  const shown = shownRuns(runs, filters, sort);
+  const options = runsOptions(runs, filters);
   const open = shown.filter((r) => !r.finished).map((r) => r.slug);
   const done = shown.filter((r) => r.finished).map((r) => r.slug);
+  const set = (k: keyof RunsFilters) => (v: string[]) => setFilters((f) => ({ ...f, [k]: v }));
   return (
     <>
-      <div {...stylex.props(styles.tools)}>
-        <Text
-          size="sm"
-          icon="filter"
-          ariaLabel="Filter runs"
-          placeholder="Filter runs — name, version, place"
-          value={words}
-          onChange={setWords}
-        />
+      <div {...stylex.props(styles.head)}>
+        <h2 {...stylex.props(type.titleSm, styles.title)}>Runs</h2>
+        <Badge count size="sm" label={String(runs.length)} />
+        <span {...stylex.props(styles.grow)} />
         <Select
           size="sm"
           appearance="quiet"
           label="Sort the runs"
-          prefix="Sort"
           icon="sort"
           value={sort}
           onChange={setSort}
           options={RUNS_SORTS}
         />
-        <fieldset aria-label="Show the runs" {...stylex.props(styles.chips)}>
-          {FILTERS.map((f) => (
-            <Chip
-              key={f.value}
-              label={`${f.label} ${runs.filter(keepRun[f.value]).length}`}
-              pressed={filter === f.value}
-              onToggle={() => setFilter(f.value)}
-            />
-          ))}
-        </fieldset>
+      </div>
+      <div {...stylex.props(styles.tools)}>
+        <FilterBar
+          label="Filter runs"
+          placeholder="Filter — name, who made it"
+          words={filters.words}
+          onWords={(words) => setFilters((f) => ({ ...f, words }))}
+          shown={shown.length}
+          total={runs.length}
+          onClear={() => setFilters(NO_RUNS_FILTER)}
+          menus={[
+            {
+              key: "state",
+              label: "State",
+              options: options.states,
+              selected: filters.states,
+              onChange: set("states"),
+            },
+            { key: "by", label: "Made by", options: options.by, selected: filters.by, onChange: set("by") },
+            {
+              key: "has",
+              label: "Has",
+              options: options.has,
+              selected: filters.has,
+              onChange: set("has"),
+              note: "Ticks add up: a run shows when it has any of them.",
+            },
+          ]}
+        />
       </div>
       <List
         label="Runs"

@@ -6,7 +6,8 @@ import { join, resolve } from "node:path";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
-import { commands } from "../../../../src/core/commands/runs.ts";
+import { commands as runCommands } from "../../../../src/core/commands/runs.ts";
+import { commands as testCommands } from "../../../../src/core/commands/tests.ts";
 import { runImage } from "../../../../src/shared/run-image.ts";
 import { lossOf } from "../../../../src/ui/components/shell/CommandForm.tsx";
 import { RunScreen } from "../../../../src/ui/screens/run/RunScreen.tsx";
@@ -20,7 +21,7 @@ beforeEach(() => {
   project = mkdtempSync(join(tmpdir(), "testimus-run-ui-"));
   cpSync(resolve(import.meta.dirname, "../../../fixtures/project"), project, { recursive: true });
   fakeNet();
-  for (const c of commands)
+  for (const c of [...runCommands, ...testCommands.filter((t) => t.name === "tests.list")])
     net.routes[c.name] = async (input) => {
       try {
         return await c.run(quietCtx(project), c.input.parse(input) as never);
@@ -95,32 +96,49 @@ describe("the Run screen", () => {
     expect(state.navigate).toHaveBeenLastCalledWith("run", `${RUN}/LFRPS12-1398`);
   });
 
-  it("makes a new run from a folder after saying which tests it holds", async () => {
+  it("makes a new run from tests picked in the tree: a folder at once, a test alone, in the tree's order", async () => {
     const { state } = withApp(<RunScreen />, at());
     fireEvent.click(await screen.findByRole("button", { name: "New run…" }));
     const dialog = screen.getByRole("dialog", { name: "New run" });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Recette J6" } });
-    expect(await within(dialog).findByText(/^3 tests: LFRPS12-1398, LFRPS12-1420/)).toBeInTheDocument();
+    const tree = await within(dialog).findByRole("list", { name: "Tests to run" });
+    expect(within(dialog).getByRole("button", { name: "Make the run" })).toBeDisabled();
+    fireEvent.click(within(tree).getByRole("checkbox", { name: "Sectionneurs" }));
+    expect(within(tree).getByRole("checkbox", { name: "Traction" })).toBePartiallyChecked();
+    fireEvent.click(within(tree).getByRole("checkbox", { name: /^Disjoncteur — ouverture/ }));
+    expect(within(tree).getByRole("checkbox", { name: "Traction" })).toBeChecked();
+    expect(within(dialog).getByRole("status")).toHaveTextContent("3 picked of 3");
     fireEvent.click(within(dialog).getByRole("button", { name: "Make the run (3 tests)" }));
     await waitFor(() => expect(state.navigate).toHaveBeenLastCalledWith("run", "recette-j6"));
-    expect(callsOf("runs.create").at(-1)?.input).toEqual({ name: "Recette J6", folder: "/" });
+    expect(callsOf("runs.create").at(-1)?.input).toEqual({
+      name: "Recette J6",
+      tests: ["LFRPS12-1398", "LFRPS12-1420", "local-3f9a12c0"],
+    });
   });
 
-  it("does not read the tests again while the name is typed", async () => {
+  it("the filters narrow the tree; what they hide stays picked, and « Pick the n shown » adds what they show", async () => {
     withApp(<RunScreen />, at());
     fireEvent.click(await screen.findByRole("button", { name: "New run…" }));
     const dialog = screen.getByRole("dialog", { name: "New run" });
-    expect(await within(dialog).findByText(/^3 tests:/)).toBeInTheDocument();
-    const before = callsOf("runs.create").length;
-    for (const name of ["R", "Re", "Rec", "Recette"])
-      fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: name } });
-    await new Promise((ok) => setTimeout(ok, 50));
-    expect(callsOf("runs.create")).toHaveLength(before);
+    const tree = await within(dialog).findByRole("list", { name: "Tests to run" });
+    fireEvent.click(within(tree).getByRole("checkbox", { name: "Sectionneurs" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Review state" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /^Validated/ }));
+    expect(within(tree).queryByRole("checkbox", { name: "Sectionneurs" })).toBeNull();
+    const count = within(dialog)
+      .getAllByRole("status")
+      .find((e) => /picked/.test(e.textContent ?? "")) as HTMLElement;
+    expect(count).toHaveTextContent("2 picked of 3 · 1 shown");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Pick the 1 shown" }));
+    expect(count).toHaveTextContent("3 picked of 3");
+    fireEvent.change(within(dialog).getByRole("searchbox", { name: "Filter the tests" }), { target: { value: "zzz" } });
+    expect(within(dialog).getByText("No test matches these filters")).toBeInTheDocument();
+    expect(callsOf("runs.create")).toHaveLength(0);
   });
 });
 
 describe("running a test", () => {
-  it("marks a step with the keys, proposes Problem on a NOK of a test not run, and saves", async () => {
+  it("marks a step with the keys, a NOK sets Problem at once, and the note goes with Next", async () => {
     const { state } = withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
     const test = await screen.findByRole("region", { name: /^Test / });
     const verdict = screen.getByRole("radiogroup", { name: "Result of the test" });
@@ -137,13 +155,21 @@ describe("running a test", () => {
     });
     fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
     await waitFor(() => expect(state.navigate).toHaveBeenLastCalledWith("run", RUN));
-    expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({
-      status: "problem",
-      steps: [{ step: 1, ok: false, note: "Le disjoncteur reste fermé." }],
-    });
+    const last = callsOf("runs.setResult").at(-1)?.input;
+    expect(last).toMatchObject({ steps: [{ step: 1, ok: false, note: "Le disjoncteur reste fermé." }] });
+    expect(last).not.toHaveProperty("status");
   });
 
-  it("never replaces a recorded result by the one the marks propose", async () => {
+  it("a result picked is saved at once, without a button", async () => {
+    withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
+    const verdict = await screen.findByRole("radiogroup", { name: "Result of the test" });
+    fireEvent.click(within(verdict).getByRole("radio", { name: /Passed/ }));
+    await waitFor(() => expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({ status: "passed" }));
+    await waitFor(() => expect(within(verdict).getByRole("radio", { name: /Passed/ })).toBeChecked());
+    expect(screen.queryByText("Not saved yet")).toBeNull();
+  });
+
+  it("a change of the marks sets a recorded result too", async () => {
     withApp(<RunScreen />, at(`${RUN}/LFRPS12-1420`));
     const verdict = await screen.findByRole("radiogroup", { name: "Result of the test" });
     expect(within(verdict).getByRole("radio", { name: /Passed/ })).toBeChecked();
@@ -157,19 +183,20 @@ describe("running a test", () => {
         within(screen.getByRole("group", { name: "Step 2" })).getByRole("button", { name: "NOK" }),
       ).toHaveAttribute("aria-pressed", "true"),
     );
-    expect(within(verdict).getByRole("radio", { name: /Passed/ })).toBeChecked();
+    await waitFor(() => expect(within(verdict).getByRole("radio", { name: /Problem/ })).toBeChecked());
   });
 
   it("asks why before saving a blocked test", async () => {
     withApp(<RunScreen />, at(`${RUN}/LFRPS12-1398`));
     const verdict = await screen.findByRole("radiogroup", { name: "Result of the test" });
     fireEvent.click(within(verdict).getByRole("radio", { name: /Blocked/ }));
-    const save = screen.getByRole("button", { name: /Save the result/ });
+    expect(screen.getByText("Not saved yet")).toBeInTheDocument();
+    const save = screen.getByRole("button", { name: /^Finish/ });
     expect(save).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox", { name: "Why is it blocked?" }), {
       target: { value: "TK non câblée" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Save the result/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Finish/ }));
     await waitFor(() =>
       expect(callsOf("runs.setResult").at(-1)?.input).toMatchObject({
         status: "blocked",

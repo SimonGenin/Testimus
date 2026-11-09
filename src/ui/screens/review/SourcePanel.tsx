@@ -10,7 +10,6 @@ import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { goneText } from "../../lib/docGone.ts";
 import { color, container, size, space } from "../../styles/tokens.stylex.ts";
-import { EvidenceBlock } from "./EvidenceBlock.tsx";
 
 export { notAtAnchor } from "./sources.ts";
 
@@ -54,12 +53,10 @@ export type SourcePanelProps = {
   label: string;
   index: number;
   total: number;
-  testId: string;
   misplaced?: Finding;
   width?: number;
   onClose: () => void;
   onOpenDoc: (docId: string, anchor: string, quote: string) => void;
-  onPick: (ref: string) => void;
   /** the previous or next source of the test */
   onStep?: (by: 1 | -1) => void;
 };
@@ -170,7 +167,6 @@ export function SourcePanel(p: SourcePanelProps) {
               <PassageText passage={passage} quote={p.misplaced || passage.quoteFound === false ? "" : quote} />
             </div>
           )}
-          {p.testId && <EvidenceBlock testId={p.testId} selected={ref} onPick={p.onPick} />}
         </div>
       </Pane>
     </div>

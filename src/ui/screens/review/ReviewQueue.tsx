@@ -1,18 +1,18 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Review } from "../../../core/types.ts";
+import { FilterBar } from "../../components/filters/FilterBar.tsx";
 import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Pane } from "../../components/ui/Pane.tsx";
-import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import { testLabel } from "../../lib/labels.ts";
 import { border, color, container, shadow, size, space, z } from "../../styles/tokens.stylex.ts";
+import { filtered, type QueueFilters, queueOptions } from "./queueFilters.ts";
 import type { QueueGroup } from "./queueGroups.ts";
 import { FilteredEmpty } from "./ReviewEmpty.tsx";
 
@@ -34,7 +34,6 @@ export type QueueItem = {
   generatedAt?: string;
 };
 export type QueueCounts = { toFix: number; draft: number; unchecked: number; validated?: number };
-export type QueueFilter = "all" | "draft" | "to-fix" | "validated";
 export type QueueSort = "anomalies" | "state" | "folder" | "recent";
 
 const SORTS: { value: QueueSort; label: string }[] = [
@@ -74,8 +73,6 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: color.border,
   },
-  row: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0 },
-  half: { flex: 1, minWidth: 0, display: "flex" },
   none: { margin: 0, padding: space.s5, color: color.textMuted },
   notice: { paddingTop: space.s3, paddingInline: space.s3 },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s5 },
@@ -117,25 +114,24 @@ const tip = (t: QueueItem) =>
   (t.edited ? " · edited since it was generated" : "");
 
 export type ReviewQueueProps = {
+  /** the tests shown, after the filters */
   items: QueueItem[] | null;
   /** the latest generation, then « Earlier », when the queue holds tests of more than one generation */
   groups?: QueueGroup[];
+  /** the whole queue, before the filters: what the menus count */
+  queued: QueueItem[];
   counts: QueueCounts | null;
   activeId: string;
-  filter: QueueFilter;
+  filters: QueueFilters;
   sort: QueueSort;
-  folder: string;
-  folders: string[];
-  withFindings: boolean;
-  onFilter: (f: QueueFilter) => void;
+  onWords: (words: string) => void;
+  onStates: (states: string[]) => void;
+  onChecks: (checks: string[]) => void;
+  onFolders: (folders: string[]) => void;
   onSort: (s: QueueSort) => void;
-  onFolder: (f: string) => void;
-  onWithFindings: (on: boolean) => void;
   /** back to the whole queue: every filter off (the empty state's « Clear the filters ») */
   onClearFilters?: () => void;
   onOpen: (id: string) => void;
-  /** the tests that need the check (never checked, or changed since): « Check all » runs it on them */
-  checkAll?: { ids: string[]; running: boolean; onCheck: () => void };
   /** a read of the queue that failed, with a way to ask again */
   error?: { message: string; onRetry: () => void };
   notice?: ReactNode;
@@ -144,10 +140,12 @@ export type ReviewQueueProps = {
   over?: boolean;
 };
 
+// ponytail: the generated tests waiting for a person — the filter bar (words, review state, what the check found,
+// folder) over the list by generation; the sort is the pane's own. Validated tests leave the queue: Tests holds them
 export function ReviewQueue(p: ReviewQueueProps) {
   const all = p.counts ? p.counts.toFix + p.counts.draft : undefined;
-  const narrowed = p.filter !== "all" || !!p.folder || p.withFindings;
-  const onlyValidated = p.filter === "validated" && !p.folder && !p.withFindings;
+  const narrowed = filtered(p.filters);
+  const options = queueOptions(p.queued, p.filters);
   return (
     <div {...stylex.props(styles.queue, p.over && styles.over)} style={p.width ? { width: p.width } : undefined}>
       <Pane
@@ -158,61 +156,52 @@ export function ReviewQueue(p: ReviewQueueProps) {
         scroll={false}
         tools={all !== undefined && <Badge count size="sm" label={String(all)} />}
         actions={
-          p.checkAll && (
-            <Button
-              size="sm"
-              variant="quiet"
-              icon="review"
-              label="Check all"
-              loading={p.checkAll.running}
-              disabled={!p.checkAll.ids.length && "Every test of the queue is checked and up to date"}
-              onClick={p.checkAll.onCheck}
-            />
-          )
+          <Select
+            label="Sort the queue"
+            appearance="quiet"
+            size="sm"
+            icon="sort"
+            value={p.sort}
+            options={SORTS}
+            onChange={p.onSort}
+          />
         }
       >
         <div {...stylex.props(styles.tools)}>
-          <Segmented
-            size="sm"
-            fill
-            label="Filter by review state"
-            value={p.filter}
-            onChange={p.onFilter}
-            options={[
-              { value: "all", label: "All", count: all },
-              { value: "draft", label: "Draft", count: p.counts?.draft },
-              { value: "to-fix", label: "To fix", count: p.counts?.toFix },
-              { value: "validated", label: "Validated", count: p.counts?.validated },
+          <FilterBar
+            label="Filter the queue"
+            placeholder="Filter — summary or key"
+            words={p.filters.words}
+            onWords={p.onWords}
+            shown={p.items?.length ?? 0}
+            total={p.queued.length}
+            onClear={() => p.onClearFilters?.()}
+            menus={[
+              {
+                key: "state",
+                label: "State",
+                options: options.states,
+                selected: p.filters.states,
+                onChange: p.onStates,
+              },
+              {
+                key: "findings",
+                label: "Findings",
+                options: options.checks,
+                selected: p.filters.checks,
+                onChange: p.onChecks,
+                note: "What its last check found. Ticks add up: a test shows when it has any of them.",
+              },
+              {
+                key: "folder",
+                label: "Folder",
+                icon: "folder",
+                options: options.folders,
+                selected: p.filters.folders,
+                onChange: p.onFolders,
+              },
             ]}
           />
-          <div {...stylex.props(styles.row)}>
-            <div {...stylex.props(styles.half)}>
-              <Select
-                label="Sort the queue"
-                appearance="quiet"
-                size="sm"
-                prefix="Sort"
-                icon="sort"
-                value={p.sort}
-                options={SORTS}
-                onChange={p.onSort}
-              />
-            </div>
-            {(p.folders.length > 1 || !!p.folder) && (
-              <div {...stylex.props(styles.half)}>
-                <Select
-                  label="Filter by folder"
-                  appearance="quiet"
-                  size="sm"
-                  icon="folder"
-                  value={p.folder}
-                  options={[{ value: "", label: "All folders" }, ...p.folders.map((f) => ({ value: f, label: f }))]}
-                  onChange={p.onFolder}
-                />
-              </div>
-            )}
-          </div>
-          <Checkbox label="Only with findings" checked={p.withFindings} onChange={p.onWithFindings} />
         </div>
         {p.error && (
           <div {...stylex.props(styles.notice)}>
@@ -252,7 +241,7 @@ export function ReviewQueue(p: ReviewQueueProps) {
               !narrowed ? (
                 <p {...stylex.props(type.small, styles.none)}>The queue is empty.</p>
               ) : (
-                <FilteredEmpty compact onlyValidated={onlyValidated} onClear={p.onClearFilters} />
+                <FilteredEmpty compact onClear={p.onClearFilters} />
               )
             }
           />

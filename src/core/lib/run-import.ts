@@ -232,11 +232,8 @@ const picture = (dir: string, testId: string, name: string) =>
 function createFromPages(project: string, slug: string, src: Source): void {
   const dir = runDir(project, slug);
   if (existsSync(dir)) throw new UserError(`test-runs/${slug} already exists.`);
-  const { name, version, environment, createdAt, createdBy, tests } = src.run;
-  writeAtomic(
-    join(dir, "run.json"),
-    `${JSON.stringify({ name, version, environment, createdAt, createdBy, tests }, null, 2)}\n`,
-  );
+  const { name, createdAt, createdBy, tests } = src.run;
+  writeAtomic(join(dir, "run.json"), `${JSON.stringify({ name, createdAt, createdBy, tests }, null, 2)}\n`);
   for (const rel of filesUnder(join(src.dir, "images")))
     if (/^[^/]+\/[^/]+$/.test(rel) && PICTURE.test(basename(rel)) && plainFile(src.dir, `images/${rel}`))
       writeAtomic(join(dir, "images", rel), readFileSync(join(src.dir, "images", rel)));

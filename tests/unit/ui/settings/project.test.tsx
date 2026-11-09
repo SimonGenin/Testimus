@@ -2,7 +2,6 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { ProjectSection } from "../../../../src/ui/screens/settings/ProjectSection.tsx";
 import { choose, openList } from "../../helpers/select.ts";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
@@ -136,76 +135,12 @@ describe("Settings › Project", () => {
   });
 });
 
-describe("Settings › Project notes (CLAUDE.md)", () => {
-  it("loads the notes, saves them 400 ms after typing against the version read, flushes on blur", async () => {
-    let answer = () => {};
-    net.routes["project.notes"] = () =>
-      new Promise((r) => {
-        answer = () => r({ file: "C:\\p\\CLAUDE.md", text: "# Notes", mtime: 100 });
-      });
+describe("Settings › Project and CLAUDE.md", () => {
+  it("the page edits no CLAUDE.md and does not read it: the Context page shows it", async () => {
     mountSettings(<ProjectSection />);
-    const notes = await screen.findByRole("textbox", { name: label("Project notes") });
-    expect(notes).toBeDisabled();
-    answer();
-    await waitFor(() => expect(notes).toHaveValue("# Notes"));
-    expect(notes).toBeEnabled();
-    expect(screen.getByText("C:\\p\\CLAUDE.md")).toBeInTheDocument();
-    fireEvent.change(notes, { target: { value: "# Notes\nPCC" } });
-    expect(calls("project.setNotes")).toHaveLength(0);
-    await waitFor(() => expect(calls("project.setNotes")).toHaveLength(1), { timeout: 1500 });
-    expect(inputs("project.setNotes")[0]).toEqual({ text: "# Notes\nPCC", ifMtime: 100 });
-    fireEvent.change(notes, { target: { value: "# Notes\nPCC\nSAE" } });
-    fireEvent.blur(notes);
-    await waitFor(() => expect(calls("project.setNotes")).toHaveLength(2));
-    expect(inputs("project.setNotes")[1]).toEqual({ text: "# Notes\nPCC\nSAE", ifMtime: 200 });
-  });
-
-  it("a change on disk meanwhile is a conflict: Keep mine sends it without the version", async () => {
-    net.routes["project.setNotes"] = (i) => {
-      if (i.ifMtime !== undefined) throw new Fail("CLAUDE.md changed on disk.", { status: 409, code: "conflict" });
-      return { file: "C:\\p\\CLAUDE.md", bytes: 1, mtime: 300 };
-    };
-    mountSettings(<ProjectSection />);
-    const notes = await screen.findByRole("textbox", { name: label("Project notes") });
-    await waitFor(() => expect(notes).toBeEnabled());
-    fireEvent.change(notes, { target: { value: "mine" } });
-    fireEvent.blur(notes);
-    expect(await screen.findByText("This file changed on disk while you were editing it.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
-    await waitFor(() => expect(inputs("project.setNotes").at(-1)).toEqual({ text: "mine" }));
-  });
-
-  it("a failed save says so and offers Retry; a failed load leaves an empty field", async () => {
-    net.routes["project.setNotes"] = () => {
-      throw new Fail("Disk full.");
-    };
-    mountSettings(<ProjectSection />);
-    const notes = await screen.findByRole("textbox", { name: label("Project notes") });
-    await waitFor(() => expect(notes).toBeEnabled());
-    fireEvent.change(notes, { target: { value: "x" } });
-    fireEvent.blur(notes);
-    expect(await screen.findByText("Not saved")).toBeInTheDocument();
-    net.routes["project.setNotes"] = () => ({ file: "C:\\p\\CLAUDE.md", bytes: 1, mtime: 2 });
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(calls("project.setNotes")).toHaveLength(2));
-    reset();
-    fakeNet();
-    net.routes["project.info"] = () => info();
-    mountSettings(<ProjectSection />);
-    const again = await screen.findByRole("textbox", { name: label("Project notes") });
-    await waitFor(() => expect(again).toBeEnabled());
-    expect(again).toHaveValue("");
-    expect(screen.getByText("CLAUDE.md", { selector: "span span" })).toBeInTheDocument();
-  });
-
-  it("notes typed in one project are written to that project, never to the next one", async () => {
-    const r = mountSettings(<ProjectSection />);
-    const notes = await screen.findByRole("textbox", { name: label("Project notes") });
-    await waitFor(() => expect(notes).toBeEnabled());
-    fireEvent.change(notes, { target: { value: "for p" } });
-    setProject("C:\\other");
-    r.unmount();
-    await waitFor(() => expect(calls("project.setNotes")).toHaveLength(1));
-    expect(calls("project.setNotes")[0].project).toBe(DIR);
+    await screen.findByRole("textbox", { name: label("Name") });
+    expect(screen.queryByRole("textbox", { name: label("Project notes") })).not.toBeInTheDocument();
+    expect(screen.queryByText("CLAUDE.md")).not.toBeInTheDocument();
+    expect(calls("project.notes")).toHaveLength(0);
   });
 });

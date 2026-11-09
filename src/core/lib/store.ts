@@ -207,6 +207,7 @@ function readRef(project: string, id: string): Omit<LocalTestRef, "generating"> 
     key: test.key,
     summary: test.summary,
     folder: test.folder,
+    labels: test.labels,
     ...(test.status ? { status: test.status } : {}),
     ...(test.assignee ? { assignee: test.assignee } : {}),
     ...(test.assigneeId ? { assigneeId: test.assigneeId } : {}),

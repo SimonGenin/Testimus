@@ -131,7 +131,7 @@ const KINDS: Rule[] = [
     () => [["docs.list"], ["docs.show"], ["media.show"], ["media.transcript"], ["rag.status"]],
   ],
   [/^docs\.overview$/, () => [["docs.overviewShow"], ["claude.prompts"]]],
-  [/^generate$/, () => [["review.evidence"], ["review.queue"], ["gen.preview"], ["gen.show"], ["actions.list"]]],
+  [/^generate$/, () => [["review.queue"], ["gen.preview"], ["gen.show"], ["actions.list"]]],
   [/^chat$/, () => [["chat.list"], ["chat.show"]]],
   [
     /^models-/,

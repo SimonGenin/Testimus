@@ -8,7 +8,6 @@ let mode = "browser";
 let current = 0;
 let shotsInPage = 0;
 let notKept = false;
-const auto = {};
 const storeKey = () => `testimus-run:${run.slug}:${run.exportedAt}`;
 const el = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -34,13 +33,12 @@ const resultOf = (t) => {
   if (r.history) out.history = r.history;
   return out;
 };
-// ponytail: a copy of the core's proposedStatus (src/core/lib/runs.ts), tested equal to it — only while the test is
-// not run: any NOK proposes Problem, every step OK Passed, else nothing yet
-function proposedStatus(r) {
-  if (r.status !== "not-run") return null;
-  if (r.steps.some((s) => s.ok === false)) return "problem";
-  if (r.steps.length && r.steps.every((s) => s.ok === true)) return "passed";
-  return null;
+// ponytail: a copy of the core's marksStatus (src/core/lib/runs.ts), tested equal to it — any NOK is Problem, every
+// step OK Passed, else not run; a change of the marks sets the result (Blocked stays)
+function marksStatus(steps) {
+  if (steps.some((s) => s.ok === false)) return "problem";
+  if (steps.length && steps.every((s) => s.ok === true)) return "passed";
+  return "not-run";
 }
 
 // ponytail: a field's text as the app writes it — lines, **bold**, and its pictures: the run's copy under
@@ -165,17 +163,13 @@ function renderTest() {
   const columns = [...new Set(t.steps.flatMap((s) => Object.keys(s.fields)))];
   const main = document.getElementById("test");
   const setStatus = (s) => {
-    auto[t.id] = false;
     r.status = s;
     if (s !== "blocked") delete r.blockedReason;
     save(t, r).then(renderTest);
   };
   const mark = (i, ok) => {
     r.steps[i] = { ok: r.steps[i].ok === ok ? null : ok, ...(r.steps[i].note ? { note: r.steps[i].note } : {}) };
-    if (auto[t.id] !== false && (r.status === "not-run" || auto[t.id])) {
-      r.status = proposedStatus({ status: "not-run", steps: r.steps }) || "not-run";
-      auto[t.id] = true;
-    }
+    if (r.status !== "blocked") r.status = marksStatus(r.steps);
     save(t, r).then(renderTest);
   };
   const rows = t.steps.map((s, i) =>
@@ -293,7 +287,6 @@ async function start() {
   }
   document.title = `${run.name} — test run`;
   document.getElementById("title").textContent = run.name;
-  document.getElementById("version").textContent = [run.version && `Version ${run.version}`, run.environment].filter(Boolean).join(" · ");
   try {
     document.getElementById("tester").value = localStorage.getItem("testimus-run:tester") || "";
   } catch {}

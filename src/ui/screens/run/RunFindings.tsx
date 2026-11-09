@@ -25,10 +25,13 @@ const styles = stylex.create({
 // ponytail: what the run found, beside it — each NOK step with what happened and its screenshots, the blocked tests and
 // why, the questions still open; a line opens its test, Claude summarizes the whole for a report
 export function RunFindings({
+  width,
   run,
   onOpenTest,
   onAsk,
 }: {
+  /** px, once the tester widened it */
+  width?: number;
   run: RunView;
   onOpenTest: (testId: string) => void;
   onAsk: (prompt?: string) => void;
@@ -44,6 +47,7 @@ export function RunFindings({
   return (
     <RunPanel
       label="What the run found"
+      width={width}
       foot={
         <div {...stylex.props(styles.item)}>
           <Button

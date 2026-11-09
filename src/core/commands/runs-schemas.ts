@@ -70,7 +70,7 @@ export const RESULT = z.object({
 
 export const RESULT_VIEW = RESULT.extend({
   proposed: STATUS.nullable().describe(
-    "The result the marks propose while the test is not run (a NOK → problem, every step OK → passed); null once a result is recorded or before any mark decides — computed, never written",
+    "The result the marks give (a NOK → problem, every step OK → passed) when it differs from the one recorded — the tester picked another since the marks last changed; null otherwise, and for a blocked test — computed, never written",
   ),
   openQuestions: z.number().describe("Its questions not answered yet"),
 });
@@ -114,8 +114,6 @@ export const FROZEN_TEST = z.object({
 export const RUN_HEAD = {
   slug: z.string().describe("The run's folder under test-runs/"),
   name: z.string().describe("The run's name"),
-  version: z.string().optional().describe("The version under test"),
-  environment: z.string().optional().describe("Where it is run (a bench, a room, a site)"),
   createdAt: z.string().describe("When the run was made (ISO)"),
   createdBy: z.string().describe("Who made it"),
   importedAt: z.string().optional().describe("When results were last imported from pages (ISO)"),

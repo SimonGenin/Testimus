@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { proposedStatus, RUN_STATUSES, type RunStatus, type StepMark } from "../../../../src/core/lib/runs.ts";
+import { marksStatus, type StepMark } from "../../../../src/core/lib/runs.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 type Win = Window & typeof globalThis & Record<string, any>;
@@ -51,28 +51,24 @@ const checked = (w: Window) =>
   )?.textContent;
 
 describe("the exported page", () => {
-  it("proposes a result by the same rule as the core: only on a test not run", () => {
+  it("sets the result from the marks by the same rule as the core", () => {
     const w = page();
     const marks: (boolean | null)[] = [true, false, null];
     const lists: StepMark[][] = [[]];
     for (let n = 1; n <= 3; n++)
       for (const l of lists.filter((x) => x.length === n - 1)) for (const ok of marks) lists.push([...l, { ok }]);
     expect(lists).toHaveLength(40);
-    for (const status of RUN_STATUSES)
-      for (const steps of lists) {
-        const r = { status: status as RunStatus, steps };
-        expect(w.proposedStatus(r), JSON.stringify(r)).toBe(proposedStatus(r));
-      }
+    for (const steps of lists) expect(w.marksStatus(steps), JSON.stringify(steps)).toBe(marksStatus(steps));
   });
 
-  it("never replaces a recorded result by the one the marks propose, and proposes on a test not run", async () => {
+  it("a change of the marks sets the result, a recorded one too; a result picked stands until the next mark", async () => {
     const w = page();
     await settle();
     expect(checked(w)).toContain("Passed");
     button(w, "NOK", "Step 2").click();
     await settle();
     expect(button(w, "NOK", "Step 2").getAttribute("aria-pressed")).toBe("true");
-    expect(checked(w)).toContain("Passed");
+    expect(checked(w)).toContain("Problem");
 
     button(w, "LFRPS12-1398").click();
     button(w, "NOK", "Step 1").click();

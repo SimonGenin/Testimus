@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -6,7 +6,7 @@ import { revert } from "../../../../src/core/claude/snapshot.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { commands as reviewCommands } from "../../../../src/core/commands/review.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
-import { mechanicalCheck, recordSemantic } from "../../../../src/core/lib/check.ts";
+import { recordSemantic } from "../../../../src/core/lib/check.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 import { osUser } from "../../../../src/core/lib/review.ts";
 import { readCheck, readTest } from "../../../../src/core/lib/store.ts";
@@ -110,6 +110,18 @@ describe("review.set", () => {
     expect(out.reviewNote).toBeUndefined();
     expect(readFileSync(testFile("local-3f9a12c0"), "utf8")).not.toContain("review_note");
     await expect(run("review.set", { id: "nope-1", decision: "validate" })).rejects.toThrow("No test nope-1");
+  });
+
+  it("draft takes a To fix mark off: no note, no reviewer, the findings stay fresh", async () => {
+    recordSemantic(project, "LFRPS12-1420", []);
+    const hash = readCheck(project, "LFRPS12-1420")!.testHash;
+    await run("review.set", { id: "LFRPS12-1420", decision: "to-fix", note: "Step 2" });
+    const out = await run("review.set", { id: "LFRPS12-1420", decision: "draft" });
+    expect(out).toEqual({ id: "LFRPS12-1420", review: "draft" });
+    const md = readFileSync(testFile("LFRPS12-1420"), "utf8");
+    expect(md).not.toMatch(/review_note|reviewed_by|reviewed_at/);
+    expect(readTest(project, "LFRPS12-1420").test.review).toBe("draft");
+    expect(readCheck(project, "LFRPS12-1420")!.testHash).toBe(hash);
   });
 });
 
@@ -303,37 +315,5 @@ describe("--mock review loop (scripted check-test and fix-test)", () => {
     const t = readTest(project, "LFRPS12-1420").test;
     expect(t.steps).toHaveLength(6);
     expect(existsSync(join(project, ".testimus", "runs", f1420.runId, "run.json"))).toBe(true);
-  });
-});
-
-describe("review.evidence", () => {
-  const ledger = (consulted: string[]) => {
-    mkdirSync(join(project, ".testimus", "gen"), { recursive: true });
-    writeFileSync(
-      join(project, ".testimus", "gen", "gen-tests-1a2b3c4d.json"),
-      JSON.stringify({ runId: "r", consulted, searched: [{ tool: "rag_search", query: "sectionneur" }] }),
-    );
-  };
-  it("without a ledger: no job, nothing read", async () => {
-    const e = await run("review.evidence", { testId: "LFRPS12-1420" });
-    expect(e).toEqual({ testId: "LFRPS12-1420", jobId: null, consulted: [], read: [], searched: [] });
-  });
-
-  it("with the generation's ledger: what was read and what a step cites; the check adds nothing", async () => {
-    ledger([`${DOC}#§5.6`, `${DOC}#fig:40`, "SOSIE_211_D401-1_4#§4.2"]);
-    const e = await run("review.evidence", { testId: "LFRPS12-1420" });
-    expect(e.jobId).toBe("gen-tests-1a2b3c4d");
-    expect(e.consulted).toHaveLength(3);
-    expect(e.read).toEqual([
-      { ref: `${DOC}#§5.6`, title: "Objets de traction", cited: true },
-      { ref: `${DOC}#fig:40`, title: "Figure 40 – Représentation graphique sectionneur", cited: true },
-      { ref: "SOSIE_211_D401-1_4#§4.2", title: "Signal d'arrêt", cited: false },
-    ]);
-    expect(e.searched).toEqual([{ tool: "rag_search", query: "sectionneur" }]);
-    expect(mechanicalCheck(project, "LFRPS12-1420").map((f) => `${f.step}:${f.kind}`)).toEqual(["5:source-missing"]);
-  });
-
-  it("refuses an unknown test", async () => {
-    await expect(run("review.evidence", { testId: "NOPE-1" })).rejects.toThrow(/No test NOPE-1/);
   });
 });

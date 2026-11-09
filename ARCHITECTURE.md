@@ -706,8 +706,9 @@ after the frontmatter, so a review decision never makes findings stale.
   generation: an action that cannot be proposed is a warning in the job's log.
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
-  of `doc.md` mapped to sections, figure images) and what it searched. Review shows it (`review.evidence`); `gen.bench`
-  scores agentic recall from it.
+  of `doc.md` mapped to sections, figure images) and what it searched. `gen.bench` scores agentic recall from it and a
+  generation asked again reads it; nothing shows it any more (« Sources read » in Review and `review.evidence` were
+  removed on 2026-11-09: the list was long, slow and unused).
 
 ## 9. Check, review, fix
 
@@ -740,7 +741,7 @@ result, comments and questions. It is a folder of the project — files are the 
 
 ```
 test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionneurs », -2 on a clash)
-  run.json                  { name, version?, environment?, createdAt, createdBy, importedAt?, tests: [{ id, key?,
+  run.json                  { name, createdAt, createdBy, importedAt?, tests: [{ id, key?,
                               folder?, summary, description?, preconditions, steps: [{ fields: { <column>: text },
                               images, sources? }] }]   (folder and the steps' sources — docId, anchor, quote,
                               column?, item? — as the test had them; a run made before 2026-11-08 has neither)
@@ -762,13 +763,15 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   the OS user and the time. A picture a step shows is
   the run's copy at `images/<testId>/<the file's own name>` (`src/shared/run-image.ts`, for the creation and the
   screen alike).
-- **The proposed result** is one rule of the core (`proposedStatus`): only while the test is **not run** — a NOK
-  proposes Problem, every step OK Passed; a recorded result is never replaced by a proposal. `runs.show` and the
-  writes give each result its `proposed` and `openQuestions` (computed, never written), so the screen counts and
-  proposes nothing itself. The exported page keeps a copy of the rule in `run.js`, tested equal to the core's
-  (`tests/unit/core/runs/page-script.test.ts`); saving every change at once, it records the proposal as the result
-  of a test not run and follows the marks while that result is still its own proposal in this page; a result chosen,
-  or recorded before the page was opened, stays. The tester decides; Blocked needs its reason.
+- **The result follows the marks** (one rule of the core, `marksStatus`; decided on 2026-11-09, it replaced « a
+  recorded result is never replaced »): a write that changes a step's OK / NOK sets the result from the marks — a NOK
+  is Problem, every step OK Passed, else Not run — whatever the result was, except Blocked (the tester's call, with
+  its reason). A result the tester picks is written at once and stands until the marks change again; while it differs
+  from the marks, `proposed` (`proposedStatus`, computed, never written, with `openQuestions`) says what the marks
+  give, and the screen shows it beside the result. A note alone changes no result. The Run screen saves every pick
+  at once (Blocked once its reason is said); its button only moves to the next test. The exported page keeps a copy
+  of `marksStatus` in `run.js`, tested equal to the core's (`tests/unit/core/runs/page-script.test.ts`), and applies
+  it the same way.
 - Commands: group `runs` (`list`, `show`, `history`, `create`, `setResult`, `comment`, `attach`, `detach`, `remove`
   — asked first in the palette). `runs.history { test }` gives the test's result in every run that holds it (by id or
   Jira key), newest run first. The watcher reads `test-runs/` like the rest; `lib/data/refresh.ts` maps a path there
@@ -779,8 +782,14 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   `claude.run` on it is a `chat` run (read-only tools), snapshots no test, locks no test (its lock is `run:<run>`),
   shows no revert card, and its prompt (`prompt.ts runPrompt`) says to change no file and to write a note, a comment,
   an answer or a bug out in the answer, for the tester to take.
-- Screen `#/run` (rail item after Tests). **The runs**: a list filtered by words and state (In progress, Finished,
-  With questions), sorted (last activity, name, least done, most problems), each with its bar split by result; **a
+- Screen `#/run` (rail item after Tests). **New run** is a name and the tests picked in the project's tree
+  (`TestPicker`, the shared `CheckTree`): a folder ticks all its tests, a test is ticked alone, the filter bar
+  (words, folder, labels, review state) narrows what the tree shows and what it hides stays picked; the run freezes them
+  in the tree's order (`runs.create { tests }`; folder, labels and review stay inputs of the command for the CLI).
+  **The runs**: the filter bar (words, state, who made it, what it has: problems, blocked tests, open questions), the
+  sort in the list's head (last activity, name, least done, most problems), each run with its bar split by result;
+  the list and the panel on the right are widened by dragging (`runListWidth`, `runSideWidth`, the same on a test
+  being run); **a
   run**: its facts, a card of progress and a tile per result, the tests' table (tabs by result, words, a sort also by a
   column's head, by folder when the run kept folders), Continue = the next test not run; beside it **what the run
   found** (each NOK step with its note and screenshots, blocked tests, open questions — Claude drafts a bug, answers,
@@ -791,9 +800,9 @@ test-runs/<run>/            <run> = the slug of its name (« recette-j5-sectionn
   OK / NOK in each
   step's head, « Mark the n left OK », « Fold OK steps » (`runFoldOk` pref); on the right a testing panel: the test's
   screenshots, comments and questions, the same test in other runs (`runs.history`), and at its foot the result
-  (proposed by the marks) with Save and next. A picture dropped on a step is that step's (a step not marked becomes
+  (set by the marks, or picked — saved at once) with Next test. A picture dropped on a step is that step's (a step not marked becomes
   NOK); dropped on the panel or pasted (Ctrl+V) it goes to the step being played. Keys O / N / J / K, Ctrl+Enter =
-  save and next. Status words: Passed · Problem · Blocked · Not run (`RUN_STATUS`, success / danger / warning /
+  next test (a note typed and a blocked reason are saved first). Status words: Passed · Problem · Blocked · Not run (`RUN_STATUS`, success / danger / warning /
   neutral), and In progress for a test not run whose steps are being marked. The rail item sits after Tests rather
   than straight after Review: the rail's order is the work's.
 - **A run as pages, out of the app** (`lib/run-pages.ts`, template `templates/run-pages/`): `runs.export { run, dir }`
@@ -973,6 +982,14 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   (« Back to LFRPS12-1420 »: the trail does not hold the place it goes to). A screen's panes, bars and banners hold no
   « Back »; a list beside a detail (Review's queue, Tests, Jobs, Settings) is a choice, not a level, and has none.
   Modals and First launch keep their own steps.
+- **One filter bar** above a list that narrows (New run's tests, Review's queue, the runs —
+  `components/filters/FilterBar`): words, then one menu per dimension (a quiet button with its name; ticked, pressed
+  and saying what it keeps, « State: to fix »), its ticks counted with the other filters as they are, ticks adding up
+  inside a menu and menus narrowing each other; « n of m shown » with Clear only while one is on. A dimension with a
+  single value is not shown. The sort is the list's own, in its head. The page filters what it has read: Review reads
+  the whole queue (draft and to-fix — validated tests are in Tests) and narrows it there, so it is read again only
+  for another sort. Decided on 2026-11-09 (canvas « Testimus — Pickers and filter bars »): it replaced the
+  segmented states, the pill toggles and « Only with findings ».
 - **Names, never internal ids**: a label is what speaks to the user — a test's summary (its Jira key beside it in mono
   when it has one; a local test carries a « Local » badge), a document's title (and its code), the project's name, a
   context's or column's name; a missing one is « Untitled test / document / context », never the id

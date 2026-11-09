@@ -4,6 +4,7 @@ import type { Effort } from "../../../core/types.ts";
 import { CustomModel, cap, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
 import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
+import { Disclosure } from "../../components/ui/Disclosure.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
@@ -19,12 +20,14 @@ const styles = stylex.create({
     gap: space.s5,
     paddingBlock: space.s6,
     paddingInline: space.s7,
+    height: "100%",
     minHeight: 0,
     overflow: "auto",
   },
   head: { display: "flex", flexDirection: "column", gap: space.s1 },
   title: { margin: 0 },
   muted: { margin: 0, color: color.textMuted },
+  request: { margin: 0, color: color.textMuted, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
   picks: {
     display: "flex",
     flexDirection: "column",
@@ -59,7 +62,7 @@ const QUICK = [
 ];
 
 // ponytail: after a generation, its column asks Claude for changes on the tests it wrote (all, or the ones picked) or
-// for more tests under the same generation — gen.revise; the original request is one click away (« New request »)
+// for more tests under the same generation — gen.revise; the original request stays folded (it may be pages long)
 export function AskChanges({
   generation,
   running,
@@ -88,10 +91,13 @@ export function AskChanges({
     <section aria-label="Ask for changes" {...stylex.props(styles.pane)}>
       <div {...stylex.props(styles.head)}>
         <h2 {...stylex.props(type.titleSm, styles.title)}>Ask for changes</h2>
-        <p {...stylex.props(type.small, styles.muted)}>
-          On the {plural(tests.length, "test")} of this generation{request ? ` · « ${request} »` : ""}
-        </p>
+        <p {...stylex.props(type.small, styles.muted)}>On the {plural(tests.length, "test")} of this generation</p>
       </div>
+      {request && (
+        <Disclosure summary="The request" quiet>
+          <p {...stylex.props(type.small, styles.request)}>{request}</p>
+        </Disclosure>
+      )}
       <ClaudeBlock
         id="gen-revise"
         ariaLabel="What should change?"

@@ -1,6 +1,4 @@
 import * as stylex from "@stylexjs/stylex";
-import { useQueryClient } from "@tanstack/react-query";
-import type { CommandOutput } from "../../../core/commands/index.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Field } from "../../components/ui/Field.tsx";
@@ -10,12 +8,10 @@ import { Select } from "../../components/ui/Select.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
-import type { Save } from "../../lib/data/autosave.ts";
-import { execute, key, useRead } from "../../lib/data/query.ts";
 import { desktop, reveal } from "../../lib/desktop.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { useInfo, useProjectField, useSetProject } from "./project.ts";
-import { Column, Columns, Grid, Hint, Section, Stack } from "./Section.tsx";
+import { Column, Columns, Grid, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   folder: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
@@ -27,64 +23,12 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   icon: { display: "inline-flex", color: color.textMuted },
-  file: { color: color.textMuted },
-  notes: { display: "inline-flex", alignItems: "baseline", gap: space.s3 },
 });
 
 const LANGUAGES = [
   { value: "fr", label: "Français" },
   { value: "en", label: "English" },
 ];
-
-type Notes = CommandOutput<"project.notes">;
-
-// ponytail: CLAUDE.md, saved by the field against the version it was read at — a change on disk meanwhile is a
-// conflict the field shows; a pending text belongs to the project it was typed in (the key carries it)
-function ProjectNotes() {
-  const client = useQueryClient();
-  const notes = useRead("project.notes", {});
-  const saveKey = key("project.notes", {});
-  const save: Save<string> = async (text, base) => {
-    const out = await execute(
-      client,
-      "project.setNotes",
-      { text, ...(base ? { ifMtime: Number(base) } : {}) },
-      { invalidates: "none" },
-      saveKey[0],
-    );
-    client.setQueryData<Notes>(saveKey as unknown as readonly unknown[], (old) =>
-      old ? { ...old, text, mtime: out.mtime } : old,
-    );
-    return String(out.mtime);
-  };
-  const file = notes.data?.file ?? "CLAUDE.md";
-  return (
-    <Card
-      title={
-        <span {...stylex.props(styles.notes)}>
-          Project notes <span {...stylex.props(type.code, styles.file)}>CLAUDE.md</span>
-        </span>
-      }
-    >
-      <Stack>
-        <Text
-          multiline
-          rows={8}
-          label="Project notes"
-          value={notes.data?.text ?? ""}
-          save={save}
-          saveKey={saveKey}
-          base={notes.data ? String(notes.data.mtime) : undefined}
-          disabled={notes.isPending}
-          placeholder="Conventions, vocabulary, what Claude should know about this project…"
-        />
-        <Hint>
-          Markdown, saved to <span {...stylex.props(type.code)}>{file}</span> and read by Claude in every run.
-        </Hint>
-      </Stack>
-    </Card>
-  );
-}
 
 export function ProjectSection() {
   const info = useInfo();
@@ -100,7 +44,11 @@ export function ProjectSection() {
       ? [...LANGUAGES, { value: p.language, label: p.language }]
       : LANGUAGES;
   return (
-    <Section id="project" title="Project" intro="This project's identity in Jira and what Claude should know about it.">
+    <Section
+      id="project"
+      title="Project"
+      intro="This project's identity in Jira and its folder. What Claude is given is under Context."
+    >
       <Columns>
         <Column>
           <Card title="Project">
@@ -161,11 +109,6 @@ export function ProjectSection() {
             )}
           </Card>
         </Column>
-        {p && (
-          <Column>
-            <ProjectNotes />
-          </Column>
-        )}
       </Columns>
     </Section>
   );

@@ -4,13 +4,13 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, Test } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
-import { EvidenceBlock } from "../../../../src/ui/screens/review/EvidenceBlock.tsx";
 import { FixNote } from "../../../../src/ui/screens/review/FixNote.tsx";
 import { QueueStrip } from "../../../../src/ui/screens/review/QueueStrip.tsx";
+import { NO_FILTER } from "../../../../src/ui/screens/review/queueFilters.ts";
 import { type BannersProps, ReviewBanners } from "../../../../src/ui/screens/review/ReviewBanners.tsx";
 import { ReviewEmpty } from "../../../../src/ui/screens/review/ReviewEmpty.tsx";
 import { ReviewQueue, type ReviewQueueProps } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
-import { iconOf, iconsIn } from "../../helpers/icons.ts";
+import { iconOf } from "../../helpers/icons.ts";
 import { fakeServer, item, mountReview, named, net } from "./helpers.tsx";
 
 beforeEach(() => {
@@ -57,15 +57,14 @@ const queue = (over: Partial<ReviewQueueProps> = {}): ReviewQueueProps => ({
   items: [item("a", { errors: 0, warnings: 0, infos: 0 })],
   counts: { toFix: 0, draft: 1, unchecked: 0 },
   activeId: "a",
-  filter: "all",
+  queued: [],
+  filters: NO_FILTER,
   sort: "anomalies",
-  folder: "",
-  folders: [],
-  withFindings: false,
-  onFilter: vi.fn(),
+  onWords: vi.fn(),
+  onStates: vi.fn(),
+  onChecks: vi.fn(),
+  onFolders: vi.fn(),
   onSort: vi.fn(),
-  onFolder: vi.fn(),
-  onWithFindings: vi.fn(),
   onOpen: vi.fn(),
   ...over,
 });
@@ -134,24 +133,5 @@ describe("Review › the design's icons", () => {
     expect(iconOf(screen.getByText("Claude is not connected"))).toBe("plug");
     rerender(<FixNote id="T-9" initial="" claudeReady onCancel={vi.fn()} onSubmit={vi.fn()} />);
     expect(screen.queryByText("Claude is not connected")).toBeNull();
-  });
-
-  it("what the generation read leads with section, or image for a figure (n° 85)", async () => {
-    net.routes["review.evidence"] = () => ({
-      testId: "T",
-      jobId: "job-1",
-      consulted: [],
-      read: [
-        { ref: "D1#§5.2", title: "Sectionneur", cited: true },
-        { ref: "D1#fig:40", title: "Figure 40", cited: false },
-      ],
-      searched: [],
-    });
-    mountReview(<EvidenceBlock testId="T" selected="" onPick={vi.fn()} />);
-    expect(await screen.findByText("2 read")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /^Sources read/ }));
-    const list = screen.getByRole("listbox", { name: "Read by the generation" });
-    expect(iconsIn(within(list).getByRole("option", { name: /D1#§5\.2/ }))[0]).toBe("section");
-    expect(iconsIn(within(list).getByRole("option", { name: /D1#fig:40/ }))[0]).toBe("image");
   });
 });

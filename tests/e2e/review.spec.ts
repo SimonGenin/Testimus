@@ -10,7 +10,7 @@ const under = (page: Page) => page.getByRole("region", { name: "Test under revie
 const SUMMARY_1420 = "Sectionneur sans TK — menu contextuel et propriétés";
 const SUMMARY_LOCAL = "Sectionneur avec TK — manœuvre régulière";
 
-test("the queue lists what awaits review and filters by state", async ({ page }) => {
+test("the queue lists what awaits review and its filter bar narrows it by state", async ({ page }) => {
   await boot(page, "#/review");
   await expect(queue(page).getByText("Queue", { exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /^Review/ })).toHaveAttribute(
@@ -20,19 +20,19 @@ test("the queue lists what awaits review and filters by state", async ({ page })
   const items = queue(page).getByRole("listbox", { name: "Tests to review" }).getByRole("option");
   await expect(items).toHaveCount(2);
   await expect(items.first()).toContainText("2 errors");
-  await queue(page)
-    .getByRole("radio", { name: /^To fix 1/ })
-    .click();
+  const state = (name: RegExp) => page.getByRole("menuitemcheckbox", { name });
+  await queue(page).getByRole("button", { name: "State" }).click();
+  await state(/^To fix/).click();
   await expect(items).toHaveCount(1);
   await expect(items.first()).toContainText(SUMMARY_LOCAL);
-  await queue(page)
-    .getByRole("radio", { name: /^Draft 1/ })
-    .click();
+  await expect(queue(page).getByRole("status").filter({ hasText: "shown" })).toContainText("1 of 2 shown");
+  await state(/^To fix/).click();
+  await state(/^Draft/).click();
   await expect(items).toHaveCount(1);
   await expect(items.first()).toContainText(SUMMARY_1420);
-  await queue(page)
-    .getByRole("radio", { name: /^All 2/ })
-    .click();
+  await page.keyboard.press("Escape");
+  await shoot(page, "review/review-queue-filtered");
+  await queue(page).getByRole("button", { name: "Clear the filters" }).click();
   await expect(items).toHaveCount(2);
 });
 
