@@ -1,6 +1,6 @@
 import { basename, extname, join } from "node:path";
 import { z } from "zod";
-import { throwIfAborted } from "../../shared/run/work.ts";
+import { sleep, throwIfAborted } from "../../shared/run/work.ts";
 import { NOTE } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { showJob, waitJob } from "../jobs.ts";
@@ -134,6 +134,9 @@ export const commands = [
     label: (i) => basename(i.dir.replace(/[\\/]+$/, "")) || i.dir,
     async run(ctx, input) {
       const project = projectOf(ctx);
+      // ponytail: the folder is read again and copied on the next turn, so the page that started the import has the
+      // job's id at once and goes on — the copies themselves never hold the server (copyFileAtomic, sha256File)
+      await sleep(0, ctx.signal);
       const scan = scanFolder(project, input.dir, input.recursive);
       const { truncated } = scan;
       if (truncated)
@@ -168,10 +171,11 @@ export const commands = [
         try {
           if (f.group || isVideo(f.path)) {
             const title = f.group ? basename(f.group === "." ? scan.dir : f.group) : basename(f.path, extname(f.path));
-            const r = addMediaDocs(
+            const r = await addMediaDocs(
               project,
               unit.map((x) => ({ path: x.path })),
               { title, kind: input.kind, id: f.id },
+              ctx.signal,
             );
             added.push(...r.added);
             rejected.push(...r.rejected.map((x) => ({ name: x.name, why: x.why, code: "failed" as const })));

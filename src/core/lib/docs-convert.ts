@@ -15,7 +15,7 @@ import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
 import { convertText } from "../rag/convert-text.ts";
 import { renderPage } from "../rag/pdf.ts";
 import type { DocConversion, DocJson, DocKind, DocStats, FigureEntry } from "../types.ts";
-import { writeAtomic } from "./atomic.ts";
+import { copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { docDir, isConverted, readDoc, writeDoc } from "./docs.ts";
 import { idOf } from "./docs-folder.ts";
 import { sha256 } from "./hash.ts";
@@ -114,8 +114,8 @@ export async function addDoc(
   mkdirSync(dir, { recursive: true });
   try {
     progress("Copying the original");
-    writeAtomic(target, readFileSync(file));
-    if (input.pdf && ext === ".docx") writeAtomic(pdfTarget, readFileSync(resolve(input.pdf)));
+    await copyFileAtomic(file, target);
+    if (input.pdf && ext === ".docx") await copyFileAtomic(resolve(input.pdf), pdfTarget);
     const source = { name: file, ...copyOf(dir, `source${ext}`) };
     const twin = input.pdf && ext === ".docx" ? { twin: copyOf(dir, "source.pdf") } : {};
     if (input.convert === false) {

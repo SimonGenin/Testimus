@@ -97,7 +97,12 @@ export const commands = [
           ctx.steps?.([{ id: "copy", label: "Copy the file" }, ...(input.convert ? MEDIA_STEPS : [])]);
           ctx.step?.("copy");
           const picked = input.file ? { path: input.file } : { name: input.name, dataBase64: input.dataBase64 };
-          const { added, rejected } = addMediaDocs(project, [picked], { kind: input.kind, id: input.id });
+          const { added, rejected } = await addMediaDocs(
+            project,
+            [picked],
+            { kind: input.kind, id: input.id },
+            ctx.signal,
+          );
           if (!added.length)
             throw new UserError(
               rejected[0]?.why ?? "The file was not added.",
@@ -210,7 +215,12 @@ export const commands = [
         }
         if (media.length) {
           ctx.progress({ message: "Adding the images and videos" });
-          const r = addMediaDocs(project, media, { images: input.images, title: input.title, kind: input.kind });
+          const r = await addMediaDocs(
+            project,
+            media,
+            { images: input.images, title: input.title, kind: input.kind },
+            ctx.signal,
+          );
           if (input.video) chooseVideos(project, r.added, input.video);
           out.added.push(...r.added.map((d) => readDoc(project, d.id)));
           out.rejected.push(...r.rejected.map((x) => ({ name: x.name, why: x.why, code: "failed" as const })));

@@ -6,6 +6,8 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+- Importer un dossier (même plein de vidéos) ne bloque plus : la fenêtre se ferme aussitôt, la copie, la conversion et l'indexation avancent dans un job en arrière-plan, et l'application reste utilisable pendant la copie.
+
 ## 0.0.9
 
 - L'écran Jobs disparaît. Un job s'ouvre dans un panneau à côté de l'écran (depuis un toast, la barre du haut ou l'écran qui l'a lancé) : ce qu'il a fait, où aller ensuite, ce qui n'a pas marché et quoi faire. Un job qui échoue reste signalé dans la barre du haut jusqu'à ce qu'on l'ouvre. Chaque test (sous ses étapes) et chaque document (Details) a son historique. Les jobs terminés sont gardés 30 jours, puis effacés tout seuls.

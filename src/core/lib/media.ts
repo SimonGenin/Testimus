@@ -1,11 +1,10 @@
-import { createHash } from "node:crypto";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { UserError } from "../command.ts";
 import type { DocJson, DocKind, FigureEntry, MediaFile, SourceType } from "../types.ts";
 import { copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { docDir, readDoc, readFigures, writeDoc, writeFigures } from "./docs.ts";
-import { sha256 } from "./hash.ts";
+import { sha256, sha256File } from "./hash.ts";
 import { overCap, shortOfRoom } from "./video/disk.ts";
 
 export const IMAGE = /\.(jpe?g|png|webp)$/i;
@@ -88,28 +87,20 @@ export const updateFile = (project: string, docId: string, n: number, change: (f
   });
 
 // ponytail: a file on this PC is hashed and copied as it streams, never held whole — a video passes 2 GiB, which a
-// Buffer cannot hold
-function sha256Of(path: string): string {
-  const h = createHash("sha256");
-  const chunk = Buffer.alloc(1 << 20);
-  const fd = openSync(path, "r");
-  try {
-    for (let n = readSync(fd, chunk); n > 0; n = readSync(fd, chunk)) h.update(chunk.subarray(0, n));
-  } finally {
-    closeSync(fd);
-  }
-  return h.digest("hex");
-}
-
-function bytesOf(f: Picked, name: string): { hash: string; size: number; write: (to: string) => void } {
+// Buffer cannot hold — and never holding the process: the server keeps answering while a folder of videos is copied
+async function bytesOf(
+  f: Picked,
+  name: string,
+  signal?: AbortSignal,
+): Promise<{ hash: string; size: number; write: (to: string) => Promise<void> }> {
   if (f.dataBase64 !== undefined) {
     const data = Buffer.from(f.dataBase64, "base64");
-    return { hash: sha256(data), size: data.length, write: (to) => writeAtomic(to, data) };
+    return { hash: sha256(data), size: data.length, write: async (to) => writeAtomic(to, data) };
   }
   const path = f.path;
   if (!path || !existsSync(path)) throw new Error(`File not found: ${path ?? name}`);
   return {
-    hash: sha256Of(path),
+    hash: await sha256File(path, signal),
     size: statSync(path).size,
     write: (to) => copyFileAtomic(path, to),
   };
@@ -118,7 +109,7 @@ function bytesOf(f: Picked, name: string): { hash: string; size: number; write: 
 // ponytail: each file is copied as it is under files/ (its own name, made unique — never over a file already there)
 // and numbered after the highest number the document ever gave — a number is never reused, so an anchor img:<n>
 // stays the picture it was; the same file twice is refused, and what is neither an image nor a video is said why
-export function copyMediaFiles(project: string, docId: string, picked: Picked[]) {
+export async function copyMediaFiles(project: string, docId: string, picked: Picked[], signal?: AbortSignal) {
   const doc = readDoc(project, docId);
   const dir = join(docDir(project, docId), "files");
   const files = filesOf(doc);
@@ -143,10 +134,11 @@ export function copyMediaFiles(project: string, docId: string, picked: Picked[])
 
       continue;
     }
-    let data: ReturnType<typeof bytesOf>;
+    let data: Awaited<ReturnType<typeof bytesOf>>;
     try {
-      data = bytesOf(p, name);
+      data = await bytesOf(p, name, signal);
     } catch (e) {
+      if (signal?.aborted) throw e;
       rejected.push({ name, why: e instanceof Error ? e.message : String(e), code: "failed" });
       continue;
     }
@@ -181,7 +173,7 @@ export function copyMediaFiles(project: string, docId: string, picked: Picked[])
       file = k === 1 ? `${n}-${safe}` : `${n}-${k}-${safe}`;
     names.add(file.toLowerCase());
     mkdirSync(dir, { recursive: true });
-    data.write(join(dir, file));
+    await data.write(join(dir, file));
     added.push({ n, name, file: `files/${file}`, kind, sha256: hash, state: "new" });
   }
   if (added.length)

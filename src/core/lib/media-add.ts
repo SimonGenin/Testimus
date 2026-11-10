@@ -20,11 +20,12 @@ export type ImagesMode = "together" | "each";
 // ponytail: images picked together are one document (together) or one document each; a video is always a document of
 // its own. A group's title is the one given, else its folder's name, else « Images <date> »; each file's title is its
 // name without extension. Nothing is converted here (docs.convert, or media.add's own conversion)
-export function addMediaDocs(
+export async function addMediaDocs(
   project: string,
   picked: Picked[],
   o: { images?: ImagesMode; title?: string; kind?: DocKind; uploaded?: boolean; id?: string },
-): { added: DocJson[]; rejected: Rejected[] } {
+  signal?: AbortSignal,
+): Promise<{ added: DocJson[]; rejected: Rejected[] }> {
   const taken = new Set<string>();
   const images = picked.filter((p) => isImage(nameOf(p)));
   const videos = picked.filter((p) => isVideo(nameOf(p)));
@@ -54,7 +55,13 @@ export function addMediaDocs(
       name: first.path ?? nameOf(first),
       uploaded: o.uploaded || !first.path,
     });
-    const r = copyMediaFiles(project, id, g.files);
+    let r: Awaited<ReturnType<typeof copyMediaFiles>>;
+    try {
+      r = await copyMediaFiles(project, id, g.files, signal);
+    } catch (e) {
+      rmSync(docDir(project, id), { recursive: true, force: true });
+      throw e;
+    }
     rejected.push(...r.rejected);
     if (!r.added.length) {
       rmSync(docDir(project, id), { recursive: true, force: true });

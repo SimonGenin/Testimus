@@ -1,14 +1,5 @@
-import {
-  constants,
-  copyFileSync,
-  cpSync,
-  existsSync,
-  mkdirSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { constants, cpSync, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { UserError } from "../command.ts";
 
@@ -27,12 +18,12 @@ export function writeAtomic(path: string, data: string | Uint8Array): void {
 }
 
 // ponytail: a file from this PC is copied beside its target then renamed over (a clone where the disk can) — never
-// held in memory, so a video past 2 GiB is copied too
-export function copyFileAtomic(from: string, to: string): void {
+// held in memory, so a video past 2 GiB is copied too, and never holding the process while it copies
+export async function copyFileAtomic(from: string, to: string): Promise<void> {
   mkdirSync(dirname(to), { recursive: true });
   const tmp = `${to}.tmp`;
   try {
-    copyFileSync(from, tmp, constants.COPYFILE_FICLONE);
+    await copyFile(from, tmp, constants.COPYFILE_FICLONE);
     renameSync(tmp, to);
   } catch (e) {
     rmSync(tmp, { force: true });

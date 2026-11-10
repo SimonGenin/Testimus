@@ -199,17 +199,17 @@ const SPEC: Source = {
 };
 
 describe("files copied into a document", () => {
-  it("never write over a file already there: a name taken gets the next free one", () => {
+  it("never write over a file already there: a name taken gets the next free one", async () => {
     newMediaDoc(P, { id: "D", title: "D", name: "a.jpg" });
     const pick = (name: string, text: string) => ({ name, dataBase64: Buffer.from(text).toString("base64") });
-    copyMediaFiles(P, "D", [pick("a.jpg", "one"), pick("3-a.jpg", "two")]);
-    const r = copyMediaFiles(P, "D", [pick("a.jpg", "three")]);
+    await copyMediaFiles(P, "D", [pick("a.jpg", "one"), pick("3-a.jpg", "two")]);
+    const r = await copyMediaFiles(P, "D", [pick("a.jpg", "three")]);
     expect(r.added.map((f) => [f.n, f.file])).toEqual([[3, "files/3-2-a.jpg"]]);
     expect(readFileSync(join(dir("D"), "files", "3-a.jpg"), "utf8")).toBe("two");
     expect(readFileSync(join(dir("D"), "files", "3-2-a.jpg"), "utf8")).toBe("three");
   });
 
-  it("take a video past 2 GiB from this PC: hashed and copied as it streams, never read whole", () => {
+  it("take a video past 2 GiB from this PC: hashed and copied as it streams, never read whole", async () => {
     const big = join(mkdtempSync(join(tmpdir(), "testimus-big-")), "long.mp4");
     writeFileSync(big, "a video");
     const whole = fs.readFileSync;
@@ -220,7 +220,7 @@ describe("files copied into a document", () => {
     syncBuiltinESMExports();
     try {
       newMediaDoc(P, { id: "V", title: "V", name: "long.mp4" });
-      const r = copyMediaFiles(P, "V", [{ path: big }]);
+      const r = await copyMediaFiles(P, "V", [{ path: big }]);
       expect(r.rejected).toEqual([]);
       expect(r.added[0]).toMatchObject({ n: 1, file: "files/long.mp4", kind: "video", sha256: sha256("a video") });
       expect(whole(join(dir("V"), "files", "long.mp4"), "utf8")).toBe("a video");

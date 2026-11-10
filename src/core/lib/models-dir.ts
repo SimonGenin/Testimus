@@ -21,6 +21,7 @@ import { UserError } from "../command.ts";
 import { listJobs } from "../jobs.ts";
 import type { ModelsRegistry } from "../types.ts";
 import { gb } from "./fit/verdict.ts";
+import { sha256File } from "./hash.ts";
 import { downloadDeps } from "./models-download.ts";
 import { readRegistry, runtimesDir, writeRegistry } from "./models-registry.ts";
 import { isProject, readSettings } from "./project.ts";
@@ -247,12 +248,6 @@ export function planSetDir(
   return plan;
 }
 
-async function sha256Of(path: string, signal: AbortSignal): Promise<string> {
-  const h = createHash("sha256");
-  for await (const chunk of createReadStream(path, { highWaterMark: 4 * MB, signal })) h.update(chunk as Buffer);
-  return h.digest("hex");
-}
-
 async function copyChecked(from: string, to: string, signal: AbortSignal, onBytes: (n: number) => void): Promise<void> {
   mkdirSync(dirname(to), { recursive: true });
   const part = `${to}.part`;
@@ -270,7 +265,7 @@ async function copyChecked(from: string, to: string, signal: AbortSignal, onByte
     { signal },
   );
   const a = src.digest("hex");
-  const b = await sha256Of(part, signal);
+  const b = await sha256File(part, signal);
   if (a !== b) {
     rmSync(part, { force: true });
     throw new UserError(`The copy of ${from} differs from the original (SHA-256): nothing was changed.`, "Retry.");
@@ -337,7 +332,7 @@ export async function applySetDir(
         if (opts.signal.aborted) throw cancelledError();
         const same =
           statSync(s.to).size === s.bytes &&
-          (await sha256Of(s.from, opts.signal)) === (await sha256Of(s.to, opts.signal));
+          (await sha256File(s.from, opts.signal)) === (await sha256File(s.to, opts.signal));
         if (!same)
           throw new UserError(
             `${s.to} already exists and differs from ${s.from} (SHA-256): nothing was changed.`,

@@ -115,7 +115,7 @@ describe("Import a folder", () => {
     expect(within(dialog).getByText("Left aside · 2")).toBeInTheDocument();
     expect(within(dialog).getByText("Word's lock file")).toBeInTheDocument();
     expect(within(dialog).getByText("not a document")).toBeInTheDocument();
-    expect(within(dialog).getByText("Each one is converted, then indexed.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Copied, converted, then indexed in the background.")).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "B.pdf" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Import 1 document" }));

@@ -142,7 +142,7 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
       busy={starting}
       error={error ?? (read.isError ? message(read.error) : null)}
       onSubmit={() => (readFirst ? look() : void start())}
-      footNote={scan ? "Each one is converted, then indexed." : undefined}
+      footNote={scan ? "Copied, converted, then indexed in the background." : undefined}
       actions={
         <>
           <Button label="Cancel" onClick={onClose} disabled={starting} />

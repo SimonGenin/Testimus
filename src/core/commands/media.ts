@@ -119,7 +119,7 @@ export const commands = [
       let rejected: Rejected[] = [];
       const r = await inSlot(ctx, project, steps, async () => {
         ctx.step?.("copy");
-        ({ added, rejected } = copyMediaFiles(project, input.doc, input.files));
+        ({ added, rejected } = await copyMediaFiles(project, input.doc, input.files, ctx.signal));
         if (input.video)
           for (const f of added.filter((x) => x.kind === "video")) applyChoices(project, input.doc, f.n, input.video);
         if (!added.length) ctx.log("warn", `No file was added: ${rejected[0]?.why ?? "nothing given"}`);

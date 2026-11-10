@@ -3,8 +3,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
+import { invoke } from "../../../../src/core/commands/index.ts";
 import { env } from "../../../../src/core/env.ts";
-import { listJobs } from "../../../../src/core/jobs.ts";
+import { listJobs, waitJob } from "../../../../src/core/jobs.ts";
 import { FOLDER_MAX_FILES, idOf } from "../../../../src/core/lib/docs-folder.ts";
 import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 import { taggedPdf } from "../../../fixtures/pdf/tagged.ts";
@@ -180,6 +181,22 @@ describe("docs.addFolder", () => {
     expect(r.converted).toEqual([]);
     expect(r.truncated).toBe(false);
     expect(existsSync(join(P, "docs", "SPEC_G"))).toBe(false);
+  });
+
+  it("answers with its job at once: the folder is read and copied in the job, after the call", async () => {
+    const P = fixtureCopy("addfolder-job");
+    const dir = mkdtempSync(join(tmpdir(), "testimus-client-"));
+    writeFileSync(join(dir, "SPEC_J_01_00.docx"), sampleDocx());
+    writeFileSync(join(dir, "Essai.mp4"), JSON.stringify({ duration: 12 }));
+    const { jobId } = (await invoke("docs.addFolder", { dir, convert: false }, { project: P, wait: false })) as {
+      jobId: string;
+    };
+    expect(listJobs(P).find((j) => j.id === jobId)?.status).toBe("running");
+    expect(existsSync(join(P, "docs", "SPEC_J"))).toBe(false);
+    expect(existsSync(join(P, "docs", "Essai"))).toBe(false);
+    await waitJob(jobId);
+    expect(existsSync(join(P, "docs", "SPEC_J", "source.docx"))).toBe(true);
+    expect(existsSync(join(P, "docs", "Essai", "files", "Essai.mp4"))).toBe(true);
   });
 
   it("makes the images of each folder one images document, each video and text file one document", async () => {
