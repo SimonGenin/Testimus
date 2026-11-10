@@ -93,7 +93,7 @@ export const section: KitSection = {
     },
     {
       head: "Rules",
-      text: "Enter is a new line, Ctrl+Enter sends (the hint is always visible). Model and effort default to the project's, the choice holds for this run. A run on a test or the project may start with an empty box. Violet is reserved for Claude; never use `claude` tones for anything Claude does not do.",
+      text: "Enter is a new line, Ctrl+Enter sends (no hint is drawn: the foot keeps its room for the run's settings). Model and effort default to the project's, the choice holds for this run. A run on a test or the project may start with an empty box. Violet is reserved for Claude; never use `claude` tones for anything Claude does not do.",
     },
   ],
   states: () => (

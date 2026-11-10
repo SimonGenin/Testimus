@@ -9,6 +9,7 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 - Chaque écran est fait de sections (2 à 4, au plus 2 l'une au-dessus de l'autre), chacune avec ses onglets : on tire un onglet par sa poignée vers une autre section (seules les places qui peuvent le prendre s'affichent), on replie une section en bande d'icônes, on redimensionne librement par une petite poignée qui ne déplace que les deux sections qui l'entourent, même de part et d'autre d'une section repliée (sous la largeur minimale, « Release to collapse » prévient et relâcher replie la section), et la barre du haut ajoute une colonne, coupe une section en deux ou remet la disposition de l'écran. Chaque écran garde la sienne.
 - Claude devient un onglet de chaque écran au lieu du dock à droite (Ctrl J le montre ou le replie) ; sa conversation suit d'un écran à l'autre.
 - Le rail de gauche n'a plus que des icônes, plus petites, bien centrées et un peu plus espacées, le nom de chaque écran en infobulle.
+- Les blocs Claude n'affichent plus « Ctrl+Enter to send » à côté du bouton d'envoi : le raccourci marche toujours, la place revient au reste.
 
 - Analyser un test existant contre les documents : Claude relie ce qui est juste à ses passages et propose des changements, que l'équipe accepte ou refuse un par un.
 - Un nouveau projet démarre avec trois demandes rapides : « One action per step », « Checkable results » et « Missing cases ».

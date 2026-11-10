@@ -1,23 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { useDraft } from "../../lib/data/autosave.ts";
-import {
-  border,
-  color,
-  container,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  size,
-  space,
-} from "../../styles/tokens.stylex.ts";
+import { border, color, fontSize, fontWeight, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "./Button.tsx";
 import { Chip } from "./Chip.tsx";
 import { GroupSelect, type SelectGroup } from "./GroupSelect.tsx";
 import { halo } from "./halo.ts";
 import { Icon } from "./Icon.tsx";
-import { Kbd } from "./Kbd.tsx";
 import { Menu } from "./Menu.tsx";
 import { Select } from "./Select.tsx";
 import { Spinner } from "./Spinner.tsx";
@@ -98,7 +87,6 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   whole: { flex: "none" },
-  foldableWords: { display: { default: "inline", [container.paneCompact]: "none" } },
   pushEnd: { marginInlineStart: "auto" },
 });
 
@@ -341,14 +329,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
             off && <span {...stylex.props(styles.hint, styles.whole)}>{unavailable}</span>
           ) : (
             <>
-              {off ? (
-                <span {...stylex.props(styles.hint, styles.whole, styles.pushEnd)}>{unavailable}</span>
-              ) : (
-                <span {...stylex.props(styles.hint, styles.keep)}>
-                  <Kbd>{submit === "enter" ? "Enter" : "Ctrl+Enter"}</Kbd>
-                  <span {...stylex.props(styles.foldableWords)}>to send</span>
-                </span>
-              )}
+              {off && <span {...stylex.props(styles.hint, styles.whole, styles.pushEnd)}>{unavailable}</span>}
               <span {...stylex.props(styles.keep)}>
                 <Button
                   size="sm"

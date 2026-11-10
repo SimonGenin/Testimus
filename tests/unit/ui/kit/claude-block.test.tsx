@@ -171,7 +171,6 @@ describe("ClaudeBlock", () => {
     render(
       <ClaudeBlock ariaLabel="Track" value="" submit="enter" allowEmpty submitLabel="Ask Claude" onSubmit={onSubmit} />,
     );
-    expect(screen.getByText("to send")).toBeInTheDocument();
     const box = screen.getByRole("textbox", { name: "Track" });
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
     fireEvent.keyDown(box, { key: "Enter", isComposing: true });
@@ -286,9 +285,11 @@ describe("ClaudeBlock foot (design: dock, dock running, dock offline)", () => {
     onSubmit: () => {},
   };
 
-  it("shows the Ctrl+Enter key beside Send", () => {
+  it("shows no key beside Send: the shortcut works unseen", () => {
     render(<ClaudeBlock {...full} />);
-    expect(screen.getByText("Ctrl+Enter").tagName).toBe("KBD");
+    expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+    expect(screen.queryByText("Ctrl+Enter")).toBeNull();
+    expect(screen.queryByText("to send")).toBeNull();
   });
 
   it("while Claude works, the foot says so and drops the scope and the choices", () => {
