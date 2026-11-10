@@ -155,7 +155,9 @@ export const commands = [
       summary: z
         .string()
         .min(1)
-        .describe("2 to 4 sentences in the project language: how the test stands against the documents"),
+        .describe(
+          '2 to 4 sentences in the project language: how the test stands against the documents. Every section, requirement or figure it names is cited as docId#anchor "exact quote" (straight quotes), which the team clicks to read the passage; a bare §x.y is refused',
+        ),
       columns: z.array(COLUMN).default([]).describe("Every column that holds text, and how it is treated"),
       unfound: z.array(UNFOUND).default([]).describe("Requirements or values no document holds (kept as they are)"),
       proposals: z

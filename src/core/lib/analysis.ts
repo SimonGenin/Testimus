@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { sourceRefs } from "../claude/chat.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type { Source, Step, Test } from "../types.ts";
@@ -268,6 +269,13 @@ export function recordAnalysis(project: string, id: string, input: RecordIn): An
   });
   for (const u of input.unfound)
     if (u.step < 1 || u.step > steps) errors.push(`unfound ${JSON.stringify(u.item)}: step must be 1…${steps}.`);
+  const bare = [...new Set(input.summary.match(/(?<![#\w])§ ?\d+(?:\.\d+)*/g) ?? [])];
+  if (bare.length)
+    errors.push(
+      `summary: ${bare.join(", ")} named without its source — write each one as docId#anchor "exact quote" (the team clicks it to read the passage).`,
+    );
+  const cited = sourceRefs(input.summary);
+  if (cited.length) errors.push(...sourceErrors("summary", { fields: {}, sources: cited, images: [] }, corpus, linked));
   if (errors.length)
     throw new UserError(
       `Nothing was recorded — ${errors.length} problem${errors.length === 1 ? "" : "s"}:\n${errors.map((e) => `- ${e}`).join("\n")}`,

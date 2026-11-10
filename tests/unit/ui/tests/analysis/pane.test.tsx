@@ -109,6 +109,7 @@ const base = {
 
 let analysis: unknown = null;
 const saved = vi.fn(async () => {});
+const opened = vi.fn();
 const reloaded = vi.fn(async () => {});
 
 function Harness() {
@@ -121,7 +122,7 @@ function Harness() {
       defaults={{ model: "sonnet", effort: "medium" }}
       locked={false}
       onSelect={() => {}}
-      onOpenSource={() => {}}
+      onOpenSource={opened}
       onClose={() => {}}
     />
   );
@@ -256,6 +257,15 @@ describe("the analysis pane", () => {
     await waitFor(() =>
       expect(callsOf("analysis.decide")[1]?.input).toMatchObject({ proposals: ["p5"], decision: "reopen" }),
     );
+  });
+
+  it("the summary links each passage it names: a click opens it", async () => {
+    analysis = { ...base, summary: `Le test suit ${D3}#§5.6.6 "Le sectionneur est représenté" ; rien ne manque.` };
+    withApp(<Harness />);
+    expect(await screen.findByText(/rien ne manque/)).toBeInTheDocument();
+    expect(screen.queryByText(/#§5.6.6/)).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: /5.6.6/ })[0]);
+    expect(opened).toHaveBeenCalledWith({ docId: D3, anchor: "§5.6.6", quote: "Le sectionneur est représenté" });
   });
 
   it("says the items no document holds, and how each column was read", async () => {

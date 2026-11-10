@@ -70,11 +70,15 @@ column that holds text in this test, say how you treat it, in `columns`:
 
 ## Record
 
+`summary`: 2 to 4 sentences. Every section, requirement or figure it names is cited like a
+source, `docId#anchor "exact quote"` with straight quotes: the team clicks it to read the passage.
+A bare `§3.3.2.1` is refused, and so is a quote not found at its anchor.
+
 `analysis_record`, exactly once:
 
 ```json
 { "id": "<test id>",
-  "summary": "Le test suit §5.6.6 ; deux exigences sur trois sont retrouvées. La fermeture n'est jamais vérifiée.",
+  "summary": "Le test suit SOSIE_211_D401-1_3#§5.6.6 \"Le menu contextuel d'un sectionneur sans TK propose\" ; deux exigences sur trois sont retrouvées. La fermeture n'est jamais vérifiée.",
   "columns": [ { "name": "Exigence", "role": "keep", "why": "Codes saisis par l'équipe." },
                { "name": "Expected Result", "role": "open", "why": "Texte libre." } ],
   "unfound": [ { "step": 2, "column": "Exigence", "item": "EXI_MOP_SPF_510_A_20", "why": "Absent de tous les documents (rag_mentions, Grep)." } ],

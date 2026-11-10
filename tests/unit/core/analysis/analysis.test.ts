@@ -43,7 +43,7 @@ const TK = `${D3}#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne 
 
 const good = {
   id: ID,
-  summary: "Le test suit le §5.6.6.",
+  summary: `Le test suit ${D3}#§5.6.6 "Le menu contextuel d'un sectionneur sans TK propose".`,
   columns: [
     { name: "Exigence", role: "open", why: "Texte libre." },
     { name: "Expected Result", role: "open", why: "Texte libre." },
@@ -87,6 +87,7 @@ describe("analysis.record — what Claude proposes is proven before it is kept",
   it("lists every problem at once and records nothing", async () => {
     const bad = {
       ...good,
+      summary: `Le test suit le §5.6.6 et ${D3}#§5.6.2 "ces mots ne sont pas dans le document".`,
       proposals: [
         {
           kind: "source",
@@ -109,6 +110,8 @@ describe("analysis.record — what Claude proposes is proven before it is kept",
     expect(text).toContain("proposal 3 (remove, step 9): step must be 1…5");
     expect(text).toContain("a new step needs an Action and an Expected Result");
     expect(text).toContain("a new step needs a source");
+    expect(text).toContain("summary: §5.6.6 named without its source");
+    expect(text).toMatch(/summary: .*ces mots ne sont pas dans le document/);
     expect(existsSync(join(P, "tests", ID, "analysis.json"))).toBe(false);
   });
 

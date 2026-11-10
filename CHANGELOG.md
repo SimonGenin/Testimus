@@ -17,6 +17,7 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 - Dans un document écrit en exigences (un identifiant par titre), chaque exigence est rattachée à sa section : Claude trouve ce qui l'entoure, et la recherche limitée à une section la contient. Les documents déjà indexés s'affichent « pas à jour » : un Reindex suffit.
 - L'analyse d'un test s'appelle maintenant « Cross-check » (confronter le test aux documents). « Cross-check again » est un vrai bouton en haut du panneau, et le nouveau cross-check reçoit ce que l'équipe a accepté, refusé et laissé en attente — un refus n'est plus jamais reproposé. Une proposition acceptée puis défaite (test remis comme sur Jira, step annulé, source retirée) repasse « à décider », avec la mention de qui l'avait acceptée.
 - Pendant que Claude travaille, la boîte où l'on a écrit sa demande (Cross-check, Generate, colonnes…) garde le texte envoyé au lieu de revenir à son texte d'exemple.
+- Le résumé d'un cross-check lie chaque section ou exigence qu'il cite : un clic ouvre le passage, comme dans les réponses de Claude.
 
 ## 0.0.8
 

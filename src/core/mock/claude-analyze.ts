@@ -81,7 +81,7 @@ export function mockAnalysis(project: string, test: Test): RecordIn {
     .map((c) => ({ name: c.name, role: "keep" as const, why: "Codes d'exigence saisis par l'équipe." }));
   return {
     summary: proposals.length
-      ? `Le test suit le ${DOC} ; ${proposals.length} proposition(s) pour le relier aux documents.`
+      ? `Le test suit ${DOC}#§5.6.6 "${TK_QUOTE}" ; ${proposals.length} proposition(s) pour le relier aux documents.`
       : "Le test est conforme aux documents.",
     columns: [...columns, { name: "Expected Result", role: "open", why: "Texte libre." }],
     unfound,

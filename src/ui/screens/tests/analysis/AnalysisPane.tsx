@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Effort, Source, Test } from "../../../../core/types.ts";
+import { AnswerText } from "../../../components/claude/AnswerText.tsx";
 import { cap, effortOptions, useModelChoice } from "../../../components/claude/ModelPicker.tsx";
 import { useClaudeStatus } from "../../../components/claude/useClaudeStatus.ts";
 import { useNow } from "../../../components/claude/useNow.ts";
@@ -34,7 +35,6 @@ const styles = stylex.create({
     paddingInline: space.s6,
   },
   intro: { display: "flex", flexDirection: "column", gap: space.s2 },
-  text: { margin: 0, overflowWrap: "anywhere" },
   muted: { margin: 0, color: color.textMuted },
   meta: { margin: 0, display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.textSubtle },
   group: { display: "flex", flexDirection: "column", gap: space.s3 },
@@ -209,7 +209,7 @@ export function AnalysisPane({
           {analysis && !running && (
             <>
               <div {...stylex.props(styles.intro)}>
-                <p {...stylex.props(type.compact, styles.text)}>{analysis.summary}</p>
+                <AnswerText text={analysis.summary} onOpenSource={onOpenSource} />
                 <p {...stylex.props(type.small, styles.meta)}>
                   {analysis.run && <span>{cap(analysis.run.model)} ·</span>}
                   <span>{relTime(Date.parse(analysis.at))}</span>

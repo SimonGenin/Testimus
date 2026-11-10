@@ -941,7 +941,9 @@ nothing**: it records proposals and the team decides each one.
 - `analysis.record` (Claude's call) is proven as a whole before anything is written: every source line is checked as
   the mechanical pass checks a step (`docId#anchor "quote"` found at its anchor, at least four words, `@<column>
   "<item>"` naming an item the cell holds), steps and columns exist, a new step has Action, Expected Result and a source
-  for it. A call with any problem records nothing and lists them all, so Claude fixes them in one go.
+  for it. The summary cites each section, requirement or figure it names the same way (the pane makes each a
+  source chip); a bare `§x.y` is refused. A call with any problem records nothing and lists them all, so Claude fixes
+  them in one go.
 - **Whose a column is** (the user's ask: requirements typed by hand are kept): Claude says per column `keep` (the
   team's: every item stays word for word; Claude links items to passages and may only add), `open` (may be reworded
   where a passage says otherwise) or `leave` (stays empty). The core holds two rules whatever Claude says: a Reference
