@@ -43,7 +43,28 @@ export function openDb(file: string): DatabaseSync {
   `);
   migrateFts(db);
   migrateChunks(db);
+  migrateRules(db);
   return db;
+}
+
+// ponytail: bumped when the chunker gives another path or header to the same doc.md (2: a section without a number
+// sits under the heading above it) — an index of an older rule forgets which documents it saw, so each is chunked
+// again at the next index run and says « not up to date » until then; a chunk that comes out the same keeps its vectors
+const CHUNK_RULES = "2";
+
+function migrateRules(db: DatabaseSync): void {
+  if (getMeta(db, "chunk_rules") === CHUNK_RULES) return;
+  transaction(db, () => {
+    db.exec("delete from docs");
+    try {
+      const state = JSON.parse(getMeta(db, "index_state") ?? "null") as { docs?: Record<string, string> } | null;
+      if (state?.docs) {
+        for (const id of Object.keys(state.docs)) state.docs[id] = "";
+        setMeta(db, "index_state", JSON.stringify(state));
+      }
+    } catch {}
+    setMeta(db, "chunk_rules", CHUNK_RULES);
+  });
 }
 
 // ponytail: the one place a rag.db handle is closed — after the work, whether it returns, throws or settles later

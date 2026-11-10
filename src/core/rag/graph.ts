@@ -95,7 +95,16 @@ export function docEdges(project: string, doc: DocJson, md: string, _figures: Fi
     const parent = s.number.split(".").slice(0, -1).join(".");
     groups.set(parent, [...(groups.get(parent) ?? []), s]);
   }
-  for (const g of groups.values())
+  // ponytail: a section without a number (a requirement under « 5.6.6 Sectionneur ») hangs from the heading above
+  // it, and the unnumbered sections of one heading are siblings — a specification written as requirements is linked
+  // like one written as numbered sections
+  const under = new Map<string, Section[]>();
+  for (const s of sections) {
+    if (s.number || !s.parent) continue;
+    add(ref(s.anchor), ref(s.parent), "parent");
+    under.set(s.parent, [...(under.get(s.parent) ?? []), s]);
+  }
+  for (const g of [...groups.values(), ...under.values()])
     for (const a of g) for (const b of g) if (a !== b) add(ref(a.anchor), ref(b.anchor), "sibling");
   return out;
 }

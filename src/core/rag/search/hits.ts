@@ -30,7 +30,7 @@ export const hitOf = (project: string, c: ChunkRow, score: number, extra: Partia
   };
 };
 
-const parentOf = (n: string) => n.split(".").slice(0, -1).join(".");
+const parentOf = (path: string) => path.split(" > ").slice(-2, -1)[0] ?? "";
 
 // ponytail: expansion follows the document's own structure, never a model — the parent section, the section a figure
 // sits in, and (graph) the sections the hit cross-references or amends; added after the k hits, each passage once,
@@ -60,8 +60,8 @@ export function expandHits(
     };
     for (const { chunk: c, score } of hits) {
       const n = c.path.split(" > ").pop() ?? "";
-      if (c.kind === "section" && c.anchor.startsWith("§") && parentOf(n))
-        addSection(`${c.docId}#§${parentOf(n)}`, score, "section");
+      if (c.kind === "section" && c.anchor.startsWith("§") && parentOf(c.path))
+        addSection(`${c.docId}#§${parentOf(c.path)}`, score, "section");
       if (c.kind !== "section" && n) addSection(`${c.docId}#§${n}`, score, "section");
       if (expand !== "graph" || c.kind !== "section") continue;
       for (const r of linked.all(`${c.docId}#${c.anchor}`) as { dst: string }[]) addSection(r.dst, score, "graph");

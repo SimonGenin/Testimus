@@ -5,6 +5,8 @@ export type Section = {
   number: string;
   title: string;
   path: string;
+  parent: string;
+  where: string;
   line: number;
   body: string;
 };
@@ -30,7 +32,7 @@ export type DescribeChunks = (
 
 export const MAX_TOKENS = 800;
 
-const HEADING = /^#{1,6}\s+(.*)$/;
+const HEADING = /^(#{1,6})\s+(.*)$/;
 const SECTION_ANCHOR = /<!--\s*§\s*(.*?)\s*-->/;
 const FIG = /<!--\s*fig\s+(\S+?)\s*-->/g;
 export const FIGURE_IMAGE = /!\[([^\]]*)\]\(([^)\s]+)[^)]*\)\s*<!--\s*fig\s+(\S+?)\s*-->/g;
@@ -61,6 +63,9 @@ export function parseSections(md: string): Section[] {
   const sections: Section[] = [];
   let current: Section | null = null;
   let body: string[] = [];
+  // ponytail: a heading without a section number (a requirement id, a title's slug) sits where its heading level
+  // puts it: under the nearest heading above it of a lower level — its path and its place in the header say so
+  const open: { level: number; s: Pick<Section, "anchor" | "path" | "where"> }[] = [];
   const close = () => {
     if (current) sections.push({ ...current, body: body.join("\n").trim() });
     current = null;
@@ -70,19 +75,27 @@ export function parseSections(md: string): Section[] {
     const h = line.match(HEADING);
     if (h) {
       close();
-      const a = h[1].match(SECTION_ANCHOR);
+      const a = h[2].match(SECTION_ANCHOR);
       if (!a) return;
       const key = a[1].trim();
-      let title = h[1].replace(/\s*<!--[\s\S]*?-->/g, "").trim();
+      let title = h[2].replace(/\s*<!--[\s\S]*?-->/g, "").trim();
       if (title.startsWith(`${key} `)) title = title.slice(key.length + 1).trim();
+      const level = h[1].length;
+      while (open.length && open[open.length - 1].level >= level) open.pop();
+      const above = open[open.length - 1]?.s;
+      const number = NUMBERED.test(key) ? key : "";
+      const path = number || !above ? sectionPath(key) : `${above.path} > ${key}`;
       current = {
         anchor: `§${key}`,
-        number: NUMBERED.test(key) ? key : "",
+        number,
         title,
-        path: sectionPath(key),
+        path,
+        parent: above?.anchor ?? "",
+        where: number ? `${path} ${title}` : above ? `${above.where} > ${title}` : title,
         line: i,
         body: "",
       };
+      open.push({ level, s: current });
       return;
     }
     if (current) body.push(line);
@@ -164,9 +177,8 @@ function ids(text: string, re: RegExp): string[] {
   return [...new Set([...text.matchAll(re)].map((m) => m[1]))];
 }
 
-function defaultHeader(doc: DocJson, s: Pick<Section, "path" | "title" | "number">): string {
-  const where = s.number ? `${s.path} ${s.title}` : s.title;
-  return `${doc.code} ${doc.title} — ${where}`.trim();
+function defaultHeader(doc: DocJson, s: Pick<Section, "where">): string {
+  return `${doc.code} ${doc.title} — ${s.where}`.trim();
 }
 
 // ponytail: a paragraph above the budget is a big table or list — cut it by lines, and repeat a table's

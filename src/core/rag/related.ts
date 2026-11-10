@@ -126,10 +126,11 @@ function direct(g: Graph, ref: string): { ref: string; kind: EdgeKind; direction
   ];
   const m = ref.match(/^([^#]+)#(.+)$/);
   if (!m) return out;
-  const n = m[2].startsWith("§") ? m[2].slice(1) : "";
-  const parts = n.split(".");
-  for (let i = parts.length - 1; n && i > 0; i--)
-    for (const e of g.in.get(`${m[1]}#§${parts.slice(0, i).join(".")}`) ?? [])
+  // ponytail: what amends a section amends what it holds — the sections above come from the path, so a requirement
+  // without a number inherits them like a numbered sub-section
+  const above = m[2].startsWith("§") ? infoOf(g, ref).path.split(" > ").slice(0, -1).reverse() : [];
+  for (const key of above)
+    for (const e of g.in.get(`${m[1]}#§${key}`) ?? [])
       if (e.kind === "amends") out.push({ ref: e.from, kind: "amends", direction: "in" });
   for (const e of g.in.get(m[1]) ?? [])
     if (e.kind === "amends") out.push({ ref: e.from, kind: "amends", direction: "in" });

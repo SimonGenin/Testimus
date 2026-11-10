@@ -466,6 +466,20 @@ docs/<docId>/
   from `doc.md` for a document not indexed yet.
 - **Graph** (`edges(src, dst, kind)`): `refers` (« § x », « cf. x », « voir le chapitre x », `<code> §x`), `parent`,
   `sibling`, `shows` (section → figure), `amends`.
+- **A section without a number sits under the heading above it** (2026-11-10; `rag/chunk.ts` `parseSections`: the
+  nearest heading above of a lower level). A specification written as requirements — `##### EXI_MOP_SPF_511_A_1660`
+  under `#### 5.6.6 Sectionneur (S)`, 170 of the 287 headings of SOSIE D401-1 — had passages tied to nothing:
+  `rag.related` on a requirement answered an empty list, the section filter left it out and the heading's title was
+  indexed nowhere (a heading with no text of its own has no chunk). Now its path lists what holds it
+  (`5 > 5.6 > 5.6.6 > exi-mop-spf-511-a-1660`), its header says so (`… — 5 > 5.6 > 5.6.6 Sectionneur (S) >
+  EXI_MOP_SPF_511_A_1660`), the graph gives it that heading as `parent` and the other unnumbered sections of it as
+  `sibling`, `expand` and the amendments of the sections above follow the path; a numbered section keeps the path of
+  its number. Anchors do not change. Measured on that document (words only, 145 behaviors taken from the steps of
+  generated tests and their sources, not validated — 16 passages cited in all, so a narrow set): `search` recall
+  @10 0.917 before and after, MRR 0.694 → 0.686; `search+graph` 0.959 @10 both, 0.997 → 1.000 @50 — the gain is in
+  what `rag.related` and the section filter answer, not in the ranking. An index written before the rule
+  (`rag/db.ts` meta `chunk_rules`) forgets once which documents it saw: they say « not up to date » and are chunked
+  again at the next index run, a passage that comes out the same keeping its vectors.
 - **Passage cap**: `rag.passage` text is capped at `rag.passageMaxChars` (12 000); above it, whole lines around the
   quote (`around`), the table's header rows, an outline of sub-sections and a `readMore` line range of `doc.md`.
 - **Claude also reads `doc.md` directly** (Grep/Read): the index finds, the file proves. The index is derived; nothing

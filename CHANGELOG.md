@@ -6,6 +6,7 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+- Dans un document écrit en exigences (un identifiant par titre), chaque exigence est rattachée à sa section : Claude trouve ce qui l'entoure, et la recherche limitée à une section la contient. Les documents déjà indexés s'affichent « pas à jour » : un Reindex suffit.
 - Chaque écran est fait de sections (2 à 4, au plus 2 l'une au-dessus de l'autre), chacune avec ses onglets : on tire un onglet par sa poignée vers une autre section (seules les places qui peuvent le prendre s'affichent), on replie une section en bande d'icônes, on redimensionne librement par une petite poignée qui ne déplace que les deux sections qui l'entourent, même de part et d'autre d'une section repliée (sous la largeur minimale, « Release to collapse » prévient et relâcher replie la section), et la barre du haut ajoute une colonne, coupe une section en deux ou remet la disposition de l'écran. Chaque écran garde la sienne.
 - Claude devient un onglet de chaque écran au lieu du dock à droite (Ctrl J le montre ou le replie) ; sa conversation suit d'un écran à l'autre.
 - Une source ouverte (dans un test, l'analyse, Generate, un run ou une réponse de Claude) s'affiche dans un onglet « Source » à droite du travail, et non plus dans une fenêtre par-dessus : on lit le passage en gardant le test sous les yeux.
