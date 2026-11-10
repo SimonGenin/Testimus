@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { Card } from "../../components/ui/Card.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
@@ -14,7 +13,7 @@ import { desktop, examplePath, pickFolder } from "../../lib/desktop.ts";
 import { canRestart, restartApp, restartHint, type Updates, useStartUpdate, useUpdates } from "../../lib/updates.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { useSetSettings, useSettings } from "./machine.ts";
-import { Anchor, Hint, Section, Stack } from "./Section.tsx";
+import { Fact, Group, Row, Section } from "./Section.tsx";
 
 const styles = stylex.create({
   row: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
@@ -34,8 +33,8 @@ export function sourceLine(u: Updates): string {
   return "No folder to look in yet.";
 }
 
-// ponytail: the folder is the team share the releases are copied to; left empty, the one this copy was installed
-// from is read — so moving the share only needs the new path here, and nothing breaks while it is unreachable
+// ponytail: the folder is the share the releases are copied to; left empty, the one this copy was installed from is
+// read — so moving the share only needs the new path here, and nothing breaks while it is unreachable
 export function UpdatesSection() {
   const app = useApp();
   const client = useQueryClient();
@@ -59,112 +58,114 @@ export function UpdatesSection() {
     <Section
       id="updates"
       title="Updates"
-      intro="New versions of Testimus are copied to a shared folder; Testimus looks there when it starts and offers to install them."
+      intro="New versions of Testimus are copied to a folder; Testimus looks there when it starts and offers to install them. Your settings and projects stay."
     >
-      <Anchor id="updates">
-        <Card title="Update folder">
-          <Stack loose>
-            <Stack>
-              <Text
-                id="settings-updates-from"
-                label="Folder"
-                value={typed}
-                saveKey={saveKey}
-                delay="blur"
-                save={save}
-                spellCheck={false}
-                placeholder={
-                  u?.sourceFrom === "install"
-                    ? `${u.source} (where Testimus was installed from)`
-                    : examplePath("\\\\server\\tools\\Testimus", "/Volumes/tools/Testimus")
-                }
-                trailing={
-                  desktop() ? (
-                    <Button
-                      size="sm"
-                      variant="quiet"
-                      label="Browse…"
-                      disabled={!settings.data}
-                      onClick={() =>
-                        void pickFolder("Choose the update folder").then((picked) =>
-                          picked ? save(picked, undefined) : undefined,
-                        )
-                      }
-                    />
-                  ) : undefined
-                }
-              />
-              <Hint>
-                Leave it empty to use the folder Testimus was installed from. A folder that moved only needs its new
-                path here.
-              </Hint>
-            </Stack>
-            <Stack>
-              <div {...stylex.props(styles.row)}>
-                <Button
-                  size="sm"
-                  icon="refresh"
-                  label="Check now"
-                  loading={updates.isFetching}
-                  onClick={() => void updates.refetch()}
-                />
-                {badge && <Badge label={badge.label} tone={badge.tone} />}
-                {u && (
-                  <span {...stylex.props(type.small, styles.muted)}>
-                    Running {u.current}
-                    {u.installed ? "" : " — not an installed copy, so it cannot update itself"}
-                  </span>
-                )}
-              </div>
-              {u && <span {...stylex.props(type.small, styles.muted)}>{sourceLine(u)}</span>}
-              {u?.problem && (
-                <Banner tone="warning" compact>
-                  {u.problem}
-                </Banner>
-              )}
-            </Stack>
+      <Group
+        title="Version"
+        actions={
+          <Button
+            size="sm"
+            icon="refresh"
+            label="Check now"
+            loading={updates.isFetching}
+            onClick={() => void updates.refetch()}
+          />
+        }
+      >
+        <Row>
+          <Fact
+            label="This copy"
+            hint={u && !u.installed ? "Not an installed copy, so it cannot update itself." : undefined}
+          >
+            <div {...stylex.props(styles.row)}>
+              {u && <span {...stylex.props(type.code)}>{u.current}</span>}
+              {badge && <Badge label={badge.label} tone={badge.tone} />}
+            </div>
+            {u?.problem && (
+              <Banner tone="warning" compact>
+                {u.problem}
+              </Banner>
+            )}
             {u?.pending ? (
-              <Stack>
+              <>
                 <span {...stylex.props(type.compact)}>{restartHint(u.pending)}</span>
                 {canRestart() && (
                   <div {...stylex.props(styles.row)}>
                     <Button variant="primary" icon="refresh" label="Restart now" onClick={restartApp} />
                   </div>
                 )}
-              </Stack>
+              </>
             ) : (
               u?.available &&
               u.latest && (
-                <Stack>
-                  <div {...stylex.props(styles.row)}>
-                    <Button
-                      variant="link"
-                      label={`What's new in ${u.latest.version}`}
-                      onClick={() => app.navigate("settings", "changelog")}
-                    />
-                  </div>
-                  <div {...stylex.props(styles.row)}>
-                    <Button
-                      variant="primary"
-                      icon="download"
-                      label={`Update to ${u.latest.version}`}
-                      disabled={!u.installed}
-                      loading={starting}
-                      onClick={() => {
-                        setStarting(true);
-                        void start(u.latest?.version).finally(() => setStarting(false));
-                      }}
-                    />
-                    <span {...stylex.props(type.small, styles.muted)}>
-                      It installs beside this version; your settings and projects stay.
-                    </span>
-                  </div>
-                </Stack>
+                <div {...stylex.props(styles.row)}>
+                  <Button
+                    variant="primary"
+                    icon="download"
+                    label={`Update to ${u.latest.version}`}
+                    disabled={!u.installed}
+                    loading={starting}
+                    onClick={() => {
+                      setStarting(true);
+                      void start(u.latest?.version).finally(() => setStarting(false));
+                    }}
+                  />
+                  <span {...stylex.props(type.small, styles.muted)}>
+                    It installs beside this version; your settings and projects stay.
+                  </span>
+                </div>
               )
             )}
-          </Stack>
-        </Card>
-      </Anchor>
+            <div>
+              <Button
+                variant="link"
+                label={u?.available && u.latest ? `What's new in ${u.latest.version}` : "What changed in each version"}
+                onClick={() => app.navigate("settings", "changelog")}
+              />
+            </div>
+          </Fact>
+        </Row>
+      </Group>
+      <Group id="updates" title="Where new versions come from">
+        <Row>
+          <Text
+            aside
+            id="settings-updates-from"
+            label="Update folder"
+            hint="Empty: the folder this copy was installed from. A folder that moved only needs its new path here."
+            value={typed}
+            saveKey={saveKey}
+            delay="blur"
+            save={save}
+            spellCheck={false}
+            placeholder={
+              u?.sourceFrom === "install"
+                ? `${u.source} (where Testimus was installed from)`
+                : examplePath("\\\\server\\tools\\Testimus", "/Volumes/tools/Testimus")
+            }
+            trailing={
+              desktop() ? (
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  label="Browse…"
+                  disabled={!settings.data}
+                  onClick={() =>
+                    void pickFolder("Choose the update folder").then((picked) =>
+                      picked ? save(picked, undefined) : undefined,
+                    )
+                  }
+                />
+              ) : undefined
+            }
+          />
+          {u && (
+            <Fact>
+              <span {...stylex.props(type.small, styles.muted)}>{sourceLine(u)}</span>
+            </Fact>
+          )}
+        </Row>
+      </Group>
     </Section>
   );
 }

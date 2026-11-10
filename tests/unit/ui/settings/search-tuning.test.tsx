@@ -86,25 +86,31 @@ afterEach(reset);
 const radio = (group: string, name: string) =>
   within(screen.getByRole("radiogroup", { name: group })).getByRole("radio", { name });
 
+const advanced = () =>
+  fireEvent.click(screen.getByRole("button", { name: "Advanced: reranker depth, fusion weights" }));
+
 describe("Settings › Search › Ranking and Words", () => {
-  it("shows the settings in words, the reranker only when the pack has one", async () => {
+  it("shows the settings in words, the reranker's depth (under Advanced) only when one is in use", async () => {
     mountSettings(<Tuning />);
-    expect(await screen.findByRole("textbox", { name: "Candidates per search" })).toHaveValue("50");
-    expect(radio("Words vs meaning", "Balanced")).toHaveAttribute("aria-checked", "true");
-    expect(radio("Weight of codes and ids", "High")).toHaveAttribute("aria-checked", "true");
+    expect(await screen.findByRole("textbox", { name: "Candidates" })).toHaveValue("50");
+    expect(radio("Words or meaning", "Balanced")).toHaveAttribute("aria-checked", "true");
+    expect(radio("Weight of codes and ids", "First")).toHaveAttribute("aria-checked", "true");
     expect(radio("Also bring", "Nothing more")).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("combobox", { name: "Reranker" })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: /French forms/ })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Accents and case ignored" })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: /Typos forgiven/ })).not.toBeChecked();
+    expect(screen.queryByRole("combobox", { name: "Reranker depth" })).toBeNull();
+    advanced();
+    expect(screen.getByRole("combobox", { name: "Reranker depth" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: /manœuvrer/ })).toBeChecked();
+    expect(screen.getByText("Accents and case are always ignored.")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Also look one letter away" })).not.toBeChecked();
     expect(screen.getByText(/Also 38 acronyms read from the documents/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save to project.json" })).toBeNull();
   });
 
-  it("a pack with a reranker lets the top N or its threshold be chosen", async () => {
+  it("a reranker in use lets the top N or its threshold be chosen", async () => {
     net.routes["rag.retrieval"] = () => settings({}, "qwen3-reranker-0.6b");
     mountSettings(<Tuning />);
-    const select = await screen.findByRole("combobox", { name: "Reranker" });
+    fireEvent.click(await screen.findByRole("button", { name: "Advanced: reranker depth, fusion weights" }));
+    const select = await screen.findByRole("combobox", { name: "Reranker depth" });
     expect(select).toBeEnabled();
     choose(select, /Above its threshold/);
     fireEvent.click(await screen.findByRole("button", { name: "Save to project.json" }));
@@ -113,12 +119,12 @@ describe("Settings › Search › Ranking and Words", () => {
     );
   });
 
-  it("saves only what the draft changed; Reset ranking gives the ranking back to the defaults and the pack", async () => {
+  it("saves only what the draft changed; Back to the defaults gives the ranking back to the base", async () => {
     project = { candidates: 80 };
     mountSettings(<Tuning />);
     fireEvent.click(await screen.findByRole("radio", { name: "Meaning" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Typos forgiven/ }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /French forms/ }));
+    fireEvent.click(screen.getByRole("switch", { name: "Also look one letter away" }));
+    fireEvent.click(screen.getByRole("switch", { name: /manœuvrer/ }));
     expect(screen.getByText(/Not saved: Try it and Measure use these settings/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save to project.json" }));
     await waitFor(() =>
@@ -127,17 +133,17 @@ describe("Settings › Search › Ranking and Words", () => {
       ]),
     );
     await waitFor(() => expect(screen.queryByRole("button", { name: "Save to project.json" })).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Reset ranking" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to the defaults" }));
     fireEvent.click(await screen.findByRole("button", { name: "Save to project.json" }));
     await waitFor(() =>
       expect(inputs("rag.setRetrieval")[1]).toEqual({ retrieval: {}, unset: ["candidates", "rrfWeights"] }),
     );
     await waitFor(() => expect(project).toEqual({ typos: true, bm25Weights: [1, 1, 5, 0] }));
-    expect(screen.getByRole("checkbox", { name: /Typos forgiven/ })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /French forms/ })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "Also look one letter away" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: /manœuvrer/ })).not.toBeChecked();
   });
 
-  it("a key the team set that this PC's pack matches stays in project.json when something else is saved", async () => {
+  it("a key project.json holds that the base matches stays in project.json when something else is saved", async () => {
     project = { candidates: 80 };
     net.routes["rag.retrieval"] = () => settings(project, null, { candidates: 80 });
     mountSettings(<Tuning />);
@@ -153,7 +159,7 @@ describe("Settings › Search › Ranking and Words", () => {
 
   it("Discard goes back to what is saved", async () => {
     mountSettings(<Tuning />);
-    fireEvent.click(await screen.findByRole("radio", { name: "Referenced sections" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Sections it cites" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(radio("Also bring", "Nothing more")).toHaveAttribute("aria-checked", "true");
     expect(inputs("rag.setRetrieval")).toEqual([]);
@@ -161,7 +167,7 @@ describe("Settings › Search › Ranking and Words", () => {
 
   it("a number that does not parse is refused in the field and changes nothing", async () => {
     mountSettings(<Tuning />);
-    const field = await screen.findByRole("textbox", { name: "Candidates per search" });
+    const field = await screen.findByRole("textbox", { name: "Candidates" });
     fireEvent.change(field, { target: { value: "abc" } });
     expect(await screen.findByText(/Type a number \(whole\) from 1 to 1000/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save to project.json" })).toBeNull();
@@ -214,7 +220,7 @@ describe("Settings › Search › Try it", () => {
     const job = fakeJob({ id: "j-measure", kind: "rag-measure" });
     net.routes["rag.measure"] = () => ({ jobId: job.id });
     mountSettings(<Tuning />);
-    fireEvent.click(await screen.findByRole("checkbox", { name: /Typos forgiven/ }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Also look one letter away" }));
     fireEvent.click(screen.getByRole("button", { name: "Measure on the benchmark" }));
     await waitFor(() => expect(inputs("rag.measure")).toEqual([{ retrieval: { ...DEFAULTS, typos: true } }]));
     expect(await screen.findByRole("status", { name: "Measuring on the benchmark" })).toBeInTheDocument();

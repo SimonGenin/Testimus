@@ -76,9 +76,9 @@ async function tap(page: Page | Locator, name: string | RegExp): Promise<void> {
   await el.click();
 }
 
-// ponytail: Settings › Models — a pack is an article named « X pack » holding « Use this pack » and « Measure »
-const pickPack = (page: Page, pack: string) =>
-  tap(page.getByRole("article", { name: `${pack} pack` }), "Use this pack");
+// ponytail: Settings › Models — each kind's advised model comes first, with « Download and use » (or « Use » once it is
+// on this PC); the first one is the embedding's
+const pickAdvised = (page: Page) => tap(page, /^(Download and use|Use)$/);
 
 // ponytail: a kit confirmation is an alertdialog
 const modal = (page: Page | Locator, name?: string | RegExp) =>
@@ -176,14 +176,16 @@ const firstId = async (s: Server, cmd: string) => ((await s.api<{ id: string }[]
 const SETTINGS = [
   "project",
   "columns",
-  "claude",
-  "claude-dock",
-  "claude-quickasks",
+  "claudeproject",
+  "claudeproject-quickasks",
   "context",
   "search",
-  "models",
+  "videos",
+  "claude",
   "access",
+  "models",
   "appearance",
+  "updates",
 ];
 
 function settingsShots(prefix = "settings"): Shot[] {
@@ -304,7 +306,7 @@ function overviewShots(): Shot[] {
         await dialog(p, "Rewrite it from scratch?");
       },
     },
-    { id: "overview-setting", note: "Settings › Claude: the option", hash: "#/settings/claude-overview" },
+    { id: "overview-setting", note: "Settings › Claude: the option", hash: "#/settings/claudeproject-overview" },
   ];
 }
 
@@ -760,15 +762,9 @@ function fixtureShots(): Shot[] {
       note: "Smart columns › Claude's proposals",
       hash: "#/settings/columns",
       prep: async (p) => {
-        await tap(p.getByRole("region", { name: "Ask Claude about the columns" }), "Ask Claude");
+        await tap(p.getByRole("region", { name: "Ask Claude to review the columns" }), "Ask Claude");
         await p.getByRole("list", { name: "Claude's proposals" }).waitFor({ timeout: 30_000 });
       },
-    },
-    {
-      id: "settings-models-catalog",
-      note: "Models › catalog unfolded",
-      hash: "#/settings/models",
-      prep: (p) => tap(p, /^Model catalog/),
     },
     {
       id: "settings-models-folder",
@@ -780,20 +776,20 @@ function fixtureShots(): Shot[] {
       },
     },
     {
-      id: "settings-models-pack-dialog",
-      note: "Use a pack (plan dialog)",
+      id: "settings-models-plan",
+      note: "Download and use the advised embedding (plan dialog)",
       hash: "#/settings/models",
       prep: async (p) => {
-        await pickPack(p, "Performance");
+        await pickAdvised(p);
         await dialog(p);
       },
     },
     {
       id: "settings-models-measure",
-      note: "Measure a pack",
+      note: "Measure the transcription models on the project's videos",
       hash: "#/settings/models",
       prep: async (p) => {
-        await tap(p.getByRole("article", { name: "Light pack" }), /^Measure/);
+        await tap(p, "Measure on my videos…");
         await dialog(p);
       },
     },
@@ -1256,10 +1252,10 @@ function modelsShots(fit?: string): Shot[] {
   if (fit)
     shots.push({
       id: "settings-models-fit",
-      note: `Will the ${fit} pack fit?`,
+      note: `Will the advised model fit? (${fit})`,
       hash: "#/settings/models",
       prep: async (p) => {
-        await pickPack(p, fit);
+        await pickAdvised(p);
         await dialog(p);
       },
     });
@@ -1619,7 +1615,7 @@ export function SCENARIOS(essai: string): Scenario[] {
           note: "The first download asks for a folder",
           hash: "#/settings/models",
           prep: async (p) => {
-            await pickPack(p, "Performance");
+            await pickAdvised(p);
             await p.waitForTimeout(500);
             const go = p
               .getByRole("dialog")

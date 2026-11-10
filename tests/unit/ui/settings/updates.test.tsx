@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UpdateNotice } from "../../../../src/ui/components/shell/UpdateNotice.tsx";
 import { restartHint } from "../../../../src/ui/lib/updates.ts";
@@ -69,8 +69,8 @@ describe("Settings › Updates", () => {
     expect(screen.queryByText(/Two panes\./)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "What's new in 0.4.0" }));
     expect(app.navigate).toHaveBeenCalledWith("settings", "changelog");
-    expect(screen.getByText(/Running 0\.3\.0/)).toBeInTheDocument();
-    expect(screen.getByLabelText(label("Folder"))).toHaveAttribute(
+    expect(within(screen.getByRole("region", { name: "Version" })).getByText("0.3.0")).toBeInTheDocument();
+    expect(screen.getByLabelText(label("Update folder"))).toHaveAttribute(
       "placeholder",
       "\\\\srv\\t (where Testimus was installed from)",
     );
@@ -82,7 +82,7 @@ describe("Settings › Updates", () => {
   it("saves a folder typed by hand and reads the updates again; a refusal is told", async () => {
     updates = state({ available: false, sourceFrom: "none", source: "", latest: null, problem: "No update folder." });
     mountSettings(<UpdatesSection />, { info: null });
-    const field = await screen.findByLabelText(label("Folder"));
+    const field = await screen.findByLabelText(label("Update folder"));
     expect(await screen.findByText("No update folder.")).toBeInTheDocument();
     updates = state({ sourceFrom: "settings", source: "D:\\share" });
     fireEvent.change(field, { target: { value: "D:\\share" } });
@@ -99,7 +99,7 @@ describe("Settings › Updates", () => {
   it("a copy that is not installed cannot update; Check now asks again", async () => {
     updates = state({ installed: false });
     mountSettings(<UpdatesSection />, { info: null });
-    expect(await screen.findByText(/not an installed copy/)).toBeInTheDocument();
+    expect(await screen.findByText(/not an installed copy/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Update to 0.4.0" })).toBeDisabled();
     const before = calls("system.updates").length;
     fireEvent.click(screen.getByRole("button", { name: "Check now" }));

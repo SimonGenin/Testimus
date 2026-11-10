@@ -19,6 +19,9 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   fill: { height: "100%" },
+  flush: { borderWidth: 0, borderRadius: 0, backgroundColor: "transparent" },
+  flushStart: { paddingInlineStart: space.s6 },
+  flushEnd: { paddingInlineEnd: space.s6 },
   table: {
     width: "100%",
     borderCollapse: "separate",
@@ -120,6 +123,9 @@ export type TableProps<R> = {
   columns: TableColumn<R>[];
   rows: R[];
   getKey: (row: R) => string;
+  /** no frame of its own: the table fills a card's body edge to edge (a settings group), its first and last cells
+   * lined up with the card's text */
+  flush?: boolean;
   /** tighter cells, for long tables in a card */
   dense?: boolean;
   /** cell borders (the step's table block) */
@@ -156,6 +162,7 @@ export function Table<R>({
   rows,
   getKey,
   dense = false,
+  flush = false,
   grid = false,
   middle = false,
   selected,
@@ -176,6 +183,8 @@ export function Table<R>({
       grid && styles.gridCell,
       middle && td && styles.middle,
       i === last && styles.lastCell,
+      flush && i === 0 && styles.flushStart,
+      flush && i === last && styles.flushEnd,
       columns[i].numeric && styles.num,
       lastRow && styles.lastRow,
     );
@@ -229,7 +238,7 @@ export function Table<R>({
         );
       });
   return (
-    <div {...stylex.props(styles.wrap, fill && styles.fill)}>
+    <div {...stylex.props(styles.wrap, fill && styles.fill, flush && styles.flush)}>
       <table aria-label={label} aria-busy={loading || undefined} {...stylex.props(styles.table)}>
         <thead>
           <tr>

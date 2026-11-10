@@ -1,12 +1,16 @@
+import { existsSync } from "node:fs";
 import { z } from "zod";
 import { command } from "../command.ts";
 import { pullFfmpeg } from "../lib/ffmpeg.ts";
+import { machineProfile } from "../lib/machine/profile.ts";
+import { oneByOne } from "../lib/models-advised.ts";
+import { catalogEntry } from "../lib/models-catalog.ts";
 import { applySetDir, planSetDir } from "../lib/models-dir.ts";
 import { catalogView, list, remove, verify } from "../lib/models-install.ts";
 import { addPath } from "../lib/models-install-path.ts";
 import { pull } from "../lib/models-install-pull.ts";
-import { withPerfScope } from "../lib/models-perf.ts";
-import { modelsDir, runtimesDir } from "../lib/models-registry.ts";
+import { readPerf, withPerfScope } from "../lib/models-perf.ts";
+import { modelsDir, readRegistry, runtimesDir } from "../lib/models-registry.ts";
 import { pullLlama } from "../lib/models-use.ts";
 import { commands as machine } from "./models-machine.ts";
 import { commands as packs } from "./models-packs.ts";
@@ -17,8 +21,15 @@ import { commands as usage } from "./models-usage.ts";
 const own = [
   command({
     name: "models.catalog",
-    summary: "The model catalog, with whether each entry fits this PC (RAM, GPU) and its tier.",
-    input: z.object({ kind: z.enum(["embedding", "reranker", "speech"]).optional().describe("Only this kind") }),
+    summary:
+      "The model catalog, with whether each entry fits this PC (RAM, GPU) and its tier; the embedding and the reranker advised for this PC, and each reranker judged beside an embedding (--beside).",
+    input: z.object({
+      kind: z.enum(["embedding", "reranker", "speech"]).optional().describe("Only this kind"),
+      beside: z
+        .string()
+        .optional()
+        .describe("Catalog id of the embedding in use: each reranker is judged beside it (they share the card)"),
+    }),
     output: z.array(
       z
         .object({
@@ -34,12 +45,37 @@ const own = [
           sizeMB: z.number().describe("Download size in MB"),
           state,
           fit,
+          advised: z
+            .boolean()
+            .describe(
+              "The embedding or the reranker advised for this PC: those of the pack proposed here (models.packs suggested); a transcription model's advice is in models.speech",
+            ),
+          reason: z
+            .string()
+            .nullable()
+            .describe("Why it is advised here, in words with the numbers (null: not advised)"),
+          pair: fit
+            .nullable()
+            .describe(
+              "A reranker beside the embedding named by beside: whether the two fit together (null: no beside)",
+            ),
+          aside: z
+            .string()
+            .nullable()
+            .describe("Why this reranker is not offered beside that embedding (null: offered)"),
         })
         .describe("One catalog entry"),
     ),
     mutates: false,
     global: true,
-    run: async (_ctx, input) => catalogView(input.kind),
+    async run(_ctx, input) {
+      const machine = await machineProfile();
+      const judge = oneByOne(machine, input.beside ?? null, readPerf());
+      return (await catalogView(input.kind, machine)).map((r) => {
+        const entry = catalogEntry(r.id);
+        return { ...r, ...(entry ? judge(entry) : { advised: false, reason: null, pair: null, aside: null }) };
+      });
+    },
   }),
   command({
     name: "models.list",
@@ -68,7 +104,8 @@ const own = [
   }),
   command({
     name: "models.dirs",
-    summary: "Where this PC keeps the downloaded models and the llama.cpp runtimes (null while not chosen).",
+    summary:
+      "Where this PC keeps the downloaded models and the llama.cpp runtimes (null while not chosen), and the llama.cpp build registered.",
     input: z.object({}),
     output: z.object({
       dir: z.string().nullable().describe("The models folder (null = not chosen yet: the first download asks)"),
@@ -76,10 +113,24 @@ const own = [
         .string()
         .nullable()
         .describe("The llama.cpp runtimes folder (its own, else runtimes/ in the models folder; null = neither)"),
+      llamacpp: z
+        .object({
+          build: z.string().describe("llama.cpp build tag"),
+          backend: z.string().describe("cuda, vulkan or cpu"),
+        })
+        .nullable()
+        .describe("The llama.cpp build that runs the GGUF models here (null: none registered, or its program is gone)"),
     }),
     mutates: false,
     global: true,
-    run: async () => ({ dir: modelsDir() ?? null, runtimesDir: runtimesDir() ?? null }),
+    run: async () => {
+      const l = readRegistry().llamacpp;
+      return {
+        dir: modelsDir() ?? null,
+        runtimesDir: runtimesDir() ?? null,
+        llamacpp: l && existsSync(l.exe) ? { build: l.build, backend: l.backend } : null,
+      };
+    },
   }),
   command({
     name: "models.add",

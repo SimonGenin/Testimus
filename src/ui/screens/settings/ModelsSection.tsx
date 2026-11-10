@@ -1,294 +1,125 @@
 import * as stylex from "@stylexjs/stylex";
-import { useRef, useState } from "react";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
-import { Card } from "../../components/ui/Card.tsx";
-import { Disclosure } from "../../components/ui/Disclosure.tsx";
-import { Icon } from "../../components/ui/Icon.tsx";
-import { Loading } from "../../components/ui/Loading.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
-import { Skeleton } from "../../components/ui/Skeleton.tsx";
-import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
-import { errorToast, toast } from "../../lib/toast.ts";
-import { color, size as sizes, space } from "../../styles/tokens.stylex.ts";
-import { AddFolder } from "./models/AddFolder.tsx";
-import { AdviceBanner } from "./models/AdviceBanner.tsx";
-import { useModelActions } from "./models/actions.ts";
-import { BenchDialog } from "./models/BenchDialog.tsx";
-import { CustomCard } from "./models/CustomCard.tsx";
-import { onDrive, size } from "./models/data.ts";
+import { toast } from "../../lib/toast.ts";
+import { space } from "../../styles/tokens.stylex.ts";
+import { type ModelRef, useModelActions } from "./models/actions.ts";
+import type { CatalogRow, Installed } from "./models/data.ts";
+import { useEngineActions } from "./models/engines.ts";
 import { FitConfirm } from "./models/FitConfirm.tsx";
 import { FolderDialog } from "./models/FolderDialog.tsx";
-import { MachineCard } from "./models/MachineCard.tsx";
-import { ModelsTable } from "./models/ModelsTable.tsx";
-import { OpLine } from "./models/OpLine.tsx";
-import { MEASURE, type Op, packLabel, useOps } from "./models/ops.tsx";
-import { PackActions } from "./models/PackActions.tsx";
-import { PackCard } from "./models/PackCard.tsx";
-import { PackPlanDialog } from "./models/PackPlanDialog.tsx";
+import { useOps } from "./models/ops.tsx";
+import { PcGroup } from "./models/PcGroup.tsx";
 import { RemoveDialog } from "./models/RemoveDialog.tsx";
-import { TranscriptionCard } from "./models/TranscriptionCard.tsx";
-import { Anchor, Hint, Section, Stack } from "./Section.tsx";
+import { SearchGroup } from "./models/SearchGroup.tsx";
+import { TranscriptionGroup } from "./models/TranscriptionGroup.tsx";
+import { Group, Section } from "./Section.tsx";
 
 const styles = stylex.create({
   plain: { margin: 0 },
-  folder: { display: "flex", alignItems: "center", gap: space.s2, minWidth: 0 },
-  path: {
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  muted: { color: color.textMuted },
-  packs: {
-    display: "grid",
-    gridTemplateColumns: `repeat(auto-fill, minmax(${sizes.sidebar}, 1fr))`,
-    gap: space.s5,
-  },
+  soon: { display: "inline-flex", alignItems: "center", gap: space.s2 },
 });
 
-const GLOBAL = ["index", "dir"];
+const PC = ["index", "dir"];
 
-// ponytail: the models of this PC — where they are stored, the advice, the packs of the open project (one in use),
-// what videos are heard with, and the catalog of search models with what is installed here; every job is followed
-// where its subject shows
+// ponytail: the models of this PC, one kind at a time (embeddings, reranker, transcription; an LLM soon): the one
+// advised for this PC first, then every other one, the constraints said where they bite — no pack here, packs are the
+// first launch's; every job is followed where its subject shows
 export function ModelsSection() {
   const app = useApp();
   const hasProject = !!app.info;
-  const catalog = useRead("models.catalog", {});
-  const installed = useRead("models.list", {});
-  const packs = useRead("models.packs", {}, { enabled: hasProject });
-  const advice = useRead("models.advice", {}, { enabled: hasProject });
   const status = useRead("rag.status", {}, { enabled: hasProject });
-  const dirs = useRead("models.dirs", {});
-  const hw = useRead("models.hardware", {});
-  const [open, setOpen] = useState(false);
-  const [benchOf, setBenchOf] = useState<string | null>(null);
-  const shownBench = useRef<string | null>(null);
-  const table = useRef<HTMLDivElement>(null);
-  const dir = dirs.data ? dirs.data.dir : undefined;
-  const speechIds = new Set((catalog.data ?? []).filter((c) => c.kind === "speech").map((c) => c.id));
-  const searchModels = catalog.data?.filter((c) => c.kind !== "speech");
-  const searchInstalled = (installed.data ?? []).filter((i) => !speechIds.has(i.model));
-  const drive = dir
-    ? (hw.data?.drives ?? []).filter((d) => onDrive(dir, d.root)).sort((x, y) => y.root.length - x.root.length)[0]
-    : undefined;
-
-  const label = (id: string) => catalog.data?.find((c) => c.id === id)?.label ?? id;
-  const measured = (op: Op, status: "done" | "failed" | "cancelled", error?: string) => {
-    const pack = op.key.slice(MEASURE.length);
-    a.benchEnded(pack, op.jobId, status, error);
-    if (shownBench.current === pack) return;
-    const title = `${packLabel(pack)} pack`;
-    if (status === "done") toast({ tone: "success", title: `${title} measured` });
-    else if (status === "failed")
-      errorToast(new Error(error ?? "The measure stopped."), `${title}: the measure stopped`);
-  };
-  const { ops, start, watchers } = useOps(
-    (op, job) => {
-      if (op.kind === "models-measure" && job.status !== "running") measured(op, job.status, job.error);
-    },
-    (id) => label(id),
-  );
-  const a = useModelActions({ packs: packs.data, catalog: catalog.data, status: status.data, dir, start });
-
   const st = status.data;
-  const inUse = st && st.embedding !== "none" ? [st.embedding, st.reranker ?? ""].filter(Boolean) : [];
-  const customActive = !!packs.data && !packs.data.some((p) => p.active) && st?.activation === "machine";
-  const busy = ops.some((o) => !GLOBAL.includes(o.key) || o.key === "dir") || a.planning;
-  const packBusy = ops.some((o) => o.key === "dir") || a.planning;
-  const failed = catalog.error ?? packs.error;
-  const top = advice.data?.[0];
-  const benchPack = packs.data?.find((p) => p.id === benchOf) ?? null;
-  const showBench = (id: string | null) => {
-    shownBench.current = id;
-    setBenchOf(id);
-  };
-  const measuring = (id: string) => ops.find((o) => o.key === `${MEASURE}${id}`) ?? null;
-  const retry = () => {
-    void catalog.refetch();
-    if (hasProject) void packs.refetch();
+  const embedding = st && st.embedding !== "none" ? st.embedding : null;
+  const catalog = useRead("models.catalog", embedding ? { beside: embedding } : {}, {
+    enabled: !hasProject || !!st || status.isError,
+  });
+  const installed = useRead("models.list", {});
+  const dirs = useRead("models.dirs", {});
+  const dir = dirs.data ? dirs.data.dir : undefined;
+  const label = (id: string) => catalog.data?.find((c) => c.id === id)?.label ?? id;
+  const { ops, start, watchers } = useOps(undefined, label);
+  const a = useModelActions({ packs: undefined, catalog: catalog.data, status: st, dir, start });
+  const needsFolder = !!dirs.data && !(dirs.data.runtimesDir ?? dirs.data.dir);
+  const engines = useEngineActions({ needsFolder, setFolder: a.setFolder, start });
+  const busy = ops.some((o) => o.key !== "index");
+  const rows = (kind: string) => catalog.data?.filter((c) => c.kind === kind);
+  const advisedEmbedding = catalog.data?.find((c) => c.kind === "embedding" && c.advised);
+  const search = {
+    installed: installed.data ?? [],
+    advisedOnCpu: advisedEmbedding?.fit.device === "cpu",
+    ops,
+    busy,
+    hasProject,
+    onUse: (r: CatalogRow | null) => void a.chooseModel(r),
+    onCheck: (r: ModelRef) => void a.verify(r),
+    onRemove: (r: ModelRef, inst: Installed) => a.setRemoving({ row: r, inst }),
   };
 
   return (
     <Section
       id="models"
       title="Models"
-      intro="Search models run on this PC; documents never leave it. A pack picks the best models this PC can run; your colleagues choose their own."
+      intro="The models Testimus runs on this PC. For each kind, the one that suits this PC best comes first; every other one is listed under it. Documents and sound never leave the PC."
     >
       {watchers}
-      <Anchor id="models-machine">
-        <MachineCard />
-      </Anchor>
-      <Anchor id="models-folder">
-        <Card
-          title="Models folder"
-          actions={
-            <Button
-              size="sm"
-              label={dir === null ? "Choose…" : "Change…"}
-              disabled={busy || dir === undefined}
-              onClick={() => a.setFolder({ needMB: 0 })}
-            />
-          }
+      <PcGroup
+        dir={dir}
+        ops={ops.filter((o) => PC.includes(o.key))}
+        busy={busy}
+        onFolder={() => a.setFolder({ needMB: 0 })}
+      />
+      {catalog.error ? (
+        <Banner
+          tone="danger"
+          title="The models could not be read"
+          actions={<Button size="sm" icon="refresh" label="Try again" onClick={() => void catalog.refetch()} />}
         >
-          <Stack>
-            <span {...stylex.props(styles.folder)}>
-              <Icon name="folder" />
-              {dir === undefined ? (
-                <Skeleton width="40%" />
-              ) : dir ? (
-                <>
-                  <span title={dir} {...stylex.props(type.code, styles.path)}>
-                    {dir}
-                  </span>
-                  {drive && (
-                    <span {...stylex.props(type.small, styles.muted)}>
-                      · {size(drive.freeMB)} free on {drive.root.replace(/[\\/]+$/, "") || drive.root}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span {...stylex.props(type.small, styles.muted)}>
-                  Not chosen yet — Testimus asks on the first download.
-                </span>
-              )}
-            </span>
-            {ops
-              .filter((o) => GLOBAL.includes(o.key))
-              .map((o) => (
-                <OpLine key={o.jobId} op={o} />
-              ))}
-          </Stack>
-        </Card>
-      </Anchor>
-      <Anchor id="models-packs">
-        {failed ? (
-          <Banner
-            tone="danger"
-            title="The models could not be read"
-            actions={<Button size="sm" icon="refresh" label="Try again" onClick={retry} />}
-          >
-            <span>{failed.message}</span>
-          </Banner>
-        ) : (
-          <Stack loose>
-            {top && (
-              <AdviceBanner
-                advice={top}
-                label={label}
-                busy={packBusy}
-                onApply={() => a.applyAdvice(top)}
-                onDismiss={() => a.dismiss(top)}
-              />
-            )}
-            {!hasProject ? (
-              <Hint>Open a project to choose its search pack. The models below are shared by every project.</Hint>
-            ) : !packs.data ? (
-              <>
-                <div role="status" aria-busy="true" aria-label="Loading the packs" {...stylex.props(styles.packs)}>
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <Skeleton key={i} kind="block" />
-                  ))}
-                </div>
-                <Loading read="models.packs" />
-              </>
-            ) : (
-              <div {...stylex.props(styles.packs)}>
-                {packs.data.map((p) => (
-                  <PackCard
-                    key={p.id}
-                    pack={p}
-                    facts
-                    footer={
-                      <PackActions
-                        pack={p}
-                        op={ops.find((o) => o.key === p.id) ?? null}
-                        measure={measuring(p.id)}
-                        busy={packBusy}
-                        onUse={() => a.choosePack(p)}
-                        onMeasure={() => {
-                          showBench(p.id);
-                          if (!measuring(p.id)) void a.measure(p);
-                        }}
-                      />
-                    }
-                  />
-                ))}
-                <CustomCard
-                  active={customActive}
-                  embedding={st && st.embedding !== "none" ? st.embedding : null}
-                  reranker={st?.reranker ?? null}
-                  label={label}
-                  onChoose={() => {
-                    setOpen(true);
-                    requestAnimationFrame(() =>
-                      table.current?.scrollIntoView?.({ block: "start", behavior: "smooth" }),
-                    );
-                  }}
-                />
-              </div>
-            )}
-          </Stack>
-        )}
-      </Anchor>
-      <Anchor id="models-transcription">
-        <TranscriptionCard
-          installed={installed.data ?? []}
-          ops={ops}
-          busy={busy}
-          needsFolder={!!dirs.data && !(dirs.data.runtimesDir ?? dirs.data.dir)}
-          start={start}
-          onFolder={a.setFolder}
-          onInstall={(m) => a.install(m)}
-          onVerify={(m) => void a.verify(m)}
-          onRemove={(row, inst) => a.setRemoving({ row, inst })}
-        />
-      </Anchor>
-      <Anchor id="models-catalog">
-        <div ref={table}>
-          <Card footer={open && <AddFolder />}>
-            <Disclosure
-              summary="Model catalog"
-              open={open}
-              onOpenChange={setOpen}
-              meta={
-                searchModels
-                  ? `${searchModels.length} in the catalog · ${searchInstalled.length} on this PC`
-                  : catalog.isError
-                    ? "Could not be read"
-                    : "Loading the catalog"
-              }
-            >
-              {!searchModels ? (
-                catalog.isError ? (
-                  <Hint>The catalog could not be read: Try again above.</Hint>
-                ) : (
-                  <>
-                    <Skeleton kind="block" />
-                    <Loading read="models.catalog" />
-                  </>
-                )
-              ) : (
-                <ModelsTable
-                  rows={searchModels}
-                  installed={searchInstalled}
-                  inUse={inUse}
-                  ops={ops}
-                  busy={busy}
-                  hasProject={hasProject}
-                  onInstall={(r) => a.install(r)}
-                  onUse={(r) => void a.chooseModel(r)}
-                  onVerify={(r) => void a.verify(r)}
-                  onRemove={(row, inst) => a.setRemoving({ row, inst })}
-                />
-              )}
-            </Disclosure>
-          </Card>
-        </div>
-      </Anchor>
+          <span>{catalog.error.message}</span>
+        </Banner>
+      ) : (
+        <>
+          <SearchGroup
+            {...search}
+            kind="embedding"
+            rows={rows("embedding")}
+            inUse={hasProject && st ? embedding : undefined}
+          />
+          <SearchGroup
+            {...search}
+            kind="reranker"
+            rows={rows("reranker")}
+            inUse={hasProject && st ? (st.reranker ?? null) : undefined}
+            llama={dirs.data?.llamacpp}
+            onLlama={() => void engines.pullLlama(0)}
+          />
+        </>
+      )}
+      <TranscriptionGroup
+        installed={installed.data ?? []}
+        ops={ops}
+        busy={busy}
+        needsFolder={needsFolder}
+        start={start}
+        onFolder={a.setFolder}
+        onInstall={a.install}
+        onVerify={(m) => void a.verify(m)}
+        onRemove={(row, inst) => a.setRemoving({ row, inst })}
+      />
+      <Group
+        title={
+          <span {...stylex.props(styles.soon)}>
+            LLM <Badge label="Soon" size="sm" />
+          </span>
+        }
+        note="A language model on this PC, for small jobs that need not go to Claude."
+      >
+        {null}
+      </Group>
       {a.fitAsk && (
         <FitConfirm
           name={a.fitAsk.name}
@@ -305,31 +136,6 @@ export function ModelsSection() {
             a.setFitAsk(null);
             a.fitAsk?.lighterGo();
           }}
-        />
-      )}
-      {a.plan && (
-        <PackPlanDialog
-          pack={a.plan.row}
-          out={a.plan.out}
-          label={label}
-          busy={a.planning}
-          onClose={() => a.setPlan(null)}
-          onConfirm={() => void a.confirmPack()}
-          onChangeFolder={() => {
-            const row = a.plan?.row;
-            const accept = a.plan?.accept;
-            a.setPlan(null);
-            if (row) a.setFolder({ needMB: 0, next: () => void a.planPack(row, accept) });
-          }}
-        />
-      )}
-      {benchPack && (
-        <BenchDialog
-          pack={benchPack}
-          bench={a.benches[benchPack.id]}
-          label={label}
-          onAgain={() => void a.measure(benchPack)}
-          onClose={() => showBench(null)}
         />
       )}
       {a.folder && (

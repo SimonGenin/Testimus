@@ -32,13 +32,10 @@ beforeEach(() => {
 afterEach(reset);
 
 const card = (name: string) =>
-  within(screen.getByRole("list", { name: "Smart columns" }))
-    .getAllByRole("listitem")
-    .find(
-      (li) => li.querySelector("[id^='settings-column-']")?.id === `settings-column-${name.replace(/\W+/g, "-")}`,
-    ) as HTMLElement;
+  within(screen.getByRole("list", { name: "Smart columns" })).getByRole("listitem", { name });
 
-const fold = (name: string) => screen.getByRole("radiogroup", { name: `${name} folding` });
+const openRow = (name: string) => fireEvent.click(within(card(name)).getByRole("button", { name: `Open ${name}` }));
+const fold = (name: string) => screen.getByRole("radiogroup", { name: `${name} in the editor` });
 const shown = (name: string) => within(fold(name)).getByRole("radio", { checked: true });
 
 const FIELDS = [
@@ -78,9 +75,11 @@ describe("Settings › Smart columns: a field Xray requires or has switched off 
     expect(iconsIn(within(card("Exigence")).getByText("Required")), "audit icons 104").toEqual(["alert-circle"]);
     expect(iconsIn(within(card("Ancienne")).getByText("Off in Xray"))).toEqual(["eye-off"]);
     expect(iconsIn(within(card("Expected Result")).getByText("Xray · standard")), "the kit COLUMN word").toEqual([]);
+    openRow("Ancienne");
     const off = within(card("Ancienne")).getByText(/^Switched off in Xray/);
     expect(iconsIn(off), "audit icons 106").toEqual(["info"]);
     expect(off).toHaveTextContent("stays in test.md and is never pushed");
+    openRow("Exigence");
     expect(within(card("Exigence")).queryByText(/^Switched off in Xray/)).toBeNull();
   });
 
@@ -88,8 +87,12 @@ describe("Settings › Smart columns: a field Xray requires or has switched off 
     project = withOff();
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
+    expect(card("Ancienne")).toHaveTextContent("When filled");
+    openRow("Ancienne");
     expect(shown("Ancienne")).toHaveAccessibleName("When filled");
+    openRow("Exigence");
     expect(shown("Exigence")).toHaveAccessibleName("Open");
+    openRow("Ancienne");
     fireEvent.click(within(fold("Ancienne")).getByRole("radio", { name: "Open" }));
     await waitFor(() => expect(inputs("columns.setModes")[0]).toEqual({ modes: { Ancienne: "open" } }));
   });
@@ -98,6 +101,7 @@ describe("Settings › Smart columns: a field Xray requires or has switched off 
     project = withOff(true);
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
+    openRow("Ancienne");
     expect(shown("Ancienne")).toHaveAccessibleName("Open");
   });
 });
@@ -125,7 +129,9 @@ describe("Settings › Smart columns", () => {
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
     expect(iconsIn(within(card("Poste")).getByText("Local only")), "the kit COLUMN word").toEqual(["drive"]);
+    openRow("Poste");
     expect(iconsIn(within(card("Poste")).getByText(/^Kept in test\.md and never pushed/))).toEqual(["info"]);
+    openRow("Action");
     expect(within(card("Action")).queryByText(/^Kept in test\.md/)).toBeNull();
   });
 
@@ -138,33 +144,47 @@ describe("Settings › Smart columns", () => {
     expect(rows[4]).toHaveTextContent("No longer in Xray");
     expect(iconsIn(within(rows[2]).getByText("Xray · to describe")), "audit icons 104").toEqual(["alert-triangle"]);
     expect(iconsIn(within(rows[4]).getByText("No longer in Xray"))).toEqual(["alert-triangle"]);
-    const fresh = within(rows[2])
-      .getByText(/^Xray has this step field\. Write above what Claude puts in it/)
+    const fresh = screen
+      .getByText(/^Exigence is a step field in Xray with no description yet/)
       .closest('[role="alert"]') as HTMLElement;
-    expect(fresh).toHaveTextContent("Found in Xray, not described yet");
-    expect(iconsIn(fresh).slice(0, 1), "audit icons 105: a compact warning banner").toEqual(["alert-triangle"]);
-    expect(screen.getByText("Found in Xray, not described yet: Exigence")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Describe it" }));
-    expect(screen.getByRole("textbox", { name: /^What Claude writes in Exigence/ })).toHaveFocus();
-    expect(screen.getByText(/No longer in Xray, kept as local columns: Remarque\./)).toBeInTheDocument();
+    expect(fresh).toHaveTextContent("Say what Claude writes in it, or leave it empty for good.");
+    expect(iconsIn(fresh).slice(0, 1), "audit icons 105: a warning banner").toEqual(["alert-triangle"]);
+    expect(screen.getAllByText(/no description yet/), "one banner, no repeat on the column").toHaveLength(1);
+    fireEvent.click(within(fresh).getByRole("button", { name: "Describe it" }));
+    await waitFor(() =>
+      expect(within(card("Exigence")).getByRole("textbox", { name: label("What Claude writes") })).toHaveFocus(),
+    );
+    expect(within(card("Exigence")).getByRole("button", { name: "Fold Exigence" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(fresh).toHaveTextContent("No longer in Xray, kept as local columns: Remarque.");
     expect(screen.getByText(/Read from Xray/)).toBeInTheDocument();
+    expect(shown("Exigence")).toHaveAccessibleName("When filled");
+    openRow("Action");
+    expect(screen.queryByRole("radiogroup", { name: "Exigence in the editor" }), "one row open at a time").toBeNull();
     const always = within(fold("Action")).getByRole("radio", { name: "When filled" });
     expect(always).toBeDisabled();
-    expect(shown("Exigence")).toHaveAccessibleName("When filled");
-    expect(shown("Note")).toHaveAccessibleName("Collapsed");
+    openRow("Note");
+    expect(shown("Note")).toHaveAccessibleName("Folded");
     fireEvent.click(within(fold("Note")).getByRole("radio", { name: "Open" }));
     await waitFor(() => expect(inputs("columns.setModes")[0]).toEqual({ modes: { Note: "open" } }));
     await waitFor(() => expect(shown("Note")).toHaveAccessibleName("Open"));
-    fireEvent.click(within(fold("Exigence")).getByRole("radio", { name: "Collapsed" }));
+    openRow("Exigence");
+    fireEvent.click(within(fold("Exigence")).getByRole("radio", { name: "Folded" }));
     await waitFor(() => expect(inputs("columns.setModes")[1]).toEqual({ modes: { Exigence: "collapsed" } }));
-    const hidden = within(card("Action")).getByRole("switch", { name: "Hidden" });
-    expect(hidden).toBeChecked();
-    fireEvent.click(hidden);
+    openRow("Action");
+    expect(shown("Action")).toHaveAccessibleName("Hidden");
+    fireEvent.click(within(fold("Action")).getByRole("radio", { name: "Open" }));
     await waitFor(() => expect(inputs("columns.setModes")[2]).toEqual({ modes: { Action: "open" } }));
-    fireEvent.click(within(card("Note")).getByRole("switch", { name: "Hidden" }));
+    openRow("Note");
+    fireEvent.click(within(fold("Note")).getByRole("radio", { name: "Hidden" }));
     await waitFor(() => expect(inputs("columns.setModes")[3]).toEqual({ modes: { Note: "hidden" } }));
+    openRow("Expected Result");
     expect(screen.getByRole("button", { name: "Move Expected Result up" })).toBeDisabled();
+    openRow("Remarque");
     expect(screen.getByRole("button", { name: "Move Remarque down" })).toBeDisabled();
+    openRow("Action");
     fireEvent.click(screen.getByRole("button", { name: "Move Action up" }));
     await waitFor(() =>
       expect(inputs("columns.order")[0]).toEqual({
@@ -186,10 +206,10 @@ describe("Settings › Smart columns", () => {
     };
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
-    fireEvent.click(within(card("Exigence")).getByRole("button", { name: "Leave it empty" }));
+    fireEvent.click(screen.getByRole("button", { name: "Leave it empty" }));
     await waitFor(() => expect(inputs("columns.save")[0]).toEqual({ name: "Exigence", description: "" }));
     await waitFor(() => expect(card("Exigence")).not.toHaveTextContent("to describe"));
-    expect(screen.queryByText(/^Found in Xray, not described yet/)).toBeNull();
+    expect(screen.queryByText(/no description yet/)).toBeNull();
     expect(card("Exigence")).toHaveTextContent("Xray");
   });
 
@@ -200,6 +220,7 @@ describe("Settings › Smart columns", () => {
     };
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
+    openRow("Action");
     fireEvent.click(screen.getByRole("button", { name: "Move Action down" }));
     await waitFor(() =>
       expect(inputs("columns.order")[0]).toEqual({
@@ -244,7 +265,9 @@ describe("Settings › Smart columns", () => {
       throw new Fail("Disk full.");
     };
     mountSettings(<ColumnsSection />);
-    const box = await screen.findByRole("textbox", { name: label("What Claude writes in Action") });
+    await screen.findByRole("list", { name: "Smart columns" });
+    openRow("Action");
+    const box = within(card("Action")).getByRole("textbox", { name: label("What Claude writes") });
     expect(box).toHaveValue("Action text");
     fireEvent.blur(box);
     await new Promise((r) => setTimeout(r, 20));
@@ -287,6 +310,7 @@ describe("Settings › Smart columns", () => {
     expect(await screen.findByText("Could not add the column")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("button", { name: "Remove the column Action" })).toBeNull();
+    openRow("Remarque");
     const trash = screen.getByRole("button", { name: "Remove the column Remarque" });
     expect(iconsIn(trash)).toEqual(["trash"]);
     fireEvent.click(trash);
@@ -327,7 +351,9 @@ describe("Settings › Smart columns", () => {
     mountSettings(<ColumnsSection />);
     const rows = within(await screen.findByRole("list", { name: "Smart columns" })).getAllByRole("listitem");
     expect(rows).toHaveLength(2);
-    expect(screen.getByRole("textbox", { name: label("What Claude writes in Exigence") })).toBeInTheDocument();
+    expect(rows[0]).toHaveTextContent("No description: Claude leaves it empty");
+    openRow("Exigence");
+    expect(within(card("Exigence")).getByRole("textbox", { name: label("What Claude writes") })).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Exigence: kind of content" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Coverage" })).toBeNull();
   });
@@ -343,11 +369,17 @@ describe("Settings › Smart columns", () => {
     );
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
-    fireEvent.click(within(card("Exigence")).getByRole("switch", { name: "Hidden" }));
+    openRow("Exigence");
+    fireEvent.click(within(fold("Exigence")).getByRole("radio", { name: "Hidden" }));
     await waitFor(() => expect(inputs("columns.setModes")).toEqual([{ modes: { Exigence: "hidden" } }]));
+    await waitFor(() => expect(card("Exigence")).toHaveTextContent("Hidden"));
+    openRow("Data");
     fireEvent.click(within(fold("Data")).getByRole("radio", { name: "When filled" }));
     await waitFor(() => expect(inputs("columns.setModes")[1]).toEqual({ modes: { Data: "filled" } }));
-    expect(within(fold("Action")).getByRole("radio", { name: "Collapsed" })).toBeDisabled();
+    openRow("Action");
+    expect(within(fold("Action")).getByRole("radio", { name: "Folded" })).toBeDisabled();
+    expect(within(fold("Action")).getByRole("radio", { name: "Hidden" })).toBeEnabled();
+    openRow("Exigence");
     fireEvent.click(screen.getByRole("button", { name: "Move Exigence up" }));
     await waitFor(() =>
       expect(inputs("columns.order")).toEqual([{ names: ["Action", "Data", "Exigence", "Expected Result"] }]),
@@ -369,7 +401,8 @@ describe("Settings › Smart columns › the Reference source option", () => {
     };
     mountSettings(<ColumnsSection />);
     await screen.findByRole("list", { name: "Smart columns" });
-    const sw = () => within(card("Exigence")).getByRole("switch", { name: "Reference source" });
+    openRow("Exigence");
+    const sw = () => within(card("Exigence")).getByRole("switch", { name: "Cite a source for each item" });
     expect(sw()).not.toBeChecked();
     fireEvent.click(sw());
     await waitFor(() => expect(sw()).toBeChecked());
@@ -384,6 +417,42 @@ describe("Settings › Smart columns › the Reference source option", () => {
     fireEvent.click(sw());
     expect(await screen.findByText("Could not save the column")).toBeInTheDocument();
     await waitFor(() => expect(sw()).not.toBeChecked());
+  });
+});
+
+describe("Settings › Smart columns › a row", () => {
+  it("shows the first line of what Claude writes and how it shows; opens from its head, one at a time", async () => {
+    project = info(
+      {},
+      {
+        columns: [
+          column("Action", { description: "One gesture\nper step" }),
+          column("Data", { mode: "filled" }),
+          column("Exigence", { status: "new", description: "", builtin: false }),
+          column("Note", { status: "new", description: "", builtin: false }),
+        ],
+      },
+    );
+    mountSettings(<ColumnsSection />);
+    await screen.findByRole("list", { name: "Smart columns" });
+    expect(card("Action")).toHaveTextContent("One gesture");
+    expect(card("Action")).not.toHaveTextContent("per step");
+    expect(card("Data")).toHaveTextContent("When filled");
+    const chevron = within(card("Data")).getByRole("button", { name: "Open Data" });
+    expect(chevron).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(within(card("Data")).getByText("Data text"));
+    expect(within(card("Data")).getByRole("button", { name: "Fold Data" })).toHaveAttribute("aria-expanded", "true");
+    expect(shown("Data")).toHaveAccessibleName("When filled");
+    fireEvent.click(within(card("Data")).getByRole("button", { name: "Fold Data" }));
+    expect(screen.queryByRole("radiogroup", { name: "Data in the editor" })).toBeNull();
+    const fresh = screen.getByText(/^Exigence, Note are step fields in Xray/).closest('[role="alert"]') as HTMLElement;
+    expect(fresh).toHaveTextContent("Say what Claude writes in each");
+    fireEvent.click(within(fresh).getByRole("button", { name: "Describe Exigence" }));
+    await waitFor(() =>
+      expect(within(card("Exigence")).getByRole("textbox", { name: label("What Claude writes") })).toHaveFocus(),
+    );
+    fireEvent.click(within(fresh).getByRole("button", { name: "Leave Exigence empty" }));
+    await waitFor(() => expect(inputs("columns.save")[0]).toEqual({ name: "Exigence", description: "" }));
   });
 });
 

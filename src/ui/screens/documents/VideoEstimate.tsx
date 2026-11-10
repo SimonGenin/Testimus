@@ -84,9 +84,9 @@ export function VideoEstimate({
         </Banner>
       )}
       {e.disk.over && e.disk.capMB !== undefined && (
-        <Banner tone="warning" compact title="The project's videos pass the room the team allows them">
+        <Banner tone="warning" compact title="The project's videos pass the room they may take">
           {gb(e.disk.usedMB)} of {gb(e.disk.capMB)} GB are used: a video added now is refused. Raise the cap in Settings
-          › Project › Videos, or remove a video.
+          › Videos, or remove a video.
         </Banner>
       )}
     </>

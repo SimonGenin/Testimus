@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { CommandOutput } from "../../../../core/commands/index.ts";
@@ -6,10 +7,16 @@ import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { execute } from "../../../lib/data/query.ts";
 import { errorToast } from "../../../lib/toast.ts";
+import { space } from "../../../styles/tokens.stylex.ts";
 import { useJob, useRunning } from "../jobs.ts";
 import { OpLine } from "../models/OpLine.tsx";
-import { Stack } from "../Section.tsx";
+import { Hint } from "../Section.tsx";
 import type { Retrieval } from "./draft.ts";
+
+const styles = stylex.create({
+  wrap: { display: "flex", flexDirection: "column", gap: space.s3, flex: 1, minWidth: 0 },
+  line: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+});
 
 type Result = CommandOutput<"rag.measure">;
 type Ended = { status: Job["status"]; result?: Result; error?: string };
@@ -69,13 +76,13 @@ export function Measure({ draft }: { draft: Retrieval }) {
   };
   const busy = starting || !!jobId;
   return (
-    <Stack>
+    <div {...stylex.props(styles.wrap)}>
       {jobId ? (
         <OpLine op={{ key: "measure", jobId, label: "Measuring on the benchmark", kind: "rag-measure" }} />
       ) : (
         ended && <Verdict ended={ended} />
       )}
-      <div>
+      <div {...stylex.props(styles.line)}>
         <Button
           size="sm"
           label="Measure on the benchmark"
@@ -83,7 +90,8 @@ export function Measure({ draft }: { draft: Retrieval }) {
           disabled={busy}
           onClick={() => void start()}
         />
+        <Hint>Runs the reference questions with these settings before they are kept.</Hint>
       </div>
-    </Stack>
+    </div>
   );
 }

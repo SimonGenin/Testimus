@@ -27,9 +27,21 @@ describe("models.* through the registry, outputs checked against their schemas (
       catalog.length,
     );
     expect((await call<{ model: string }[]>("models.list", {}, null)).map((r) => r.model)).toContain("bge-m3-q8");
-    const dirs = await call<{ dir: string | null; runtimesDir: string | null }>("models.dirs", {}, null);
+    const dirs = await call<{ dir: string | null; runtimesDir: string | null; llamacpp: { build: string } | null }>(
+      "models.dirs",
+      {},
+      null,
+    );
     expect(dirs.dir).toBe(readRegistry().dir);
     expect(dirs.runtimesDir).toBe(join(dirs.dir ?? "", "runtimes"));
+    expect(dirs.llamacpp?.build).toBe(readRegistry().llamacpp?.build);
+    type One = { id: string; kind: string; advised: boolean; reason: string | null; pair: Fit | null };
+    const one = await call<One[]>("models.catalog", { beside: "bge-m3-q8" }, null);
+    const advised = one.filter((r) => r.advised);
+    expect(advised.filter((r) => r.kind === "embedding")).toHaveLength(1);
+    expect(advised.every((r) => r.reason)).toBe(true);
+    expect(one.filter((r) => r.kind === "reranker").every((r) => r.pair?.verdict)).toBe(true);
+    expect(one.filter((r) => r.kind !== "reranker").every((r) => r.pair === null)).toBe(true);
     expect((await call<{ gpus: unknown[] }>("models.hardware", { refresh: true }, null)).gpus.length).toBe(1);
     expect((await call<Fit>("models.fit", { embedding: "bge-m3-q8" }, null)).verdict).toBe("fits");
     await expect(invoke("models.fit", {}, { project: null })).rejects.toThrow(/Name a model/);

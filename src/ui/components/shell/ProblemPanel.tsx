@@ -31,12 +31,12 @@ export function problemOf(e: unknown): { title: string; detail: string; fix?: st
   };
 }
 
-// ponytail: where a failure is fixed — Settings › Access when Jira refused the access, the system check otherwise; the
+// ponytail: where a failure is fixed — Settings › Jira and Xray when Jira refused the access, the system check otherwise; the
 // same choice for a failed job (JobProblem) and a failed piece of work here
 export function ProblemPlace({ access }: { access: boolean }) {
   const app = useApp();
   return access ? (
-    <Button size="sm" label="Open Settings › Access" onClick={() => app.navigate("settings", "access")} />
+    <Button size="sm" label="Open Settings › Jira and Xray" onClick={() => app.navigate("settings", "access")} />
   ) : (
     <Button size="sm" label="Open the system check" onClick={() => app.navigate("doctor")} />
   );
@@ -75,7 +75,7 @@ export function ProblemPanel({
             <span {...stylex.props(type.strong)}>What to do:</span>{" "}
             {p.fix ??
               (p.access
-                ? "create a new API token on your Atlassian account, then paste it in Settings › Access."
+                ? "create a new API token on your Atlassian account, then paste it in Settings › Jira and Xray."
                 : p.jira
                   ? "check your network or proxy, then retry. The system check shows what is reachable."
                   : "retry; if it fails again, the system check says what is missing.")}

@@ -149,9 +149,14 @@ beforeEach(() => {
 
 afterEach(reset);
 
-const part = () => screen.findByRole("region", { name: "Transcription" });
-const engine = () => screen.findByRole("region", { name: "Engine · whisper.cpp" });
-const ffmpeg = () => screen.findByRole("region", { name: "ffmpeg" });
+const part = () => screen.findByRole("region", { name: /^Transcription/ });
+// ponytail: a row of the part, found by its label (« Engine », « ffmpeg »): the label's side, then the row's grid
+const block = async (label: string) =>
+  (await within(await part()).findByText(label, { selector: "span" })).parentElement?.parentElement as HTMLElement;
+const engine = () => block("Engine");
+const ffmpeg = () => block("ffmpeg");
+const advisedRow = async () =>
+  (await within(await part()).findByText("Advised for this PC")).parentElement?.parentElement as HTMLElement;
 const table = () => screen.findByRole("table", { name: "Transcription models" });
 const rowOf = async (label: string) => within(await table()).getByRole("row", { name: new RegExp(label) });
 const running = (kind: string) => [...jobs.values()].find((j) => j.kind === kind && j.status === "running") as Job;
@@ -160,16 +165,16 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
   it("says the sound never leaves this PC, and what the engine installed is", async () => {
     mountSettings(<ModelsSection />);
     expect(within(await part()).getByText(/the sound never leaves it/)).toBeInTheDocument();
-    const card = await engine();
-    expect(within(card).getByText("Installed")).toBeInTheDocument();
-    expect(within(card).getByText("v1.8.4 · NVIDIA (CUDA 12.4)")).toBeInTheDocument();
-    expect(within(card).getByText(/^Silero 6\.2 — silence and noise/)).toBeInTheDocument();
-    expect(within(card).queryByRole("button")).toBeNull();
+    const row = await engine();
+    expect(within(row).getByText("whisper.cpp, NVIDIA build")).toBeInTheDocument();
+    expect(
+      within(row).getByText(/^whisper\.cpp v1\.8\.4, with the Silero 6\.2 voice detector: silence and noise/),
+    ).toBeInTheDocument();
+    expect(within(row).queryByRole("button")).toBeNull();
     const ff = await ffmpeg();
-    expect(within(ff).getByText("Installed")).toBeInTheDocument();
-    expect(within(ff).getByText("7.1.1")).toBeInTheDocument();
+    expect(within(ff).getByText("Installed, 7.1.1")).toBeInTheDocument();
     expect(within(ff).queryByRole("button")).toBeNull();
-    expect(within(await part()).getByText(/^Measure on your own videos: type a few minutes/)).toBeInTheDocument();
+    expect(within(await part()).getByRole("button", { name: "Measure on my videos…" })).toBeInTheDocument();
   });
 
   it("an engine not installed is downloaded: its job is followed there, cancelled there, then the part is read again", async () => {
@@ -177,15 +182,15 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
       engine: { ...said().engine, installed: false, backend: null, advised: "cpu", card: false, downloadMB: 9 },
     });
     mountSettings(<ModelsSection />);
-    const card = await engine();
-    expect(within(card).getByText("Not installed")).toBeInTheDocument();
-    expect(within(card).getByText(/This PC gets the processor build\./)).toBeInTheDocument();
-    fireEvent.click(within(card).getByRole("button", { name: "Install · 9 MB" }));
+    let row = await engine();
+    expect(within(row).getByText("Not installed")).toBeInTheDocument();
+    expect(within(row).getByText(/Without it a video keeps its pictures and has no transcript\./)).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: "Install the processor build, 9 MB" }));
     await waitFor(() => expect(inputs("models.pullWhisper")).toEqual([{}]));
-    const line = await within(card).findByRole("status", { name: "Downloading the transcription engine" });
+    const line = await within(row).findByRole("status", { name: "Downloading the transcription engine" });
     const id = running("models-pull").id;
     await emit({ jobId: id, at: "", type: "progress", message: "whisper.cpp main", done: 3, total: 9 });
-    expect(await within(card).findByText("Downloading the transcription engine · 33 %")).toBeInTheDocument();
+    expect(await within(row).findByText("Downloading the transcription engine · 33 %")).toBeInTheDocument();
     fireEvent.click(within(line).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(inputs("jobs.cancel")).toEqual([{ id }]));
     const before = calls("models.speech").length;
@@ -193,23 +198,24 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
     await srv.end(id, "done", { result: {} });
     expect(await screen.findByText("Transcription engine installed")).toBeInTheDocument();
     await waitFor(() => expect(calls("models.speech").length).toBeGreaterThan(before));
-    expect(await within(card).findByText("v1.8.4 · processor")).toBeInTheDocument();
+    row = await engine();
+    expect(await within(row).findByText("whisper.cpp, processor build")).toBeInTheDocument();
   });
 
   it("ffmpeg not installed says what it is for and is downloaded", async () => {
     speech = said({ ffmpeg: { installed: false, build: "7.1.1", downloadMB: 88 } });
     mountSettings(<ModelsSection />);
-    const card = await ffmpeg();
-    expect(within(card).getByText("Not installed")).toBeInTheDocument();
-    expect(within(card).getByText(/^Reads the videos: their sound, their frames\./)).toBeInTheDocument();
-    fireEvent.click(within(card).getByRole("button", { name: "Install · 88 MB" }));
+    const row = await ffmpeg();
+    expect(within(row).getByText("Not installed")).toBeInTheDocument();
+    expect(within(row).getByText(/^Reads a video's sound and frames\./)).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: "Install, 88 MB" }));
     await waitFor(() => expect(inputs("models.pullFfmpeg")).toEqual([{}]));
-    expect(await within(card).findByRole("status", { name: "Downloading ffmpeg" })).toBeInTheDocument();
+    expect(await within(row).findByRole("status", { name: "Downloading ffmpeg" })).toBeInTheDocument();
     await srv.end(running("models-pull").id, "done", { result: {} });
     expect(await screen.findByText("ffmpeg installed")).toBeInTheDocument();
   });
 
-  it("a download found running when the page opens is followed in its card", async () => {
+  it("a download found running when the page opens is followed in its row", async () => {
     speech = said({ ffmpeg: { installed: false, build: "7.1.1", downloadMB: 88 } });
     srv.start({ kind: "models-pull", subject: "ffmpeg" });
     srv.start({ kind: "models-pull", subject: "whisper.cpp" });
@@ -229,7 +235,7 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
     });
     mountSettings(<ModelsSection />);
     await screen.findByText("Not chosen yet — Testimus asks on the first download.");
-    fireEvent.click(within(await engine()).getByRole("button", { name: "Install · 685 MB" }));
+    fireEvent.click(within(await engine()).getByRole("button", { name: "Install the NVIDIA build, 685 MB" }));
     expect(await screen.findByText("folder none need 685")).toBeInTheDocument();
     expect(calls("models.pullWhisper")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Apply folder" }));
@@ -241,9 +247,9 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
       if (refusal) throw refusal;
       return { jobId: srv.start({ kind: "models-pull", subject: "ffmpeg" }) };
     };
-    const install = () => within(screen.getByRole("region", { name: "ffmpeg" })).getByRole("button", { name: /^Inst/ });
-    await waitFor(() => expect(install()).toBeEnabled());
-    fireEvent.click(install());
+    const install = async () => within(await ffmpeg()).getByRole("button", { name: /^Inst/ });
+    await waitFor(async () => expect(await install()).toBeEnabled());
+    fireEvent.click(await install());
     expect(await screen.findByText("folder D:\\models need 88")).toBeInTheDocument();
     refusal = null;
     fireEvent.click(screen.getByRole("button", { name: "Apply folder" }));
@@ -251,18 +257,18 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
     expect(await screen.findByRole("status", { name: "Downloading ffmpeg" })).toBeInTheDocument();
     await srv.end(running("models-pull").id, "done", { result: {} });
     refusal = new Fail("The download site does not answer.");
-    await waitFor(() => expect(install()).toBeEnabled());
-    fireEvent.click(install());
+    await waitFor(async () => expect(await install()).toBeEnabled());
+    fireEvent.click(await install());
     expect(await screen.findByText("Could not install ffmpeg")).toBeInTheDocument();
   });
 
   it("the processor build on a PC with an NVIDIA card is offered the card's build", async () => {
     speech = said({ engine: { ...said().engine, backend: "cpu", advised: "cuda", card: true, downloadMB: 685 } });
     mountSettings(<ModelsSection />);
-    const card = await engine();
-    expect(within(card).getByText("v1.8.4 · processor")).toBeInTheDocument();
-    expect(within(card).getByText(/heard far faster than on the processor/)).toBeInTheDocument();
-    fireEvent.click(within(card).getByRole("button", { name: "Install the NVIDIA build · 685 MB" }));
+    const row = await engine();
+    expect(within(row).getByText("whisper.cpp, processor build")).toBeInTheDocument();
+    expect(within(row).getByText(/heard far faster than on the processor/)).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: "Install the NVIDIA build, 685 MB" }));
     await waitFor(() => expect(inputs("models.pullWhisper")).toEqual([{ backend: "cuda" }]));
     expect(screen.queryByText(/4 to 8 times faster than it plays/)).toBeNull();
   });
@@ -270,12 +276,12 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
   it("without an NVIDIA card: no card build offered, and what to expect of the processor is said, with the way to Videos", async () => {
     speech = said({ engine: { ...said().engine, backend: "cpu", advised: "cpu", card: false, downloadMB: 9 } });
     const { app } = mountSettings(<ModelsSection />);
-    const card = await engine();
-    expect(within(card).queryByRole("button", { name: /NVIDIA build/ })).toBeNull();
+    const row = await engine();
+    expect(within(row).queryByRole("button", { name: /NVIDIA build/ })).toBeNull();
     const hint = within(await part()).getByText(/4 to 8 times faster than it plays/);
     expect(hint).toHaveTextContent(/makes it about twice as fast/);
-    fireEvent.click(within(await part()).getByRole("button", { name: "Settings › Project › Videos" }));
-    expect(app.navigate).toHaveBeenCalledWith("settings", "project-videos");
+    fireEvent.click(within(await part()).getByRole("button", { name: "Settings › Videos" }));
+    expect(app.navigate).toHaveBeenCalledWith("settings", "videos");
   });
 
   it("a part that cannot be read says so, and the rest of the page stays", async () => {
@@ -286,7 +292,7 @@ describe("Settings › Models › Transcription: the engine and ffmpeg", () => {
     expect(
       await screen.findByText("The transcription models could not be read: The catalog has no speech entry."),
     ).toBeInTheDocument();
-    expect(await screen.findByText("1 in the catalog · 0 on this PC")).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "Embedding models" })).toBeInTheDocument();
   });
 });
 
@@ -320,59 +326,60 @@ describe("Settings › Models › Transcription: the models", () => {
       ...over,
     }) as Installed;
 
-  it("a row says what the model is, its state, its size, whether it fits and how fast it hears here", async () => {
+  it("the advised model first, with why and what it takes; every other one in a row with how fast it hears here", async () => {
     speech = said({ active: "turbo", models: [turbo, small] });
     mountSettings(<ModelsSection />);
-    const t = await rowOf("Whisper large-v3 turbo");
-    expect(within(t).getByText("Advised for this PC")).toBeInTheDocument();
-    expect(within(t).getByText("The best text · 99 languages · MIT")).toBeInTheDocument();
-    expect(within(t).getByText("In use")).toBeInTheDocument();
-    expect(within(t).getByText("834 MB")).toBeInTheDocument();
-    expect(within(t).getByText("Fits")).toBeInTheDocument();
-    expect(within(t).getByText("900 MB on the card, 12 GB free")).toBeInTheDocument();
-    expect(within(t).getByText("× 39")).toBeInTheDocument();
-    expect(within(t).getByText("measured · an hour in about 2 min")).toBeInTheDocument();
-    expect(within(t).queryByRole("button", { name: "Use" })).toBeNull();
-    expect(within(t).queryByRole("button", { name: "Install" })).toBeNull();
-    expect(within(t).getByRole("button", { name: "Check" })).toBeEnabled();
+    const adv = await advisedRow();
+    expect(within(adv).getByText("Whisper large-v3 turbo")).toBeInTheDocument();
+    expect(within(adv).getByText("The best text · 99 languages · MIT. fits in words")).toBeInTheDocument();
+    expect(within(adv).getByText("In use")).toBeInTheDocument();
+    expect(adv).toHaveTextContent("Download 834 MB");
+    expect(adv).toHaveTextContent("On the card 900 MB");
+    expect(adv).toHaveTextContent("An hour of video About 2 min, measured");
+    expect(within(adv).queryByRole("button", { name: /^(Use|Download and use)$/ })).toBeNull();
+    expect(within(adv).getByRole("button", { name: "Measure on my videos…" })).toBeInTheDocument();
+    expect(within(await part()).getAllByText("Whisper large-v3 turbo").length).toBe(2);
+    expect(within(await table()).queryByRole("row", { name: /turbo/ })).toBeNull();
 
     const s = await rowOf("Whisper small");
-    expect(within(s).queryByText("Advised for this PC")).toBeNull();
     expect(
       within(s).getByText("For a modest PC: faster, more mistakes on the project's own words · 99 languages · MIT"),
     ).toBeInTheDocument();
     expect(within(s).getByText("Not installed")).toBeInTheDocument();
     expect(within(s).getByText("252 MB")).toBeInTheDocument();
-    expect(within(s).getByText("Tight")).toBeInTheDocument();
-    expect(within(s).getByText("800 MB of memory, 2.0 GB free")).toBeInTheDocument();
-    expect(within(s).getByText("× 7.5")).toBeInTheDocument();
-    expect(within(s).getByText("estimated · an hour in about 8 min")).toBeInTheDocument();
-    expect(within(s).getByRole("button", { name: "Install" })).toBeEnabled();
-    expect(within(s).queryByRole("button", { name: /^(Use|Check|Remove)$/ })).toBeNull();
+    expect(within(s).getByText("tight in words")).toBeInTheDocument();
+    expect(within(s).getByText("Processor, 800 MB")).toBeInTheDocument();
+    expect(within(s).getByText("About 8 min")).toBeInTheDocument();
+    expect(within(s).getByRole("button", { name: "Use" })).toBeEnabled();
+    expect(within(s).queryByRole("button", { name: /^(Check|Remove)$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Let Testimus choose" })).toBeNull();
   });
 
-  it("installs a model through the catalog's own plan, and follows the download in its row", async () => {
+  it("Use on a model not on this PC downloads it through the models' own plan, follows it in its row, then uses it", async () => {
     speech = said({ models: [heard("small", { label: "Whisper small", sizeMB: 252 })] });
     mountSettings(<ModelsSection />);
-    fireEvent.click(within(await rowOf("Whisper small")).getByRole("button", { name: "Install" }));
-    const plan = await screen.findByRole("alertdialog", { name: "Download Whisper small?" });
+    fireEvent.click(within(await rowOf("Whisper small")).getByRole("button", { name: "Use" }));
+    const plan = await screen.findByRole("alertdialog", { name: "Download and use Whisper small?" });
+    expect(plan).toHaveTextContent("It is used as soon as it is downloaded.");
     expect(calls("models.pull")).toHaveLength(0);
     fireEvent.click(within(plan).getByRole("button", { name: "Download 252 MB" }));
     await waitFor(() => expect(inputs("models.pull")).toEqual([{ model: "small" }]));
     expect(
       await within(await rowOf("Whisper small")).findByRole("status", { name: "Downloading Whisper small" }),
     ).toBeInTheDocument();
+    expect(calls("models.useSpeech")).toHaveLength(0);
+    await srv.end(running("models-pull").id, "done", { result: {} });
+    await waitFor(() => expect(inputs("models.useSpeech")).toEqual([{ model: "small" }]));
   });
 
   it("a model that does not fit this PC asks before it is downloaded", async () => {
     speech = said({ models: [small] });
     mountSettings(<ModelsSection />);
-    fireEvent.click(within(await rowOf("Whisper small")).getByRole("button", { name: "Install" }));
+    fireEvent.click(within(await rowOf("Whisper small")).getByRole("button", { name: "Use" }));
     const ask = await screen.findByRole("dialog", { name: "Use Whisper small anyway?" });
     expect(ask).toHaveTextContent("tight in words");
     fireEvent.click(within(ask).getByRole("button", { name: "Use anyway" }));
-    expect(await screen.findByRole("alertdialog", { name: "Download Whisper small?" })).toBeInTheDocument();
+    expect(await screen.findByRole("alertdialog", { name: "Download and use Whisper small?" })).toBeInTheDocument();
   });
 
   it("Use chooses the model that hears; a model chosen by hand can be left to Testimus again", async () => {
@@ -403,12 +410,12 @@ describe("Settings › Models › Transcription: the models", () => {
     net.routes["models.useSpeech"] = () => {
       throw new Fail("Whisper large-v3 turbo is not on this PC.");
     };
-    fireEvent.click(within(await rowOf("Whisper large-v3 turbo")).getByRole("button", { name: "Use" }));
+    fireEvent.click(await waitFor(async () => within(await advisedRow()).getByRole("button", { name: "Use" })));
     expect(await screen.findByText("Could not use Whisper large-v3 turbo")).toBeInTheDocument();
   });
 
   it("Check verifies the model in a job and says its result in words", async () => {
-    speech = said({ active: "turbo", models: [turbo] });
+    speech = said({ active: "turbo", models: [{ ...turbo, advised: false }] });
     net.routes["models.verify"] = (i) => {
       const id = srv.start({ kind: "models-verify", subject: String(i.model) });
       jobs.set(id, {
@@ -426,7 +433,7 @@ describe("Settings › Models › Transcription: the models", () => {
   });
 
   it("Remove asks first, says the transcripts stay, then removes the model", async () => {
-    speech = said({ active: "turbo", models: [turbo] });
+    speech = said({ models: [{ ...turbo, advised: false, active: false }] });
     installed = [inst("turbo")];
     net.routes["models.remove"] = () => ({ model: "turbo", removed: "files", freedMB: 834 });
     mountSettings(<ModelsSection />);
@@ -440,7 +447,7 @@ describe("Settings › Models › Transcription: the models", () => {
     expect(await screen.findByText("834 MB freed")).toBeInTheDocument();
   });
 
-  it("« Measure… » lists the videos with a reference and their last measures, measures one with the model in use, and compares by language", async () => {
+  it("« Measure on my videos… » lists the videos with a reference and their last measures, measures one with the model in use, and compares by language", async () => {
     speech = said({ active: "turbo", models: [turbo, heard("small", { label: "Whisper small" })] });
     let measured = false;
     const film = (measures: unknown[]) => ({ doc: "FILM", video: 1, name: "manoeuvre.mp4", language: "fr", measures });
@@ -460,7 +467,7 @@ describe("Settings › Models › Transcription: the models", () => {
       return { doc: "FILM", video: 1, at: "", from: 0, to: 22, words: 5, rows: [] };
     };
     mountSettings(<ModelsSection />);
-    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure on my videos…" }));
     const dialog = await screen.findByRole("dialog", { name: "Measure the transcription models" });
     const videos = await within(dialog).findByRole("table", { name: "Videos with a reference transcript" });
     const row = await within(videos).findByRole("row", { name: /manoeuvre\.mp4/ });
@@ -489,11 +496,11 @@ describe("Settings › Models › Transcription: the models", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Measure the transcription models" })).toBeNull());
   });
 
-  it("« Measure… » without a reference says so; without a model in use nothing is measured; a failure is said", async () => {
+  it("« Measure on my videos… » without a reference says so; without a model in use nothing is measured; a failure is said", async () => {
     speech = said({ models: [heard("small", { label: "Whisper small" })] });
     net.routes["media.measures"] = () => ({ videos: [], byLanguage: [] });
     const first = mountSettings(<ModelsSection />);
-    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure on my videos…" }));
     expect(await screen.findByText("No video has a reference transcript yet.")).toBeInTheDocument();
     expect(screen.getByText(/A video gets a reference in Documents › Video › Reference…/)).toBeInTheDocument();
     first.unmount();
@@ -503,7 +510,7 @@ describe("Settings › Models › Transcription: the models", () => {
       byLanguage: [],
     });
     const second = mountSettings(<ModelsSection />);
-    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure on my videos…" }));
     expect(await screen.findByRole("button", { name: "Measure" })).toBeDisabled();
     second.unmount();
 
@@ -512,7 +519,7 @@ describe("Settings › Models › Transcription: the models", () => {
       throw new Fail("The transcription engine is not on this PC.");
     };
     const third = mountSettings(<ModelsSection />);
-    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure on my videos…" }));
     fireEvent.click(await screen.findByRole("button", { name: "Measure with Whisper large-v3 turbo" }));
     expect(await screen.findByText("manoeuvre.mp4 could not be measured")).toBeInTheDocument();
     await waitFor(() =>
@@ -524,25 +531,26 @@ describe("Settings › Models › Transcription: the models", () => {
       throw new Fail("The project's documents cannot be listed.");
     };
     mountSettings(<ModelsSection />);
-    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure on my videos…" }));
     expect(
       await screen.findByText("The measures could not be read: The project's documents cannot be listed."),
     ).toBeInTheDocument();
   });
 
-  it("the model catalog below lists the search models only", async () => {
+  it("the search tables list the search models only", async () => {
     catalog = [
       row("emb-s", { state: "installed" }),
       row("turbo", { kind: "speech", label: "Whisper large-v3 turbo", state: "installed" }),
     ];
     installed = [inst("turbo")];
-    speech = said({ active: "turbo", models: [turbo] });
+    speech = said({ active: "turbo", models: [{ ...turbo, advised: false }] });
     mountSettings(<ModelsSection />);
-    expect(await screen.findByText("1 in the catalog · 0 on this PC")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Model catalog" }));
-    const all = await screen.findByRole("table", { name: "Model catalog" });
+    const all = await screen.findByRole("table", { name: "Embedding models" });
     expect(within(all).getByRole("row", { name: /M emb-s/ })).toBeInTheDocument();
     expect(within(all).queryByRole("row", { name: /Whisper/ })).toBeNull();
+    expect(
+      within(screen.getByRole("table", { name: "Reranker models" })).queryByRole("row", { name: /Whisper/ }),
+    ).toBeNull();
     expect(await rowOf("Whisper large-v3 turbo")).toBeInTheDocument();
   });
 });

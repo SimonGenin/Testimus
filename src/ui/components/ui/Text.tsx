@@ -177,6 +177,9 @@ export type TextProps = {
    * frame that draws the edge: the Claude block) · cell (a table's cell: no edge and no halo, the grid draws its focus) */
   appearance?: "boxed" | "inline" | "bare" | "cell";
   size?: "sm" | "md";
+  /** a settings row: the label, its save state and the hint on the left, the box on the right (Field aside); « Saved »
+   * shows for a moment after a save, then the row is quiet */
+  aside?: boolean;
   /** the test summary: 16 px semibold, single line */
   title?: boolean;
   label?: string;
@@ -358,7 +361,11 @@ function TextField(p: TextProps) {
     },
   };
   const word = (
-    <SaveState status={claude ? "claude" : (a?.status ?? null)} onRetry={() => void a?.retry()} fade={inline} />
+    <SaveState
+      status={claude ? "claude" : (a?.status ?? null)}
+      onRetry={() => void a?.retry()}
+      fade={inline || !!p.aside}
+    />
   );
   return (
     <Field
@@ -369,6 +376,7 @@ function TextField(p: TextProps) {
       errorId={errorId}
       hint={p.hint}
       hintId={hintId}
+      aside={p.aside}
     >
       <div
         {...stylex.props(

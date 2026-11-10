@@ -64,7 +64,7 @@ describe("Documents screen", () => {
     expect(within(listOf()).queryByRole("columnheader", { name: "Binding" })).toBeNull();
     expect(within(listOf()).getByText("Not indexed")).toBeInTheDocument();
     expect(within(row("Title D2")).getByText("2")).toBeInTheDocument();
-    expect(screen.getByText(/so search matches words, not meaning\. Choose a search pack/)).toBeInTheDocument();
+    expect(screen.getByText(/so search matches words, not meaning\. Choose the search models/)).toBeInTheDocument();
     expect(listHead()).toHaveTextContent(/^Documents\s*2$/);
     expect(screen.queryByText(/\d documents?/)).toBeNull();
     expect(rows()[1]).toHaveAttribute("aria-selected", "true");
@@ -76,7 +76,7 @@ describe("Documents screen", () => {
     fireEvent.keyDown(rows()[0], { key: "Enter" });
     fireEvent.keyDown(rows()[0], { key: "x" });
     expect(a.navigate).toHaveBeenCalledTimes(2);
-    fireEvent.click(screen.getByRole("button", { name: "Choose a search pack" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose the search models" }));
     expect(a.navigate).toHaveBeenCalledWith("settings", "models");
   });
 

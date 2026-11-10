@@ -2,7 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
-import { Card } from "../../components/ui/Card.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
@@ -13,12 +12,14 @@ import { Hint, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
   acts: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
+  form: { flex: 1, minWidth: 0 },
   foot: { display: "flex", justifyContent: "flex-end", gap: space.s3 },
 });
 
 const draft = (f: string): Key => [project(), "settings.column", { f }];
 
-// ponytail: a local column lives in test.md only and is never pushed; adding the field in Xray makes it an Xray column
+// ponytail: the foot of the columns group — a local column lives in test.md only and is never pushed; adding the field
+// in Xray makes it an Xray column
 export function NewColumn({ reads }: { reads: Prefix[] }) {
   const client = useQueryClient();
   const [name, setName, clearName] = useDraft(draft("name"));
@@ -46,13 +47,11 @@ export function NewColumn({ reads }: { reads: Prefix[] }) {
     return (
       <div {...stylex.props(styles.acts)}>
         <Button size="sm" icon="plus" label="Add a local column" onClick={() => setAdding(true)} />
-        <Hint>
-          Local columns are kept in test.md and never pushed. Add the field in Xray and it becomes an Xray column.
-        </Hint>
+        <Hint>Kept in test.md, never pushed. Add the field in Xray and it becomes an Xray column.</Hint>
       </div>
     );
   return (
-    <Card title="New local column">
+    <section aria-label="New local column" {...stylex.props(styles.form)}>
       <Stack>
         <Text
           label="Name of the local column"
@@ -79,6 +78,6 @@ export function NewColumn({ reads }: { reads: Prefix[] }) {
           />
         </div>
       </Stack>
-    </Card>
+    </section>
   );
 }

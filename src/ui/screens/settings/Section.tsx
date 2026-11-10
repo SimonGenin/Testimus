@@ -1,19 +1,21 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
+import { Card } from "../../components/ui/Card.tsx";
 import { type } from "../../components/ui/type.ts";
-import { breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
+import { border, breakpoint, color, container, size, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
   page: {
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
-    gap: space.s5,
+    gap: space.s6,
     width: "100%",
-    maxWidth: `calc(${size.reading} * 2)`,
+    maxWidth: `calc(${size.reading} * 5 / 4)`,
     paddingBlock: space.s8,
     paddingInline: { default: space.s8, [breakpoint.sm]: space.s6, [breakpoint.narrow]: space.s5 },
   },
+  wide: { maxWidth: `calc(${size.reading} * 5 / 3)` },
   head: { display: "flex", alignItems: "flex-start", gap: space.s5, flexWrap: "wrap" },
   titles: { display: "flex", flexDirection: "column", gap: space.s2, flex: 1, minWidth: 0 },
   title: { margin: 0 },
@@ -36,25 +38,52 @@ const styles = stylex.create({
   stack: { display: "flex", flexDirection: "column", gap: space.s4 },
   loose: { gap: space.s6 },
   hint: { margin: 0, color: color.textMuted },
+  row: {
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.s3,
+    minWidth: 0,
+    paddingBlock: space.s5,
+    paddingInline: space.s6,
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+    containerType: "inline-size",
+  },
+  flush: { paddingInline: 0, paddingBlock: 0 },
+  fact: {
+    display: "grid",
+    gridTemplateColumns: { default: "minmax(0, 2fr) minmax(0, 3fr)", [container.paneCompact]: "minmax(0, 1fr)" },
+    columnGap: space.s7,
+    rowGap: space.s3,
+    alignItems: "start",
+  },
+  factSide: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
+  factValue: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
+  factHint: { color: color.textSubtle },
 });
 
-// ponytail: a settings page — its title and what it is for, then its cards; the cards a route points at
-// (#/settings/<section>-<card>) are Anchors. The page takes the width it is given, up to two reading widths
+// ponytail: a settings page — its title and what it is for, then its Groups; the groups a route points at
+// (#/settings/<section>-<card>) carry an id. One column of a reading width and a quarter; wide: the pages that hold a
+// list beside its detail or a tryout beside its settings (Context, Search)
 export function Section({
   id,
   title,
   intro,
   actions,
+  wide = false,
   children,
 }: {
   id: string;
   title: string;
   intro?: ReactNode;
   actions?: ReactNode;
+  wide?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={`s-${id}`} {...stylex.props(styles.page)}>
+    <section aria-labelledby={`s-${id}`} {...stylex.props(styles.page, wide && styles.wide)}>
       <div {...stylex.props(styles.head)}>
         <div {...stylex.props(styles.titles)}>
           <h2 id={`s-${id}`} {...stylex.props(type.titleLg, styles.title)}>
@@ -69,11 +98,55 @@ export function Section({
   );
 }
 
-// ponytail: a card the route can point at (#/settings/claude-dock) — the Card has no id of its own
+// ponytail: a card the route can point at (#/settings/claudeproject-dock) — the Card has no id of its own
 export function Anchor({ id, children }: { id: string; children: ReactNode }) {
   return (
     <div id={`settings-${id}`} {...stylex.props(styles.anchor)}>
       {children}
+    </div>
+  );
+}
+
+// ponytail: a group of settings — a card whose head names it (a note under the name says what the group is for)
+// and whose body is Rows, one setting each, a hairline between them; id: the route can point at it
+export function Group({
+  id,
+  title,
+  note,
+  actions,
+  footer,
+  children,
+}: {
+  id?: string;
+  title: ReactNode;
+  note?: ReactNode;
+  actions?: ReactNode;
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
+  const card = (
+    <Card title={title} note={note} actions={actions} footer={footer} padded={false}>
+      {children}
+    </Card>
+  );
+  return id ? <Anchor id={id}>{card}</Anchor> : card;
+}
+
+// ponytail: one setting of a Group — a Field aside, a Fact, or a block that takes the whole width (a table: flush)
+export function Row({ flush = false, children }: { flush?: boolean; children: ReactNode }) {
+  return <div {...stylex.props(styles.row, flush && styles.flush)}>{children}</div>;
+}
+
+// ponytail: a row that shows a state rather than a control (Claude found, the machine, the index): its name and hint
+// on the left, read out, the value and its actions on the right, laid out as a Field aside
+export function Fact({ label, hint, children }: { label?: string; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <div {...stylex.props(styles.fact)}>
+      <div {...stylex.props(styles.factSide)}>
+        {label && <span {...stylex.props(type.label)}>{label}</span>}
+        {hint && <span {...stylex.props(type.small, styles.factHint)}>{hint}</span>}
+      </div>
+      <div {...stylex.props(styles.factValue)}>{children}</div>
     </div>
   );
 }

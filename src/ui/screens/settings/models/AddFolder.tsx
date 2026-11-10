@@ -53,8 +53,8 @@ export function AddFolder() {
       <div {...stylex.props(styles.head)}>
         <span {...stylex.props(type.titleSm, styles.title)}>Add from a folder…</span>
         <Hint>
-          A model already on disk (a team share, a manual download): a Hugging Face folder, a .gguf file or a llama.cpp
-          folder. It is checked with one sentence and used in place.
+          A model already on disk (a shared folder, a manual download): a Hugging Face folder, a .gguf file or a
+          llama.cpp folder. It is checked with one sentence and used in place.
         </Hint>
       </div>
       <div {...stylex.props(styles.row)}>

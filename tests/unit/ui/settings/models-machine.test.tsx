@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useRead } from "../../../../src/ui/lib/data/query.ts";
 import { gpuFacts, machineSummary } from "../../../../src/ui/screens/settings/models/data.ts";
-import { MachineCard } from "../../../../src/ui/screens/settings/models/MachineCard.tsx";
+import { PcGroup } from "../../../../src/ui/screens/settings/models/PcGroup.tsx";
 import { calls, Fail, fakeNet, inputs, mountSettings, net, reset } from "./helpers.tsx";
 
 type Hw = Parameters<typeof machineSummary>[0];
@@ -36,17 +36,25 @@ const laptop = (over: Partial<Hw> = {}): Hw => ({
   ...over,
 });
 
-beforeEach(fakeNet);
+beforeEach(() => {
+  fakeNet();
+  net.routes["system.settings"] = () => ({ claude: { exe: "" }, models: { allowRemote: true }, projects: [] });
+  net.routes["system.set"] = (i) => ({ claude: { exe: "" }, models: { allowRemote: i.allowRemote ?? true } });
+});
 afterEach(reset);
 
-// the reads of the packs and the advice the page keeps open beside the card
-function PacksAndAdvice() {
+const pc = () => <PcGroup dir="D:\m" ops={[]} busy={false} onFolder={() => {}} />;
+
+// the reads the page keeps open beside the group: every model is judged against the PC
+function Judged() {
+  useRead("models.catalog", {});
+  useRead("models.speech", {});
   useRead("models.packs", {});
   useRead("models.advice", {});
   return null;
 }
 
-describe("what the This machine card says of each GPU", () => {
+describe("what This PC says of each GPU", () => {
   it("the one the models run on, then each other one and why it is not used", () => {
     expect(gpuFacts(laptop())).toEqual([
       { label: "GPU", value: "NVIDIA GeForce RTX 3050 Laptop GPU, 4.0 GB (3.7 GB free) — the models run on it" },
@@ -78,40 +86,46 @@ describe("what the This machine card says of each GPU", () => {
   });
 });
 
-describe("Settings › Models › This machine", () => {
+describe("Settings › Models › This PC", () => {
   it("shows the PC as Testimus read it and when", async () => {
     net.routes["models.hardware"] = () => laptop();
-    mountSettings(<MachineCard />);
+    mountSettings(pc());
     await screen.findByText("Windows · x64");
-    const card = screen.getByRole("region", { name: "This machine" });
+    const group = screen.getByRole("region", { name: "This PC" });
     for (const text of [
       "Windows · x64",
       "Intel(R) Core(TM) i7-1185G7, 8 threads",
       "32 GB of memory, 18 GB free",
       "NVIDIA GeForce RTX 3050 Laptop GPU, 4.0 GB (3.7 GB free) — the models run on it",
     ])
-      expect(within(card).getByText(text, { exact: false })).toBeInTheDocument();
-    expect(within(card).getByText(/^5 Nov, \d\d:\d\d$/)).toBeInTheDocument();
+      expect(within(group).getByText(text, { exact: false })).toBeInTheDocument();
+    expect(within(group).getByText(/^5 Nov, \d\d:\d\d$/)).toBeInTheDocument();
   });
 
-  it("Analyse again reads the PC afresh, then has the packs and the advice judged again", async () => {
+  it("Analyse again reads the PC afresh, then has every model judged again", async () => {
     net.routes["models.hardware"] = (i) => (i.refresh ? laptop({ ramFreeMB: 4096 }) : laptop());
-    net.routes["models.packs"] = () => [];
-    net.routes["models.advice"] = () => [];
+    for (const r of ["models.catalog", "models.packs", "models.advice"]) net.routes[r] = () => [];
+    net.routes["models.speech"] = () => ({ models: [] });
     mountSettings(
       <>
-        <MachineCard />
-        <PacksAndAdvice />
+        {pc()}
+        <Judged />
       </>,
     );
     await screen.findByText("32 GB of memory, 18 GB free");
     await waitFor(() => expect(calls("models.advice")).toHaveLength(1));
-    const packsBefore = calls("models.packs").length;
+    const before = ["models.catalog", "models.speech", "models.packs"].map((r) => calls(r).length);
     fireEvent.click(screen.getByRole("button", { name: "Analyse again" }));
     await screen.findByText("32 GB of memory, 4.0 GB free");
     expect(inputs("models.hardware")).toContainEqual({ refresh: true });
-    expect(await screen.findByText("This machine analysed again")).toBeInTheDocument();
-    await waitFor(() => expect(calls("models.packs").length).toBeGreaterThan(packsBefore));
+    expect(await screen.findByText("This PC analysed again")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(["models.catalog", "models.speech", "models.packs"].map((r, i) => calls(r).length > before[i])).toEqual([
+        true,
+        true,
+        true,
+      ]),
+    );
     await waitFor(() => expect(calls("models.advice")).toHaveLength(2));
   });
 
@@ -121,10 +135,34 @@ describe("Settings › Models › This machine", () => {
       if (fail) throw new Fail("nvidia-smi hung");
       return laptop();
     };
-    mountSettings(<MachineCard />);
-    expect(await screen.findByText(/This machine could not be read: nvidia-smi hung/)).toBeInTheDocument();
+    mountSettings(pc());
+    expect(await screen.findByText(/This PC could not be read: nvidia-smi hung/)).toBeInTheDocument();
     fail = false;
     fireEvent.click(screen.getByRole("button", { name: "Analyse again" }));
     expect(await screen.findByText("32 GB of memory, 18 GB free")).toBeInTheDocument();
+  });
+
+  it("Allow downloads from Hugging Face is this PC's setting, saved as it is switched", async () => {
+    net.routes["models.hardware"] = () => laptop();
+    mountSettings(pc());
+    const sw = await screen.findByRole("switch", { name: "Allow downloads from Hugging Face" });
+    await waitFor(() => expect(sw).toBeEnabled());
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText(/Behind a proxy that blocks them/)).toBeInTheDocument();
+    fireEvent.click(sw);
+    await waitFor(() => expect(inputs("system.set")).toEqual([{ allowRemote: false }]));
+    await waitFor(() => expect(sw).toHaveAttribute("aria-checked", "false"));
+  });
+
+  it("Add a model from a folder… opens the form under the folder, and closes it again", async () => {
+    net.routes["models.hardware"] = () => laptop();
+    mountSettings(pc());
+    const add = await screen.findByRole("button", { name: "Add a model from a folder…" });
+    expect(screen.queryByRole("textbox", { name: /^Add from a folder/ })).toBeNull();
+    fireEvent.click(add);
+    expect(add).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("textbox", { name: /^Add from a folder/ })).toBeInTheDocument();
+    fireEvent.click(add);
+    expect(screen.queryByRole("textbox", { name: /^Add from a folder/ })).toBeNull();
   });
 });

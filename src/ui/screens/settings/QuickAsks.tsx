@@ -2,31 +2,26 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "../../components/ui/Button.tsx";
-import { Card } from "../../components/ui/Card.tsx";
+import { Chip } from "../../components/ui/Chip.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { Text } from "../../components/ui/Text.tsx";
+import { type } from "../../components/ui/type.ts";
 import type { Save } from "../../lib/data/autosave.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Key, key } from "../../lib/data/query.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import type { Info, ProjectJson } from "./project.ts";
-import { Hint, Stack } from "./Section.tsx";
+import { Group, Hint, Row } from "./Section.tsx";
 
 const styles = stylex.create({
-  ask: {
-    display: "flex",
-    gap: space.s3,
-    alignItems: "flex-start",
-    paddingBottom: space.s4,
-    borderBottomStyle: "solid",
-    borderBottomWidth: border.width,
-    borderBottomColor: color.border,
-  },
+  ask: { display: "flex", gap: space.s5, alignItems: "flex-start", minWidth: 0 },
+  chip: { flex: "none", maxWidth: "40%" },
+  prompt: { flex: 1, minWidth: 0, margin: 0, color: color.textMuted, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+  tools: { display: "flex", gap: space.s1, flex: "none" },
   set: { boxSizing: "border-box", margin: 0, padding: 0, borderWidth: 0, minWidth: 0 },
   fields: { display: "flex", flexDirection: "column", gap: space.s3, flex: 1, minWidth: 0 },
-  close: { paddingTop: space.s6 },
   acts: { display: "flex", justifyContent: "flex-end", gap: space.s3 },
   plain: { margin: 0 },
 });
@@ -46,7 +41,21 @@ function usePresets() {
   return { now, send };
 }
 
-function QuickAsk({ preset, at, onRemove }: { preset: Preset; at: number; onRemove: () => void }) {
+function QuickAsk({
+  preset,
+  at,
+  editing,
+  onEdit,
+  onDone,
+  onRemove,
+}: {
+  preset: Preset;
+  at: number;
+  editing: boolean;
+  onEdit: () => void;
+  onDone: () => void;
+  onRemove: () => void;
+}) {
   const { now, send } = usePresets();
   const field = (f: keyof Preset): { saveKey: Key; save: Save<string> } => {
     const saveKey: Key = [project(), "project.info", { preset: at, field: f }];
@@ -66,20 +75,32 @@ function QuickAsk({ preset, at, onRemove }: { preset: Preset; at: number; onRemo
     };
   };
   const n = at + 1;
+  if (!editing)
+    return (
+      <fieldset aria-label={`Quick ask ${n}`} {...stylex.props(styles.set, styles.ask)}>
+        <span {...stylex.props(styles.chip)}>
+          <Chip label={preset.label} tone="claude" />
+        </span>
+        <p {...stylex.props(type.compact, styles.prompt)}>{preset.prompt}</p>
+        <span {...stylex.props(styles.tools)}>
+          <Button size="sm" variant="quiet" label="Edit" onClick={onEdit} />
+          <Button size="sm" variant="quiet" icon="trash" iconOnly label={`Remove quick ask ${n}`} onClick={onRemove} />
+        </span>
+      </fieldset>
+    );
   return (
-    <fieldset aria-label={`Quick ask ${n}`} {...stylex.props(styles.set, styles.ask)}>
-      <div {...stylex.props(styles.fields)}>
-        <Text label="Chip" value={preset.label} placeholder="Label shown as a chip" {...field("label")} />
-        <Text
-          multiline
-          label="Prompt"
-          value={preset.prompt}
-          placeholder="What Claude is asked to do"
-          {...field("prompt")}
-        />
-      </div>
-      <div {...stylex.props(styles.close)}>
-        <Button size="sm" variant="quiet" icon="trash" iconOnly label={`Remove quick ask ${n}`} onClick={onRemove} />
+    <fieldset aria-label={`Quick ask ${n}`} {...stylex.props(styles.set, styles.fields)}>
+      <Text aside label="Chip" value={preset.label} placeholder="Label shown as a chip" autoFocus {...field("label")} />
+      <Text
+        aside
+        multiline
+        label="Prompt"
+        value={preset.prompt}
+        placeholder="What Claude is asked to do"
+        {...field("prompt")}
+      />
+      <div {...stylex.props(styles.acts)}>
+        <Button size="sm" label="Done" onClick={onDone} />
       </div>
     </fieldset>
   );
@@ -93,6 +114,7 @@ export function QuickAsks({ presets }: { presets: Preset[] }) {
   const [prompt, setPrompt, clearPrompt] = useDraft(DRAFT("prompt"));
   const [adding, setAdding] = useState(!!(label || prompt));
   const [removing, setRemoving] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const change = (next: Preset[]) =>
     send(next).then(
       () => true,
@@ -109,23 +131,48 @@ export function QuickAsks({ presets }: { presets: Preset[] }) {
   };
   return (
     <>
-      <Card
+      <Group
+        id="claudeproject-quickasks"
         title="Quick asks"
-        actions={
-          !adding && (
-            <Button size="sm" variant="quiet" icon="plus" label="Add a quick ask" onClick={() => setAdding(true)} />
-          )
-        }
+        note="Chips in the Claude dock: a click puts the prompt in the box, to edit before sending."
+        footer={!adding && <Button size="sm" icon="plus" label="Add a quick ask" onClick={() => setAdding(true)} />}
       >
-        <Stack>
-          {presets.map((p, i) => (
-            <QuickAsk key={i} preset={p} at={i} onRemove={() => setRemoving(i)} />
-          ))}
-          {!presets.length && !adding && <Hint>No quick ask yet.</Hint>}
-          {adding && (
+        {presets.map((p, i) => (
+          <Row key={i}>
+            <QuickAsk
+              preset={p}
+              at={i}
+              editing={editing === i}
+              onEdit={() => setEditing(i)}
+              onDone={() => setEditing(null)}
+              onRemove={() => setRemoving(i)}
+            />
+          </Row>
+        ))}
+        {!presets.length && !adding && (
+          <Row>
+            <Hint>No quick ask yet.</Hint>
+          </Row>
+        )}
+        {adding && (
+          <Row>
             <fieldset aria-label="New quick ask" {...stylex.props(styles.set, styles.fields)}>
-              <Text label="Chip" value={label} onChange={setLabel} placeholder="Name, e.g. Check this step" autoFocus />
-              <Text multiline label="Prompt" value={prompt} onChange={setPrompt} placeholder="What Claude is asked" />
+              <Text
+                aside
+                label="Chip"
+                value={label}
+                onChange={setLabel}
+                placeholder="Name, e.g. Check this step"
+                autoFocus
+              />
+              <Text
+                aside
+                multiline
+                label="Prompt"
+                value={prompt}
+                onChange={setPrompt}
+                placeholder="What Claude is asked"
+              />
               <div {...stylex.props(styles.acts)}>
                 <Button
                   size="sm"
@@ -146,12 +193,9 @@ export function QuickAsks({ presets }: { presets: Preset[] }) {
                 />
               </div>
             </fieldset>
-          )}
-          <Hint>
-            Chips in the Claude dock: a click puts the prompt in the box, where you can edit it before sending.
-          </Hint>
-        </Stack>
-      </Card>
+          </Row>
+        )}
+      </Group>
       {removing !== null && presets[removing] && (
         <Modal
           size="sm"

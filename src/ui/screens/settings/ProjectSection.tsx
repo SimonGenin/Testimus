@@ -1,7 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "../../components/ui/Button.tsx";
-import { Card } from "../../components/ui/Card.tsx";
-import { Field } from "../../components/ui/Field.tsx";
+import { Chip } from "../../components/ui/Chip.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Loading } from "../../components/ui/Loading.tsx";
 import { Select } from "../../components/ui/Select.tsx";
@@ -11,8 +10,7 @@ import { type } from "../../components/ui/type.ts";
 import { desktop, reveal } from "../../lib/desktop.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { useInfo, useProjectField, useSetProject } from "./project.ts";
-import { Anchor, Column, Columns, Grid, Section, Stack } from "./Section.tsx";
-import { VideosSetting } from "./VideosSetting.tsx";
+import { Fact, Group, Row, Section } from "./Section.tsx";
 
 const styles = stylex.create({
   folder: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
@@ -24,6 +22,8 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   icon: { display: "inline-flex", color: color.textMuted },
+  labels: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s2, color: color.textSubtle },
+  loading: { display: "flex", flexDirection: "column", gap: space.s3 },
 });
 
 const LANGUAGES = [
@@ -45,75 +45,87 @@ export function ProjectSection() {
       ? [...LANGUAGES, { value: p.language, label: p.language }]
       : LANGUAGES;
   return (
-    <Section
-      id="project"
-      title="Project"
-      intro="This project's identity in Jira, its folder and how its videos are read. What Claude is given is under Context."
-    >
-      <Columns>
-        <Column>
-          <Card title="Project">
-            {!p ? (
-              <>
-                <Skeleton lines={4} />
-                <Loading read="project.info" />
-              </>
-            ) : (
-              <Stack>
-                <Grid>
-                  <Text label="Name" value={p.name ?? ""} {...name} />
-                  <Text
-                    id="settings-project-jira"
-                    label="Jira project key"
-                    value={p.jiraProject ?? ""}
-                    placeholder="e.g. LFRPS12"
-                    hint="Upper-cased as you save."
-                    {...jira}
-                  />
-                  <Select
-                    id="set-language"
-                    label="Language of the tests"
-                    showLabel
-                    hint="Generated tests are written in it."
-                    block
-                    value={p.language}
-                    options={languages}
-                    onChange={(language) => void setProject({ language }, "the language")}
-                  />
-                  <Text
-                    label="Review label prefix"
-                    value={p.labelPrefix ?? "testimus-"}
-                    hint={`Pushed tests carry their review state as a label: ${shownPrefix}validated, ${shownPrefix}to-fix…`}
-                    {...prefix}
-                  />
-                </Grid>
-                <Field label="Project folder" hint="A project is a folder: share it by sharing the folder.">
-                  <div {...stylex.props(styles.folder)}>
-                    <span {...stylex.props(styles.icon)}>
-                      <Icon name="folder" />
-                    </span>
-                    <span {...stylex.props(type.code, styles.path)} title={dir}>
-                      {dir}
-                    </span>
-                    {desktop() && (
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        icon="folder-open"
-                        label="Show in Explorer"
-                        onClick={() => void reveal(dir)}
-                      />
-                    )}
-                  </div>
-                </Field>
-              </Stack>
-            )}
-          </Card>
-        </Column>
-        <Column>
-          <Anchor id="project-videos">{p && <VideosSetting video={p.video} />}</Anchor>
-        </Column>
-      </Columns>
+    <Section id="project" title="Project" intro="Who this project is in Jira, and where it lives on this PC.">
+      <Group title="Identity">
+        {!p ? (
+          <Row>
+            <div {...stylex.props(styles.loading)}>
+              <Skeleton lines={4} />
+              <Loading read="project.info" />
+            </div>
+          </Row>
+        ) : (
+          <>
+            <Row>
+              <Text aside label="Name" hint="Shown in the project menu." value={p.name ?? ""} {...name} />
+            </Row>
+            <Row>
+              <Text
+                aside
+                id="settings-project-jira"
+                label="Jira project key"
+                value={p.jiraProject ?? ""}
+                placeholder="e.g. LFRPS12"
+                hint="Where the tests are read from and pushed to. Upper-cased as you save."
+                {...jira}
+              />
+            </Row>
+            <Row>
+              <Select
+                aside
+                id="set-language"
+                label="Language of the tests"
+                showLabel
+                hint="Claude writes the generated tests in it."
+                block
+                value={p.language}
+                options={languages}
+                onChange={(language) => void setProject({ language }, "the language")}
+              />
+            </Row>
+            <Row>
+              <Text
+                aside
+                label="Review label prefix"
+                value={p.labelPrefix ?? "testimus-"}
+                hint="A pushed test carries its review state as a Jira label."
+                {...prefix}
+              />
+              <Fact>
+                <span {...stylex.props(type.small, styles.labels)}>
+                  Labels in Jira:
+                  <Chip label={`${shownPrefix}validated`} mono inField />
+                  <Chip label={`${shownPrefix}to-fix`} mono inField />
+                </span>
+              </Fact>
+            </Row>
+          </>
+        )}
+      </Group>
+      {p && (
+        <Group title="Folder">
+          <Row>
+            <Fact
+              label="Project folder"
+              hint="Everything Testimus keeps for this project is in it: documents, tests, settings."
+            >
+              <div {...stylex.props(styles.folder)}>
+                <span {...stylex.props(styles.icon)}>
+                  <Icon name="folder" />
+                </span>
+                <span {...stylex.props(type.code, styles.path)} title={dir}>
+                  {dir}
+                </span>
+              </div>
+              {desktop() && (
+                <div>
+                  <Button size="sm" icon="folder-open" label="Show in Explorer" onClick={() => void reveal(dir)} />
+                </div>
+              )}
+            </Fact>
+          </Row>
+        </Group>
+      )}
     </Section>
   );
 }

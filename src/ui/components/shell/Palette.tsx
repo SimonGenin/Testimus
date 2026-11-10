@@ -400,7 +400,7 @@ export function Palette({
             actions={
               <Button
                 size="sm"
-                label={noPack ? "Choose a search pack" : "Open Settings › Search"}
+                label={noPack ? "Choose the search models" : "Open Settings › Search"}
                 onClick={openSearchSettings}
               />
             }

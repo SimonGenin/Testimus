@@ -236,7 +236,7 @@ export const commands = [
       if (!(await claudeVersion()).ok)
         throw new UserError(
           "Claude is not available on this PC.",
-          "Sign in to Claude Code (Settings › Claude), then ask again.",
+          "Sign in to Claude Code (Settings › Claude Code), then ask again.",
         );
       const figures = new Map(readFigures(project, input.doc).map((e) => [e.anchor, e]));
       const shown = v.keyFrames.map((k) => ({ at: k.at, labels: figures.get(frameAnchor(f.n, k.at))?.labels ?? [] }));
@@ -514,7 +514,7 @@ export const commands = [
       if (!(await claudeVersion()).ok)
         throw new UserError(
           "Claude is not available on this PC.",
-          "Sign in to Claude Code (Settings › Claude), then ask again.",
+          "Sign in to Claude Code (Settings › Claude Code), then ask again.",
         );
       const r = await draftGlossary(project, ctx, input.ask, runOf(input));
       if (r.ok) {

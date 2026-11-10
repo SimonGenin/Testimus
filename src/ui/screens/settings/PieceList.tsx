@@ -22,7 +22,7 @@ const KIND: Record<Piece["kind"], { icon: IconName; word: string }> = {
   overview: { icon: "tree", word: "Written by Claude" },
   context: { icon: "context", word: "Saved context" },
   document: { icon: "documents", word: "Document" },
-  docnote: { icon: "quote", word: "Team note on a document" },
+  docnote: { icon: "quote", word: "Note on a document" },
   note: { icon: "keyboard", word: "Your note" },
   conversation: { icon: "history", word: "Conversation" },
 };

@@ -1,19 +1,20 @@
 import * as stylex from "@stylexjs/stylex";
+import { useState } from "react";
 import type { CredsStatus, DoctorCheck } from "../../../core/types.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
-import { Card } from "../../components/ui/Card.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
-import { List } from "../../components/ui/List.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { ConnectAtlassian } from "./ConnectAtlassian.tsx";
-import { Column, Columns, Section } from "./Section.tsx";
+import { Fact, Group, Hint, Row, Section } from "./Section.tsx";
 
 const styles = stylex.create({
-  path: { color: color.textMuted },
-  badges: { display: "flex", gap: space.s2, flexWrap: "wrap", justifyContent: "flex-end" },
-  sub: { color: color.textMuted },
+  path: { color: color.textMuted, overflowWrap: "anywhere" },
+  badges: { display: "flex", alignItems: "center", gap: space.s2, flexWrap: "wrap" },
+  kept: { display: "flex", alignItems: "center", gap: space.s2 },
+  set: { boxSizing: "border-box", minWidth: 0, margin: 0, padding: 0, borderWidth: 0 },
 });
 
 type FileState = CredsStatus["xray"];
@@ -29,9 +30,9 @@ const WORD = {
   invalid: { label: "Invalid", tone: "danger", icon: "x-circle" },
 } as const;
 
-type Row = { id: "jira" | "xray"; name: string; file: FileState };
+type Cred = { id: "jira" | "xray"; name: string; does: string; file: FileState };
 
-function Verdict({ id, file, checks }: { id: Row["id"]; file: FileState; checks: DoctorCheck[] }) {
+function Verdict({ id, file, checks }: { id: Cred["id"]; file: FileState; checks: DoctorCheck[] }) {
   const s = fileState(file);
   const c = checks.find((x) => x.id === id);
   const w = WORD[s];
@@ -55,64 +56,76 @@ function Verdict({ id, file, checks }: { id: Row["id"]; file: FileState; checks:
   );
 }
 
-// ponytail: the two shared files Xray Editor and Testimus read (~/.atlassian), then the guided form that writes them
+const connected = (r: Cred, checks: DoctorCheck[]) =>
+  fileState(r.file) === "found" && checks.find((x) => x.id === r.id)?.state === "ok";
+
+// ponytail: the two files Xray Editor and Testimus both read (~/.atlassian), one row each, then the guided form that
+// writes them — folded behind « Change the connection… » while both answer, open otherwise
 export function AccessSection() {
   const creds = useRead("system.credentials", {});
   const doctor = useRead("system.doctor", {});
+  const [changing, setChanging] = useState(false);
   const st = creds.data?.status;
   const checks = doctor.data?.checks ?? [];
-  const rows: Row[] = st
+  const rows: Cred[] = st
     ? [
-        { id: "jira", name: "Jira", file: st.jira },
-        { id: "xray", name: "Xray", file: st.xray },
+        { id: "jira", name: "Jira", does: "Reads issues, writes tests and labels.", file: st.jira },
+        { id: "xray", name: "Xray", does: "Reads and writes the steps of a test.", file: st.xray },
       ]
     : [];
+  const fine = rows.length > 0 && rows.every((r) => connected(r, checks));
   return (
     <Section
       id="access"
-      title="Access"
-      intro="Testimus reads and writes your tests through your own Jira and Xray accounts. Nothing is sent anywhere else."
+      title="Jira and Xray"
+      intro="Testimus reads and writes your tests with your own Jira and Xray accounts, for every project. Nothing is sent anywhere else."
     >
-      <Columns>
-        {st && (
-          <Column>
-            <Card
-              padded={false}
-              title={
-                <>
-                  Credential files{" "}
-                  <span {...stylex.props(type.small, type.regular, styles.sub)}>
-                    shared with your other Atlassian tools
+      {st && (
+        <Group
+          title="Connection"
+          actions={
+            <Button size="sm" label="Test again" loading={doctor.isFetching} onClick={() => void doctor.refetch()} />
+          }
+          footer={
+            <span {...stylex.props(styles.kept)}>
+              <Icon name="lock" size="sm" />
+              <Hint>Kept in your .atlassian folder, read by your other Atlassian tools too.</Hint>
+            </span>
+          }
+        >
+          {rows.map((r) => (
+            <Row key={r.id}>
+              <fieldset aria-label={r.name} {...stylex.props(styles.set)}>
+                <Fact label={r.name} hint={r.does}>
+                  <Verdict id={r.id} file={r.file} checks={checks} />
+                  <span title={r.file.file} {...stylex.props(type.code, styles.path)}>
+                    {r.file.file}
                   </span>
-                </>
-              }
-            >
-              <List
-                label="Credential files"
-                selection="none"
-                divided
-                items={rows}
-                getKey={(r) => r.id}
-                renderItem={(r) => ({
-                  title: r.name,
-                  lead: <Icon name="file" />,
-                  meta: (
-                    <span title={r.file.file} {...stylex.props(type.code, styles.path)}>
-                      {r.file.file}
-                    </span>
-                  ),
-                  trail: <Verdict id={r.id} file={r.file} checks={checks} />,
-                })}
-              />
-            </Card>
-          </Column>
-        )}
-        <Column>
-          <Card title="Connect to Jira and Xray">
+                </Fact>
+              </fieldset>
+            </Row>
+          ))}
+        </Group>
+      )}
+      {fine && !changing ? (
+        <Group title="Change the connection" note="The site, the email, the token or the Xray key.">
+          <Row>
+            <div>
+              <Button size="sm" label="Change the connection…" onClick={() => setChanging(true)} />
+            </div>
+          </Row>
+        </Group>
+      ) : (
+        <Group
+          title="Connect to Jira and Xray"
+          note="Three steps, about five minutes. Nothing is saved until the connection is tested."
+          actions={fine && <Button size="sm" variant="quiet" label="Cancel" onClick={() => setChanging(false)} />}
+        >
+          <Row>
             <ConnectAtlassian />
-          </Card>
-        </Column>
-      </Columns>
+          </Row>
+        </Group>
+      )}
     </Section>
   );
 }

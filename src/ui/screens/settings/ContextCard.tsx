@@ -8,7 +8,6 @@ import {
   useContextWrite,
 } from "../../components/claude/contexts.ts";
 import { Button } from "../../components/ui/Button.tsx";
-import { Card } from "../../components/ui/Card.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Loading } from "../../components/ui/Loading.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
@@ -19,29 +18,18 @@ import { discardAutosave } from "../../lib/data/autosave.ts";
 import { key, useRead } from "../../lib/data/query.ts";
 import { contextLabel } from "../../lib/labels.ts";
 import { errorToast } from "../../lib/toast.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { tokens } from "./given.ts";
 import { useSetProject } from "./project.ts";
+import { Group, Hint, Row } from "./Section.tsx";
 
 const styles = stylex.create({
-  body: { display: "flex", flexDirection: "column", gap: space.s6, minWidth: 0 },
-  attached: { display: "flex", flexDirection: "column", gap: space.s2, minWidth: 0 },
-  line: { margin: 0, color: color.textMuted, overflowWrap: "anywhere" },
-  rule: {
-    boxSizing: "border-box",
-    height: 0,
-    margin: 0,
-    borderWidth: 0,
-    borderTopStyle: "solid",
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
-  },
   foot: { display: "inline-flex", alignItems: "center", gap: space.s2, color: color.textMuted },
   subtle: { color: color.textSubtle },
 });
 
-// ponytail: one saved context — the team's own piece of what Claude is given, and the one kind edited here: whether it
-// is a default of the project (project.json, the one place for that switch), where else it is attached, then its
+// ponytail: one saved context — the part of what Claude is given the user writes, and the one kind edited here: whether
+// it is a default of the project (project.json, the one place for that switch), where else it is attached, then its
 // name, notes, paths and files (the editor every list of contexts uses), and Delete, which asks first
 export function ContextCard({
   context,
@@ -82,7 +70,7 @@ export function ContextCard({
   };
 
   return (
-    <Card
+    <Group
       title={name}
       actions={
         <Button size="sm" variant="quiet" icon="trash" label="Delete context…" onClick={() => setDeleting(true)} />
@@ -98,28 +86,27 @@ export function ContextCard({
         </span>
       }
     >
-      <div {...stylex.props(styles.body)}>
-        <div {...stylex.props(styles.attached)}>
-          <Switch
-            on={isDefault}
-            onChange={(on) =>
-              void setProject(
-                { claude: { contexts: on ? [...defaults, id] : defaults.filter((x) => x !== id) } },
-                "the default contexts",
-              )
-            }
-            label="Default of the project"
-            hint="Goes with every run on a test or a document that has no contexts of its own, with every question and every generation."
-          />
-          <p {...stylex.props(type.small, styles.line)}>
-            {onTests
-              ? "A test also attaches it in its own list: it goes with the runs on that test, and with a request on the whole project."
-              : isDefault
-                ? "A test or a document with a list of its own takes that list instead."
-                : "Not attached: it goes with a run only when it is ticked in the request, or put in a test's or a document's own list."}
-          </p>
-        </div>
-        <hr {...stylex.props(styles.rule)} />
+      <Row>
+        <Switch
+          on={isDefault}
+          onChange={(on) =>
+            void setProject(
+              { claude: { contexts: on ? [...defaults, id] : defaults.filter((x) => x !== id) } },
+              "the default contexts",
+            )
+          }
+          label="Default of the project"
+          hint="Goes with every run on a test or a document that has no contexts of its own, with every question and every generation."
+        />
+        <Hint>
+          {onTests
+            ? "A test also attaches it in its own list: it goes with the runs on that test, and with a request on the whole project."
+            : isDefault
+              ? "A test or a document with a list of its own takes that list instead."
+              : "Not attached: it goes with a run only when it is ticked in the request, or put in a test's or a document's own list."}
+        </Hint>
+      </Row>
+      <Row>
         {detail ? (
           <ContextEditor key={detail.id} detail={detail} words={words} />
         ) : (
@@ -130,7 +117,7 @@ export function ContextCard({
             </>
           )
         )}
-      </div>
+      </Row>
       {deleting && (
         <Modal
           title="Delete the context?"
@@ -150,6 +137,6 @@ export function ContextCard({
           {`« ${name} » — its notes, files and paths.`}
         </Modal>
       )}
-    </Card>
+    </Group>
   );
 }

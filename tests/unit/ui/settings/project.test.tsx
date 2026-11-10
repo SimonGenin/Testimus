@@ -48,7 +48,8 @@ describe("Settings › Project", () => {
     fireEvent.change(prefix, { target: { value: "tm-" } });
     fireEvent.blur(prefix);
     await waitFor(() => expect(inputs("project.set")[1]).toEqual({ labelPrefix: "tm-" }));
-    await waitFor(() => expect(screen.getByText(/tm-validated, tm-to-fix/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("tm-validated")).toBeInTheDocument());
+    expect(screen.getByText("tm-to-fix")).toBeInTheDocument();
   });
 
   it("names the project, saved by the field", async () => {

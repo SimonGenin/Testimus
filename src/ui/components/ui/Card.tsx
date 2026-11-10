@@ -74,6 +74,8 @@ const styles = stylex.create({
   headCompact: { minHeight: 0, paddingBlockStart: space.s4, paddingBlockEnd: space.s3, paddingInline: space.s5 },
   headTight: { minHeight: 0, paddingBlockStart: space.s3, paddingBlockEnd: space.s2, paddingInline: space.s3 },
   title: { minWidth: 0 },
+  titles: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },
+  note: { color: color.textSubtle },
   actions: { display: "flex", alignItems: "center", gap: space.s2, marginInlineStart: "auto" },
   body: {
     boxSizing: "border-box",
@@ -157,6 +159,8 @@ const EDGE = {
 export type CardProps = {
   /** in the head (a string, or a title with its badges) */
   title?: ReactNode;
+  /** under the title, small and subtle: what the card is for (a settings group); not part of the card's name */
+  note?: ReactNode;
   /** on the right of the head: buttons, a menu */
   actions?: ReactNode;
   /** a foot under a hairline: secondary actions, a note */
@@ -200,6 +204,7 @@ export type CardProps = {
 // a badge in the head, never a coloured edge; cards nest once at most
 export function Card({
   title,
+  note,
   actions,
   footer,
   selected = false,
@@ -343,12 +348,20 @@ export function Card({
         {fold.open && foot}
       </section>
     );
+  const named = title && (
+    <span id={id} {...stylex.props(type.titleSm, styles.title)}>
+      {title}
+    </span>
+  );
   const head = (title || actions) && (
     <div {...stylex.props(headLook)}>
-      {title && (
-        <span id={id} {...stylex.props(type.titleSm, styles.title)}>
-          {title}
+      {note ? (
+        <span {...stylex.props(styles.titles)}>
+          {named}
+          <span {...stylex.props(type.small, styles.note)}>{note}</span>
         </span>
+      ) : (
+        named
       )}
       {actions && <div {...stylex.props(styles.actions)}>{actions}</div>}
     </div>

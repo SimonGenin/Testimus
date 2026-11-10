@@ -113,12 +113,23 @@ afterEach(reset);
 
 const row = (id: string) =>
   waitFor(() =>
-    within(screen.getByRole("table", { name: "Vector spaces" })).getByRole("row", { name: new RegExp(`Space ${id}`) }),
+    within(screen.getByRole("table", { name: "Vector spaces" })).getByRole("row", {
+      name: new RegExp(`${id}, 1024 dims`),
+    }),
   );
 
+const openUses = async () =>
+  fireEvent.click(await screen.findByRole("button", { name: /^Where search is used, and the filters it takes/ }));
+
 describe("Settings › Search › Who uses what on this PC", () => {
-  it("one row per user of the search, in the core's words: words, embedding, reranker or never, and when", async () => {
+  it("folded at first, then one row per user of the search, in the core's words: words, embedding, reranker or never, and when", async () => {
     mountSettings(<SearchSection />);
+    const fold = await screen.findByRole("button", { name: /^Where search is used, and the filters it takes/ });
+    await waitFor(() => expect(fold).toHaveTextContent(`${USAGE.length} places`));
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("table", { name: "Who uses what on this PC" })).toBeNull();
+    fireEvent.click(fold);
+    expect(screen.getByText(/Claude's search tool takes the same filters/)).toBeInTheDocument();
     const table = await screen.findByRole("table", { name: "Who uses what on this PC" });
     const row = (who: string) => within(table).getByRole("row", { name: new RegExp(`^${who}`) });
     await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(USAGE.length + 1));
@@ -141,27 +152,31 @@ describe("Settings › Search › Who uses what on this PC", () => {
       throw new Fail("usage down");
     };
     mountSettings(<SearchSection />);
+    await openUses();
     expect(await screen.findByText("Who uses what could not be read")).toBeInTheDocument();
     expect(screen.getByText("usage down")).toBeInTheDocument();
   });
 });
 
 describe("Settings › Search", () => {
-  it("has no hard-coded model list; shows the reference and the model used here with its origin", async () => {
+  it("has no hard-coded model list and no pack; reads out the embedding and the reranker in use", async () => {
     net.routes["project.info"] = () => info({ rag: { reference: { pack: "balanced" } } });
     mountSettings(<SearchSection />);
-    expect(await screen.findByText("Balanced pack")).toBeInTheDocument();
-    expect((await screen.findAllByText("Qwen3 Embedding 0.6B (8-bit, CPU)", { exact: false })).length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getByText("This PC's choice")).toBeInTheDocument();
-    const lists = ["Reranker", "Documents", "Kind of passage"].map((name) => screen.getByRole("combobox", { name }));
+    const models = await screen.findByRole("region", { name: "Search models" });
+    expect(await within(models).findByText("Embedding: Qwen3 Embedding 0.6B (8-bit, CPU)")).toBeInTheDocument();
+    expect(within(models).getByText("Reranker: BGE Reranker v2 M3 (8-bit, CPU)")).toBeInTheDocument();
+    expect(screen.queryByText(/pack|team/i)).toBeNull();
+    const lists = ["Documents", "Kind of passage"].map((name) => screen.getByRole("combobox", { name }));
     expect(screen.getAllByRole("combobox")).toEqual(lists);
-    expect(screen.getByText(/Index up to date · 40 passages/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "40 passages from 1 document, with Qwen3 Embedding 0.6B (8-bit, CPU), BGE Reranker v2 M3 (8-bit, CPU)",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Up to date")).toBeInTheDocument();
   });
 
-  it("says when no reference is set and when search is degraded, with the reason and what is missing", async () => {
+  it("says when search is degraded, with the reason and what is missing", async () => {
     net.routes["rag.status"] = () =>
       status({
         activation: "light",
@@ -171,14 +186,12 @@ describe("Settings › Search", () => {
         missing: ["qwen3-embedding-8b-q8"],
       });
     const { app } = mountSettings(<SearchSection />);
-    expect(await screen.findByText(/Not set: the Light pack/)).toBeInTheDocument();
-    expect(await screen.findByText("The Light pack (default)")).toBeInTheDocument();
-    const degraded = screen.getByRole("alert");
+    const degraded = await screen.findByRole("alert");
     expect(degraded).toHaveTextContent("Search on words only");
     expect(within(degraded).getByText("No vectors for bge-m3-q8 yet: run rag index.")).toBeInTheDocument();
-    expect(within(degraded).getByRole("button", { name: "Reindex" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Reindex" })).toHaveLength(1);
-    expect(screen.getByText("qwen3-embedding-8b-q8")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reindex" })).toBeEnabled();
+    expect(screen.getByText("Not on this PC: qwen3-embedding-8b-q8")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Models" }));
     expect(app.navigate).toHaveBeenCalledWith("settings", "models");
     expect(screen.getByText("Words only")).toBeInTheDocument();
@@ -212,7 +225,7 @@ describe("Settings › Search", () => {
     expect(within(built).queryByText("Incomplete")).toBeNull();
   });
 
-  it("says how many documents are behind, with no reranker and no origin", async () => {
+  it("says how many documents are behind, with no reranker", async () => {
     net.routes["rag.status"] = () =>
       status({
         reranker: null,
@@ -225,8 +238,7 @@ describe("Settings › Search", () => {
     mountSettings(<SearchSection />);
     expect(await screen.findByText("1 document to reindex")).toBeInTheDocument();
     expect(screen.getByText("To reindex")).toBeInTheDocument();
-    expect(screen.getByText(/no reranker/)).toBeInTheDocument();
-    expect(screen.getByText("None: lexical search only")).toBeInTheDocument();
+    expect(screen.getByText("Reranker: none")).toBeInTheDocument();
   });
 
   it("says when there is no index, and without a model", async () => {
@@ -339,7 +351,9 @@ describe("Settings › Search", () => {
     net.routes["rag.spaces"] = () => [];
     const { app } = mountSettings(<SearchSection />);
     expect(await screen.findByText(/None yet: the first index run/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Go to Models" }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "Search models" })).getByRole("button", { name: "Models" }),
+    );
     expect(app.navigate).toHaveBeenCalledWith("settings", "models");
   });
 });

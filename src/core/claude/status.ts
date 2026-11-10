@@ -110,7 +110,7 @@ export const prompts: PromptTemplate[] = [
     id: "sign-in",
     name: "Is Claude signed in",
     group: "System check",
-    usedBy: ["Settings › Claude: Check", "claude.status"],
+    usedBy: ["Settings › Claude Code: Check", "claude.status"],
     answers: "",
     text: () => SIGN_IN,
   },

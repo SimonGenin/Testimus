@@ -208,9 +208,19 @@ function fitsAlone(entries: CatalogEntry[], machine: MachineProfile, lines?: Per
 }
 
 export function suggestPack(machine: MachineProfile | null, lines: PerfLine[] = []): string {
-  if (!machine?.ramTotalMB) return "light";
-  const free = releaseOurs(machine);
+  return suggestedVariant(machine, lines).pack;
+}
+
+// The pack proposed for this PC and the variant that earns it: the heaviest that fits, proven on this system, without
+// a GGUF or a processor fallback, else Light — its embedding and reranker are the models advised one by one
+export function suggestedVariant(
+  machine: MachineProfile | null,
+  lines: PerfLine[] = [],
+): { pack: string; variant: PackVariant } {
   const packs = catalog().packs;
+  const light = { pack: "light", variant: packs.find((p) => p.id === "light")?.variants[0] as PackVariant };
+  if (!machine?.ramTotalMB) return light;
+  const free = releaseOurs(machine);
   for (const id of PACK_ORDER) {
     const p = packs.find((x) => x.id === id);
     if (!p) continue;
@@ -223,8 +233,9 @@ export function suggestPack(machine: MachineProfile | null, lines: PerfLine[] = 
           ((!e.runtimes.includes("transformers") || e.kind === "reranker") && deviceFor(e, machine) === "cpu") ||
           (isGguf(e) && onIntegratedGpu(e, machine)),
       );
-      if (!slow && !processorFallback(p, i, machine) && fitsAlone(entries, free, lines)) return p.id;
+      if (!slow && !processorFallback(p, i, machine) && fitsAlone(entries, free, lines))
+        return { pack: p.id, variant: v };
     }
   }
-  return "light";
+  return light;
 }

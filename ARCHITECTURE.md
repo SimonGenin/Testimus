@@ -412,7 +412,7 @@ docs/<docId>/
     sentence within the engine's limit (170 of its 224 tokens; the rest is the passage before). Every term listed is
     sent (2026-11-10): the documents' list is cut to what fits before it is shown, and `project.set` refuses a list
     that does not fit (`glossary-too-long`; the size is counted the same way on the page, `src/shared/glossary.ts`).
-    `media.suggestGlossary` (Settings › Project › Videos › « Edit with Claude ») has Claude write the list from the
+    `media.suggestGlossary` (Settings › Videos › « Have Claude write it ») has Claude write the list from the
     documents and the counted candidates, with what the team asks, and saves it as the team's (a `media` run on the
     project; the prompt is « Write the glossary of the transcription »).
   - **Translation**: what was said in another language than the project's is translated by Claude (never by Whisper),
@@ -489,7 +489,7 @@ docs/<docId>/
   `media.keep` refuse it (`no-picture`). HEIC photos still wait (`LATER`).
 - **The room the videos take** (`lib/video/disk.ts`): before a video is copied in, the drive must hold it and half as
   much again for what is drawn from it, plus 200 MB (`shortOfRoom`) — never a drive found full halfway; and the team
-  may cap what the project's videos take (`project.json` `video.diskCapGB`, Settings › Project › Videos; `media.disk`
+  may cap what the project's videos take (`project.json` `video.diskCapGB`, Settings › Videos; `media.disk`
   says what they take): a video that would pass the cap is refused when it comes in (`disk-cap`), the estimate says
   so before, and nothing already there is ever removed or left unread because of the cap.
 - **Before a video is heard** (`media.estimate`): how long this PC takes (from what its last transcriptions measured
@@ -657,15 +657,16 @@ docs/<docId>/
   benchmark. `rrfWeights` = [words, meaning] scale each list's share of the fusion; `bm25Weights[3]` is the French
   stems column (0 turns French forms off); `typos` and `synonyms` below. Every setting is shared with the team: none is
   this PC's (a rerank threshold is already keyed by model id, so a PC with another reranker never takes it).
-- **Settings › Search** edits them as a **draft**: Ranking (candidates; « Words vs meaning » = `rrfWeights` [2, 1] ·
-  [1, 1] · [1, 2]; « Weight of codes and ids » = codes column 1 · 5; reranker Top N / « Above its threshold », only
-  when the models in use have a reranker; « Also bring » = `expand`; « Reset ranking » gives the ranking keys —
+- **Settings › Search** edits them as a **draft**: Ranking (« Words or meaning » = `rrfWeights` [2, 1] · [1, 1] ·
+  [1, 2]; « Codes and ids » = codes column 1 · 5; « Also bring » = `expand`; candidates; under Advanced the reranker's
+  depth — Top N / « Above its threshold », only when the models in use have a reranker — and the raw numbers;
+  « Back to the defaults » gives the ranking keys —
   candidates, rrfK, the word weights but the French forms column, rrfWeights, rerank, expand — back to defaults < pack,
-  never the Words card's typos and synonyms; the raw numbers under Advanced) and Words (French forms, accents and case
+  never the Words group's typos and synonyms) and Words (French forms, accents and case
   — always, the index folds them —, typos, synonym chips « a = b »). **Try it** runs `rag.search` with the draft as
   its `retrieval` override and `explain`; **Measure on the benchmark** runs `rag.measure` with it; **Save** sends
   `rag.setRetrieval` only the keys the draft changed from what is saved (`rerank` by its own keys) and, in `unset`, the
-  keys Reset ranking gave back that project.json still holds; the core writes them over project.json rag.retrieval
+  keys « Back to the defaults » gave back that project.json still holds; the core writes them over project.json rag.retrieval
   and keeps every other key — a page never rewrites the team's settings from this PC's pack (a colleague on another
   pack keeps what was set; a pack's later change still reaches a key the team never set). `retrieval: null` takes it
   all out. `rag.retrieval` reads defaults, pack, base, project, effective, the reranker in use and the glossary counts.
@@ -694,7 +695,8 @@ docs/<docId>/
   `rag.compare` on `search` at k = 10 by default — the adopt rule's verdict, with the two reports kept in
   `.testimus/eval/`.
 
-**Who uses what** (`models.usage`, the table « Who uses what on this PC » at the head of Settings › Search): every
+**Who uses what** (`models.usage`, the table « Who uses what on this PC », folded at the foot of Settings › Search under
+« Where search is used, and the filters it takes »): every
 user of the search declares, beside its own code, a `SearchUse` — who, when, words (BM25 and the document's structure)
 always · builds · no, the active embedding uses · builds · no, the active reranker uses · no (with why). Today:
 `CLAUDE_SEARCH` (`claude/access.ts`: Claude's runs through rag_search, rag_mentions, rag_related — words, the
@@ -764,8 +766,13 @@ above) and by naming only the wanted choice's models.
   `installed` all · some · none, `active` (search runs with it) and `chosen` (this PC's choice), and `notes` — one true
   sentence each, written by `lib/models-pack-notes.ts` (« Chosen here: … », « Variant « X » not chosen: <reason> »,
   « Fits this PC · 5.1 GB to download. », « Kept as the team reference; the Quality pack does not need it. »). The page
-  draws them with one `PackCard` (Settings › Models and the first launch) and a closed vocabulary of badges; it decides
-  nothing. The first launch keeps the pack this PC chose for the project picked; the core's `suggested` is only a badge
+  draws them with one `PackCard` (the first launch only) and a closed vocabulary of badges; it decides nothing.
+  **Settings › Models shows no pack**: the models one by one, by kind (Embeddings, Reranker, Transcription; LLM to
+  come), each kind's advised model first, then every other one. `models.catalog` says which (`advised`: the embedding
+  and reranker of the variant `suggestedVariant()` picks for this PC, `reason`: its fit in figures; `lib/models-advised.ts`),
+  how a reranker fits beside the embedding in use (`beside`, `pair`), and why a reranker on the processor is not
+  offered while the embedding is there too (`aside`); `models.dirs` says which llama.cpp build is installed
+  (`llamacpp`). A choice is `models.use`, for the open project on this PC. The first launch keeps the pack this PC chose for the project picked; the core's `suggested` is only a badge
   until nothing is chosen. A unit test proves every pack resolves with transformers.js and llama.cpp alone, and
   Light/Performance with transformers.js alone; `tests/unit/core/models/pack-notes.test.ts` checks every sentence.
 - **Runtimes** behind one seam (`probe`, `embed`, `rerank`): **transformers.js** in-process (CPU, DirectML; q8 models
@@ -1315,6 +1322,14 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
 
 ## 12. The page (UI)
 
+**Settings** is two groups of pages in its list: **This project** (Project, Smart columns, Claude — the dock's model
+and effort, the quick asks, the overview —, Context, Search, Videos; they need an open project and write its files)
+and **Testimus** (Claude Code — the program and the runs at once —, Jira and Xray, Models, Appearance, Updates,
+Changelog; this PC's, for every project, they work without one). Every page is one theme (`settings/Section.tsx`): a
+title and what the page is for, then Groups (a card whose head names it, with a note) of Rows, one setting each —
+its name, save state and hint on the left, its control on the right (`Field`/`Text`/`Select` `aside`, `Fact` for a
+state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a page at a group or a field.
+
 - **One data layer** (`src/ui/lib/data/`, TanStack Query): a read is cached under `[project, command, input]` (machine
   reads under `null`) until an event says it changed; a plan or dry run is never cached; an action is a mutation that
   reads again what it touched. **Autosave** is a mutation: 400 ms after the last key or on blur, one save in flight per
@@ -1457,7 +1472,7 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   engine doubted is confirmed or corrected after listening; Claude's proposals wait there), the key frames with
   their descriptions (corrected in place), « Keep the frame at … », « Hear again… » (what to hear, with what it
   costs) and the report of a new hearing; « Reference… » holds the minutes typed by hand and measures the models. A
-  PC that cannot play the original asks for the lighter copy by itself. Settings › Project › Videos holds the
+  PC that cannot play the original asks for the lighter copy by itself. Settings › Videos holds the
   languages expected, the translation, the density of key frames, the glossary, the seconds played around a cited
   range (`video.margin`, 4) and the room the videos may take. **A cited range plays as soon as its source is
   opened** (`autoPlay`: a refused `play()` leaves the player paused, without a word; a moment alone opens paused),

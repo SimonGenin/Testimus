@@ -168,7 +168,7 @@ export function copyMediaFiles(project: string, docId: string, picked: Picked[])
     if (over) {
       rejected.push({
         name,
-        why: `The project's videos take ${over.usedMB} MB of the ${over.capMB} MB the team allows them: this one does not fit. Raise the cap in Settings › Project › Videos (testimus project set --video.disk-cap-gb=<n>), or remove a video.`,
+        why: `The project's videos take ${over.usedMB} MB of the ${over.capMB} MB the project allows them: this one does not fit. Raise the cap in Settings › Videos (testimus project set --video.disk-cap-gb=<n>), or remove a video.`,
         code: "disk-cap",
       });
       continue;

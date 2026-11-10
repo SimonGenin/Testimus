@@ -32,12 +32,12 @@ describe("ProblemPanel", () => {
     expect(problemOf(new ApiError("refused", "check your Jira token")).access).toBe(true);
   });
 
-  it("points to Settings › Access for a refused token", () => {
+  it("points to Settings › Jira and Xray for a refused token", () => {
     const retry = vi.fn();
     const { state } = withData(<ProblemPanel error={new ApiError("Jira 403")} doing="Pull" onRetry={retry} />);
     expect(screen.getByText(/create a new API token/)).toBeInTheDocument();
     expect(screen.getByText(/Nothing was written to Jira/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open Settings › Access" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Settings › Jira and Xray" }));
     expect(state.navigate).toHaveBeenCalledWith("settings", "access");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(retry).toHaveBeenCalled();

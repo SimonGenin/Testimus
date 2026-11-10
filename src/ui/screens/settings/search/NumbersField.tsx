@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Text } from "../../../components/ui/Text.tsx";
 
 // ponytail: one number or a short list of them (« 1, 1, 5 ») typed in a Text — a value that does not parse keeps the
@@ -6,6 +6,8 @@ import { Text } from "../../../components/ui/Text.tsx";
 export function NumbersField({
   label,
   hint,
+  aside = false,
+  trailing,
   values,
   count,
   min = 0,
@@ -15,6 +17,8 @@ export function NumbersField({
 }: {
   label: string;
   hint?: string;
+  aside?: boolean;
+  trailing?: ReactNode;
   values: number[];
   count: [number, number];
   min?: number;
@@ -48,5 +52,7 @@ export function NumbersField({
     setSeen(nums.join(", "));
     onChange(nums);
   };
-  return <Text label={label} hint={hint} value={text} onChange={type} error={error} />;
+  return (
+    <Text aside={aside} label={label} hint={hint} trailing={trailing} value={text} onChange={type} error={error} />
+  );
 }

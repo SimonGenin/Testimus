@@ -18,6 +18,7 @@ import { color, space } from "../../styles/tokens.stylex.ts";
 import { AccessSection } from "./AccessSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { ChangelogSection } from "./ChangelogSection.tsx";
+import { ClaudeCodeSection } from "./ClaudeCodeSection.tsx";
 import { ClaudeSection } from "./ClaudeSection.tsx";
 import { ColumnsSection } from "./ColumnsSection.tsx";
 import { ContextSection } from "./ContextSection.tsx";
@@ -26,6 +27,7 @@ import { ProjectSection } from "./ProjectSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
 import { Section } from "./Section.tsx";
 import { UpdatesSection } from "./UpdatesSection.tsx";
+import { VideosSection } from "./VideosSection.tsx";
 
 const styles = stylex.create({
   screen: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 },
@@ -42,18 +44,26 @@ const styles = stylex.create({
 
 type Page = { id: string; label: string; icon: IconName; page: ComponentType; needsProject: boolean };
 
-const SECTIONS: Page[] = [
+// ponytail: two groups — what belongs to the open project (its folder), then Testimus itself on this PC, for every
+// project; « claude » is this PC's Claude Code (the program, the agents), « claudeproject » what the project asks of
+// Claude (the dock, the quick asks, the overview)
+const PROJECT: Page[] = [
   { id: "project", label: "Project", icon: "folder", page: ProjectSection, needsProject: true },
   { id: "columns", label: "Smart columns", icon: "columns", page: ColumnsSection, needsProject: true },
-  { id: "claude", label: "Claude", icon: "claude", page: ClaudeSection, needsProject: false },
+  { id: "claudeproject", label: "Claude", icon: "claude", page: ClaudeSection, needsProject: true },
   { id: "context", label: "Context", icon: "context", page: ContextSection, needsProject: true },
   { id: "search", label: "Search", icon: "search", page: SearchSection, needsProject: true },
+  { id: "videos", label: "Videos", icon: "play", page: VideosSection, needsProject: true },
+];
+const APP: Page[] = [
+  { id: "claude", label: "Claude Code", icon: "terminal", page: ClaudeCodeSection, needsProject: false },
+  { id: "access", label: "Jira and Xray", icon: "key", page: AccessSection, needsProject: false },
   { id: "models", label: "Models", icon: "cpu", page: ModelsSection, needsProject: false },
-  { id: "access", label: "Access", icon: "key", page: AccessSection, needsProject: false },
   { id: "appearance", label: "Appearance", icon: "sun", page: AppearanceSection, needsProject: false },
   { id: "updates", label: "Updates", icon: "download", page: UpdatesSection, needsProject: false },
   { id: "changelog", label: "Changelog", icon: "history", page: ChangelogSection, needsProject: false },
 ];
+const SECTIONS = [...PROJECT, ...APP];
 
 // ponytail: the sections on the left, the open one in the middle, Claude folded on the right
 const LAYOUT = layoutOf(
@@ -106,6 +116,10 @@ export function SettingsScreen() {
             <List
               label="Settings sections"
               items={SECTIONS}
+              groups={[
+                { label: "This project", keys: PROJECT.map((p) => p.id) },
+                { label: "Testimus", keys: APP.map((p) => p.id) },
+              ]}
               getKey={(s) => s.id}
               selected={section.id}
               onSelect={(id) => app.navigate("settings", id)}
@@ -131,7 +145,7 @@ export function SettingsScreen() {
             {!hasProject && section.needsProject ? (
               <Section id={section.id} title={section.label}>
                 <Card padded={false}>
-                  <NoProject text="Open a project to change its settings. Claude, Models, Access, Appearance, Updates and Changelog work without one." />
+                  <NoProject text="Open a project to change its settings. Claude Code, Jira and Xray, Models, Appearance, Updates and Changelog work without one." />
                 </Card>
               </Section>
             ) : (

@@ -99,7 +99,9 @@ describe("the room the project's videos may take", () => {
       P,
     );
     expect(e.disk).toMatchObject({ capMB: 2, over: true });
-    await expect(call("docs.add", { file: big, index: false }, P)).rejects.toThrow(/of the 2 MB the team allows them/);
+    await expect(call("docs.add", { file: big, index: false }, P)).rejects.toThrow(
+      /of the 2 MB the project allows them/,
+    );
     expect(existsSync(join(P, "docs", "essai", "files", "essai.mp4"))).toBe(false);
     await call("project.set", { video: { diskCapGB: 0 } }, P);
     const free = await call<{ disk: { capMB?: number; over: boolean } }>("media.estimate", { file: big }, P);

@@ -5,7 +5,7 @@ import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 async function openModels(page: Page) {
   await boot(page, "#/settings/models");
   const models = page.getByRole("region", { name: "Models", exact: true });
-  await expect(models.getByRole("article", { name: "Light pack" })).toBeVisible();
+  await expect(models.getByRole("table", { name: "Embedding models" })).toBeVisible();
   await top(models.getByRole("heading", { name: "Models", exact: true }));
   return models;
 }
@@ -25,149 +25,102 @@ async function sandbox(url: string): Promise<string> {
   return dirname((await api<{ dir: string }>(url, "project.info")).dir);
 }
 
+const group = (models: Locator, name: string) => models.getByRole("region", { name: new RegExp(`^${name}`) });
+const row = (models: Locator, table: string, name: string) =>
+  models
+    .getByRole("table", { name: table })
+    .getByRole("row", { name: new RegExp(`^${name.replace(/[()]/g, "\\$&")}`) });
+
 test.describe("default PC: a 16 GB GPU, a models folder", () => {
-  const server = mockServer(4360);
+  mockServer(4360);
 
-  test("the packs say what runs here, and the advice can be applied or dismissed", async ({ page }) => {
+  test("each kind: the model advised for this PC first, then every other one, the constraints said", async ({
+    page,
+  }) => {
     const models = await openModels(page);
-    const light = models.getByRole("article", { name: "Light pack" });
-    await expect(light).toContainText("In use");
-    await expect(light).toContainText("Installed");
-    await expect(light).not.toContainText("Not in use");
-    const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("Qwen3 Embedding 8B (4-bit) + Qwen3 Reranker 4B (8-bit, GGUF) · GPU");
-    const said = quality.getByRole("list", { name: "On this PC" });
-    await expect(said).toContainText("Chosen here: the first variant that fits (16.0 GB GPU).");
-    await expect(said).not.toContainText("not chosen");
-    await expect(quality).toContainText("Partly installed");
-    await expect(models.getByRole("article", { name: "Custom pack" })).toBeVisible();
-    const advice = models.getByRole("region", { name: "Advice" });
-    await expect(advice).toContainText("Performance pack");
-    await expect(advice).toContainText("under 20 %");
-    await shoot(page, "models-packs-e2e");
+    await expect(models.getByRole("article", { name: /pack$/ })).toHaveCount(0);
+    const emb = group(models, "Embeddings");
+    await expect(emb).toContainText("Advised for this PC");
+    await expect(emb).toContainText("Qwen3 Embedding 8B (4-bit)");
+    await expect(row(models, "Embedding models", "BGE-M3 (8-bit, CPU)")).toContainText("In use");
+    await expect(emb).toContainText("the vectors of a model already used are kept");
 
-    await advice.getByRole("button", { name: "Apply" }).click();
-    const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
-    await expect(plan).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
-    await plan.getByRole("button", { name: "Cancel" }).click();
-    await expect(plan).toBeHidden();
+    const rr = group(models, "Reranker");
+    await expect(rr).toContainText("Qwen3 Reranker 4B (8-bit, GGUF)");
+    await expect(row(models, "Reranker models", "None")).toContainText("In use");
+    const cpu = row(models, "Reranker models", "BGE Reranker v2 M3 (8-bit, CPU)");
+    await expect(cpu).toContainText("Not offered while the embedding runs on the processor");
+    await expect(cpu.getByRole("button", { name: "Use", exact: true })).toBeDisabled();
+    await expect(rr).toContainText(/llama\.cpp b\S+/);
 
-    await advice.getByRole("button", { name: "Dismiss" }).click();
-    await expect(models.getByRole("region", { name: "Advice" })).toHaveCount(0);
-    await page.reload();
-    await expect(page.getByRole("article", { name: "Light pack" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Advice" })).toHaveCount(0);
+    await expect(group(models, "Transcription")).toContainText("Advised for this PC");
+    await expect(group(models, "LLM")).toContainText("Soon");
+    await shoot(page, "models-e2e");
   });
 
-  test("Use this pack shows the plan, downloads in a job, then Use takes over", async ({ page }) => {
+  test("Use on a model not here: the plan, the download in a job, then it is in use", async ({ page }) => {
     const models = await openModels(page);
-    await models
-      .getByRole("article", { name: "Performance pack" })
-      .getByRole("button", { name: "Use this pack" })
-      .click();
-    const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
-    await expect(plan).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
-    await expect(plan).toContainText(join(await sandbox(server.url), "models"));
+    const name = "Qwen3 Embedding 0.6B (16-bit, DirectML)";
+    await row(models, "Embedding models", name).getByRole("button", { name: "Use", exact: true }).click();
+    const plan = page.getByRole("alertdialog", { name: `Download and use ${name}?` });
+    await expect(plan).toContainText("to download first");
+    await expect(plan).toContainText("indexed again with it");
     await shoot(page, "models-plan-e2e");
-    await plan.getByRole("button", { name: /^Download \S+ [MG]B$/ }).click();
+    await plan.getByRole("button", { name: /^Download \S+ [MG]B and use$/ }).click();
     await expect(plan).toBeHidden();
-    const card = models.getByRole("article", { name: "Performance pack" });
-    await expect(card.getByRole("status", { name: "Downloading Performance" })).toBeVisible();
     await expect(
-      models.getByRole("article", { name: "Balanced pack" }).getByRole("button", { name: "Use this pack" }),
-    ).toBeEnabled();
+      row(models, "Embedding models", name).getByRole("status", { name: `Downloading ${name}` }),
+    ).toBeVisible();
     await shoot(page, "models-download-e2e");
-    await expect(card).toContainText("Installed", { timeout: 30_000 });
-    await expect(card).not.toContainText("In use");
-    await card.getByRole("button", { name: "Use this pack" }).click();
-    await page
-      .getByRole("dialog", { name: "Use the Performance pack" })
-      .getByRole("button", { name: "Use Performance" })
-      .click();
-    await expect(card).toContainText("In use", { timeout: 30_000 });
-    await expect(card.getByRole("list", { name: "On this PC" })).not.toContainText("not chosen");
-    const light = models.getByRole("article", { name: "Light pack" });
-    await expect(light).not.toContainText("In use");
-    await expect(light).toContainText("Not in use");
-    await expect(light).toContainText("Installed, not in use: the Performance pack does not need it.");
-  });
-
-  test("the model table is folded, then lists the catalog with what is on this PC", async ({ page }) => {
-    const models = await openModels(page);
-    const fold = models.getByRole("button", { name: "Model catalog" });
-    await expect(fold).toHaveAttribute("aria-expanded", "false");
-    await expect(models.getByRole("table", { name: "Model catalog" })).toHaveCount(0);
-    await fold.click();
-    const table = models.getByRole("table", { name: "Model catalog" });
-    await expect(table.getByRole("row", { name: "BGE-M3 (8-bit, CPU)" })).toContainText("Verify");
-    await expect(table.getByRole("row", { name: "Qwen3 Reranker 4B (8-bit, GGUF)" })).toContainText("Install");
-    await top(table.getByRole("row", { name: "BGE-M3 (8-bit, CPU)" }));
-    await shoot(page, "models-table-e2e");
-    const row = table.getByRole("row", { name: "Qwen3 Reranker 4B (8-bit, GGUF)" });
-    await row.getByRole("button", { name: "Install" }).click();
-    const plan = page.getByRole("alertdialog", { name: "Download Qwen3 Reranker 4B (8-bit, GGUF)?" });
-    await expect(plan).toContainText("to download");
-    await plan.getByRole("button", { name: /^Download / }).click();
-    await expect(row.getByRole("button", { name: "Verify" })).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(row(models, "Embedding models", name)).toContainText("In use", { timeout: 30_000 });
+    await expect(row(models, "Embedding models", "BGE-M3 (8-bit, CPU)")).not.toContainText("In use");
   });
 });
 
 test.describe("a 4 GB GPU", () => {
   mockServer(4361, { TESTIMUS_MOCK_MACHINE: "gpu-small" });
 
-  test("a pack that runs partly on the processor asks first, and offers a lighter one", async ({ page }) => {
+  test("a reranker that does not fit beside the embedding says why and asks first, offering a lighter one", async ({
+    page,
+  }) => {
     const models = await openModels(page);
-    const quality = models.getByRole("article", { name: "Quality pack" });
-    await expect(quality).toContainText("Partly on the processor");
-    await expect(quality.getByRole("list", { name: "On this PC" })).toContainText(
-      "not chosen: needs 11.4 GB of GPU memory, this PC has 4.0 GB.",
-    );
-    const balancedCard = models.getByRole("article", { name: "Balanced pack" });
-    const balancedSaid = balancedCard.getByRole("list", { name: "On this PC" });
-    await expect(balancedSaid).toContainText("Chosen here: the first variant that fits (on the processor");
-    await expect(balancedSaid).toContainText("not chosen: needs 6.1 GB of GPU memory, this PC has 4.0 GB.");
-    await quality.getByRole("button", { name: "Use this pack" }).click();
-    const ask = page.getByRole("dialog", { name: "Use the Quality pack anyway?" });
+    await expect(group(models, "Embeddings")).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
+    const big = row(models, "Reranker models", "Qwen3 Reranker 4B (8-bit, GGUF)");
+    await expect(big).toContainText("partly on the processor");
+    await big.getByRole("button", { name: "Use", exact: true }).click();
+    const ask = page.getByRole("dialog", { name: "Use Qwen3 Reranker 4B (8-bit, GGUF) anyway?" });
     await expect(ask).toContainText("Partly on the processor");
     await expect(ask).toContainText("Your GPU has 4.0 GB");
     await shoot(page, "models-fit-gpu-e2e");
     await ask.getByRole("button", { name: "Choose a lighter one" }).click();
-    // Balanced would run on the processor here (its two 0.6B GGUF take 3.6 GB): the lighter one offered is Performance
-    const lighter = page.getByRole("dialog", { name: /^(Use|Download) the Performance pack$/ });
-    await expect(lighter).toContainText("Qwen3 Embedding 0.6B (16-bit, DirectML)");
+    const lighter = page.getByRole("alertdialog", { name: /^(Download and use|Use) .*\?$/ });
+    await expect(lighter).toBeVisible();
     await lighter.getByRole("button", { name: "Cancel" }).click();
     await expect(lighter).toBeHidden();
-    await quality.getByRole("button", { name: "Use this pack" }).click();
-    await ask.getByRole("button", { name: "Use anyway" }).click();
-    await expect(page.getByRole("dialog", { name: "Download the Quality pack" })).toBeVisible();
   });
 });
 
 test.describe("no GPU and 6 GB of memory", () => {
   mockServer(4362, { TESTIMUS_MOCK_MACHINE: "cpu-only" });
 
-  test("variants too big for the memory are left aside with the numbers, and a model too big is refused", async ({
+  test("no reranker is offered beside an embedding on the processor, and a model too big is refused", async ({
     page,
   }) => {
     const models = await openModels(page);
-    const quality = models.getByRole("article", { name: "Quality pack" });
-    const said = quality.getByRole("list", { name: "On this PC" });
-    await expect(said).toContainText("Chosen here: no variant fits comfortably, this one runs with the least trouble.");
-    await expect(quality).toContainText("Tight");
-    await expect(said).toContainText("of memory, this PC has 6.0 GB.");
-    await models.getByRole("button", { name: "Model catalog" }).click();
-    const table = models.getByRole("table", { name: "Model catalog" });
-    await table
-      .getByRole("row", { name: "Qwen3 Embedding 8B (4-bit)" })
-      .getByRole("button", { name: "Use", exact: true })
-      .click();
-    const ask = page.getByRole("dialog", { name: /^Qwen3 Embedding 8B .* cannot run on this PC$/ });
-    await expect(ask).toContainText("RAM too small");
-    await expect(ask.getByRole("button", { name: "Use anyway" })).toHaveCount(0);
+    const rr = group(models, "Reranker");
+    await expect(rr).toContainText("With the embedding advised on the processor, a reranker would slow every query");
+    await expect(
+      row(models, "Reranker models", "Qwen3 Reranker 0.6B (8-bit, GGUF)").getByRole("button", {
+        name: "Use",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    // a model too big for the memory is refused where it is listed: the numbers under its name, its Use disabled
+    const big = row(models, "Embedding models", "Qwen3 Embedding 8B (4-bit)");
+    await expect(big).toContainText("of memory; this PC has 6.0 GB");
+    await expect(big.getByRole("button", { name: "Use", exact: true })).toBeDisabled();
+    await top(big);
     await shoot(page, "models-fit-ram-e2e");
-    await ask.getByRole("button", { name: "Cancel" }).click();
   });
 });
 
@@ -178,26 +131,19 @@ test.describe("first download, no models folder chosen", () => {
     const root = await sandbox(server.url);
     const models = await openModels(page);
     await expect(models).toContainText("Not chosen yet — Testimus asks on the first download.");
-    await models
-      .getByRole("article", { name: "Performance pack" })
-      .getByRole("button", { name: "Use this pack" })
-      .click();
+    await expect(group(models, "Reranker")).toContainText("llama.cpp not installed");
+    await expect(group(models, "Reranker").getByRole("button", { name: "Download llama.cpp" })).toBeVisible();
+    const name = "Qwen3 Embedding 0.6B (16-bit, DirectML)";
+    await row(models, "Embedding models", name).getByRole("button", { name: "Use", exact: true }).click();
     const where = page.getByRole("dialog", { name: "Where should models be stored?" });
     await typeFolder(where, join(root, "first-models"));
     await expect(where.getByRole("status")).toContainText("free on");
     await shoot(page, "models-folder-first-e2e");
     await where.getByRole("button", { name: "Store models here" }).click();
-    const plan = page.getByRole("dialog", { name: "Download the Performance pack" });
-    await expect(plan).toContainText(join(root, "first-models"));
-    await plan.getByRole("button", { name: /^Download \S+ [MG]B$/ }).click();
-    const card = models.getByRole("article", { name: "Performance pack" });
-    await expect(card).toContainText("Installed", { timeout: 30_000 });
-    await card.getByRole("button", { name: "Use this pack" }).click();
-    await page
-      .getByRole("dialog", { name: "Use the Performance pack" })
-      .getByRole("button", { name: "Use Performance" })
-      .click();
-    await expect(card).toContainText("In use", { timeout: 30_000 });
+    const plan = page.getByRole("alertdialog", { name: `Download and use ${name}?` });
+    await plan.getByRole("button", { name: /^Download \S+ [MG]B and use$/ }).click();
+    await expect(row(models, "Embedding models", name)).toContainText("In use", { timeout: 30_000 });
+    await expect(models).toContainText(join(root, "first-models"));
 
     await models.getByRole("button", { name: "Change…" }).first().click();
     const change = page.getByRole("dialog", { name: "Change the models folder" });

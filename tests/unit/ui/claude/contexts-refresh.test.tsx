@@ -113,7 +113,7 @@ const everywhere = async () => {
   if (details) fireEvent.click(details);
   return {
     dock: screen.getByRole("complementary", { name: "Claude" }),
-    settings: await screen.findByRole("listbox", { name: "What Claude is given" }),
+    settings: await screen.findByRole("tree", { name: "What Claude is given" }),
   };
 };
 
@@ -129,7 +129,7 @@ describe("a saved context changed where it is ticked shows at once everywhere it
   it("renamed in its editor, from the test's Context: the test header, the graphs and Settings › Context all say the new name", async () => {
     const { dock, settings } = await everywhere();
     expect(await screen.findByRole("button", { name: "Remove Glossary" })).toBeInTheDocument();
-    expect(await within(settings).findByRole("option", { name: /Glossary/ })).toBeInTheDocument();
+    expect(await within(settings).findByRole("treeitem", { name: /Glossary/ })).toBeInTheDocument();
 
     const graph = await graphOfTest();
     const row = within(graph).getByRole("checkbox", { name: "Glossary" }).closest("li") as HTMLElement;
@@ -148,7 +148,7 @@ describe("a saved context changed where it is ticked shows at once everywhere it
     expect(await within(graph).findByRole("checkbox", { name: "Lexique" })).toBeChecked();
     done(graph);
     expect(await screen.findByRole("button", { name: "Remove Lexique" })).toBeInTheDocument();
-    expect(await within(settings).findByRole("option", { name: /Lexique/ })).toBeInTheDocument();
+    expect(await within(settings).findByRole("treeitem", { name: /Lexique/ })).toBeInTheDocument();
     fireEvent.click(within(dock).getByRole("button", { name: /^Context/ }));
     const ofDock = await screen.findByRole("dialog", { name: "Context" });
     expect(await within(ofDock).findByRole("checkbox", { name: "Lexique" })).toBeChecked();
@@ -161,8 +161,8 @@ describe("a saved context changed where it is ticked shows at once everywhere it
       return { ...detail("ctx-n"), notes: "" };
     };
     const { settings } = await everywhere();
-    await within(settings).findByRole("option", { name: /Glossary/ });
-    expect(within(settings).queryByRole("option", { name: /New context/ })).toBeNull();
+    await within(settings).findByRole("treeitem", { name: /Glossary/ });
+    expect(within(settings).queryByRole("treeitem", { name: /New context/ })).toBeNull();
     fireEvent.focus(await screen.findByRole("combobox", { name: "Claude contexts" }));
     expect(screen.queryByRole("option", { name: "New context" })).toBeNull();
 
@@ -176,6 +176,6 @@ describe("a saved context changed where it is ticked shows at once everywhere it
     expect(await within(graph).findByRole("checkbox", { name: "New context" })).toBeChecked();
     done(graph);
     expect(await screen.findByRole("button", { name: "Remove New context" })).toBeInTheDocument();
-    expect(await within(settings).findByRole("option", { name: /New context/ })).toBeInTheDocument();
+    expect(await within(settings).findByRole("treeitem", { name: /New context/ })).toBeInTheDocument();
   });
 });

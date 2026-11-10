@@ -78,7 +78,7 @@ describe("a service left out at the first launch", () => {
     expect(rows.jira).toMatchObject({
       state: "skip",
       detail: "not used: you chose to work without Jira",
-      fix: "Connect it in Settings › Access when you need it.",
+      fix: "Connect it in Settings › Jira and Xray when you need it.",
       action: { command: "system.setCredentials" },
     });
     expect(rows.xray.state).toBe("skip");

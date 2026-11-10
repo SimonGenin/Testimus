@@ -55,11 +55,13 @@ test("settings save the smart column preferences and the editor honours them", a
     .click();
   await expect(page.getByRole("textbox", { name: "Jira project" })).toHaveCount(0);
   const fields = page.getByRole("region", { name: "Smart columns" });
-  const dataFold = fields.getByRole("radiogroup", { name: "Data folding" });
+  await fields.getByRole("button", { name: "Open Data" }).click();
+  const dataFold = fields.getByRole("radiogroup", { name: "Data in the editor" });
   await expect(dataFold.getByRole("radio", { name: "When filled" })).toBeChecked();
   await shoot(page, "settings");
 
   await dataFold.getByRole("radio", { name: "Open" }).click();
+  await fields.getByRole("button", { name: "Open Exigence" }).click();
   await fields.getByRole("button", { name: "Move Exigence up" }).click();
   type Columns = { columns: { name: string; mode: string }[] };
   await expect

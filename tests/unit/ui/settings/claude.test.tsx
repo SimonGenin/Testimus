@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
+import { ClaudeCodeSection } from "../../../../src/ui/screens/settings/ClaudeCodeSection.tsx";
 import { exeLine } from "../../../../src/ui/screens/settings/ClaudeProgram.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
@@ -47,7 +48,7 @@ afterEach(reset);
 
 const exeField = () => screen.getByLabelText(label("Claude program"));
 
-describe("Settings › Claude › Connection", () => {
+describe("Settings › Claude Code › Program", () => {
   it("exeLine says found or not found", () => {
     const s = (o: Record<string, unknown>) => o as Parameters<typeof exeLine>[0];
     expect(exeLine(s({ installed: true, version: "2.1.0", signedIn: true }))).toBe("2.1.0");
@@ -64,7 +65,7 @@ describe("Settings › Claude › Connection", () => {
       if (i.refresh) throw new Fail("spawn failed");
       return { installed: true, version: "2.0", signedIn: true };
     };
-    const { app } = mountSettings(<ClaudeSection />, { info: null });
+    const { app } = mountSettings(<ClaudeCodeSection />, { info: null });
     expect(await screen.findByText("2.0")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Found2.0");
     expect(iconsIn(screen.getByText("Found"))).toEqual(["check-circle"]);
@@ -85,7 +86,7 @@ describe("Settings › Claude › Connection", () => {
     expect(app.navigate).toHaveBeenCalledWith("doctor");
     net.routes["claude.status"] = () => ({ installed: true, signedIn: true });
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
-    expect(await screen.findByText("Claude Code")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("FoundClaude Code"));
   });
 
   it("a check whose save fails checks nothing; Check spins while claude --version runs", async () => {
@@ -93,7 +94,7 @@ describe("Settings › Claude › Connection", () => {
     net.routes["system.set"] = () => {
       throw new Fail("Not writable.");
     };
-    mountSettings(<ClaudeSection />, { info: null });
+    mountSettings(<ClaudeCodeSection />, { info: null });
     const exe = exeField();
     await waitFor(() => expect(exe).toHaveValue("X:/old.exe"));
     await screen.findByText("2.1.0");
@@ -110,11 +111,11 @@ describe("Settings › Claude › Connection", () => {
     expect(await screen.findByText("Running claude --version…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check" })).toHaveAttribute("aria-busy", "true");
     answer({ installed: true, signedIn: true });
-    expect(await screen.findByText("Claude Code")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("FoundClaude Code"));
   });
 
   it("checks the Claude program and shows how to connect it when not found", async () => {
-    mountSettings(<ClaudeSection />, { info: null });
+    mountSettings(<ClaudeCodeSection />, { info: null });
     expect(await screen.findByText("2.1.0")).toBeInTheDocument();
     net.routes["claude.status"] = (i) => {
       expect(i).toEqual({ refresh: true });
@@ -130,7 +131,7 @@ describe("Settings › Claude › Connection", () => {
   });
 
   it("a Claude program path typed but not left is saved when Settings goes, once, as in Xray Editor", async () => {
-    const r = mountSettings(<ClaudeSection />, { info: null });
+    const r = mountSettings(<ClaudeCodeSection />, { info: null });
     await waitFor(() => expect(calls("system.settings")).toHaveLength(1));
     await screen.findByText("2.1.0");
     fireEvent.change(exeField(), { target: { value: "D:\\tools\\claude.cmd" } });
@@ -138,7 +139,7 @@ describe("Settings › Claude › Connection", () => {
     r.unmount();
     await waitFor(() => expect(calls("system.set")).toHaveLength(1));
     expect(inputs("system.set")[0]).toEqual({ claudeExe: "D:\\tools\\claude.cmd" });
-    const again = mountSettings(<ClaudeSection />, { info: null });
+    const again = mountSettings(<ClaudeCodeSection />, { info: null });
     await screen.findByText("2.1.0");
     again.unmount();
     await new Promise((res) => setTimeout(res, 20));
@@ -147,7 +148,7 @@ describe("Settings › Claude › Connection", () => {
 
   it("Browse… picks claude.exe, saves it, then checks it; a cancel does nothing", async () => {
     const d = fakeDesktop({ files: [] });
-    mountSettings(<ClaudeSection />, { info: null });
+    mountSettings(<ClaudeCodeSection />, { info: null });
     const browse = await screen.findByRole("button", { name: "Browse…" });
     await waitFor(() => expect(browse).toBeEnabled());
     fireEvent.click(browse);
@@ -168,7 +169,7 @@ describe("Settings › Claude › Connection", () => {
   });
 
   it("without the bridge: the text field and Check only", async () => {
-    mountSettings(<ClaudeSection />, { info: null });
+    mountSettings(<ClaudeCodeSection />, { info: null });
     expect(exeField()).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Browse/ })).toBeNull();
@@ -176,9 +177,9 @@ describe("Settings › Claude › Connection", () => {
   });
 });
 
-describe("Settings › Claude › agents at once", () => {
+describe("Settings › Claude Code › runs at once", () => {
   it("saves the maximum when left (refusing a number out of range) and the adapting at once", async () => {
-    mountSettings(<ClaudeSection />);
+    mountSettings(<ClaudeCodeSection />);
     const max = screen.getByRole("textbox", { name: label("Agents at once") });
     await waitFor(() => expect(max).toBeEnabled());
     expect(max).toHaveValue("5");
@@ -207,7 +208,7 @@ describe("Settings › Claude › agents at once", () => {
     };
     const j = fakeJob({ id: "agents-0000000a", kind: "agents-test" });
     net.routes["system.testAgents"] = () => ({ jobId: j.id });
-    mountSettings(<ClaudeSection />);
+    mountSettings(<ClaudeCodeSection />);
     const test = await screen.findByRole("button", { name: "Test this PC's limits" });
     await waitFor(() => expect(test).toBeEnabled());
     fireEvent.click(test);
@@ -231,7 +232,7 @@ describe("Settings › Claude › agents at once", () => {
     net.routes["system.testAgents"] = () => {
       throw new Fail("The project has no index yet.");
     };
-    mountSettings(<ClaudeSection />);
+    mountSettings(<ClaudeCodeSection />);
     const test = await screen.findByRole("button", { name: "Test this PC's limits" });
     await waitFor(() => expect(test).toBeEnabled());
     fireEvent.click(test);
@@ -245,26 +246,26 @@ describe("Settings › Claude › agents at once", () => {
   });
 
   it("is off without a project", () => {
-    mountSettings(<ClaudeSection />, { info: null });
+    mountSettings(<ClaudeCodeSection />, { info: null });
     expect(screen.getByRole("button", { name: "Test this PC's limits" })).toBeDisabled();
   });
 
   it("finds a test still running when the section opens again, and cannot start a second one", async () => {
     const j = fakeJob({ id: "agents-0000000c", kind: "agents-test" });
     net.routes["system.testAgents"] = () => ({ jobId: j.id });
-    const first = mountSettings(<ClaudeSection />);
+    const first = mountSettings(<ClaudeCodeSection />);
     const test = await screen.findByRole("button", { name: "Test this PC's limits" });
     await waitFor(() => expect(test).toBeEnabled());
     fireEvent.click(test);
     await screen.findByText("Measuring the PC at rest");
     first.unmount();
-    const again = mountSettings(<ClaudeSection />);
+    const again = mountSettings(<ClaudeCodeSection />);
     expect(await screen.findByText("Measuring the PC at rest")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Testing…" })).toBeDisabled();
     again.unmount();
     clearDrafts();
     net.routes["jobs.list"] = () => [{ id: j.id, kind: "agents-test", subject: "", status: "running", startedAt: "" }];
-    mountSettings(<ClaudeSection />);
+    mountSettings(<ClaudeCodeSection />);
     expect(await screen.findByText("Measuring the PC at rest")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Testing…" })).toBeDisabled();
     expect(calls("system.testAgents")).toHaveLength(1);
@@ -274,21 +275,19 @@ describe("Settings › Claude › agents at once", () => {
 describe("Settings › Claude › dock defaults, quick asks", () => {
   it("model and effort are saved at once", async () => {
     mountSettings(<ClaudeSection />);
-    choose(await screen.findByLabelText("Default model"), "opus");
+    choose(await screen.findByLabelText("Model"), "opus");
     await waitFor(() => expect(inputs("project.set")[0]).toEqual({ claude: { model: "opus" } }));
-    choose(screen.getByRole("combobox", { name: "Default effort" }), "Max");
+    const effort = screen.getByRole("radiogroup", { name: "Default effort" });
+    fireEvent.click(within(effort).getByRole("radio", { name: "Max" }));
     await waitFor(() => expect(inputs("project.set")[1]).toEqual({ claude: { effort: "max" } }));
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Default effort" })).toHaveTextContent("Max"));
-    const wrap = (el: HTMLElement) => el.parentElement?.getAttribute("class");
-    expect(wrap(screen.getByLabelText("Default model"))).toBe(
-      wrap(screen.getByRole("combobox", { name: "Default effort" })),
-    );
+    await waitFor(() => expect(within(effort).getByRole("radio", { name: "Max" })).toBeChecked());
+    expect(screen.getByRole("region", { name: "Claude dock" })).toBeInTheDocument();
   });
 
   it("a model saved before that the list does not know is shown as it is, with no field to type one", async () => {
     project = claude({ model: "claude-opus-4-1" });
     mountSettings(<ClaudeSection />);
-    const model = await screen.findByLabelText("Default model");
+    const model = await screen.findByLabelText("Model");
     expect(model).toHaveTextContent("claude-opus-4-1");
     expect(screen.queryByRole("textbox", { name: "Custom model" })).toBeNull();
     choose(model, "fable");
@@ -303,7 +302,11 @@ describe("Settings › Claude › dock defaults, quick asks", () => {
       ],
     });
     mountSettings(<ClaudeSection />);
-    const second = await screen.findByRole("group", { name: "Quick ask 2" });
+    const shown = await screen.findByRole("group", { name: "Quick ask 2" });
+    expect(within(shown).getByText("two")).toBeInTheDocument();
+    expect(within(shown).queryByRole("textbox")).toBeNull();
+    fireEvent.click(within(shown).getByRole("button", { name: "Edit" }));
+    const second = screen.getByRole("group", { name: "Quick ask 2" });
     const chip = within(second).getByRole("textbox", { name: label("Chip") });
     fireEvent.change(chip, { target: { value: "  " } });
     fireEvent.blur(chip);
@@ -321,6 +324,8 @@ describe("Settings › Claude › dock defaults, quick asks", () => {
         },
       }),
     );
+    fireEvent.click(within(screen.getByRole("group", { name: "Quick ask 1" })).getByRole("button", { name: "Edit" }));
+    expect(within(screen.getByRole("group", { name: "Quick ask 2" })).queryByRole("textbox")).toBeNull();
     const prompt = within(screen.getByRole("group", { name: "Quick ask 1" })).getByRole("textbox", {
       name: label("Prompt"),
     });
@@ -336,6 +341,8 @@ describe("Settings › Claude › dock defaults, quick asks", () => {
         },
       }),
     );
+    fireEvent.click(within(screen.getByRole("group", { name: "Quick ask 1" })).getByRole("button", { name: "Done" }));
+    expect(within(screen.getByRole("group", { name: "Quick ask 1" })).getByText("Do it")).toBeInTheDocument();
     expect(iconsIn(screen.getByRole("button", { name: "Remove quick ask 1" }))).toEqual(["trash"]);
     fireEvent.click(screen.getByRole("button", { name: "Remove quick ask 1" }));
     const sure = await screen.findByRole("alertdialog", { name: "Remove the quick ask « Same »?" });

@@ -19,16 +19,16 @@ export const same = (a: unknown, b: unknown) => stable(a) === stable(b);
 
 const RANKING: Key[] = ["candidates", "rrfK", "bm25Weights", "rrfWeights", "rerank", "expand"];
 
-// ponytail: Reset ranking keeps the French forms column, which the Words card sets (bm25Weights[3])
+// ponytail: Back to the defaults keeps the French forms column, which the Words group sets (bm25Weights[3])
 function rankingOf(base: Retrieval, value: Retrieval): Partial<Retrieval> {
   const words = base.bm25Weights.slice(0, 3);
   const bm25Weights = value.bm25Weights[3] === 0 ? [...words, 0] : words;
   return { ...Object.fromEntries(RANKING.map((k) => [k, base[k]])), bm25Weights };
 }
 
-// ponytail: what Save sends — only what the draft changed from what is saved, and the keys Reset ranking gave back
-// to the defaults and this PC's pack that project.json still holds; the core writes them over project.json, so a key
-// a colleague set (or that this PC's pack happens to match) is never rewritten
+// ponytail: what Save sends — only what the draft changed from what is saved, and the keys Back to the defaults gave
+// back that project.json still holds; the core writes them over project.json, so a key already there (even one the
+// base happens to match) is never rewritten
 function changesOf(read: RetrievalRead, draft: Retrieval, resets: Key[]) {
   const unset = resets.filter((k) => read.project && k in read.project && same(draft[k], read.base[k]));
   const retrieval: Record<string, unknown> = {};
@@ -47,7 +47,7 @@ function changesOf(read: RetrievalRead, draft: Retrieval, resets: Key[]) {
 }
 
 // ponytail: the settings being edited — Try it and Measure run with them before they are kept; Save writes them to
-// project.json (rag.setRetrieval), Discard goes back to what is saved, Reset ranking to the defaults and the pack's
+// project.json (rag.setRetrieval), Discard goes back to what is saved, Back to the defaults to the base ranking
 export function useRetrievalDraft() {
   const client = useQueryClient();
   const read = useRead("rag.retrieval", {});
@@ -80,7 +80,7 @@ export function useRetrievalDraft() {
         invalidates: [["rag.retrieval"], ["project.info"], ["rag.search"]],
       });
       discard();
-      toast({ tone: "success", title: "Search settings saved", detail: "In project.json, shared with the team." });
+      toast({ tone: "success", title: "Search settings saved", detail: "In project.json." });
     } catch (e) {
       errorToast(e, "Could not save the search settings");
     } finally {

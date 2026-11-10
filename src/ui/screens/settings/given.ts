@@ -25,25 +25,28 @@ export const heldChars = (pieces: Piece[]) => pieces.filter(held).reduce((n, p) 
 export const slots = (text: string) => [...new Set(text.match(/\{[A-Za-z][^{}\n":]*\}/g) ?? [])];
 
 // ponytail: one row of the section's list — a run (a prompt Testimus builds and sends), a piece that goes with runs
-// (a skill, a project file, a template), or a saved context: the team's own piece, the one kind edited here
+// (a skill, a project file, a template), or a saved context: the part the user writes, the one kind edited here
 export type Entry =
   | { key: string; kind: "run"; group: string; given: Run }
   | { key: string; kind: "piece"; group: string; given: Given }
   | { key: string; kind: "context"; group: string; context: ContextSummary; isDefault: boolean; notes: string };
 
-export const CONTEXTS = "Saved contexts";
+export const CONTEXTS = "This project's contexts";
+export const EVERY_RUN = "Every run";
 
 export const ORIGIN: Record<Given["origin"], string> = {
   skill: "Skill",
-  built: "Built by Testimus",
+  built: "Built per run",
   file: "File",
   context: "Context",
 };
 
 // ponytail: the saved contexts first — all of them, a default or not (claude.prompts lists only the defaults, as
-// files: they are left out for the library's own rows) — then what the core lists, in its order
+// files: they are left out for the library's own rows) — then what goes with every run, then what the core lists, in
+// its order
 export function entriesOf(prompts: Given[], contexts: ContextSummary[], defaults: string[]): Entry[] {
   const notes = new Map(prompts.filter((p) => p.origin === "context").map((p) => [p.id, p.text]));
+  const listed = prompts.filter((p) => p.origin !== "context");
   return [
     ...contexts.map(
       (c): Entry => ({
@@ -55,14 +58,12 @@ export function entriesOf(prompts: Given[], contexts: ContextSummary[], defaults
         notes: notes.get(`context:${c.id}`) ?? "",
       }),
     ),
-    ...prompts
-      .filter((p) => p.origin !== "context")
-      .map(
-        (p): Entry =>
-          isRun(p)
-            ? { key: p.id, kind: "run", group: p.group, given: p }
-            : { key: p.id, kind: "piece", group: p.group, given: p },
-      ),
+    ...[...listed.filter((p) => p.group === EVERY_RUN), ...listed.filter((p) => p.group !== EVERY_RUN)].map(
+      (p): Entry =>
+        isRun(p)
+          ? { key: p.id, kind: "run", group: p.group, given: p }
+          : { key: p.id, kind: "piece", group: p.group, given: p },
+    ),
   ];
 }
 

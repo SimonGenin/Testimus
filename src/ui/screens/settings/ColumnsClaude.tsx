@@ -191,19 +191,19 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
         title={
           <span {...stylex.props(styles.title)}>
             <Icon name="claude" />
-            Ask Claude about the columns
+            Ask Claude to review the columns
           </span>
         }
       >
         <Stack>
           <p {...stylex.props(type.compact, styles.intro)}>
-            Claude reads the columns, Xray's step fields, the tests, the documents and the contexts, and proposes what
-            each column should hold. Nothing changes until you apply a proposal.
+            Claude reads the columns, Xray's step fields, the tests and the documents, then proposes what each column
+            should hold. Nothing changes until you apply a proposal.
           </p>
           <ClaudeBlock
             id="colclaude-ask"
             ariaLabel="What the columns should hold"
-            placeholder="What the columns should hold, in your words — e.g. « each step should say which operator position it uses ». Empty: review them all."
+            placeholder="What the columns should hold, in your words, e.g. each step should say which operator position it uses. Empty: review them all."
             value={ask}
             onChange={setAsk}
             allowEmpty

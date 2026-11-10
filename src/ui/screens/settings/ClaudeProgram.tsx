@@ -14,7 +14,7 @@ import { desktop, examplePath, onWindows, pickFiles } from "../../lib/desktop.ts
 import { message } from "../../lib/format.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { useSetSettings, useSettings } from "./machine.ts";
-import { Stack } from "./Section.tsx";
+import { Fact, Row } from "./Section.tsx";
 
 const styles = stylex.create({
   row: { display: "flex", alignItems: "center", gap: space.s3, flexWrap: "wrap" },
@@ -62,79 +62,87 @@ export function ClaudeProgram() {
   const st = status.data;
   const exe = settings.data?.claude.exe ?? "";
   return (
-    <Stack>
-      <Text
-        id="settings-claude-exe"
-        label="Claude program"
-        value={exe}
-        saveKey={saveKey}
-        delay="blur"
-        save={async (value) => {
-          if (value.trim() === (settings.data?.claude.exe ?? "")) return;
-          await setSettings({ claudeExe: value.trim() });
-        }}
-        spellCheck={false}
-        placeholder={`Found on PATH — or ${examplePath("C:\\Users\\me\\AppData\\Roaming\\npm\\claude.cmd", "/Users/you/.local/bin/claude")}`}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void check();
-        }}
-        trailing={
-          desktop() ? (
-            <Button
-              size="sm"
-              variant="quiet"
-              label="Browse…"
-              disabled={!settings.data}
-              onClick={() =>
-                void pickFiles(
-                  "Choose the Claude program",
-                  onWindows() ? [{ name: "Programs", extensions: ["exe", "cmd"] }] : [],
-                  false,
-                ).then(async ([picked]) => {
-                  if (!picked) return;
-                  setChecking(true);
-                  try {
-                    await setSettings({ claudeExe: picked });
-                  } catch {
-                    setChecking(false);
-                    return;
-                  }
-                  await check();
-                })
-              }
+    <>
+      <Row>
+        <Fact label="State" hint="Asked of claude --version when Testimus starts.">
+          <div {...stylex.props(styles.row)}>
+            {checking ? (
+              <span role="status" {...stylex.props(type.code, styles.line)}>
+                Running claude --version…
+              </span>
+            ) : (
+              st && (
+                <span role="status" title={st.detail} {...stylex.props(styles.row)}>
+                  {st.installed ? (
+                    <Badge label="Found" tone="success" icon="check-circle" />
+                  ) : (
+                    <Badge label="Not found" tone="danger" icon="x-circle" />
+                  )}
+                  <span {...stylex.props(type.code, styles.line)}>{exeLine(st)}</span>
+                </span>
+              )
+            )}
+            <Button size="sm" icon="verify" label="Check" loading={checking} onClick={() => void check()} />
+          </div>
+          {st && !checking && !st.installed && (
+            <ConnectClaude
+              look="panel"
+              status={st}
+              checking={false}
+              onCheck={() => void check()}
+              onSetPath={() => document.getElementById("settings-claude-exe")?.focus()}
+              onDoctor={() => app.navigate("doctor")}
             />
-          ) : undefined
-        }
-      />
-      <div {...stylex.props(styles.row)}>
-        <Button size="sm" icon="verify" label="Check" loading={checking} onClick={() => void check()} />
-        {checking ? (
-          <span role="status" {...stylex.props(type.code, styles.line)}>
-            Running claude --version…
-          </span>
-        ) : (
-          st && (
-            <span role="status" title={st.detail} {...stylex.props(styles.row)}>
-              {st.installed ? (
-                <Badge label="Found" tone="success" icon="check-circle" />
-              ) : (
-                <Badge label="Not found" tone="danger" icon="x-circle" />
-              )}
-              <span {...stylex.props(type.code, styles.line)}>{exeLine(st)}</span>
-            </span>
-          )
-        )}
-      </div>
-      {st && !checking && !st.installed && (
-        <ConnectClaude
-          look="panel"
-          status={st}
-          checking={false}
-          onCheck={() => void check()}
-          onSetPath={() => document.getElementById("settings-claude-exe")?.focus()}
-          onDoctor={() => app.navigate("doctor")}
+          )}
+        </Fact>
+      </Row>
+      <Row>
+        <Text
+          aside
+          id="settings-claude-exe"
+          label="Claude program"
+          hint="Empty: the one found on PATH. Saved when you leave the field."
+          value={exe}
+          saveKey={saveKey}
+          delay="blur"
+          save={async (value) => {
+            if (value.trim() === (settings.data?.claude.exe ?? "")) return;
+            await setSettings({ claudeExe: value.trim() });
+          }}
+          spellCheck={false}
+          placeholder={`Found on PATH — or ${examplePath("C:\\Users\\me\\AppData\\Roaming\\npm\\claude.cmd", "/Users/you/.local/bin/claude")}`}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void check();
+          }}
+          trailing={
+            desktop() ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                label="Browse…"
+                disabled={!settings.data}
+                onClick={() =>
+                  void pickFiles(
+                    "Choose the Claude program",
+                    onWindows() ? [{ name: "Programs", extensions: ["exe", "cmd"] }] : [],
+                    false,
+                  ).then(async ([picked]) => {
+                    if (!picked) return;
+                    setChecking(true);
+                    try {
+                      await setSettings({ claudeExe: picked });
+                    } catch {
+                      setChecking(false);
+                      return;
+                    }
+                    await check();
+                  })
+                }
+              />
+            ) : undefined
+          }
         />
-      )}
-    </Stack>
+      </Row>
+    </>
   );
 }

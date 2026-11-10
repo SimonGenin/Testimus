@@ -250,7 +250,7 @@ describe("Jobs screen", () => {
     rerenderWith({ route: { screen: "jobs", arg: "j1" } });
     const push = await waitFor(() => detail("Push to Jira job"));
     expect(within(push).queryByRole("button", { name: "Open the system check" })).toBeNull();
-    fireEvent.click(within(push).getByRole("button", { name: "Open Settings › Access" }));
+    fireEvent.click(within(push).getByRole("button", { name: "Open Settings › Jira and Xray" }));
     expect(state.navigate).toHaveBeenLastCalledWith("settings", "access");
   });
 

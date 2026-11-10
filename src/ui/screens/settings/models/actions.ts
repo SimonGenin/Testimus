@@ -4,10 +4,8 @@ import type { Fit } from "../../../../core/types.ts";
 import { ApiError } from "../../../lib/data/client.ts";
 import { execute, key, type Prefix, read } from "../../../lib/data/query.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
-import type { Bench } from "./BenchDialog.tsx";
-import type { AdviceRow, CatalogRow, Installed, PackRow, RagStatus, UsePackOut } from "./data.ts";
+import type { CatalogRow, Installed, PackRow, RagStatus, UsePackOut } from "./data.ts";
 import { isInstalled, size } from "./data.ts";
-import { MEASURE } from "./ops.tsx";
 
 export type FitAsk = {
   name: string;
@@ -32,6 +30,8 @@ export type ModelAsk = {
 export type Plan = { row: PackRow; out: UsePackOut; accept?: boolean };
 
 type Pick = { embedding?: string; reranker?: string | null; accept?: boolean };
+
+const NO_FOLDER = "models-dir-unset";
 
 /** what downloading, checking or removing a model needs of it: a search model's catalog row, or a transcription model */
 export type ModelRef = { id: string; label: string; sizeMB: number; fit?: Fit | null; kind?: string };
@@ -69,7 +69,6 @@ export function useModelActions(o: {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [removing, setRemoving] = useState<{ row: ModelRef; inst: Installed } | null>(null);
-  const [benches, setBenches] = useState<Record<string, Bench>>({});
   const fx = { invalidates: MODEL_READS };
 
   const planPack = async (row: PackRow, accept = false) => {
@@ -134,7 +133,7 @@ export function useModelActions(o: {
       toast({ tone: "success", title: `${row.label} pack chosen for this project` });
       o.start(jobId, row.id, "models-usePack", `Installing ${row.label}`);
     } catch (e) {
-      if (e instanceof ApiError && e.code === "models-dir-unset") {
+      if (e instanceof ApiError && e.code === NO_FOLDER) {
         setPlan(null);
         setFolder({
           needMB: plan.out.plan.download.reduce((a, d) => a + d.sizeMB, 0),
@@ -146,31 +145,32 @@ export function useModelActions(o: {
     }
   };
 
-  const pull = async (r: ModelRef) => {
+  // ponytail: then — the model is used once its download is done (« Download and use »)
+  const pull = async (r: ModelRef, then?: () => void) => {
     try {
       const out = await execute(client, "models.pull", { model: r.id }, fx);
       setAsk(null);
-      o.start(out.jobId, r.id, "models-pull", `Downloading ${r.label}`);
+      o.start(out.jobId, r.id, "models-pull", `Downloading ${r.label}`, then && (() => then()));
     } catch (e) {
-      if (!(e instanceof ApiError && e.code === "models-dir-unset")) throw e;
+      if (!(e instanceof ApiError && e.code === NO_FOLDER)) throw e;
       setAsk(null);
-      setFolder({ needMB: r.sizeMB, next: () => askPull(r) });
+      setFolder({ needMB: r.sizeMB, next: () => askPull(r, then) });
     }
   };
 
-  const askPull = (r: ModelRef) =>
+  const askPull = (r: ModelRef, then?: () => void) =>
     setAsk({
-      title: `Download ${r.label}?`,
-      text: `Onto this PC${o.dir ? `, into ${o.dir}` : ""}. Nothing changes for the project until you use it.`,
+      title: then ? `Download and use ${r.label}?` : `Download ${r.label}?`,
+      text: `Onto this PC${o.dir ? `, into ${o.dir}` : ""}. ${then ? "It is used as soon as it is downloaded." : "Nothing changes for the project until you use it."}`,
       consequences: [[size(r.sizeMB), "to download"]],
       verb: `Download ${size(r.sizeMB)}`,
       icon: "download",
-      go: () => pull(r),
+      go: () => pull(r, then),
     });
 
-  const install = (r: ModelRef, chosen = false) => {
+  const install = (r: ModelRef, then?: () => void, chosen = false) => {
     if (!chosen && o.dir === null) {
-      setFolder({ needMB: r.sizeMB, next: () => install(r, true) });
+      setFolder({ needMB: r.sizeMB, next: () => install(r, then, true) });
       return;
     }
     if (r.fit && r.fit.verdict !== "fits")
@@ -180,10 +180,10 @@ export function useModelActions(o: {
         fit: r.fit,
         processorOnly: false,
         lighter: null,
-        go: () => askPull(r),
+        go: () => askPull(r, then),
         lighterGo: () => {},
       });
-    else askPull(r);
+    else askPull(r, then);
   };
 
   const applyModels = async (name: string, pick: Pick) => {
@@ -197,22 +197,25 @@ export function useModelActions(o: {
     if (out.indexJob) o.start(out.indexJob, "index", "rag-index", "Indexing the documents");
   };
 
-  const askUse = (name: string, pick: Pick, reindex: boolean) => {
+  // ponytail: download: the model is not on this PC yet — the plan says so, and the download comes first, then the use
+  const askUse = (name: string, pick: Pick, reindex: boolean, download?: CatalogRow) => {
     const docs = o.status?.docs?.length ?? 0;
+    const apply = () => applyModels(name, pick).catch((e) => errorToast(e, `Could not use ${name}`));
     setAsk({
-      title: `Use ${name} for this project?`,
+      title: download ? `Download and use ${name}?` : `Use ${name} for this project?`,
       text: "On this PC only: nothing changes for your colleagues.",
-      consequences: reindex
-        ? [
-            [
+      consequences: [
+        ...(download ? [[size(download.sizeMB), "to download first"] as [string, string]] : []),
+        reindex
+          ? [
               docs || "The",
               `${docs === 1 ? "document is" : "documents are"} indexed again with it (a job; search keeps working on words meanwhile)`,
-            ],
-          ]
-        : [["No", "index to rebuild: the documents keep their vectors"]],
-      verb: `Use ${name}`,
-      icon: "check",
-      go: () => applyModels(name, pick),
+            ]
+          : ["No", "index to rebuild: the documents keep their vectors"],
+      ],
+      verb: download ? `Download ${size(download.sizeMB)} and use` : `Use ${name}`,
+      icon: download ? "download" : "check",
+      go: () => (download ? pull(download, () => void apply()) : applyModels(name, pick)),
     });
   };
 
@@ -221,10 +224,11 @@ export function useModelActions(o: {
     name: string,
     pick: Pick,
     lighterOf: (id: string | null) => { label: string; go: () => void } | null = () => null,
+    download?: CatalogRow,
   ) => {
     try {
       const dry = await read(client, "models.use", { ...pick, dryRun: true });
-      if (dry.fit.verdict === "fits") return askUse(name, pick, dry.reindex);
+      if (dry.fit.verdict === "fits") return askUse(name, pick, dry.reindex, download);
       const lighter = lighterOf(dry.lighter);
       setFitAsk({
         name,
@@ -232,7 +236,7 @@ export function useModelActions(o: {
         fit: dry.fit,
         processorOnly: false,
         lighter: lighter?.label ?? null,
-        go: () => askUse(name, { ...pick, accept: true }, dry.reindex),
+        go: () => askUse(name, { ...pick, accept: true }, dry.reindex, download),
         lighterGo: () => lighter?.go(),
       });
     } catch (e) {
@@ -240,9 +244,10 @@ export function useModelActions(o: {
     }
   };
 
-  const chooseModel = async (r: CatalogRow) => {
+  // ponytail: a reranker of null is « None »; a model not on this PC is downloaded first, the folder asked for first
+  const chooseModel = async (r: CatalogRow | null, chosen = false) => {
     const current = o.status && o.status.embedding !== "none" ? o.status.embedding : undefined;
-    if (r.kind === "reranker" && !current) {
+    if ((!r || r.kind === "reranker") && !current) {
       toast({
         tone: "danger",
         title: "Choose an embedding model first",
@@ -250,16 +255,22 @@ export function useModelActions(o: {
       });
       return;
     }
+    if (!r) return chooseModels("No reranker", { reranker: null });
+    const download = isInstalled(r.state) ? undefined : r;
+    if (download && !chosen && o.dir === null) {
+      setFolder({ needMB: r.sizeMB, next: () => void chooseModel(r, true) });
+      return;
+    }
     const pick = r.kind === "embedding" ? { embedding: r.id } : { reranker: r.id };
-    await chooseModels(r.label, pick, (id) => {
-      const lighter = o.catalog?.find((c) => c.id === id);
-      return lighter
-        ? {
-            label: lighter.label,
-            go: () => (isInstalled(lighter.state) ? void chooseModel(lighter) : install(lighter)),
-          }
-        : null;
-    });
+    await chooseModels(
+      r.label,
+      pick,
+      (id) => {
+        const lighter = o.catalog?.find((c) => c.id === id);
+        return lighter ? { label: lighter.label, go: () => void chooseModel(lighter) } : null;
+      },
+      download,
+    );
   };
 
   const verify = async (r: ModelRef) => {
@@ -290,37 +301,6 @@ export function useModelActions(o: {
     });
   };
 
-  const applyAdvice = (a: AdviceRow) => {
-    if ("pack" in a.to) {
-      const row = o.packs?.find((p) => p.id === (a.to as { pack: string }).pack);
-      if (row) choosePack(row);
-      return;
-    }
-    const to = a.to as { embedding: string; reranker?: string | null };
-    const label = (id: string) => o.catalog?.find((c) => c.id === id)?.label ?? id;
-    const pick: Pick = { embedding: to.embedding, reranker: to.reranker ?? null };
-    void chooseModels(to.reranker ? `${label(to.embedding)} + ${label(to.reranker)}` : label(to.embedding), pick);
-  };
-
-  const dismiss = (a: AdviceRow) =>
-    void execute(client, "models.dismissAdvice", { id: a.id }, { invalidates: [["models.advice"]] }).catch((e) =>
-      errorToast(e, "Could not dismiss the advice"),
-    );
-
-  const measure = async (row: PackRow) => {
-    setBenches((b) => ({ ...b, [row.id]: { jobId: "", status: "running" } }));
-    try {
-      const { jobId } = await execute(client, "models.measure", { pack: row.id }, { invalidates: [["jobs.list"]] });
-      setBenches((b) => ({ ...b, [row.id]: { jobId, status: "running" } }));
-      o.start(jobId, `${MEASURE}${row.id}`, "models-measure", "Measuring");
-    } catch (e) {
-      setBenches((b) => ({ ...b, [row.id]: { jobId: "", status: "failed", error: (e as Error).message } }));
-    }
-  };
-
-  const benchEnded = (pack: string, jobId: string, status: Bench["status"], error?: string) =>
-    setBenches((b) => ({ ...b, [pack]: { jobId, status, error } }));
-
   return {
     fitAsk,
     setFitAsk,
@@ -333,7 +313,6 @@ export function useModelActions(o: {
     planning,
     removing,
     setRemoving,
-    benches,
     planPack,
     choosePack,
     confirmPack,
@@ -341,9 +320,5 @@ export function useModelActions(o: {
     chooseModel,
     verify,
     remove,
-    applyAdvice,
-    dismiss,
-    measure,
-    benchEnded,
   };
 }

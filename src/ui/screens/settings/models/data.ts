@@ -1,5 +1,5 @@
 import type { CommandOutput } from "../../../../core/commands/index.ts";
-import type { FitVerdict, RagChoice } from "../../../../core/types.ts";
+import type { Fit, FitVerdict, RagChoice } from "../../../../core/types.ts";
 import type { BadgeTone } from "../../../components/ui/Badge.tsx";
 import type { IconName } from "../../../components/ui/Icon.tsx";
 
@@ -12,6 +12,7 @@ export type UsePlan = UsePackOut["plan"];
 export type AdviceRow = CommandOutput<"models.advice">[number];
 export type SetDirOut = CommandOutput<"models.planDir">;
 export type Hardware = CommandOutput<"models.hardware">;
+export type Dirs = CommandOutput<"models.dirs">;
 export type Speech = CommandOutput<"models.speech">;
 export type SpeechModel = Speech["models"][number];
 export type RagStatus = CommandOutput<"rag.status">;
@@ -105,32 +106,50 @@ export const NOT_IN_USE: Vocab = { tone: "neutral", icon: "circle-dashed", label
 export const IN_USE: Vocab = { tone: "success", icon: "check", label: "In use" };
 export const PROCESSOR_ONLY: Vocab = { tone: "warning", icon: "cpu", label: "Processor only" };
 export const SUGGESTED: Vocab = { tone: "neutral", icon: "target", label: "Suggested for this PC" };
-export const ADVISED: Vocab = { tone: "accent", icon: "target", label: "Advised for this PC" };
 
-// ponytail: a transcription model's speed is seconds of video heard in a second — said as a factor, and as the time
-// an hour of video takes
-export function speedFactor(speed: number): string {
-  return `× ${speed >= 10 ? Math.round(speed) : Math.round(speed * 10) / 10}`;
+// ponytail: where a model runs here and what it takes there, from its fit — « Card, 1.4 GB » or « Processor, 1.1 GB »
+export function runsOn(fit: Fit): string {
+  return fit.device === "gpu" ? `Card, ${size(fit.needMB.vram)}` : `Processor, ${size(fit.needMB.ram)}`;
 }
 
+export function roomOf(fit: Fit): [string, string] {
+  return fit.device === "gpu" ? ["On the card", size(fit.needMB.vram)] : ["In memory", size(fit.needMB.ram)];
+}
+
+const TIER: Record<string, string> = {
+  light: "Light: runs on any PC",
+  standard: "Between speed and precision",
+  quality: "The most precise, and the heaviest",
+};
+
+// ponytail: what a search model is, said from the catalog's facts — the catalog has no sentence for it
+export function aboutModel(r: CatalogRow): string {
+  const runtime = r.runtimes.includes("transformers") ? "no llama.cpp needed" : "runs through llama.cpp";
+  return `${TIER[r.tier] ?? r.tier} · ${runtime}`;
+}
+
+// ponytail: what a transcription model is good for, said from its name — the catalog has no sentence for it
+export function aboutSpeech(m: SpeechModel): string {
+  const what = /turbo/i.test(m.label)
+    ? "The best text"
+    : /small/i.test(m.label)
+      ? "For a modest PC: faster, more mistakes on the project's own words"
+      : "";
+  return [what, `${m.languages} languages`, m.licence].filter(Boolean).join(" · ");
+}
+
+// ponytail: a transcription model's speed is seconds of video heard in a second — said as the time an hour of video
+// takes here
 export function hourIn(speed: number): string {
   const minutes = 60 / speed;
-  if (minutes < 1) return "an hour in under a minute";
-  if (minutes >= 90) return `an hour in about ${Math.round(minutes / 6) / 10} h`;
-  return `an hour in about ${Math.round(minutes)} min`;
-}
-
-// ponytail: the memory a model takes where it runs here, beside what is free there — the short form of fit.message
-export function fitMemory(fit: SpeechModel["fit"]): string {
-  const onCard = fit.device === "gpu";
-  const need = onCard ? fit.needMB.vram : fit.needMB.ram;
-  const free = onCard ? fit.freeMB.vram : fit.freeMB.ram;
-  return `${size(need)} ${onCard ? "on the card" : "of memory"}${free === null ? "" : `, ${size(free)} free`}`;
+  if (minutes < 1) return "Under a minute";
+  if (minutes >= 90) return `About ${Math.round(minutes / 6) / 10} h`;
+  return `About ${Math.round(minutes)} min`;
 }
 
 export const ORIGIN: Record<Activation, string> = {
   machine: "This PC's choice",
-  reference: "The team reference",
+  reference: "The project's reference",
   light: "The Light pack (default)",
   none: "None: lexical search only",
 };

@@ -62,13 +62,13 @@ describe("search palette, the rest of its ways", () => {
     expect(screen.getByRole("combobox", { name: "Search" })).toBeInTheDocument();
   });
 
-  it("« Choose a search pack » closes the palette and opens Settings › Search", async () => {
+  it("« Choose the search models » closes the palette and opens Settings › Search", async () => {
     net.routes["rag.status"] = () => ({ degraded: "No embedding model", activation: "none", chunks: 4 });
     net.routes["search.all"] = () => result([hit("T-1")]);
     const onClose = vi.fn();
     const { state } = palette(onClose);
     fireEvent.change(screen.getByRole("combobox", { name: "Search" }), { target: { value: "frein" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Choose a search pack" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Choose the search models" }));
     expect(onClose).toHaveBeenCalled();
     expect(state.navigate).toHaveBeenCalledWith("settings", "search");
   });

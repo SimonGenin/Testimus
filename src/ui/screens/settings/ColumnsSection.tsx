@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CommandInput } from "../../../core/commands/index.ts";
-import type { ColumnMode, ColumnShow, StepColumn } from "../../../core/types.ts";
+import type { ColumnShow, StepColumn } from "../../../core/types.ts";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Loading } from "../../components/ui/Loading.tsx";
@@ -14,37 +14,50 @@ import type { Save } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import { execute, type Key, key, type Prefix } from "../../lib/data/query.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
-import { color, space } from "../../styles/tokens.stylex.ts";
+import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { ColumnCard, columnFieldId } from "./ColumnCard.tsx";
 import { ColumnsClaude } from "./ColumnsClaude.tsx";
 import { NewColumn } from "./NewColumn.tsx";
 import { type Info, useInfo } from "./project.ts";
-import { Section } from "./Section.tsx";
+import { Group, Row, Section } from "./Section.tsx";
 
 const styles = stylex.create({
-  list: { display: "flex", flexDirection: "column", gap: space.s5, margin: 0, padding: 0, listStyle: "none" },
+  list: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none" },
+  item: {
+    containerType: "inline-size",
+    borderTopStyle: "solid",
+    borderTopWidth: border.width,
+    borderTopColor: color.border,
+  },
+  open: { backgroundColor: color.canvas },
   dragging: { opacity: 0.5 },
   read: { color: color.textMuted },
   plain: { margin: 0 },
+  acts: { display: "flex", gap: space.s2, flexWrap: "wrap" },
 });
 
 const READS: Prefix[] = [["project.info"], ["columns.list"], ["tests.folds"]];
-
-// ponytail: a column's mode, hidden or not, shows what it folds to when shown — Data and a field off in Xray show
-// when filled, the others open (the core's defaults)
-const shownMode = (c: StepColumn, off: boolean): ColumnMode =>
-  c.mode !== "hidden" ? c.mode : c.name === "Data" || off ? "filled" : "open";
 
 export function ColumnsSection() {
   const app = useApp();
   const client = useQueryClient();
   const info = useInfo();
   const [drag, setDrag] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [removing, setRemoving] = useState<StepColumn | null>(null);
   const columns = info.data?.columns ?? [];
   const fields = info.data?.xray.fields ?? [];
   const order = columns.map((c) => c.name);
+
+  useEffect(() => {
+    if (!focus) return;
+    const field = document.getElementById(columnFieldId(focus));
+    field?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    field?.focus();
+    setFocus(null);
+  }, [focus]);
 
   const patchColumns = (next: (cols: StepColumn[]) => StepColumn[]) => (c: typeof client) => {
     const k = key("project.info", {}) as unknown as readonly unknown[];
@@ -112,6 +125,11 @@ export function ColumnsSection() {
       },
     ).catch((e) => errorToast(e, "Could not save the column"));
 
+  const describeColumn = (column: string) => {
+    setOpen(column);
+    setFocus(column);
+  };
+
   const descriptionOf = (c: StepColumn): { saveKey: Key; save: Save<string> } => {
     const saveKey: Key = [project(), "project.info", { column: c.name }];
     return {
@@ -138,18 +156,14 @@ export function ColumnsSection() {
   const fetchedAt = info.data?.xray.fetchedAt;
   const noKey = !!info.data && !info.data.project.jiraProject?.trim();
   const fresh = columns.filter((c) => c.status === "new").map((c) => c.name);
-  const focusColumn = (name: string) => {
-    const field = document.getElementById(columnFieldId(name));
-    field?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-    field?.focus();
-  };
+  const first = fresh[0];
   const gone = columns.filter((c) => c.status === "gone").map((c) => c.name);
   const fieldOf = (c: StepColumn) => fields.find((f) => (c.id ? f.id === c.id : f.name === c.name));
   return (
     <Section
       id="columns"
       title="Smart columns"
-      intro="Each step of a test is made of these columns. The description is what Claude is told to write in it — leave it empty and Claude never fills the column."
+      intro="The columns of a test step. Claude fills a column from its description; a column with no description stays empty."
       actions={
         <>
           {fetchedAt && (
@@ -187,31 +201,47 @@ export function ColumnsSection() {
       {(fresh.length > 0 || gone.length > 0) && (
         <Banner
           tone="warning"
-          title={fresh.length ? `Found in Xray, not described yet: ${fresh.join(", ")}` : undefined}
           actions={
-            fresh.length > 0 ? (
-              <Button size="sm" label="Describe it" onClick={() => focusColumn(fresh[0])} />
-            ) : undefined
+            first && (
+              <span {...stylex.props(styles.acts)}>
+                <Button
+                  size="sm"
+                  label={fresh.length === 1 ? "Describe it" : `Describe ${first}`}
+                  onClick={() => describeColumn(first)}
+                />
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  label={fresh.length === 1 ? "Leave it empty" : `Leave ${first} empty`}
+                  onClick={() => leaveEmpty(first)}
+                />
+              </span>
+            )
           }
         >
-          {fresh.length > 0 &&
-            `Xray has ${fresh.length === 1 ? "this step field" : "these step fields"}: describe what Claude writes in ${fresh.length === 1 ? "it" : "each"}, or leave it empty and Claude never fills it. `}
+          {fresh.length === 1 &&
+            `${first} is a step field in Xray with no description yet. Say what Claude writes in it, or leave it empty for good. `}
+          {fresh.length > 1 &&
+            `${fresh.join(", ")} are step fields in Xray with no description yet. Say what Claude writes in each, or leave it empty for good. `}
           {gone.length > 0 && `No longer in Xray, kept as local columns: ${gone.join(", ")}.`}
         </Banner>
       )}
-      <ColumnsClaude columns={columns} />
-      {!info.data ? (
-        <>
-          <Skeleton kind="block" />
-          <Loading read="project.info" />
-        </>
-      ) : (
-        <ul aria-label="Smart columns" {...stylex.props(styles.list)}>
-          {columns.map((c, i) => {
-            const field = fieldOf(c);
-            return (
+      <Group
+        title="Columns of a step"
+        note="Drag to reorder. The order is the order in the editor."
+        footer={<NewColumn reads={READS} />}
+      >
+        {!info.data ? (
+          <Row>
+            <Skeleton kind="block" />
+            <Loading read="project.info" />
+          </Row>
+        ) : (
+          <ul aria-label="Smart columns" {...stylex.props(styles.list)}>
+            {columns.map((c, i) => (
               <li
                 key={c.name}
+                aria-label={c.name}
                 draggable
                 data-dragging={drag === c.name || undefined}
                 onDragStart={(e) => {
@@ -226,30 +256,27 @@ export function ColumnsSection() {
                   setDrag(null);
                 }}
                 onDragEnd={() => setDrag(null)}
-                {...stylex.props(drag === c.name && styles.dragging)}
+                {...stylex.props(styles.item, open === c.name && styles.open, drag === c.name && styles.dragging)}
               >
                 <ColumnCard
                   column={c}
-                  field={field}
-                  mode={shownMode(c, !!field?.disabled)}
+                  field={fieldOf(c)}
+                  open={open === c.name}
+                  onToggle={() => setOpen(open === c.name ? null : c.name)}
                   first={i === 0}
                   last={i === columns.length - 1}
                   description={descriptionOf(c)}
-                  onMode={(m) => setModes({ [c.name]: m })}
-                  onHidden={(h) =>
-                    setModes({ [c.name]: (h ? "hidden" : shownMode(c, !!field?.disabled)) as ColumnShow })
-                  }
+                  onMode={(m: ColumnShow) => setModes({ [c.name]: m })}
                   onReferenceSource={(on) => saveReference(c.name, on)}
                   onMove={(by) => move(c.name, i + by)}
                   onRemove={c.origin === "local" ? () => setRemoving(c) : undefined}
-                  onLeaveEmpty={() => leaveEmpty(c.name)}
                 />
               </li>
-            );
-          })}
-        </ul>
-      )}
-      <NewColumn reads={READS} />
+            ))}
+          </ul>
+        )}
+      </Group>
+      <ColumnsClaude columns={columns} />
       {removing && (
         <Modal
           size="sm"

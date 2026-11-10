@@ -16,10 +16,16 @@ export const packLabel = (id: string) => `${id.charAt(0).toUpperCase()}${id.slic
 
 export const MEASURE = "measure:";
 
-// ponytail: the transcription engine and ffmpeg are downloaded by models-pull jobs too: their subject is their key
+// ponytail: the transcription engine, ffmpeg and llama.cpp are downloaded by models-pull jobs too: their subject is
+// their key
 export const WHISPER = "whisper.cpp";
 export const FFMPEG = "ffmpeg";
-const ENGINES: Record<string, string> = { [WHISPER]: "the transcription engine", [FFMPEG]: "ffmpeg" };
+export const LLAMA = "llama.cpp";
+const ENGINES: Record<string, string> = {
+  [WHISPER]: "the transcription engine",
+  [FFMPEG]: "ffmpeg",
+  [LLAMA]: "llama.cpp",
+};
 
 function found(j: Job, name: (id: string) => string): Started | null {
   if (j.kind === "models-usePack") return { key: j.subject, kind: j.kind, label: `Installing ${packLabel(j.subject)}` };

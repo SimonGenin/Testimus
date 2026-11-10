@@ -219,10 +219,21 @@ afterEach(() => {
   noDesktop();
 });
 
-const list = () => screen.getByRole("listbox", { name: "What Claude is given" });
-const row = (name: RegExp) => within(list()).getByRole("option", { name });
+const list = () => screen.getByRole("tree", { name: "What Claude is given" });
+const row = (name: RegExp) => within(list()).getByRole("treeitem", { name });
+// ponytail: the list's lines as they read — a group's head (level 1, open or folded, its count) and the rows under it
+const lines = () =>
+  within(list())
+    .getAllByRole("treeitem")
+    .map((r) => `${r.getAttribute("aria-level")} ${r.getAttribute("aria-expanded") ?? "-"} ${r.textContent}`);
+const items = () =>
+  within(list())
+    .getAllByRole("treeitem")
+    .filter((r) => r.getAttribute("aria-level") === "2");
+const head = (label: string) => within(list()).getByRole("treeitem", { name: new RegExp(`^${label}\\s*\\d+$`) });
 const card = (name: string) => screen.getByRole("region", { name });
-const part = (name: string) => screen.getByRole("region", { name });
+const group = (name: RegExp) => screen.getByRole("region", { name });
+const TOUCH = /^What it may touch, what it gives back$/;
 // ponytail: a table's rows as they read — the piece and its kind, why, how, the weight — without the words of a tooltip
 const rowsOf = (table: string) =>
   within(screen.getByRole("table", { name: table }))
@@ -241,41 +252,51 @@ const rowsOf = (table: string) =>
 
 async function mount() {
   const r = mountSettings(<ContextSection />);
-  await within(list()).findAllByRole("option");
+  await within(list()).findAllByRole("treeitem");
   return r;
 }
 
 describe("Settings › Context", () => {
-  it("lists the saved contexts first, then what the core lists by use, and shows the first run", async () => {
+  it("lists this project's contexts first, then what goes with every run, then the runs by use; only the picked one's group is open", async () => {
     await mount();
-    const rows = within(list()).getAllByRole("option");
-    expect(rows.map((r) => r.textContent)).toEqual([
-      "House styleDefaultContextShared library · notes",
-      "Untitled contextContextThis project · 1 file",
-      "Generate testsSkillgenerate-tests",
-      "Generation requestRungenerate",
-      "Check testSkillcheck-test",
-      "Sign-in probeBuilt by Testimusper run",
-      "Project rulesFileCLAUDE.md",
+    expect(lines()).toEqual([
+      "1 true This project's contexts2",
+      "2 - House styleDefaultShared library · notes",
+      "2 - Untitled contextThis project · 1 file",
+      "1 true Every run1",
+      "2 - Project rulesCLAUDE.md",
+      "1 true Generation2",
+      "2 - Generate testsSkill",
+      "2 - Generation requestRun",
+      "1 false Check and fix1",
+      "1 false System check1",
     ]);
-    expect(
-      within(list())
-        .getAllByRole("group")
-        .map((g) => g.getAttribute("aria-label")),
-    ).toEqual(["Saved contexts", "Generation", "Check and fix", "System check", "Every run"]);
-    expect(within(list()).getAllByRole("option", { name: /House style/ })).toHaveLength(1);
+    expect(within(list()).getAllByRole("treeitem", { name: /House style/ })).toHaveLength(1);
     expect(row(/Generation request/)).toHaveAttribute("aria-selected", "true");
     expect(card("Generation request")).toBeInTheDocument();
     expect(calls("claude.preview").map((c) => c.input)).toEqual([{ use: "generate" }]);
+    fireEvent.click(head("Check and fix"));
+    expect(head("Check and fix")).toHaveAttribute("aria-expanded", "true");
+    expect(head("Generation")).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(row(/Check test/));
+    expect(card("Check test")).toBeInTheDocument();
+    expect(head("Generation")).toHaveAttribute("aria-expanded", "false");
+    expect(within(list()).queryByRole("treeitem", { name: /Generation request/ })).toBeNull();
+    expect(head("Check and fix")).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(head("Check and fix"));
+    expect(within(list()).queryByRole("treeitem", { name: /Check test/ })).toBeNull();
+    expect(head("This project's contexts")).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("a run's card says when it is sent, what Claude is asked, what goes with it and why, and what it weighs", async () => {
+  it("a run's detail says when it is sent, what it weighs, what Claude is asked, what goes with it and why", async () => {
     await mount();
-    const sent = within(card("Generation request")).getByText("Sent by").closest("dl") as HTMLElement;
-    expect(sent).toHaveAccessibleName("When it is sent");
-    expect(sent).toHaveTextContent("Sent byGenerate · gen.tests");
-    expect(sent).toHaveTextContent("Kind of rungenerate — it decides the tools and what goes with the run");
+    const run = card("Generation request");
+    expect(run).toHaveTextContent("Sent byGenerate · gen.tests");
+    expect(run).toHaveTextContent("Kind of rungenerate — it decides the tools and what goes with the run");
     await screen.findByRole("button", { name: /Project rules/ });
+    expect(run).toHaveTextContent(
+      "WeightClaude holds ~1.2k tokens as the run starts: what is said, loaded or read first. 1 document more to search, never sent whole.",
+    );
     expect(rowsOf("What Claude is asked")).toEqual([
       "Generation requestInstruction | What Testimus asks of this run, with your request | Said in full | ~200 tokens · 17 %",
       "Generate testsSkill | The method of the job: the instruction names it | Loaded by Claude Code | ~600 tokens · 50 %",
@@ -284,8 +305,17 @@ describe("Settings › Context", () => {
       "Project rulesProject file | CLAUDE.md of the project folder | Loaded by Claude Code | ~300 tokens · 25 %",
       "House styleSaved context | A default of the project | Said in full | ~100 tokens · 8 %",
       "Untitled contextSaved context | Saved, not attached | Not sent | ~23 tokens",
+    ]);
+    const more = screen.getByRole("button", { name: "1 more piece: 1 document" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(more);
+    expect(rowsOf("What goes with it")).toEqual([
+      "Project rulesProject file | CLAUDE.md of the project folder | Loaded by Claude Code | ~300 tokens · 25 %",
+      "House styleSaved context | A default of the project | Said in full | ~100 tokens · 8 %",
+      "Untitled contextSaved context | Saved, not attached | Not sent | ~23 tokens",
       "TractionDocument | Converted: Claude may search it | Searched | ~30k tokens",
     ]);
+    expect(screen.queryByRole("button", { name: /more piece/ })).toBeNull();
     const how = (name: string) =>
       within(screen.getByRole("table", { name: "What goes with it" }))
         .getByText(name)
@@ -297,13 +327,12 @@ describe("Settings › Context", () => {
       "Saved, and not attached to this run.",
     );
     expect(screen.queryByText("4 tools of the app")).toBeNull();
-    expect(part("What Claude is asked")).toHaveTextContent(
-      "Claude holds ~1.2k tokens as the run starts: what is said, loaded or read first. 1 document more to search, never sent whole.",
-    );
-    expect(part("What goes with it")).toHaveTextContent(
+    expect(group(/^What goes with it/)).toHaveTextContent(
       "With the project's defaults: a request may attach or leave out a piece.",
     );
-    const rule = within(part("What goes with it")).getByText("Saved contexts").closest("dl") as HTMLElement;
+    const rule = within(group(/^What goes with it/))
+      .getByText("Saved contexts")
+      .closest("dl") as HTMLElement;
     expect(rule).toHaveAccessibleName("What goes with every run of this kind");
     expect(rule).toHaveTextContent(TAKES.contexts);
     expect(rule).toHaveTextContent("Claude is told to read it first, while it is given to every run");
@@ -312,24 +341,24 @@ describe("Settings › Context", () => {
     );
   });
 
-  it("a run's card says what it may touch and what it gives back", async () => {
+  it("a run's detail says what it may touch and what it gives back", async () => {
     await mount();
-    const touch = part("What it may touch");
+    const touch = group(TOUCH);
     expect(touch).toHaveTextContent("Commands of the app4 commands, as tools — nothing else of the app can be called");
-    expect(touch).toHaveTextContent("Claude Code's own toolsRead · Glob · Grep · Skill");
+    expect(touch).toHaveTextContent("Claude Code's own toolsReadGlobGrepSkill");
     expect(within(touch).queryByText("list · save")).toBeNull();
     fireEvent.click(within(touch).getByRole("button", { name: "The commands it may call · 4" }));
     const commands = within(touch).getByRole("region", { name: "The commands it may call" });
     expect(commands).toHaveTextContent("testslist · save");
     expect(commands).toHaveTextContent("ragsearch");
     expect(commands).toHaveTextContent("docsshow");
-    expect(part("What it gives back")).toHaveTextContent(
-      "The tests, saved with tests_save, and a gen-report block: what was written and what was left out.",
+    expect(touch).toHaveTextContent(
+      "Gives backThe tests, saved with tests_save, and a gen-report block: what was written and what was left out.",
     );
     expect(
       screen.getByText("Built by Testimus for each run: the parts in braces are filled then — {request}, {given}."),
     ).toBeInTheDocument();
-    fireEvent.click(within(card("Generation request")).getByRole("button", { name: "Copy" }));
+    fireEvent.click(within(card("Generation request")).getByRole("button", { name: "Copy the prompt" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(GENERATE));
     expect(await screen.findByText("“Generation request” copied")).toBeInTheDocument();
   });
@@ -342,44 +371,71 @@ describe("Settings › Context", () => {
           : p,
       );
     await mount();
-    const rule = within(part("What goes with it")).getByText("Saved contexts").closest("dl") as HTMLElement;
+    const rule = within(group(/^What goes with it/))
+      .getByText("Saved contexts")
+      .closest("dl") as HTMLElement;
     expect(rule).toHaveTextContent("Not given to this kind of run");
     expect(rule).toHaveTextContent("Not searched: the run works on the files of what it is about");
-    const touch = part("What it may touch");
+    const touch = group(TOUCH);
     expect(touch).toHaveTextContent("Commands of the appNone");
     expect(touch).toHaveTextContent("Claude Code's own toolsNone");
     expect(within(touch).queryByRole("button", { name: /The commands it may call/ })).toBeNull();
-    expect(screen.queryByRole("region", { name: "What it gives back" })).toBeNull();
+    expect(within(touch).queryByText("Gives back")).toBeNull();
   });
 
-  it("the run's instruction is shown in full; a piece picked in a table takes its place and leads to its entry", async () => {
+  it("the run's prompt is shown; a piece picked in a table takes its place and leads to its entry", async () => {
     const { app } = await mount();
-    const full = () => part("The piece in full");
-    expect(within(full()).getByRole("heading", { level: 3 })).toHaveTextContent("Generation request");
-    expect(full()).toHaveTextContent("What Testimus asks of this run, with your request");
-    expect(full()).toHaveTextContent("Built per run — not a file");
+    const prompt = group(/^The prompt/);
+    expect(prompt).toHaveTextContent("What Testimus asks of this run, with your request");
+    expect(prompt).toHaveTextContent("Built per run — not a file");
     expect(screen.getByRole("group", { name: "Text of Generation request" })).toHaveTextContent("Request: {request}");
-    expect(within(full()).queryByRole("button", { name: "Open it in the list" })).toBeNull();
-    fireEvent.click(await screen.findByRole("button", { name: /Traction/ }));
-    expect(within(full()).getByRole("heading", { level: 3 })).toHaveTextContent("Traction");
-    expect(full()).toHaveTextContent("version 3");
-    expect(full()).toHaveTextContent("Claude searches it and reads the passages it finds: it is never sent whole.");
-    fireEvent.click(within(full()).getByRole("button", { name: "Open the document" }));
+    expect(within(prompt).queryByRole("button", { name: "Open it in the list" })).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "1 more piece: 1 document" }));
+    fireEvent.click(screen.getByRole("button", { name: /Traction/ }));
+    expect(screen.queryByRole("region", { name: /^The prompt/ })).toBeNull();
+    const traction = group(/^Traction/);
+    expect(traction).toHaveTextContent("Converted: Claude may search it");
+    expect(traction).toHaveTextContent("version 3");
+    expect(traction).toHaveTextContent("Claude searches it and reads the passages it finds: it is never sent whole.");
+    fireEvent.click(within(traction).getByRole("button", { name: "Open the document" }));
     expect(app.navigate).toHaveBeenCalledWith("documents", "D401");
     fireEvent.click(screen.getByRole("button", { name: /Untitled context/ }));
-    expect(full()).toHaveTextContent("It has no text of its own.");
+    expect(group(/^Untitled context/)).toHaveTextContent("It has no text of its own.");
     fireEvent.click(screen.getByRole("button", { name: /Project rules/ }));
     expect(screen.getByRole("row", { current: true })).toHaveTextContent("Project rules");
-    expect(full()).toHaveTextContent("CLAUDE.md");
+    const rules = group(/^Project rules/);
+    expect(rules).toHaveTextContent("CLAUDE.md");
     expect(screen.getByRole("group", { name: "Text of Project rules" })).toHaveTextContent("Answer in French.");
-    fireEvent.click(within(full()).getByRole("button", { name: "Open it in the list" }));
+    fireEvent.click(within(rules).getByRole("button", { name: "Open it in the list" }));
     expect(row(/Project rules/)).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Used by: Every Claude run in this project folder")).toBeInTheDocument();
+    expect(card("Project rules")).toHaveTextContent("Used byEvery Claude run in this project folder");
+    fireEvent.click(head("Generation"));
     fireEvent.click(row(/Generation request/));
     fireEvent.click(await screen.findByRole("button", { name: /House style/ }));
-    fireEvent.click(within(full()).getByRole("button", { name: "Open it in the list" }));
+    fireEvent.click(within(group(/^House style/)).getByRole("button", { name: "Open it in the list" }));
     expect(row(/House style/)).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByRole("switch", { name: "Default of the project" })).toBeChecked();
+  });
+
+  it("a long prompt shows its first lines, and all of it on demand", async () => {
+    const long = Array.from({ length: 12 }, (_, n) => `Line ${n + 1} {request}`).join("\n");
+    net.routes["claude.prompts"] = () => PROMPTS.map((p) => (p.id === "generate" ? { ...p, text: long } : p));
+    const preview = net.routes["claude.preview"];
+    net.routes["claude.preview"] = (i) => {
+      const r = preview(i) as { pieces: { id: string }[] };
+      return { ...r, pieces: r.pieces.map((x) => (x.id === "instruction" ? { ...x, text: long } : x)) };
+    };
+    await mount();
+    await screen.findByRole("table", { name: "What Claude is asked" });
+    await screen.findByText(/^Claude holds/);
+    const text = () => screen.getByRole("group", { name: "Text of Generation request" });
+    expect(text()).toHaveTextContent("Line 8 {request}");
+    expect(text()).not.toHaveTextContent("Line 9");
+    const all = within(group(/^The prompt/)).getByRole("button", { name: "Show all of it, 12 lines" });
+    expect(all).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(all);
+    expect(text().textContent).toBe(long);
+    expect(screen.queryByRole("button", { name: /Show all of it/ })).toBeNull();
   });
 
   it("says when a run's pieces cannot be read, and keeps what the list already knows of the run", async () => {
@@ -390,9 +446,9 @@ describe("Settings › Context", () => {
     expect(await screen.findByText("What this run is given could not be read")).toBeInTheDocument();
     expect(screen.getByText("No run sends « generate ».")).toBeInTheDocument();
     expect(screen.queryByRole("table", { name: "What Claude is asked" })).toBeNull();
-    expect(screen.queryByRole("region", { name: "What goes with it" })).toBeNull();
+    expect(screen.queryByRole("region", { name: /^What goes with it/ })).toBeNull();
     expect(screen.getByRole("group", { name: "Text of Generation request" })).toHaveTextContent("Request: {request}");
-    expect(part("What it may touch")).toHaveTextContent("4 commands");
+    expect(group(TOUCH)).toHaveTextContent("4 commands");
   });
 
   it("while a run's pieces are read, its tables wait and the instruction's template is already there", async () => {
@@ -400,17 +456,17 @@ describe("Settings › Context", () => {
     await mount();
     expect(screen.getByRole("table", { name: "What Claude is asked" })).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("table", { name: "What goes with it" })).toHaveAttribute("aria-busy", "true");
-    expect(part("What Claude is asked")).not.toHaveTextContent("Claude holds");
+    expect(card("Generation request")).not.toHaveTextContent("Claude holds");
     expect(screen.getByRole("group", { name: "Text of Generation request" })).toHaveTextContent("Request: {request}");
-    expect(part("What it gives back")).toBeInTheDocument();
+    expect(within(group(TOUCH)).getByText("Gives back")).toBeInTheDocument();
   });
 
   it("a skill or a project file is read only: who uses it, where it is, its weight and its whole text", async () => {
     await mount();
     fireEvent.click(row(/Generate tests/));
     const skill = card("Generate tests");
-    expect(screen.getByText("Used by: Generate · gen.tests")).toBeInTheDocument();
-    expect(screen.getByText(".claude/skills/generate-tests/SKILL.md")).toBeInTheDocument();
+    expect(skill).toHaveTextContent("Used byGenerate · gen.tests");
+    expect(within(skill).getByText(".claude/skills/generate-tests/SKILL.md")).toBeInTheDocument();
     expect(within(skill).getByText(tokens(PROMPTS[0].text.length))).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Text of Generate tests" })).toHaveTextContent(
       "Every expected result has a source.",
@@ -424,13 +480,14 @@ describe("Settings › Context", () => {
 
   it("a prompt Testimus builds that no run sends shows its template and names the parts filled per run", async () => {
     await mount();
+    fireEvent.click(head("System check"));
     fireEvent.click(row(/Sign-in probe/));
     expect(screen.getByRole("group", { name: "Text of Sign-in probe" })).toHaveTextContent("Reply {word}.");
     expect(screen.getByText("Built per run — not a file")).toBeInTheDocument();
     expect(
       screen.getByText("Built by Testimus for each run: the parts in braces are filled then — {word}."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "What it may touch" })).toBeNull();
+    expect(screen.queryByRole("region", { name: TOUCH })).toBeNull();
     expect(calls("claude.preview").map((c) => c.input)).toEqual([{ use: "generate" }]);
   });
 
@@ -440,38 +497,43 @@ describe("Settings › Context", () => {
     fireEvent.click(row(/Project rules/));
     fireEvent.click(within(card("Project rules")).getByRole("button", { name: "Show in Explorer" }));
     await waitFor(() => expect(d.reveal).toHaveBeenCalledWith("C:\\p\\CLAUDE.md"));
+    fireEvent.click(head("System check"));
     fireEvent.click(row(/Sign-in probe/));
     expect(screen.queryByRole("button", { name: "Show in Explorer" })).toBeNull();
   });
 
-  it("filters by name, kind and a word of the text, accents and case aside; says when nothing matches", async () => {
+  it("filters by name, kind and a word of the text, accents and case aside, opening the groups it matches; says when nothing matches", async () => {
     await mount();
     const filter = screen.getByRole("searchbox", { name: "Filter what Claude is given" });
     fireEvent.change(filter, { target: { value: "PASSAGES prove" } });
-    await waitFor(() => expect(within(list()).getAllByRole("option")).toHaveLength(1));
+    await waitFor(() => expect(items()).toHaveLength(1));
+    expect(lines()).toEqual(["1 true Check and fix1", "2 - Check testSkill"]);
     expect(row(/Check test/)).toHaveAttribute("aria-selected", "true");
     expect(card("Check test")).toBeInTheDocument();
     fireEvent.change(filter, { target: { value: "GÉNÉRATION réquest" } });
-    await waitFor(() => expect(within(list()).getAllByRole("option")).toHaveLength(1));
+    await waitFor(() => expect(items()).toHaveLength(1));
     expect(row(/Generation request/)).toBeInTheDocument();
     fireEvent.change(filter, { target: { value: "run generate" } });
-    await waitFor(() => expect(within(list()).getAllByRole("option")).toHaveLength(1));
+    await waitFor(() => expect(items()).toHaveLength(1));
     expect(row(/Generation request/)).toBeInTheDocument();
     fireEvent.change(filter, { target: { value: "imperative MOOD" } });
-    await waitFor(() => expect(within(list()).getAllByRole("option")).toHaveLength(1));
+    await waitFor(() => expect(items()).toHaveLength(1));
     expect(row(/House style/)).toHaveAttribute("aria-selected", "true");
     fireEvent.change(filter, { target: { value: "default" } });
     await waitFor(() => expect(row(/House style/)).toBeInTheDocument());
-    expect(within(list()).queryByRole("option", { name: /Untitled context/ })).toBeNull();
+    expect(within(list()).queryByRole("treeitem", { name: /Untitled context/ })).toBeNull();
     fireEvent.change(filter, { target: { value: "plan.pdf" } });
-    await waitFor(() => expect(within(list()).getAllByRole("option")).toHaveLength(1));
+    await waitFor(() => expect(items()).toHaveLength(1));
     expect(row(/Untitled context/)).toBeInTheDocument();
+    fireEvent.change(filter, { target: { value: "sign-in" } });
+    await waitFor(() => expect(row(/Sign-in probe/)).toBeInTheDocument());
+    expect(head("System check")).toHaveAttribute("aria-expanded", "true");
     fireEvent.change(filter, { target: { value: "nowhere-at-all" } });
     expect(await screen.findByText("Nothing matches “nowhere-at-all”.")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: /^Text of / })).toBeNull();
   });
 
-  it("« Default of the project » writes project.set, and the card says where else the context is attached", async () => {
+  it("« Default of the project » writes project.set, and the detail says where else the context is attached", async () => {
     byTests = ["gloss"];
     await mount();
     fireEvent.click(row(/House style/));
@@ -520,8 +582,8 @@ describe("Settings › Context", () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: "New context" }));
     await waitFor(() => expect(inputs("contexts.create")).toEqual([{ shared: true }]));
-    await waitFor(() => expect(within(list()).getAllByRole("option", { name: /Untitled context/ })).toHaveLength(2));
-    const added = within(list()).getAllByRole("option", { name: /Untitled context/ })[1];
+    await waitFor(() => expect(within(list()).getAllByRole("treeitem", { name: /Untitled context/ })).toHaveLength(2));
+    const added = within(list()).getAllByRole("treeitem", { name: /Untitled context/ })[1];
     expect(added).toHaveAttribute("aria-selected", "true");
     expect(added).toHaveTextContent("Shared library · empty");
     expect(await screen.findByRole("switch", { name: "Default of the project" })).not.toBeChecked();
@@ -539,7 +601,7 @@ describe("Settings › Context", () => {
     expect(row(/Generation request/)).toHaveAttribute("aria-selected", "true");
   });
 
-  it("a saved context is edited here: its new name is saved when the field is left, and the card and the list say it", async () => {
+  it("a saved context is edited here: its new name is saved when the field is left, and the detail and the list say it", async () => {
     await mount();
     fireEvent.click(row(/Untitled context/));
     const name = await within(card("Untitled context")).findByLabelText(/^Name/);
@@ -550,10 +612,10 @@ describe("Settings › Context", () => {
       expect(inputs("contexts.set")).toEqual([{ id: "gloss", name: "Glossaire SOSIE", notes: "", ifMtime: 1 }]),
     );
     await waitFor(() => expect(row(/Glossaire SOSIE/)).toHaveAttribute("aria-selected", "true"));
-    expect(within(list()).queryByRole("option", { name: /Untitled context/ })).toBeNull();
+    expect(within(list()).queryByRole("treeitem", { name: /Untitled context/ })).toBeNull();
   });
 
-  it("« Copy from another project… » brings a context over and opens the copy", async () => {
+  it("« Copy from a project… » brings a context over and opens the copy", async () => {
     net.routes["project.list"] = () => ({
       projects: [
         { dir: DIR, name: "RATP Sosie", exists: true },
@@ -568,7 +630,7 @@ describe("Settings › Context", () => {
       return detail(find(i.id));
     };
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Copy from another project…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy from a project…" }));
     choose(await screen.findByRole("combobox", { name: "Project to copy from" }), "BHP");
     expect(await screen.findByRole("combobox", { name: "Context to copy" })).toHaveTextContent(
       "Screens of the simulator",
@@ -578,6 +640,7 @@ describe("Settings › Context", () => {
     await waitFor(() => expect(row(/Screens of the simulator/)).toHaveAttribute("aria-selected", "true"));
     expect(row(/Screens of the simulator/)).toHaveTextContent("This project · 1 file");
     expect(await screen.findByRole("switch", { name: "Default of the project" })).not.toBeChecked();
+    expect(screen.queryByRole("combobox", { name: "Project to copy from" })).toBeNull();
   });
 
   it("« Delete context… » asks first, says what a shared one costs, then removes it and goes back to the first run", async () => {
@@ -600,7 +663,7 @@ describe("Settings › Context", () => {
       }),
     );
     await waitFor(() => expect(inputs("contexts.remove")).toEqual([{ id: "house" }]));
-    await waitFor(() => expect(within(list()).queryByRole("option", { name: /House style/ })).toBeNull());
+    await waitFor(() => expect(within(list()).queryByRole("treeitem", { name: /House style/ })).toBeNull());
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(row(/Generation request/)).toHaveAttribute("aria-selected", "true");
   });
@@ -619,16 +682,19 @@ describe("Settings › Context", () => {
     expect(row(/Untitled context/)).toBeInTheDocument();
   });
 
-  it("no saved context yet: the list says what one is, and still shows the runs", async () => {
+  it("no saved context yet: the list says what one is and how to make one, and still shows the runs", async () => {
     saved = [];
     project = info({ claude: { model: "sonnet", effort: "medium", presets: [], contexts: [] } });
     await mount();
     expect(
-      screen.getByText(/No saved context yet\. A context is notes, copied files and outside paths Claude reads/),
+      screen.getByText(/^Notes, files and folders Claude reads before it works: a glossary, house rules/),
     ).toBeInTheDocument();
-    expect(within(list()).queryByRole("group", { name: "Saved contexts" })).toBeNull();
+    expect(within(list()).queryByRole("treeitem", { name: /^This project's contexts/ })).toBeNull();
     expect(row(/Generation request/)).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("button", { name: "Copy from another project…" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New context" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Copy from a project…" }));
+    expect(await screen.findByRole("button", { name: "Copy into this project" })).toBeInTheDocument();
+    expect(screen.queryByText(/^Notes, files and folders Claude reads/)).toBeNull();
   });
 
   it("says when the list cannot be read, and when the saved contexts cannot", async () => {
@@ -668,23 +734,23 @@ describe("Settings › Context › what the section works out", () => {
     expect(slots("nothing to fill")).toEqual([]);
   });
 
-  it("entries: every saved context, a default or not, then the core's list without its own context rows", () => {
+  it("entries: every saved context, a default or not, then what goes with every run, then the core's list without its own context rows", () => {
     const entries = entriesOf(prompts, contexts, ["house"]);
     expect(entries.map((e) => [e.key, e.kind, e.group])).toEqual([
-      ["context:house", "context", "Saved contexts"],
-      ["context:gloss", "context", "Saved contexts"],
+      ["context:house", "context", "This project's contexts"],
+      ["context:gloss", "context", "This project's contexts"],
+      ["file:CLAUDE.md", "piece", "Every run"],
       ["skill:generate-tests", "piece", "Generation"],
       ["generate", "run", "Generation"],
       ["skill:check-test", "piece", "Check and fix"],
       ["sign-in", "piece", "System check"],
-      ["file:CLAUDE.md", "piece", "Every run"],
     ]);
     expect(entries[0]).toMatchObject({ isDefault: true, notes: "Imperative mood, one action per step." });
     expect(entries[1]).toMatchObject({ isDefault: false, notes: "" });
   });
 
   it("the filter reads a context's name, place, files, paths and notes, and a run's kind and what it gives back", () => {
-    const [house, gloss, , run] = entriesOf(prompts, contexts, ["house"]);
+    const [house, gloss, , , run] = entriesOf(prompts, contexts, ["house"]);
     expect(matches(house, ["shared", "library"])).toBe(true);
     expect(matches(house, ["imperative"])).toBe(true);
     expect(matches(gloss, ["plan.pdf"])).toBe(true);

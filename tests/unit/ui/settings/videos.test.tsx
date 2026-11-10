@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Glossary } from "../../../../src/ui/screens/settings/GlossaryCard.tsx";
-import { ProjectSection } from "../../../../src/ui/screens/settings/ProjectSection.tsx";
+import { VideosSection } from "../../../../src/ui/screens/settings/VideosSection.tsx";
 import { calls, Fail, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
 type Video = {
@@ -55,18 +55,22 @@ beforeEach(() => {
 
 afterEach(reset);
 
-const videos = () => screen.findByRole("region", { name: "Videos" });
+const videos = async () => {
+  const v = await screen.findByRole("region", { name: "Videos" });
+  await within(v).findByRole("region", { name: "Hearing" });
+  return v;
+};
 const card = () => screen.findByRole("region", { name: /^Glossary of the transcription/ });
 const languages = () => screen.getByRole("combobox", { name: "Languages spoken in the videos" });
 const sent = () => inputs("project.set").map((i) => i.video);
 
-describe("Settings › Project › Videos", () => {
+describe("Settings › Videos", () => {
   it("the languages spoken are chosen among those the engine hears, shown by name, saved as codes", async () => {
     project = info({ video: { spoken: ["en"], density: "detailed" } });
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const v = await videos();
     expect(await within(v).findByText("English")).toBeInTheDocument();
-    expect(within(v).getByText(/None: every passage in the language detected/)).toBeInTheDocument();
+    expect(within(v).getByText(/None: the language detected/)).toBeInTheDocument();
     fireEvent.focus(languages());
     const list = await screen.findByRole("listbox", { name: "Languages spoken in the videos" });
     expect(within(list).queryByRole("option", { name: "English" })).toBeNull();
@@ -89,7 +93,7 @@ describe("Settings › Project › Videos", () => {
       ],
     });
     project = info({ video: { spoken: ["en"] } });
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const v = await videos();
     expect(
       await within(v).findByText("Heard so far in this project: English 41 min · German 3 min"),
@@ -102,7 +106,7 @@ describe("Settings › Project › Videos", () => {
 
   it("nothing is offered while no video was heard, or only noises", async () => {
     glossary = said({ heard: [{ language: "cy", seconds: 5 }] });
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const v = await videos();
     await waitFor(() => expect(calls("media.glossary")).toHaveLength(1));
     fireEvent.focus(languages());
@@ -111,11 +115,11 @@ describe("Settings › Project › Videos", () => {
   });
 
   it("the translation is on until turned off; a refused change is put back and said", async () => {
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const v = await videos();
     const translate = within(v).getByRole("switch", { name: "Translate what is said in another language" });
     expect(translate).toBeChecked();
-    expect(within(v).getByText(/the line as it was said stays the text a test may quote/)).toBeInTheDocument();
+    expect(within(v).getByText(/The line as it was said stays the text a test quotes/)).toBeInTheDocument();
     fireEvent.click(translate);
     await waitFor(() => expect(sent()).toEqual([{ translate: false }]));
     await waitFor(() => expect(translate).not.toBeChecked());
@@ -128,18 +132,18 @@ describe("Settings › Project › Videos", () => {
   });
 
   it("the key frames are Normal until chosen otherwise", async () => {
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const v = await videos();
     const density = within(v).getByRole("radiogroup", { name: "Key frames" });
     expect(within(density).getByRole("radio", { name: "Normal" })).toBeChecked();
-    expect(within(v).getByText(/About 40 frames for half an hour/)).toBeInTheDocument();
+    expect(within(v).getByText(/about 40 for half an hour at Normal/)).toBeInTheDocument();
     fireEvent.click(within(density).getByRole("radio", { name: "Sober" }));
     await waitFor(() => expect(sent()).toEqual([{ density: "sober" }]));
     await waitFor(() => expect(within(density).getByRole("radio", { name: "Sober" })).toBeChecked());
   });
 
   it("a cited range is played with 4 seconds around it until typed otherwise; saved when the field is left, refused out of 0 to 30", async () => {
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const v = await videos();
     const margin = within(v).getByRole("textbox", { name: label("Seconds played around a cited range") });
     expect(margin).toHaveValue("4");
@@ -159,7 +163,7 @@ describe("Settings › Project › Videos", () => {
   });
 
   it("the room for the videos has no cap until one is typed, in GB; emptied, the cap goes", async () => {
-    const first = mountSettings(<ProjectSection />);
+    const first = mountSettings(<VideosSection />);
     const cap = () =>
       within(screen.getByRole("region", { name: "Videos" })).getByRole("textbox", {
         name: label("Room for the videos (GB)"),
@@ -176,7 +180,7 @@ describe("Settings › Project › Videos", () => {
     first.unmount();
 
     project = info({ video: { diskCapGB: 20, margin: 0 } });
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     await videos();
     expect(cap()).toHaveValue("20");
     expect(
@@ -190,18 +194,20 @@ describe("Settings › Project › Videos", () => {
   });
 
   it("says these hold for the videos heard from now on", async () => {
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     await videos();
     expect(
-      screen.getByText(/a video already heard is heard again from Documents › Video › « Hear again… »/),
+      screen.getByText(
+        /A video already heard keeps its transcript; Documents › the video › « Hear again… » hears it with these settings/,
+      ),
     ).toBeInTheDocument();
   });
 });
 
-describe("Settings › Project › Videos: the glossary of the transcription", () => {
+describe("Settings › Videos: the glossary of the transcription", () => {
   it("shows where the terms come from, every term sent, the size and what the engine is given", async () => {
     glossary = said({ terms: terms(45), tokens: 157, budget: 170, prompt: "Glossary: T1, T2." });
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const c = await card();
     expect(await within(c).findByText("From the documents")).toBeInTheDocument();
     const kept = within(c).getByRole("list", { name: "Terms given to the engine" });
@@ -211,16 +217,16 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
     expect(within(kept).getByText("+ 5 more")).toBeInTheDocument();
     expect(within(c).queryByText(/left out/)).toBeNull();
     expect(within(c).getByRole("progressbar", { name: "Size of the glossary" })).toHaveAttribute("aria-valuenow", "92");
-    expect(within(c).getByText("157 of 170 tokens")).toBeInTheDocument();
+    expect(within(c).getByText("157 of 170 tokens, every term is sent")).toBeInTheDocument();
     expect(within(c).queryByText("Glossary: T1, T2.")).toBeNull();
     fireEvent.click(within(c).getByRole("button", { name: "What the engine is given" }));
     expect(within(c).getByText("Glossary: T1, T2.")).toBeInTheDocument();
   });
 
   it("Edit turns the terms into a list to write, saved in its order; the glossary is then the team's and read again", async () => {
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const c = await card();
-    fireEvent.click(await within(c).findByRole("button", { name: "Edit" }));
+    fireEvent.click(await within(c).findByRole("button", { name: "Edit by hand" }));
     expect(within(c).queryByRole("button", { name: "Back to the documents' terms" })).toBeNull();
     const box = within(c).getByRole("textbox", { name: "Terms of the glossary" });
     fireEvent.click(within(c).getByRole("button", { name: "Remove TCO" }));
@@ -230,16 +236,16 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
     const before = calls("media.glossary").length;
     fireEvent.click(within(c).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(sent()).toEqual([{ glossary: ["PCC", "S12", "Sectionneur", "PR2"] }]));
-    expect(await within(c).findByText("Written by the team")).toBeInTheDocument();
+    expect(await within(c).findByText("Written for this project")).toBeInTheDocument();
     expect(calls("media.glossary").length).toBeGreaterThan(before);
     expect(within(c).queryByRole("textbox", { name: "Terms of the glossary" })).toBeNull();
     expect(within(c).getByText("PR2")).toBeInTheDocument();
   });
 
   it("while writing, the size is said; a list the engine could not read whole is not saved", async () => {
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const c = await card();
-    fireEvent.click(await within(c).findByRole("button", { name: "Edit" }));
+    fireEvent.click(await within(c).findByRole("button", { name: "Edit by hand" }));
     expect(
       within(c).getByText("Every term is sent to the engine, in this order: about 60 to 80 fit."),
     ).toBeInTheDocument();
@@ -264,44 +270,43 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
       glossary = said({ auto: false, terms: ["S12", "Sous-station Nord"] });
       return { ok: true, terms: ["S12", "Sous-station Nord"], summary: `asked: ${String(i.ask)}` };
     };
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const c = await card();
-    fireEvent.click(await within(c).findByRole("button", { name: "Edit with Claude" }));
-    fireEvent.change(within(c).getByRole("textbox", { name: "What you want of the glossary (optional)" }), {
+    expect(within(c).getByText("Have Claude write it")).toBeInTheDocument();
+    fireEvent.change(within(c).getByRole("textbox", { name: "What you want of the glossary" }), {
       target: { value: "add the substations" },
     });
     fireEvent.click(within(c).getByRole("button", { name: "Ask Claude" }));
     await waitFor(() => expect(inputs("media.suggestGlossary")).toEqual([{ ask: "add the substations" }]));
     expect(await within(c).findByText("Sous-station Nord")).toBeInTheDocument();
-    expect(within(c).getByText("Written by the team")).toBeInTheDocument();
+    expect(within(c).getByText("Written for this project")).toBeInTheDocument();
     expect(await screen.findByText("Claude wrote the glossary: 2 terms")).toBeInTheDocument();
-    expect(within(c).queryByRole("textbox", { name: "What you want of the glossary (optional)" })).toBeNull();
+    expect(within(c).getByRole("textbox", { name: "What you want of the glossary" })).toHaveValue("");
   });
 
-  it("Claude giving no glossary changes nothing and says so; Cancel closes the request", async () => {
+  it("Claude giving no glossary changes nothing and says so; the request can be asked again", async () => {
     net.routes["media.suggestGlossary"] = () => ({ ok: false, terms: [], summary: "No block." });
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const c = await card();
-    fireEvent.click(await within(c).findByRole("button", { name: "Edit with Claude" }));
-    fireEvent.click(within(c).getByRole("button", { name: "Ask Claude" }));
+    fireEvent.click(await within(c).findByRole("button", { name: "Ask Claude" }));
     expect(await screen.findByText("Claude gave no glossary")).toBeInTheDocument();
     expect(within(c).getByText("From the documents")).toBeInTheDocument();
-    fireEvent.click(within(c).getByRole("button", { name: "Cancel" }));
-    expect(within(c).getByRole("button", { name: "Edit with Claude" })).toBeInTheDocument();
+    await waitFor(() => expect(within(c).getByRole("button", { name: "Ask Claude" })).toBeEnabled());
+    expect(inputs("media.suggestGlossary")).toEqual([{ ask: "" }]);
   });
 
   it("a glossary the team wrote goes back to the documents' terms; Cancel changes nothing", async () => {
     glossary = said({ auto: false, terms: ["PR2"] });
     project = info({ video: { glossary: ["PR2"], density: "sober" } });
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const c = await card();
-    expect(await within(c).findByText("Written by the team")).toBeInTheDocument();
-    fireEvent.click(within(c).getByRole("button", { name: "Edit" }));
+    expect(await within(c).findByText("Written for this project")).toBeInTheDocument();
+    fireEvent.click(within(c).getByRole("button", { name: "Edit by hand" }));
     fireEvent.click(within(c).getByRole("button", { name: "Remove PR2" }));
     fireEvent.click(within(c).getByRole("button", { name: "Cancel" }));
     expect(within(c).getByText("PR2")).toBeInTheDocument();
     expect(calls("project.set")).toHaveLength(0);
-    fireEvent.click(within(c).getByRole("button", { name: "Edit" }));
+    fireEvent.click(within(c).getByRole("button", { name: "Edit by hand" }));
     fireEvent.click(within(c).getByRole("button", { name: "Back to the documents' terms" }));
     await waitFor(() => expect(sent()).toEqual([{ glossary: null }]));
     expect(await within(c).findByText("From the documents")).toBeInTheDocument();
@@ -313,9 +318,9 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
     net.routes["project.set"] = () => {
       throw new Fail("project.json is read-only.");
     };
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     const c = await card();
-    fireEvent.click(await within(c).findByRole("button", { name: "Edit" }));
+    fireEvent.click(await within(c).findByRole("button", { name: "Edit by hand" }));
     fireEvent.click(within(c).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Could not save the glossary of the transcription")).toBeInTheDocument();
     expect(within(c).getByRole("textbox", { name: "Terms of the glossary" })).toBeInTheDocument();
@@ -323,7 +328,7 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
 
   it("without a term, or when it cannot be read, the card says so", async () => {
     glossary = said({ terms: [], prompt: "", tokens: 0 });
-    const r = mountSettings(<ProjectSection />);
+    const r = mountSettings(<VideosSection />);
     const c = await card();
     expect(await within(c).findByText(/^No term yet: the documents gave none\./)).toBeInTheDocument();
     fireEvent.click(within(c).getByRole("button", { name: "What the engine is given" }));
@@ -332,7 +337,7 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
     net.routes["media.glossary"] = () => {
       throw new Fail("The index is being rebuilt.");
     };
-    mountSettings(<ProjectSection />);
+    mountSettings(<VideosSection />);
     expect(await screen.findByText("The glossary could not be read: The index is being rebuilt.")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Translate what is said in another language" })).toBeInTheDocument();
   });

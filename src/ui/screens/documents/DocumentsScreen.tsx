@@ -131,7 +131,7 @@ function wordsOnlyWhy(r: { embedding: string; space: { complete: boolean } | nul
     : r.space
       ? `The vectors of ${model} on this PC are incomplete`
       : `This PC has no vectors for ${model} yet`;
-  return `${why}, so search matches words, not meaning. Choose a search pack: its models download once, then the documents are indexed again.`;
+  return `${why}, so search matches words, not meaning. Choose the search models: they download once, then the documents are indexed again.`;
 }
 
 export function DocumentsScreen() {
@@ -345,7 +345,7 @@ export function DocumentsScreen() {
             tone="warning"
             title="Search on words only"
             actions={
-              <Button size="sm" label="Choose a search pack" onClick={() => app.navigate("settings", "models")} />
+              <Button size="sm" label="Choose the search models" onClick={() => app.navigate("settings", "models")} />
             }
           >
             {wordsOnly}

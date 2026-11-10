@@ -39,7 +39,7 @@ test("while an index run goes no index warning shows — its progress does; the 
 
   await page.goto("/#/settings/search");
   const search = page.getByRole("region", { name: "Search", exact: true });
-  await expect(search.getByText("Used on this PC")).toBeVisible();
+  await expect(search.getByText("In use", { exact: true })).toBeVisible();
   await expect(search.getByText("Search on words only")).toHaveCount(0);
   await expect(search.getByText("Words only", { exact: true })).toHaveCount(0);
 

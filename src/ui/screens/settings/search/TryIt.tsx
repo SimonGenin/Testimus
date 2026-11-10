@@ -9,15 +9,14 @@ import { type } from "../../../components/ui/type.ts";
 import { useRead } from "../../../lib/data/query.ts";
 import { useSettled } from "../../../lib/search.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
-import { Hint } from "../Section.tsx";
+import { Group, Hint, Row } from "../Section.tsx";
 import type { Retrieval } from "./draft.ts";
 import { Measure } from "./Measure.tsx";
 
 const styles = stylex.create({
-  panel: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
-  title: { margin: 0 },
   filters: { display: "flex", gap: space.s2, flexWrap: "wrap", alignItems: "center" },
   ref: { color: color.textMuted },
+  idle: { paddingBlock: space.s4, textAlign: "center" },
 });
 
 type Hit = CommandOutput<"rag.search">[number];
@@ -59,7 +58,7 @@ function titleOf(h: Hit): string {
 }
 
 // ponytail: a search with the settings being edited, each hit with its why — so a setting is judged on real questions
-// before it is kept
+// before it is kept; Measure runs the benchmark with them
 export function TryIt({ draft }: { draft: Retrieval }) {
   const [query, setQuery] = useState("");
   const [doc, setDoc] = useState("all");
@@ -82,39 +81,45 @@ export function TryIt({ draft }: { draft: Retrieval }) {
   );
   const hits = asked.q ? (search.data ?? []) : [];
   return (
-    <section aria-labelledby="try-it" {...stylex.props(styles.panel)}>
-      <h3 id="try-it" {...stylex.props(type.titleSm, styles.title)}>
-        Try it
-      </h3>
-      <Text
-        type="search"
-        icon="search"
-        ariaLabel="Try a search"
-        placeholder="A question, a code, a device name…"
-        value={query}
-        onChange={setQuery}
-      />
-      <div {...stylex.props(styles.filters)}>
-        <Select
-          label="Documents"
-          appearance="quiet"
-          size="sm"
-          value={doc}
-          options={[
-            { value: "all", label: "All documents" },
-            ...(docs.data ?? []).map((d) => ({ value: d.id, label: d.title || d.code })),
-          ]}
-          onChange={setDoc}
+    <Group id="try" title="Try it" note="With the settings as they are now." footer={<Measure draft={draft} />}>
+      <Row>
+        <Text
+          type="search"
+          icon="search"
+          ariaLabel="Try a search"
+          placeholder="A question, a code, a device name…"
+          value={query}
+          onChange={setQuery}
         />
-        <Select label="Kind of passage" appearance="quiet" size="sm" value={kind} options={KINDS} onChange={setKind} />
-        <Text size="sm" ariaLabel="Section" placeholder="Section, e.g. 5.6" value={section} onChange={setSection} />
-      </div>
-      {search.isError ? (
-        <Banner tone="danger" title="The search failed">
-          {search.error.message}
-        </Banner>
-      ) : (
-        asked.q && (
+        <div {...stylex.props(styles.filters)}>
+          <Select
+            label="Documents"
+            appearance="quiet"
+            size="sm"
+            value={doc}
+            options={[
+              { value: "all", label: "All documents" },
+              ...(docs.data ?? []).map((d) => ({ value: d.id, label: d.title || d.code })),
+            ]}
+            onChange={setDoc}
+          />
+          <Select
+            label="Kind of passage"
+            appearance="quiet"
+            size="sm"
+            value={kind}
+            options={KINDS}
+            onChange={setKind}
+          />
+          <Text size="sm" ariaLabel="Section" placeholder="Section, e.g. 5.6" value={section} onChange={setSection} />
+        </div>
+      </Row>
+      <Row>
+        {search.isError ? (
+          <Banner tone="danger" title="The search failed">
+            {search.error.message}
+          </Banner>
+        ) : asked.q ? (
           <List<Hit>
             label="Passages found"
             selection="none"
@@ -136,13 +141,12 @@ export function TryIt({ draft }: { draft: Retrieval }) {
               meta: whyLine(h),
             })}
           />
-        )
-      )}
-      <Hint>
-        Each hit says why it ranked (word rank, model rank, reranker score, which forms matched) so a setting can be
-        judged on real questions. « Measure on the benchmark » runs rag.eval with these settings before they are kept.
-      </Hint>
-      <Measure draft={draft} />
-    </section>
+        ) : (
+          <div {...stylex.props(styles.idle)}>
+            <Hint>Each hit says why it ranked: word rank, model rank, reranker score, which forms matched.</Hint>
+          </div>
+        )}
+      </Row>
+    </Group>
   );
 }

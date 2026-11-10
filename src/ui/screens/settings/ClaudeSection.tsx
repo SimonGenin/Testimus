@@ -1,80 +1,49 @@
 import * as stylex from "@stylexjs/stylex";
-import { NoProject } from "../../components/shell/NoProject.tsx";
-import { Card } from "../../components/ui/Card.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Loading } from "../../components/ui/Loading.tsx";
+import { Skeleton } from "../../components/ui/Skeleton.tsx";
+import { type } from "../../components/ui/type.ts";
 import { useApp } from "../../lib/app.ts";
-import { border, color, space } from "../../styles/tokens.stylex.ts";
-import { AgentsField } from "./AgentsField.tsx";
-import { ClaudeProgram } from "./ClaudeProgram.tsx";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { DockDefaults } from "./DockDefaults.tsx";
 import { OverviewSetting } from "./OverviewSetting.tsx";
 import { useInfo } from "./project.ts";
 import { QuickAsks } from "./QuickAsks.tsx";
-import { Anchor, Column, Columns, Section } from "./Section.tsx";
+import { Section } from "./Section.tsx";
 
 const styles = stylex.create({
-  split: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.s6,
-  },
-  rule: {
-    boxSizing: "border-box",
-    height: 0,
-    margin: 0,
-    borderWidth: 0,
-    borderTopStyle: "solid",
-    borderTopWidth: border.width,
-    borderTopColor: color.border,
-  },
+  aside: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.s2, margin: 0, color: color.textSubtle },
 });
 
-// ponytail: the connection is this PC's and works without a project; the dock defaults and quick asks are the
-// project's (project.json). The default contexts are in Settings › Context, with everything Claude is given
+// ponytail: what this project asks of Claude (project.json claude) — the dock's model and effort, the quick asks, the
+// overview of the documents; the program and the runs at once are this PC's (Settings › Claude Code), what each run
+// is given is Settings › Context
 export function ClaudeSection() {
   const app = useApp();
-  const info = useInfo();
-  const claude = app.info ? info.data?.project.claude : undefined;
+  const claude = useInfo().data?.project.claude;
   return (
     <Section
-      id="claude"
+      id="claudeproject"
       title="Claude"
-      intro="Claude writes and checks tests through Claude Code on this PC, with your own Claude account."
+      intro="How this project works with Claude: what the dock starts with, the asks you reuse, and the overview Claude keeps of the documents."
+      actions={<Button size="sm" label="What each run is given" onClick={() => app.navigate("settings", "context")} />}
     >
-      <Columns>
-        <Column>
-          <Anchor id="claude">
-            <Card title="Connection to Claude">
-              <div {...stylex.props(styles.split)}>
-                <ClaudeProgram />
-                <hr {...stylex.props(styles.rule)} />
-                <AgentsField />
-              </div>
-            </Card>
-          </Anchor>
-          {claude && (
-            <Anchor id="claude-dock">
-              <DockDefaults claude={claude} />
-            </Anchor>
-          )}
-        </Column>
-        {!app.info && (
-          <Column>
-            <Card padded={false}>
-              <NoProject text="The Claude dock and the quick asks are a project's: open one to set them." />
-            </Card>
-          </Column>
-        )}
-        {claude && (
-          <Column>
-            <Anchor id="claude-quickasks">
-              <QuickAsks presets={claude.presets ?? []} />
-            </Anchor>
-            <Anchor id="claude-overview">
-              <OverviewSetting overview={claude.overview} />
-            </Anchor>
-          </Column>
-        )}
-      </Columns>
+      {!claude ? (
+        <>
+          <Skeleton kind="block" />
+          <Loading read="project.info" />
+        </>
+      ) : (
+        <>
+          <DockDefaults claude={claude} />
+          <QuickAsks presets={claude.presets ?? []} />
+          <OverviewSetting overview={claude.overview} />
+        </>
+      )}
+      <p {...stylex.props(type.small, styles.aside)}>
+        Which Claude program runs, and how many at once, is set for this PC in
+        <Button variant="link" label="Claude Code" onClick={() => app.navigate("settings", "claude")} />
+      </p>
     </Section>
   );
 }

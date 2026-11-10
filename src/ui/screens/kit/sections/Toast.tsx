@@ -20,7 +20,7 @@ export const section: KitSection = {
         <Toast
           tone="danger"
           title="Pull failed — LFRPS12-1398"
-          text="Jira refused the request (403). Check Settings › Access."
+          text="Jira refused the request (403). Check Settings › Jira and Xray."
           action={{ label: "Retry", onAction: none }}
           onDismiss={none}
         />

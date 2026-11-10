@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writePref } from "../../../../src/ui/lib/prefs.ts";
 import { AppearanceSection } from "../../../../src/ui/screens/settings/AppearanceSection.tsx";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
-import { calls, Fail, fakeNet, inputs, mountSettings, net, reset } from "./helpers.tsx";
+import { fakeNet, mountSettings, net, reset } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeNet();
@@ -25,42 +25,18 @@ describe("Settings › Appearance", () => {
   it("theme and step layout are this browser's; a theme chosen elsewhere (the rail) shows here", () => {
     mountSettings(<AppearanceSection />, { info: null });
     expect(radio("Theme", "System")).toBeChecked();
-    expect(screen.getByText("Step layout in the editor")).toBeVisible();
+    expect(screen.getByText("Steps in the editor")).toBeVisible();
     expect(screen.getAllByText("Theme").length).toBeGreaterThan(0);
     fireEvent.click(radio("Theme", "Dark"));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(radio("Theme", "Dark")).toBeChecked();
     expect(localStorage.getItem("testimus.theme")).toBe("dark");
-    fireEvent.click(radio("Step layout", "Action | Expected"));
+    fireEvent.click(radio("Step layout", "Side by side"));
     expect(localStorage.getItem("testimus.stepLayout")).toBe("split");
-    expect(radio("Step layout", "Action | Expected")).toBeChecked();
+    expect(radio("Step layout", "Side by side")).toBeChecked();
     act(() => writePref("theme", "light"));
     expect(radio("Theme", "Light")).toBeChecked();
-    expect(screen.getByText(/kept on this PC across restarts/)).toBeInTheDocument();
-  });
-
-  it("model downloads are this PC's setting, saved at once; a failed save is said and put back", async () => {
-    mountSettings(<AppearanceSection />, { info: null });
-    const sw = screen.getByRole("switch", { name: "Allow downloads from Hugging Face" });
-    expect(sw).toBeDisabled();
-    await waitFor(() => expect(sw).toBeEnabled());
-    expect(sw).not.toBeChecked();
-    fireEvent.click(sw);
-    await waitFor(() => expect(sw).toBeChecked());
-    expect(inputs("system.set")).toEqual([{ allowRemote: true }]);
-    net.routes["system.set"] = () => {
-      throw new Fail("Not writable.");
-    };
-    fireEvent.click(sw);
-    expect(await screen.findByText("Could not save the settings")).toBeInTheDocument();
-    expect(sw).toBeChecked();
-    expect(calls("system.set")).toHaveLength(2);
-  });
-
-  it("points at Models with a link, for models added from a folder", () => {
-    const { app } = mountSettings(<AppearanceSection />, { info: null });
-    fireEvent.click(screen.getByRole("button", { name: "Models" }));
-    expect(app.navigate).toHaveBeenCalledWith("settings", "models");
+    expect(screen.getByText(/remembered too/)).toBeInTheDocument();
   });
 
   it("always on top: hidden in the browser; on the desktop a switch that keeps the window on top, remembered", async () => {

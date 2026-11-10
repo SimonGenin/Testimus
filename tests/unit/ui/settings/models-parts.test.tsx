@@ -5,23 +5,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Fit } from "../../../../src/core/types.ts";
 import { absolutePath } from "../../../../src/ui/lib/desktop.ts";
 import { AddFolder } from "../../../../src/ui/screens/settings/models/AddFolder.tsx";
-import { AdviceBanner } from "../../../../src/ui/screens/settings/models/AdviceBanner.tsx";
-import { CustomCard } from "../../../../src/ui/screens/settings/models/CustomCard.tsx";
 import {
+  aboutModel,
+  aboutSpeech,
   bestDrive,
   type CatalogRow,
   choiceLabel,
   defaultFolder,
   folderPicker,
+  hourIn,
   onDrive,
   type PackRow,
+  roomOf,
+  runsOn,
+  type SpeechModel,
   size,
 } from "../../../../src/ui/screens/settings/models/data.ts";
 import { FitConfirm, fitNumbers, fitTitle } from "../../../../src/ui/screens/settings/models/FitConfirm.tsx";
 import { FolderDialog } from "../../../../src/ui/screens/settings/models/FolderDialog.tsx";
-import { ModelsTable } from "../../../../src/ui/screens/settings/models/ModelsTable.tsx";
+import { Here, type ModelLine, ModelTable } from "../../../../src/ui/screens/settings/models/ModelTable.tsx";
 import { OpLine } from "../../../../src/ui/screens/settings/models/OpLine.tsx";
-import { PackActions } from "../../../../src/ui/screens/settings/models/PackActions.tsx";
 import { PackCard } from "../../../../src/ui/screens/settings/models/PackCard.tsx";
 import { PackPlanDialog } from "../../../../src/ui/screens/settings/models/PackPlanDialog.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
@@ -165,61 +168,6 @@ describe("small model widgets", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("AdviceBanner up and down", () => {
-    const onApply = vi.fn();
-    const onDismiss = vi.fn();
-    const advice = {
-      id: "a",
-      direction: "downgrade" as const,
-      from: { pack: "balanced" },
-      to: { embedding: "e", reranker: null },
-      reason: "Too slow",
-      quality: "-3%",
-    };
-    const { rerender } = render(
-      <AdviceBanner
-        advice={advice as never}
-        label={(x) => `L-${x}`}
-        busy={false}
-        onApply={onApply}
-        onDismiss={onDismiss}
-      />,
-    );
-    expect(screen.getByText(/A lighter choice suits this PC: switch to L-e/)).toBeInTheDocument();
-    expect(screen.getByText(/now Balanced pack/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    expect(onApply).toHaveBeenCalled();
-    expect(onDismiss).toHaveBeenCalled();
-    rerender(
-      <AdviceBanner
-        advice={{ ...advice, direction: "upgrade", to: { pack: "quality" } } as never}
-        label={(x) => x}
-        busy
-        onApply={onApply}
-        onDismiss={onDismiss}
-      />,
-    );
-    expect(screen.getByText(/This PC can do more: switch to Quality pack/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
-  });
-
-  it("CustomCard active with or without a reranker, and inactive", () => {
-    const onChoose = vi.fn();
-    const { rerender } = render(
-      <CustomCard active embedding="e" reranker="r" label={(x) => `L-${x}`} onChoose={onChoose} />,
-    );
-    expect(screen.getByText("In use")).toBeInTheDocument();
-    expect(document.body).toHaveTextContent("L-e + L-r");
-    rerender(<CustomCard active embedding="e" reranker={null} label={(x) => x} onChoose={onChoose} />);
-    expect(screen.getByText("no reranker")).toBeInTheDocument();
-    rerender(<CustomCard active={false} embedding="e" reranker={null} label={(x) => x} onChoose={onChoose} />);
-    expect(screen.getByText("Not chosen")).toBeInTheDocument();
-    expect(iconsIn(screen.getByRole("button", { name: "Open the catalog" })), "audit icons 111").toEqual(["list"]);
-    fireEvent.click(screen.getByRole("button", { name: "Open the catalog" }));
-    expect(onChoose).toHaveBeenCalled();
-  });
-
   it("FitConfirm: refused, partly on the CPU with its own message, unload list, no lighter", () => {
     const props = { name: "Big", short: "Big", lighter: null, onUse: vi.fn(), onLighter: vi.fn(), onClose: vi.fn() };
     const { rerender } = render(<FitConfirm {...props} fit={fitOf("ram-too-small", "No RAM")} />);
@@ -334,48 +282,14 @@ describe("small model widgets", () => {
     expect(screen.queryByText("Installed")).toBeNull();
   });
 
-  it("PackCard as a radio among packs, suggested; its actions in Settings: use, measure, a job running", () => {
+  it("PackCard as a radio among packs, suggested", () => {
     const onSelect = vi.fn();
     const { rerender } = render(<PackCard pack={pack("balanced")} pick={{ checked: false, onSelect }} suggested />);
     expect(screen.getByText("Suggested for this PC")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio"));
     expect(onSelect).toHaveBeenCalledWith("balanced");
-    const onUse = vi.fn();
-    rerender(
-      <PackCard
-        pack={pack("balanced", { speed: "fast" })}
-        facts
-        footer={<PackActions pack={pack("balanced")} op={null} busy={false} onUse={onUse} />}
-      />,
-    );
+    rerender(<PackCard pack={pack("balanced", { speed: "fast" })} facts />);
     expect(screen.getByText("fast")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Use this pack" }));
-    expect(onUse).toHaveBeenCalled();
-    rerender(<PackActions pack={pack("light", { active: true })} op={null} busy={false} onUse={onUse} />);
-    fireEvent.click(screen.getByRole("button", { name: "Use this pack" }));
-    expect(onUse).toHaveBeenCalledTimes(2);
-    rerender(
-      <PackActions pack={pack("balanced", { chosen: true, installed: "some" })} op={null} busy={false} onUse={onUse} />,
-    );
-    expect(screen.getByRole("button", { name: "Use this pack" })).toBeInTheDocument();
-    rerender(
-      <PackActions pack={pack("balanced", { active: true, chosen: true })} op={null} busy={false} onUse={onUse} />,
-    );
-    expect(screen.queryByRole("button", { name: "Use this pack" })).toBeNull();
-  });
-
-  it("PackActions: a job on the pack shows its progress instead of the buttons", () => {
-    mountSettings(
-      <PackActions
-        pack={pack("quality")}
-        op={{ key: "quality", jobId: "j", label: "Installing", kind: "models-usePack" }}
-        busy={false}
-        onUse={() => {}}
-        onMeasure={() => {}}
-      />,
-    );
-    expect(screen.getByRole("status", { name: "Installing" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Measure" })).toBeNull();
   });
 
   it("PackPlanDialog: downloads into a folder not chosen yet, a reranker, nothing to reindex", () => {
@@ -437,77 +351,115 @@ describe("small model widgets", () => {
     expect(screen.getByText(/The documents are indexed again/)).toBeInTheDocument();
   });
 
-  it("ModelsTable: perf, verify, remove, downloading, a job on a row", () => {
-    const onVerify = vi.fn();
-    const onRemove = vi.fn();
-    const onUse = vi.fn();
-    const inst = {
-      model: "a",
-      label: "A",
-      via: "path" as const,
-      runtime: "t",
-      where: "\\\\s\\a",
-      sizeMB: 10,
-      state: "installed" as const,
-      usedBy: [],
-      perf: "40 ms",
-    };
+  it("ModelTable: what each model is and its one gesture; check and remove on this PC; a job on a row; in use", () => {
+    const use = vi.fn();
+    const check = vi.fn();
+    const remove = vi.fn();
+    const line = (id: string, over: Partial<ModelLine> = {}): ModelLine => ({
+      id,
+      label: `Label ${id}`,
+      note: `about ${id}`,
+      runsOn: "Card, 1.4 GB",
+      sizeMB: 1100,
+      here: <Here state="available" />,
+      inUse: false,
+      op: null,
+      use: { disabled: false, onClick: () => use(id) },
+      ...over,
+    });
     mountSettings(
-      <ModelsTable
-        rows={[
-          row("a", { state: "installed", kind: "reranker" }),
-          row("b", { state: "downloading" }),
-          row("c", { state: "verified" }),
-        ]}
-        installed={[inst]}
-        inUse={["c"]}
-        ops={[{ key: "d", jobId: "", label: "Downloading", kind: "models-pull" }]}
+      <ModelTable
+        label="Embedding models"
         busy={false}
-        onInstall={vi.fn()}
-        onUse={onUse}
-        onVerify={onVerify}
-        onRemove={onRemove}
+        extra={{ label: "An hour of video", render: (l) => `hour ${l.id}` }}
+        lines={[
+          line("a", { here: <Here state="verified" />, check, remove }),
+          line("b", {
+            here: <Here state="downloading" />,
+            op: { key: "b", jobId: "", label: "Downloading b", kind: "models-pull" },
+          }),
+          line("c", { here: <Here state="active" />, inUse: true, remove }),
+          line("d", { why: "Tight: 7.6 GB needed, 7.0 GB usable." }),
+          line("e", { off: true, why: "Not offered here.", use: { disabled: "Not offered here", onClick: vi.fn() } }),
+        ]}
       />,
     );
-    const table = screen.getByRole("table", { name: "Model catalog" });
-    expect(within(table).getByText("40 ms")).toBeInTheDocument();
-    expect(within(table).getByText(/reranker · light/)).toBeInTheDocument();
-    expect(within(table).getByRole("columnheader", { name: "Fit here" })).toBeInTheDocument();
-    expect(within(table).getByTitle("\\\\s\\a")).toHaveTextContent("\\\\s\\a");
+    const table = screen.getByRole("table", { name: "Embedding models" });
+    expect(within(table).getByRole("columnheader", { name: "An hour of video" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "On this PC" })).toBeInTheDocument();
     const a = within(table).getByRole("row", { name: /Label a/ });
-    fireEvent.click(within(a).getByRole("button", { name: "Verify" }));
-    expect(onVerify).toHaveBeenCalled();
-    fireEvent.click(within(a).getByRole("button", { name: "Use" }));
-    expect(onUse).toHaveBeenCalled();
+    expect(within(a).getByText("about a")).toBeInTheDocument();
+    expect(within(a).getByText("Card, 1.4 GB")).toBeInTheDocument();
+    expect(within(a).getByText("1.1 GB")).toBeInTheDocument();
+    expect(within(a).getByText("hour a")).toBeInTheDocument();
+    expect(within(a).getByText("Verified")).toBeInTheDocument();
+    fireEvent.click(within(a).getByRole("button", { name: "Check" }));
+    expect(check).toHaveBeenCalled();
     fireEvent.click(within(a).getByRole("button", { name: "Remove" }));
-    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }), inst);
+    expect(remove).toHaveBeenCalled();
+    fireEvent.click(within(a).getByRole("button", { name: "Use" }));
+    expect(use).toHaveBeenCalledWith("a");
     const b = within(table).getByRole("row", { name: /Label b/ });
-    expect(within(b).getByRole("button", { name: "Install" })).toBeDisabled();
     expect(within(b).getByText("Downloading")).toBeInTheDocument();
+    expect(within(b).getByRole("status", { name: "Downloading b" })).toBeInTheDocument();
+    expect(within(b).queryByRole("button", { name: "Use" })).toBeNull();
     const c = within(table).getByRole("row", { name: /Label c/ });
-    expect(within(c).getByRole("button", { name: "In use" })).toBeDisabled();
-    expect(within(c).getAllByText("In use").length).toBeGreaterThan(0);
+    expect(within(c).getByText("In use")).toBeInTheDocument();
+    expect(within(c).getByText("Installed")).toBeInTheDocument();
+    expect(within(c).queryByRole("button", { name: "Use" })).toBeNull();
+    expect(within(c).getByRole("button", { name: "Remove" })).toBeDisabled();
+    const d = within(table).getByRole("row", { name: /Label d/ });
+    expect(within(d).getByText("Not installed")).toBeInTheDocument();
+    expect(within(d).getByText("Tight: 7.6 GB needed, 7.0 GB usable.")).toBeInTheDocument();
+    expect(within(d).queryByRole("button", { name: "Check" })).toBeNull();
+    const e = within(table).getByRole("row", { name: /Label e/ });
+    expect(within(e).getByText("Not offered here.")).toBeInTheDocument();
+    expect(within(e).getByRole("button", { name: "Use" })).toBeDisabled();
   });
 
-  it("ModelsTable: without a project, Use waits and says why; Install and Verify stay", () => {
+  it("ModelTable: busy waits every check and remove", () => {
     mountSettings(
-      <ModelsTable
-        rows={[row("a", { state: "installed" }), row("b")]}
-        installed={[]}
-        inUse={[]}
-        ops={[]}
-        busy={false}
-        hasProject={false}
-        onInstall={vi.fn()}
-        onUse={vi.fn()}
-        onVerify={vi.fn()}
-        onRemove={vi.fn()}
+      <ModelTable
+        label="Reranker models"
+        busy
+        lines={[
+          {
+            id: "a",
+            label: "A",
+            runsOn: "",
+            sizeMB: null,
+            here: null,
+            inUse: false,
+            op: null,
+            use: { disabled: true, onClick: vi.fn() },
+            check: vi.fn(),
+            remove: vi.fn(),
+          },
+        ]}
       />,
     );
-    const a = screen.getByRole("row", { name: /Label a/ });
-    expect(within(a).getByRole("button", { name: "Use" })).toBeDisabled();
-    expect(within(a).getByRole("button", { name: "Verify" })).toBeEnabled();
-    expect(within(screen.getByRole("row", { name: /Label b/ })).getByRole("button", { name: "Install" })).toBeEnabled();
+    for (const name of ["Use", "Check", "Remove"]) expect(screen.getByRole("button", { name })).toBeDisabled();
+  });
+
+  it("where a model runs, what it takes there, what it is, and how long an hour of video takes", () => {
+    const gpu = fitOf("fits", "m", { device: "gpu", needMB: { vram: 1434, ram: 600 } });
+    const cpu = fitOf("fits", "m", { device: "cpu", needMB: { vram: 0, ram: 1169 } });
+    expect(runsOn(gpu)).toBe("Card, 1.4 GB");
+    expect(runsOn(cpu)).toBe("Processor, 1.1 GB");
+    expect(roomOf(gpu)).toEqual(["On the card", "1.4 GB"]);
+    expect(roomOf(cpu)).toEqual(["In memory", "1.1 GB"]);
+    expect(aboutModel(row("a"))).toBe("Light: runs on any PC · no llama.cpp needed");
+    expect(aboutModel(row("b", { tier: "quality", runtimes: ["llamacpp"] }))).toBe(
+      "The most precise, and the heaviest · runs through llama.cpp",
+    );
+    expect(aboutModel(row("c", { tier: "other" }))).toBe("other · no llama.cpp needed");
+    const m = { label: "Whisper large-v3 turbo", languages: 99, licence: "MIT" } as SpeechModel;
+    expect(aboutSpeech(m)).toBe("The best text · 99 languages · MIT");
+    expect(aboutSpeech({ ...m, label: "Whisper small" })).toMatch(/^For a modest PC/);
+    expect(aboutSpeech({ ...m, label: "Whisper medium" })).toBe("99 languages · MIT");
+    expect(hourIn(39)).toBe("About 2 min");
+    expect(hourIn(120)).toBe("Under a minute");
+    expect(hourIn(0.5)).toBe("About 2 h");
   });
 });
 

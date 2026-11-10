@@ -88,6 +88,8 @@ export type SelectProps<V extends string> = {
   label: string;
   /** the label above the field, as Text's (the kit's Field) */
   showLabel?: boolean;
+  /** a labelled select in a settings row: label and hint on the left, the select on the right (Field aside) */
+  aside?: boolean;
   /** under a labelled select: an example, a consequence (else the chosen option's hint) */
   hint?: string;
   /** boxed (forms) · quiet (toolbars, the dock footer, a sort) */
@@ -197,6 +199,7 @@ export function Select<V extends string>({
   onChange,
   label,
   showLabel = false,
+  aside = false,
   hint,
   appearance = "boxed",
   size: s = "md",
@@ -252,7 +255,7 @@ export function Select<V extends string>({
   const shown = typeof disabled === "string" ? <Tooltip label={disabled}>{field}</Tooltip> : field;
   if (!showLabel) return shown;
   return (
-    <Field label={label} htmlFor={id} hint={shownHint} hintId={`${id}-hint`}>
+    <Field label={label} htmlFor={id} hint={shownHint} hintId={`${id}-hint`} aside={aside}>
       {shown}
     </Field>
   );

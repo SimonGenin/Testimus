@@ -32,7 +32,7 @@ export const capMB = (project: string): number | null => {
   return gb && gb > 0 ? Math.round(gb * 1024) : null;
 };
 
-// ponytail: the cap the team sets for the project's videos (Settings › Project › Videos) is held when a video comes
+// ponytail: the cap the team sets for the project's videos (Settings › Videos) is held when a video comes
 // in, never afterwards: a video already there is never removed nor left unread because of it
 export function overCap(project: string, addBytes: number): { usedMB: number; capMB: number } | null {
   const cap = capMB(project);

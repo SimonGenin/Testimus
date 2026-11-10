@@ -51,7 +51,7 @@ export const prompts: PromptTemplate[] = [
     name: "Write the glossary of the transcription",
     group: "Documents",
     kind: "media",
-    usedBy: ["Settings › Project › Videos: Edit with Claude", "media.suggestGlossary"],
+    usedBy: ["Settings › Videos: Have Claude write it", "media.suggestGlossary"],
     answers: "The terms, most important first, in the block that ends the reply",
     text: () =>
       glossaryPrompt(

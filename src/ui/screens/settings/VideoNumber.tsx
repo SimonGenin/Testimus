@@ -40,6 +40,7 @@ export function VideoNumber({
   const read = (text: string) => (text.trim() === "" ? empty : numberOf(text, max));
   return (
     <Text
+      aside
       label={label}
       hint={hint}
       placeholder={placeholder}

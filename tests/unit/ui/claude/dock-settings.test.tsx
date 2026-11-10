@@ -11,7 +11,7 @@ import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/ap
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { restoreAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { AppearanceSection } from "../../../../src/ui/screens/settings/AppearanceSection.tsx";
-import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
+import { ClaudeCodeSection } from "../../../../src/ui/screens/settings/ClaudeCodeSection.tsx";
 import { piece, previewOf } from "../../helpers/fake-preview.ts";
 import { dataWrapper } from "../../helpers/ui-data.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
@@ -422,7 +422,7 @@ describe("dock: run details and failures", () => {
       exe: "claude",
       detail: "spawn claude ENOENT",
     });
-    render(wrap(app({ info: null }), <ClaudeSection />));
+    render(wrap(app({ info: null }), <ClaudeCodeSection />));
     await screen.findByText("Claude isn't installed on this PC yet");
     expect(screen.getByRole("status")).toHaveTextContent("spawn claude ENOENT · Claude is optional");
     expect(screen.getByText("Not found")).toBeInTheDocument();

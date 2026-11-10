@@ -222,15 +222,15 @@ describe("a video before its first conversion", () => {
     serve(added(), { disk: { needMB: 12, freeMB: 90_000, usedMB: 1536, capMB: 2048, over: false } });
     const first = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
     expect(await screen.findByText("1.5 of 2 GB used by the project's videos")).toBeInTheDocument();
-    expect(screen.queryByText("The project's videos pass the room the team allows them")).toBeNull();
+    expect(screen.queryByText("The project's videos pass the room they may take")).toBeNull();
     first.unmount();
     serve(added(), { disk: { needMB: 12, freeMB: 90_000, usedMB: 2300, capMB: 2048, over: true } });
     mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
-    const warning = (await screen.findByText("The project's videos pass the room the team allows them")).closest(
+    const warning = (await screen.findByText("The project's videos pass the room they may take")).closest(
       '[role="alert"]',
     ) as HTMLElement;
     expect(warning).toHaveTextContent(
-      "2.2 of 2 GB are used: a video added now is refused. Raise the cap in Settings › Project › Videos, or remove a video.",
+      "2.2 of 2 GB are used: a video added now is refused. Raise the cap in Settings › Videos, or remove a video.",
     );
   });
 
@@ -278,7 +278,7 @@ describe("a recording of sound alone", () => {
 
 describe("a video the cap refuses", () => {
   const why =
-    "The project's videos take 2300 MB of the 2048 MB the team allows them: this one does not fit. Raise the cap in Settings › Project › Videos (testimus project set --video.disk-cap-gb=<n>), or remove a video.";
+    "The project's videos take 2300 MB of the 2048 MB the project allows them: this one does not fit. Raise the cap in Settings › Videos (testimus project set --video.disk-cap-gb=<n>), or remove a video.";
 
   it("added as a document: the list says why it was not added", async () => {
     api.routes["docs.list"] = () => [doc("D1")];
@@ -309,9 +309,7 @@ describe("a video the cap refuses", () => {
       },
     });
     expect(await screen.findByText("Adding essai.mp4 stopped")).toBeInTheDocument();
-    expect(
-      screen.getByText(/this one does not fit\. Raise the cap in Settings › Project › Videos/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/this one does not fit\. Raise the cap in Settings › Videos/)).toBeInTheDocument();
   });
 
   it("added to an images document: the refusal is said with its sentence", async () => {

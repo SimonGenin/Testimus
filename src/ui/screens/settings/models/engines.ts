@@ -3,16 +3,16 @@ import { ApiError } from "../../../lib/data/client.ts";
 import { execute } from "../../../lib/data/query.ts";
 import { errorToast, toast } from "../../../lib/toast.ts";
 import { type FolderAsk, MODEL_READS } from "./actions.ts";
-import { FFMPEG, WHISPER } from "./ops.tsx";
+import { FFMPEG, LLAMA, WHISPER } from "./ops.tsx";
 
 type Start = (jobId: string, key: string, kind: string, label: string, then?: (result: unknown) => void) => void;
 
 const NO_FOLDER = "models-dir-unset";
 
-// ponytail: what Settings › Models › Transcription does beside the catalog's own gestures (install, check, remove a
-// model: useModelActions) — download the engine or ffmpeg into the runtimes folder, asked for first when there is
-// none, and choose the model that hears
-export function useSpeechActions(o: {
+// ponytail: what Settings › Models does beside the models' own gestures (install, check, remove a model:
+// useModelActions) — download the transcription engine, ffmpeg or llama.cpp into the runtimes folder, asked for first
+// when there is none, and choose the model that hears
+export function useEngineActions(o: {
   /** no runtimes folder yet: a download asks for the models folder first */
   needsFolder: boolean;
   setFolder: (ask: FolderAsk) => void;
@@ -52,6 +52,24 @@ export function useSpeechActions(o: {
     }
   };
 
+  const pullLlama = async (needMB: number, chosen = false): Promise<void> => {
+    const again = () => void pullLlama(needMB, true);
+    if (!chosen && o.needsFolder) return o.setFolder({ needMB, next: again });
+    try {
+      const { jobId } = await execute(
+        client,
+        "models.pullRuntime",
+        {},
+        { invalidates: [...MODEL_READS, ["models.dirs"]] },
+      );
+      o.start(jobId, LLAMA, "models-pull", "Downloading llama.cpp", () =>
+        toast({ tone: "success", title: "llama.cpp installed" }),
+      );
+    } catch (e) {
+      refused(e, needMB, again, "llama.cpp");
+    }
+  };
+
   const use = async (model?: { id: string; label: string }): Promise<void> => {
     try {
       await execute(client, "models.useSpeech", model ? { model: model.id } : {}, fx);
@@ -65,7 +83,5 @@ export function useSpeechActions(o: {
     }
   };
 
-  return { pullEngine, pullFfmpeg, use };
+  return { pullEngine, pullFfmpeg, pullLlama, use };
 }
-
-export type SpeechActions = ReturnType<typeof useSpeechActions>;

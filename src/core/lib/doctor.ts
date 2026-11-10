@@ -233,7 +233,14 @@ export function proxyCheck(vars: NodeJS.ProcessEnv = process.env): DoctorCheck {
 // not a failure — its row says it is not used, until its connection works
 export function unused(c: DoctorCheck, skip: boolean | undefined, what: string): DoctorCheck {
   if (!skip || c.state === "ok") return c;
-  return row(c.id, c.label, "skip", `not used: ${what}`, "Connect it in Settings › Access when you need it.", SETUP);
+  return row(
+    c.id,
+    c.label,
+    "skip",
+    `not used: ${what}`,
+    "Connect it in Settings › Jira and Xray when you need it.",
+    SETUP,
+  );
 }
 
 export async function runDoctor(opts: DoctorOpts): Promise<DoctorCheck[]> {

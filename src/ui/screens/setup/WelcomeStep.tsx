@@ -45,7 +45,7 @@ const MODES: { value: Mode; title: string; text: string }[] = [
   {
     value: "local",
     title: "On this PC only, for now",
-    text: "Tests stay here as files. Jira is left out, never reported as a problem; connect it later in Settings › Access.",
+    text: "Tests stay here as files. Jira is left out, never reported as a problem; connect it later in Settings › Jira and Xray.",
   },
   {
     value: "join",

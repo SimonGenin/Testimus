@@ -278,7 +278,7 @@ describe("ConnectAtlassian", () => {
   });
 });
 
-describe("Settings › Access", () => {
+describe("Settings › Jira and Xray", () => {
   it("lists each file with its state and the doctor's verdict", async () => {
     net.routes["system.doctor"] = () => ({
       ok: false,
@@ -286,13 +286,11 @@ describe("Settings › Access", () => {
     });
     net.routes["system.credentials"] = () => verdict(creds());
     mountSettings(<AccessSection />);
-    const files = await screen.findByRole("list", { name: "Credential files" });
+    const files = await screen.findByRole("region", { name: "Connection" });
     expect(within(files).getAllByText("Found · valid")).toHaveLength(2);
     expect(within(files).getByText("C:\\Users\\me\\.atlassian\\xray_credentials.json")).toBeInTheDocument();
-    expect(
-      await within(within(files).getByText("Xray").closest("li") as HTMLElement).findByText("Connected"),
-    ).toBeInTheDocument();
-    expect(within(files).getByText(/Jira 401 Unauthorized/)).toBeInTheDocument();
+    expect(await within(screen.getByRole("group", { name: "Xray" })).findByText("Connected")).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Jira" })).getByText(/Jira 401 Unauthorized/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Connect to Jira and Xray" })).toBeInTheDocument();
   });
 
@@ -313,10 +311,23 @@ describe("Settings › Access", () => {
     expect(screen.queryByText("Connected")).toBeNull();
   });
 
+  it("while both answer, the form is folded behind « Change the connection… »; Cancel folds it again", async () => {
+    net.routes["system.doctor"] = () => ({ ok: true, checks: [check("jira", "ok"), check("xray", "ok")] });
+    net.routes["system.credentials"] = () => verdict(creds());
+    mountSettings(<AccessSection />);
+    const change = await screen.findByRole("button", { name: "Change the connection…" });
+    expect(screen.queryByRole("region", { name: "Connect to Jira and Xray" })).toBeNull();
+    fireEvent.click(change);
+    expect(screen.getByRole("region", { name: "Connect to Jira and Xray" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("region", { name: "Connect to Jira and Xray" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Change the connection…" })).toBeInTheDocument();
+  });
+
   it("works without a project", async () => {
     net.routes["system.credentials"] = () => verdict(creds());
     mountSettings(<AccessSection />, { info: null });
-    expect(await screen.findByRole("list", { name: "Credential files" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Connection" })).toBeInTheDocument();
     expect(calls("project.info")).toHaveLength(0);
   });
 });

@@ -38,11 +38,11 @@ describe("Settings screen", () => {
   it("lists the sections, marks the current one and navigates", () => {
     const { app } = mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "access" } });
     expect(screen.getByRole("navigation", { name: "Settings sections" })).toBeInTheDocument();
-    expect(option("Access")).toHaveAttribute("aria-selected", "true");
+    expect(option("Jira and Xray")).toHaveAttribute("aria-selected", "true");
     expect(option("Project")).toHaveAttribute("aria-selected", "false");
     fireEvent.click(option("Appearance"));
     expect(app.navigate).toHaveBeenCalledWith("settings", "appearance");
-    expect(screen.getByRole("heading", { name: "Access", level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Jira and Xray", level: 2 })).toBeInTheDocument();
     expect(screen.queryByText("Models stub")).not.toBeInTheDocument();
   });
 
@@ -57,7 +57,8 @@ describe("Settings screen", () => {
     const { app: state } = mountSettings(<SettingsScreen />, { info: null, route: { screen: "documents" } });
     expect(option("Project needs a project")).toHaveAttribute("aria-selected", "true");
     expect(option("Search needs a project")).toBeInTheDocument();
-    expect(option("Claude")).toBeInTheDocument();
+    expect(option("Claude needs a project")).toBeInTheDocument();
+    expect(option("Claude Code")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Project" })).toBeInTheDocument();
     const empty = screen.getByText("No project open").closest("div")?.parentElement;
     expect(iconsIn(empty)[0], "audit icons 103: the empty state's folder").toBe("folder");
@@ -106,31 +107,56 @@ describe("Settings screen", () => {
 });
 
 describe("Settings › the list names the sections only", () => {
+  it("groups the sections: this project's, then Testimus' own for every project", () => {
+    mountSettings(<SettingsScreen />, { route: { screen: "settings" } });
+    const names = within(nav())
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(names).toEqual([
+      "Project",
+      "Smart columns",
+      "Claude",
+      "Context",
+      "Search",
+      "Videos",
+      "Claude Code",
+      "Jira and Xray",
+      "Models",
+      "Appearance",
+      "Updates",
+      "Changelog",
+    ]);
+    expect(within(nav()).getByText("This project")).toBeInTheDocument();
+    expect(within(nav()).getByText("Testimus")).toBeInTheDocument();
+  });
+
   it("lists no card under an open section: Models stays the one marked", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "models-packs" } });
     expect(option("Models")).toHaveAttribute("aria-selected", "true");
     for (const card of ["This machine", "Models folder", "Packs", "Model catalog"])
       expect(within(nav()).queryByRole("option", { name: card })).toBeNull();
-    expect(within(nav()).getAllByRole("option")).toHaveLength(10);
+    expect(within(nav()).getAllByRole("option")).toHaveLength(12);
   });
 
-  it("lists no card under Claude either", () => {
+  it("lists no card under Claude Code either", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude" } });
-    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
-    for (const card of ["Connection", "Claude dock", "Quick asks", "Contexts"])
+    expect(option("Claude Code")).toHaveAttribute("aria-selected", "true");
+    for (const card of ["Program", "Runs at once", "Claude dock", "Quick asks", "Contexts"])
       expect(within(nav()).queryByRole("option", { name: card })).toBeNull();
   });
 });
 
-describe("Settings › anchors: #/settings/claude-dock, -quickasks, context, a field (audit M-C3)", () => {
+describe("Settings › anchors: #/settings/claudeproject-dock, -quickasks, context, a field (audit M-C3)", () => {
   for (const [arg, card, entry] of [
-    ["claude-dock", "Claude dock", "Claude"],
-    ["claude-quickasks", "Quick asks", "Claude"],
+    ["claudeproject-dock", "Claude dock", "Claude"],
+    ["claudeproject-quickasks", "Quick asks", "Claude"],
+    ["claudeproject-overview", "How the documents fit together", "Claude"],
+    ["videos-glossary", "Glossary of the transcription", "Videos"],
   ] as const)
-    it(`#/settings/${arg} opens the Claude section, marks « ${entry} » and scrolls to the « ${card} » card`, async () => {
+    it(`#/settings/${arg} opens its section, marks « ${entry} » and scrolls to the « ${card} » card`, async () => {
       mountSettings(<SettingsScreen />, { route: { screen: "settings", arg } });
       expect(option(entry)).toHaveAttribute("aria-selected", "true");
-      const region = await screen.findByRole("region", { name: card });
+      const region = await screen.findByRole("region", { name: new RegExp(`^${card}`) });
       await waitFor(() => expect(scrolled.some((el) => el.contains(region))).toBe(true));
     });
 
@@ -140,28 +166,29 @@ describe("Settings › anchors: #/settings/claude-dock, -quickasks, context, a f
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "context" } });
     expect(option("Context")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { level: 2, name: "Context" })).toBeInTheDocument();
-    expect(await screen.findByRole("listbox", { name: "What Claude is given" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New context" })).toBeInTheDocument();
+    expect(await screen.findByRole("tree", { name: "What Claude is given" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New context" }).length).toBeGreaterThan(0);
     cleanup();
-    mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude-contexts" } });
+    mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claudeproject-contexts" } });
     expect(option("Claude")).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByRole("region", { name: "Quick asks" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Contexts" })).toBeNull();
   });
 
-  it("#/settings/claude scrolls to the Connection to Claude card and marks Claude", () => {
+  it("#/settings/claude opens this PC's Claude Code: the program and the runs at once", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude" } });
-    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
-    expect(scrolled[0]).toContainElement(screen.getByRole("region", { name: "Connection to Claude" }));
+    expect(option("Claude Code")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Program" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Runs at once" })).toBeInTheDocument();
   });
 
-  it("without a project, Claude works and its section says its project cards need one", () => {
+  it("without a project, Claude Code works and the project's Claude page asks for one", () => {
     const { app: state } = mountSettings(<SettingsScreen />, {
       info: null,
-      route: { screen: "settings", arg: "claude" },
+      route: { screen: "settings", arg: "claudeproject" },
     });
-    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText(/open one to set them/)).toBeInTheDocument();
+    expect(option("Claude needs a project")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/Open a project to change its settings/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a project…" }));
     expect(state.navigate).toHaveBeenCalledWith("setup", "project/app");
   });
@@ -176,7 +203,7 @@ describe("Settings › anchors: #/settings/claude-dock, -quickasks, context, a f
     const at = vi.fn();
     Element.prototype.scrollIntoView = at;
     mountSettings(<SettingsScreen />, { info: null, route: { screen: "settings", arg: "claude-exe" } });
-    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
+    expect(option("Claude Code")).toHaveAttribute("aria-selected", "true");
     expect(at).toHaveBeenCalledWith({ block: "center" });
     expect(screen.getByLabelText(/^Claude program/)).toHaveFocus();
   });

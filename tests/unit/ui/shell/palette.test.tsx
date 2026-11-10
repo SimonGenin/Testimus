@@ -316,7 +316,7 @@ describe("search palette", () => {
     expect(screen.queryByText("Search on words only")).toBeNull();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "frein" } });
     expect(await screen.findByText("Search on words only")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose a search pack" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose the search models" })).toBeInTheDocument();
   });
 
   it("says nothing of words only while an index run builds the vectors: it is indexing", async () => {
