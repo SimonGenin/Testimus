@@ -27,7 +27,7 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: space.s1,
+    gap: space.s3,
     paddingBlock: space.s4,
     backgroundColor: color.canvas,
     overflowY: "auto",
