@@ -1045,7 +1045,11 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   foot (48 px, at the bottom whatever scrolls above). A tab is dragged by its grip to another section (its tab bar,
   its middle, an edge that splits the column or opens one), sent with Alt Shift and an arrow or the section's menu;
   a section whose last tab leaves goes, and with 2 sections left a last tab cannot leave (the drop zone says why); a
-  section folds to a strip of its tabs' icons (a column) or to its tab bar (a section of a split column); a narrow
+  section folds to a strip of its tabs' icons (a column) or to its tab bar (a section of a split column). The edge
+  between two columns (or two sections of a column) is a grip dragged freely: a column keeps 200 px at least (the
+  work's 420), a section of a split column 120 px, and no ceiling but the room the others need; dragged 32 px past a
+  least size, the section it would fold says « Release to collapse », and releasing there folds it (a column keeps the
+  width it had for when it opens again); a narrow
   window folds the rightmost columns to their strip, the work's (the tab marked `main`, 420 px at least) and the one in
   use last, the one in use kept when both cannot fit. The
   top bar's « Sections » group counts them (3/4), adds a column (it arrives empty and offers the screen's tabs; Esc

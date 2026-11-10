@@ -679,12 +679,12 @@ describe("Tests screen › layout", () => {
     routes["xray.folders"] = () => new Promise(() => {});
   });
 
-  it("resizes the list's column between 220 and 960 px, remembers it, and resets on double-click", () => {
+  it("resizes the list's column with no ceiling but the room, remembers it, and resets on double-click", () => {
     render(<Harness />);
     const edge = listEdge();
     fireEvent.pointerDown(edge, { clientX: 0 });
     fireEvent.pointerMove(edge, { clientX: 900 });
-    expect(listWidth()).toBe("960");
+    expect(listWidth()).toBe("1220");
     fireEvent.pointerMove(edge, { clientX: 20 });
     fireEvent.pointerUp(edge);
     expect(listWidth()).toBe("340");

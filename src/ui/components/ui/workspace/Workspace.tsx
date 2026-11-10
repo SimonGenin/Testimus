@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { overflowed } from "../../../lib/workspace/fit.ts";
+import { floorOf, overflowed, roomFor } from "../../../lib/workspace/fit.ts";
 import {
   COLUMN_WIDTH,
   columnCollapsed,
@@ -47,7 +47,8 @@ export function Workspace({ ws }: WorkspaceProps) {
   const prefix = useId().replace(/:/g, "");
   const root = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
-  const widths = useRef(new Map<number, number>());
+  const [widths, setWidths] = useState<Record<number, number>>({});
+  const [folding, setFolding] = useState<number | null>(null);
   const drag = useTabDrag(ws);
   const latest = useRef(ws);
   latest.current = ws;
@@ -114,7 +115,7 @@ export function Workspace({ ws }: WorkspaceProps) {
   }, [focusedSection]);
 
   const pending = pendingSection(layout);
-  const onWidth = useCallback((i: number, px: number) => widths.current.set(i, px), []);
+  const onWidth = useCallback((i: number, px: number) => setWidths((w) => (w[i] === px ? w : { ...w, [i]: px })), []);
   const dragged = drag.drag ? ws.tab(drag.drag.tab) : undefined;
 
   return (
@@ -130,7 +131,19 @@ export function Workspace({ ws }: WorkspaceProps) {
         const edgeOn = i > 0 && open[i - 1] && open[i];
         const resized = layout.columns[i - 1]?.width !== null && i - 1 !== fill ? i - 1 : i;
         const side = resized === i ? "left" : "right";
-        const now = layout.columns[resized]?.width ?? widths.current.get(resized) ?? NEW_COLUMN_WIDTH;
+        const other = resized === i ? i - 1 : i;
+        const drawn = widths[resized] ?? layout.columns[resized]?.width ?? NEW_COLUMN_WIDTH;
+        const now = Math.round(drawn);
+        const min = floorOf(resized === mainColumn);
+        const byFill =
+          fill !== resized && widths[fill] !== undefined
+            ? drawn + widths[fill] - floorOf(fill === mainColumn)
+            : Number.POSITIVE_INFINITY;
+        const room = Math.min(
+          byFill,
+          roomFor(layout, width, resized, (j) => !open[j], mainColumn),
+        );
+        const max = Math.max(min, Math.floor(Math.min(COLUMN_WIDTH.max, room)));
         return (
           <Fragment key={c.sections[0]?.id ?? i}>
             {edgeOn && (
@@ -139,11 +152,20 @@ export function Workspace({ ws }: WorkspaceProps) {
                 side={side}
                 quiet
                 value={now}
-                min={COLUMN_WIDTH.min}
-                max={COLUMN_WIDTH.max}
+                min={min}
+                max={max}
                 defaultValue={NEW_COLUMN_WIDTH}
                 onChange={(px) => ws.resizeColumn(resized, px, false)}
                 onCommit={(px) => ws.resizeColumn(resized, px, true)}
+                fold={{
+                  min: true,
+                  max: other === fill,
+                  onPast: (end) => setFolding(end === "min" ? resized : end === "max" ? other : null),
+                  onFold: (end, from) => {
+                    setFolding(null);
+                    ws.foldColumn(end === "min" ? resized : other, { column: resized, width: from });
+                  },
+                }}
               />
             )}
             <WorkspaceColumn
@@ -156,6 +178,7 @@ export function Workspace({ ws }: WorkspaceProps) {
               main={i === mainColumn}
               strip={stripOf(i)}
               onWidth={onWidth}
+              folding={folding === i}
             />
           </Fragment>
         );

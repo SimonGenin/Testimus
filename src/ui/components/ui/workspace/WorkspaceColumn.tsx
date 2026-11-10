@@ -1,10 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
-import { useLayoutEffect, useRef, useState } from "react";
-import { MAIN_MIN, SECTION_MIN } from "../../../lib/workspace/fit.ts";
-import { type Column, NEW_COLUMN_WIDTH, SPLIT } from "../../../lib/workspace/layout.ts";
+import { useLayoutEffect, useState } from "react";
+import { floorOf, SECTION_MIN_HEIGHT } from "../../../lib/workspace/fit.ts";
+import { type Column, NEW_COLUMN_WIDTH } from "../../../lib/workspace/layout.ts";
 import type { WorkspaceController } from "../../../lib/workspace/useWorkspace.ts";
 import { space } from "../../../styles/tokens.stylex.ts";
 import { ResizeHandle } from "../ResizeHandle.tsx";
+import { FoldHint } from "./FoldHint.tsx";
 import { SectionStrip } from "./SectionStrip.tsx";
 import type { TabDragHandle } from "./useTabDrag.ts";
 import { WorkspaceSection } from "./WorkspaceSection.tsx";
@@ -12,6 +13,7 @@ import { WorkspaceSection } from "./WorkspaceSection.tsx";
 const styles = stylex.create({
   column: {
     boxSizing: "border-box",
+    position: "relative",
     display: "flex",
     flexDirection: "column",
     gap: space.snug,
@@ -24,7 +26,8 @@ const styles = stylex.create({
 });
 
 // ponytail: one column — a strip when folded (its sections stay mounted, hidden), else its one or two sections, the
-// edge between two that both show resizing the top one's share
+// edge between two that both show resizing the top one's share; dragged past a section's least height, that section
+// folds to its tab bar, said on it before the drag ends
 export function WorkspaceColumn({
   ws,
   column,
@@ -35,6 +38,7 @@ export function WorkspaceColumn({
   main = false,
   strip,
   onWidth,
+  folding = false,
 }: {
   ws: WorkspaceController;
   column: Column;
@@ -49,11 +53,13 @@ export function WorkspaceColumn({
   strip: false | "user" | "auto";
   /** its drawn width, for the edge beside it */
   onWidth: (index: number, px: number) => void;
+  /** an edge is dragged past its least width: releasing folds it, it says so */
+  folding?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
   const [height, setHeight] = useState(0);
+  const [foldingRow, setFoldingRow] = useState<number | null>(null);
   useLayoutEffect(() => {
-    const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const watch = new ResizeObserver(([e]) => {
       setHeight(e.contentRect.height);
@@ -61,7 +67,7 @@ export function WorkspaceColumn({
     });
     watch.observe(el);
     return () => watch.disconnect();
-  }, [index, onWidth]);
+  }, [el, index, onWidth]);
 
   const first = index === 0;
   const sideFold = { icon: first ? ("panel-left" as const) : ("panel-right" as const), label: "Collapse this section" };
@@ -69,6 +75,7 @@ export function WorkspaceColumn({
   const bothOpen = stack && column.sections.every((s) => !s.collapsed);
   const share = column.split ?? 50;
   const top = Math.round((height * share) / 100);
+  const least = Math.min(SECTION_MIN_HEIGHT, Math.floor(height / 2));
 
   if (strip)
     return (
@@ -82,13 +89,11 @@ export function WorkspaceColumn({
 
   return (
     <div
-      ref={ref}
+      ref={setEl}
       data-ws-column={index}
       {...stylex.props(
         styles.column,
-        fill
-          ? styles.fill(`${main ? MAIN_MIN : SECTION_MIN}px`)
-          : styles.fixed(`${column.width ?? NEW_COLUMN_WIDTH}px`),
+        fill ? styles.fill(`${floorOf(main)}px`) : styles.fixed(`${column.width ?? NEW_COLUMN_WIDTH}px`),
       )}
     >
       {column.sections
@@ -103,6 +108,7 @@ export function WorkspaceColumn({
               stack ? { icon: row === 0 ? "chevron-up" : "chevron-down", label: "Collapse this section" } : sideFold
             }
             basis={bothOpen && row === 0 ? `calc(${share}% - ${space.snug})` : undefined}
+            folding={foldingRow === row}
           />
         ))
         .flatMap((el, row) =>
@@ -114,16 +120,26 @@ export function WorkspaceColumn({
                   orientation="horizontal"
                   quiet
                   value={top}
-                  min={Math.round((height * SPLIT.min) / 100)}
-                  max={Math.round((height * SPLIT.max) / 100)}
+                  min={least}
+                  max={Math.max(least, Math.floor(height) - least)}
                   defaultValue={Math.round(height / 2)}
                   onChange={(px) => height && ws.resizeSplit(index, (px * 100) / height, false)}
                   onCommit={(px) => height && ws.resizeSplit(index, (px * 100) / height, true)}
+                  fold={{
+                    min: true,
+                    max: true,
+                    onPast: (end) => setFoldingRow(end === "min" ? 0 : end === "max" ? 1 : null),
+                    onFold: (end, from) => {
+                      setFoldingRow(null);
+                      if (height) ws.foldSplit(index, end === "min" ? 0 : 1, (from * 100) / height);
+                    },
+                  }}
                 />,
                 el,
               ]
             : [el],
         )}
+      {folding && <FoldHint icon={sideFold.icon} />}
     </div>
   );
 }

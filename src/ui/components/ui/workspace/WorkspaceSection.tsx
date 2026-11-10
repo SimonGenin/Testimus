@@ -5,6 +5,7 @@ import type { WorkspaceController } from "../../../lib/workspace/useWorkspace.ts
 import { border, color, radius, size, space } from "../../../styles/tokens.stylex.ts";
 import type { IconName } from "../Icon.tsx";
 import { DropZones } from "./DropZones.tsx";
+import { FoldHint } from "./FoldHint.tsx";
 import { SectionPicker } from "./SectionPicker.tsx";
 import { panelDomId, SectionTabs, tabDomId } from "./SectionTabs.tsx";
 import type { TabDragHandle } from "./useTabDrag.ts";
@@ -59,6 +60,7 @@ export function WorkspaceSection({
   fold,
   basis,
   stowed = false,
+  folding = false,
 }: {
   ws: WorkspaceController;
   section: Section;
@@ -69,6 +71,8 @@ export function WorkspaceSection({
   basis?: string;
   /** its column is a strip: nothing shows, what its tabs hold stays mounted */
   stowed?: boolean;
+  /** the edge beside it is dragged past its least height: releasing folds it, it says so */
+  folding?: boolean;
 }) {
   const [shown, setShown] = useState<string[]>(() =>
     section.active && !section.collapsed && !stowed ? [section.active] : [],
@@ -117,6 +121,7 @@ export function WorkspaceSection({
         )
       )}
       {!section.collapsed && !section.pending && tab?.footer && <div {...stylex.props(styles.foot)}>{tab.footer}</div>}
+      {folding && <FoldHint icon={fold.icon} />}
       {over && <DropZones zone={over.zone} open={over.open} marker={over.marker} refused={over.refused} />}
     </div>
   );

@@ -56,7 +56,7 @@ export const section: KitSection = {
   family: "Layout",
   file: "ResizeHandle.tsx",
   summary:
-    "The edge of a resizable pane: a hairline that becomes a 2 px accent bar on hover, drag and keyboard focus. ←/→ move it by 16 px, Home resets, End is the largest, a double-click resets. Quiet draws no line until hovered, focused or dragged. The caller keeps the width with usePaneWidth (lib/panes).",
+    "The edge of a resizable pane: a short rounded grip on a hairline — darker and longer on hover, accent while dragged, the focus colour on keyboard focus. ←/→ move it by 16 px, Home resets, End is the largest, a double-click resets. Quiet draws only the grip until hovered, focused or dragged. With fold, a drag 32 px past a bound folds a pane instead (the sections' edges: « Release to collapse » shows first). The caller keeps the width with usePaneWidth (lib/panes).",
   guidelines: [],
   states: () => (
     <States>

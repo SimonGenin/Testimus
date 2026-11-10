@@ -8,7 +8,7 @@ import { Card } from "../../../../src/ui/components/ui/Card.tsx";
 import { Disclosure } from "../../../../src/ui/components/ui/Disclosure.tsx";
 import { EmptyState } from "../../../../src/ui/components/ui/EmptyState.tsx";
 import { Progress } from "../../../../src/ui/components/ui/Progress.tsx";
-import { ResizeHandle, type ResizeHandleProps } from "../../../../src/ui/components/ui/ResizeHandle.tsx";
+import { FOLD_PAST, ResizeHandle, type ResizeHandleProps } from "../../../../src/ui/components/ui/ResizeHandle.tsx";
 import { Skeleton } from "../../../../src/ui/components/ui/Skeleton.tsx";
 import { Timeline } from "../../../../src/ui/components/ui/Timeline.tsx";
 
@@ -134,7 +134,41 @@ describe("ResizeHandle", () => {
     expect(s).toHaveAttribute("aria-valuenow", "320");
   });
 
-  it("lights its line on hover, focus and drag, and in the catalogue states", () => {
+  it("dragged well past a bound, says it will fold a pane and folds it on release instead of committing", () => {
+    const onCommit = vi.fn();
+    const onPast = vi.fn();
+    const onFold = vi.fn();
+    render(<Pane onCommit={onCommit} fold={{ min: true, max: true, onPast, onFold }} />);
+    const s = screen.getByRole("separator");
+    fireEvent.pointerDown(s, { clientX: 300, pointerId: 1 });
+    fireEvent.pointerMove(s, { clientX: 300 - 60 - FOLD_PAST });
+    expect(s).toHaveAttribute("aria-valuenow", "240");
+    expect(onPast).not.toHaveBeenCalled();
+    fireEvent.pointerMove(s, { clientX: 300 - 61 - FOLD_PAST });
+    expect(onPast).toHaveBeenLastCalledWith("min");
+    fireEvent.pointerMove(s, { clientX: 310 });
+    expect(onPast).toHaveBeenLastCalledWith(null);
+    fireEvent.pointerMove(s, { clientX: 300 + 181 + FOLD_PAST });
+    expect(onPast).toHaveBeenLastCalledWith("max");
+    expect(onPast).toHaveBeenCalledTimes(3);
+    fireEvent.pointerUp(s);
+    expect(onFold).toHaveBeenCalledWith("max", 300);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("folds only at the bounds it is given", () => {
+    const onFold = vi.fn();
+    const onCommit = vi.fn();
+    render(<Pane onCommit={onCommit} fold={{ min: true, onPast: vi.fn(), onFold }} />);
+    const s = screen.getByRole("separator");
+    fireEvent.pointerDown(s, { clientX: 0, pointerId: 1 });
+    fireEvent.pointerMove(s, { clientX: 900 });
+    fireEvent.pointerUp(s);
+    expect(onFold).not.toHaveBeenCalled();
+    expect(onCommit).toHaveBeenCalledWith(480);
+  });
+
+  it("lights its grip on hover, focus and drag, and in the catalogue states", () => {
     const line = (p: Partial<ResizeHandleProps>, label: string) => {
       render(<Pane label={label} {...p} />);
       return screen.getByRole("separator", { name: label });
@@ -143,11 +177,11 @@ describe("ResizeHandle", () => {
     const hover = line({ debugState: "hover" }, "hover");
     const focus = line({ debugState: "focus" }, "focus");
     const drag = line({ debugState: "drag" }, "drag");
-    const look = (s: HTMLElement) => cls(s.firstElementChild as Element);
+    const look = (s: HTMLElement) => cls(s.firstElementChild?.firstElementChild as Element);
     expect(look(hover)).not.toBe(look(rest));
     expect(look(focus)).not.toBe(look(rest));
     expect(look(focus)).not.toBe(look(hover));
-    expect(look(drag)).toBe(look(hover));
+    expect(look(drag)).not.toBe(look(hover));
     fireEvent.pointerEnter(rest);
     expect(look(rest)).toBe(look(hover));
     fireEvent.pointerLeave(rest);
@@ -157,34 +191,44 @@ describe("ResizeHandle", () => {
     expect(look(rest)).not.toBe(look(focus));
   });
 
-  it("quiet, draws no line at rest but the same lit line on hover, focus and drag", () => {
+  it("quiet, draws no line, only the same grip lit on hover, focus and drag", () => {
     const line = (p: Partial<ResizeHandleProps>, label: string) => {
       render(<Pane label={label} {...p} />);
       return screen.getByRole("separator", { name: label });
     };
-    const look = (s: HTMLElement) =>
-      cls(s.firstElementChild as Element)
+    const bare = (el: Element | null | undefined) =>
+      cls(el as Element)
         .split(" ")
         .filter((c) => !c.includes("__"))
         .sort()
         .join(" ");
+    const track = (s: HTMLElement) => bare(s.firstElementChild);
+    const grip = (s: HTMLElement) => bare(s.firstElementChild?.firstElementChild);
     const rest = line({}, "rest");
     const quiet = line({ quiet: true }, "quiet");
     const hover = line({ debugState: "hover" }, "hover");
     const focus = line({ debugState: "focus" }, "focus");
-    const still = look(quiet);
-    expect(still).not.toBe(look(rest));
-    expect(look(line({ quiet: true, debugState: "hover" }, "quiet hover"))).toBe(look(hover));
-    expect(look(line({ quiet: true, debugState: "focus" }, "quiet focus"))).toBe(look(focus));
-    expect(look(line({ quiet: true, debugState: "drag" }, "quiet drag"))).toBe(look(hover));
+    const drag = line({ debugState: "drag" }, "drag");
+    const still = track(quiet);
+    expect(still).not.toBe(track(rest));
+    expect(grip(quiet)).toBe(grip(rest));
+    for (const [state, like] of [
+      ["hover", hover],
+      ["focus", focus],
+      ["drag", drag],
+    ] as const) {
+      const lit = line({ quiet: true, debugState: state }, `quiet ${state}`);
+      expect(track(lit)).toBe(still);
+      expect(grip(lit)).toBe(grip(like));
+    }
     fireEvent.pointerEnter(quiet);
-    expect(look(quiet)).toBe(look(hover));
+    expect(grip(quiet)).toBe(grip(hover));
+    expect(track(quiet)).toBe(still);
     fireEvent.pointerLeave(quiet);
-    expect(look(quiet)).toBe(still);
     fireEvent.focus(quiet);
-    expect(look(quiet)).toBe(look(focus));
+    expect(grip(quiet)).toBe(grip(focus));
     fireEvent.blur(quiet);
-    expect(look(quiet)).toBe(still);
+    expect(grip(quiet)).toBe(grip(rest));
     expect(quiet).toHaveAttribute("tabindex", "0");
   });
 });

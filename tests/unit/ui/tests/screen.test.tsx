@@ -348,17 +348,18 @@ describe("TestsScreen", () => {
     expect(keptWidth()).toBe(320);
   });
 
-  it("clamps a kept width and a drag between 220 and 960 px", () => {
+  it("clamps a kept width to 200 px at least; a drag stops there and goes as wide as the room allows", () => {
     keepLayout(100);
     screenOf();
-    expect(edge()).toHaveAttribute("aria-valuenow", "220");
+    expect(edge()).toHaveAttribute("aria-valuenow", "200");
     fireEvent.pointerDown(edge(), { clientX: 300, pointerId: 1 });
-    fireEvent.pointerMove(edge(), { clientX: 0 });
-    expect(edge()).toHaveAttribute("aria-valuenow", "220");
+    fireEvent.pointerMove(edge(), { clientX: 290 });
+    expect(edge()).toHaveAttribute("aria-valuenow", "200");
+    expect(screen.queryByText("Release to collapse")).toBeNull();
     fireEvent.pointerMove(edge(), { clientX: 2000 });
-    expect(edge()).toHaveAttribute("aria-valuenow", "960");
+    expect(edge()).toHaveAttribute("aria-valuenow", "1900");
     fireEvent.pointerUp(edge());
-    expect(keptWidth()).toBe(960);
+    expect(keptWidth()).toBe(1900);
   });
 
   it("starts at a remembered layout and ignores one it cannot read", () => {

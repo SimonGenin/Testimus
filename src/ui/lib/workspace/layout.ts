@@ -24,8 +24,10 @@ export type Layout = { columns: Column[] };
 
 export const LIMITS = { min: 2, max: 4, perColumn: 2 } as const;
 export const NEW_COLUMN_WIDTH = 320;
-export const COLUMN_WIDTH = { min: 220, max: 960 } as const;
-export const SPLIT = { min: 20, max: 80 } as const;
+/** px: the least an open column keeps (the work's keeps MAIN_MIN, lib/workspace/fit) — dragged past it, it folds; max is
+ * only a sanity bound for a kept layout, the room left decides */
+export const COLUMN_WIDTH = { min: 200, max: 4000 } as const;
+export const SPLIT = { min: 5, max: 95 } as const;
 
 export type Target =
   | { kind: "tabs"; section: string; index: number }
@@ -280,6 +282,13 @@ export function reveal(l: Layout, tab: TabId): Layout {
 
 export const resizeColumn = (l: Layout, column: number, width: number): Layout => ({
   columns: l.columns.map((c, i) => (i === column ? { ...c, width: clampWidth(width) } : c)),
+});
+
+/** every section of a column folds: the column becomes its strip */
+export const collapseColumn = (l: Layout, column: number): Layout => ({
+  columns: l.columns.map((c, i) =>
+    i === column ? { ...c, sections: c.sections.map((s) => ({ ...s, collapsed: true })) } : c,
+  ),
 });
 
 export const resizeSplit = (l: Layout, column: number, share: number): Layout => ({

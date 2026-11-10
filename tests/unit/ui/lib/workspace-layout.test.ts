@@ -75,8 +75,8 @@ describe("a screen's layout", () => {
     );
     wild.columns[1].split = 99;
     const l = normalize(wild, TABS, REVIEW);
-    expect(l.columns[0].width).toBe(220);
-    expect(l.columns[1].split).toBe(80);
+    expect(l.columns[0].width).toBe(200);
+    expect(l.columns[1].split).toBe(95);
   });
 });
 
@@ -170,9 +170,11 @@ describe("adding, folding, resizing", () => {
   });
 
   it("resizes a column and the share of a split column, within limits", () => {
-    expect(resizeColumn(REVIEW, 0, 9999).columns[0].width).toBe(960);
+    expect(resizeColumn(REVIEW, 0, 9999).columns[0].width).toBe(4000);
+    expect(resizeColumn(REVIEW, 0, 50).columns[0].width).toBe(200);
     const stacked = moveTab(REVIEW, "claude", { kind: "split", section: "s2", where: "below" });
-    expect(resizeSplit(stacked, 1, 10).columns[1].split).toBe(20);
+    expect(resizeSplit(stacked, 1, 10).columns[1].split).toBe(10);
+    expect(resizeSplit(stacked, 1, 1).columns[1].split).toBe(5);
     expect(resizeSplit(REVIEW, 1, 40).columns[1].split).toBe(null);
   });
 });

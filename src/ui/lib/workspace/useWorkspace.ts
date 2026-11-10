@@ -5,6 +5,7 @@ import { type PrefName, readPref, writePref } from "../prefs.ts";
 import {
   addRefusal,
   addSection,
+  collapseColumn,
   dropPending,
   type Layout,
   moveTab,
@@ -63,6 +64,10 @@ export type WorkspaceController = {
   /** live while dragging; commit keeps it */
   resizeColumn: (column: number, px: number, commit: boolean) => void;
   resizeSplit: (column: number, pct: number, commit: boolean) => void;
+  /** a column dragged past its least width folds; the column the drag resized gets back the width it had */
+  foldColumn: (column: number, keep: { column: number; width: number }) => void;
+  /** a section of a split column dragged past its least height folds to its tab bar; the share it had stays */
+  foldSplit: (column: number, row: number, share: number) => void;
   reveal: (tab: TabId) => void;
   reset: () => void;
 };
@@ -150,6 +155,12 @@ export function useWorkspace({
       dismiss: () => apply(dropPending, false),
       resizeColumn: (column, px, commit) => apply((l) => resizeColumn(l, column, px), commit),
       resizeSplit: (column, pct, commit) => apply((l) => resizeSplit(l, column, pct), commit),
+      foldColumn: (column, keep) => apply((l) => collapseColumn(resizeColumn(l, keep.column, keep.width), column)),
+      foldSplit: (column, row, share) =>
+        apply((l) => {
+          const s = l.columns[column]?.sections[row];
+          return s ? setCollapsed(resizeSplit(l, column, share), s.id, true) : l;
+        }),
       reveal: (tab) => {
         apply((l) => reveal(l, tab));
         show(tab);

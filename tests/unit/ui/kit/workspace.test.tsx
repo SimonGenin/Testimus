@@ -178,6 +178,36 @@ describe("Workspace", () => {
     expect(tab("Source")).toHaveAttribute("aria-selected", "true");
   });
 
+  it("an edge dragged past a column's least width says it will fold and folds it on release, its width kept", () => {
+    render(<Screen />);
+    const edge = screen.getByRole("separator", { name: "Resize section 1" });
+    expect(edge).toHaveAttribute("aria-valuemin", "200");
+    fireEvent.pointerDown(edge, { clientX: 500, pointerId: 1 });
+    fireEvent.pointerMove(edge, { clientX: 380 });
+    expect(edge).toHaveAttribute("aria-valuenow", "200");
+    expect(screen.queryByText("Release to collapse")).toBeNull();
+    fireEvent.pointerMove(edge, { clientX: 360 });
+    expect(screen.getByRole("status")).toHaveTextContent("Release to collapse");
+    fireEvent.pointerMove(edge, { clientX: 450 });
+    expect(screen.queryByText("Release to collapse")).toBeNull();
+    fireEvent.pointerMove(edge, { clientX: 300 });
+    fireEvent.pointerUp(edge);
+    expect(screen.getByRole("navigation", { name: "Section 1, collapsed" })).toBeInTheDocument();
+    expect(kept().columns[0]).toMatchObject({ width: 300, sections: [{ collapsed: true }] });
+  });
+
+  it("an edge dragged past the room the column beside it needs folds that column instead", () => {
+    render(<Screen />);
+    const edge = screen.getByRole("separator", { name: "Resize section 3" });
+    fireEvent.pointerDown(edge, { clientX: 5000, pointerId: 1 });
+    fireEvent.pointerMove(edge, { clientX: 5000 - 3580 - 40 });
+    expect(edge).toHaveAttribute("aria-valuenow", "4000");
+    expect(screen.getByRole("status")).toHaveTextContent("Release to collapse");
+    fireEvent.pointerUp(edge);
+    expect(kept().columns[1].sections[0].collapsed).toBe(true);
+    expect(kept().columns[2]).toMatchObject({ width: 420, sections: [{ collapsed: false }] });
+  });
+
   it("offers no split over a column that already has 2 sections: its middle takes the tab", () => {
     localStorage.setItem(
       "testimus.layoutReview",
