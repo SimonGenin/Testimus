@@ -4,7 +4,7 @@ import { UserError } from "../../command.ts";
 import { docDir, findDoc, readDocMd, readFigures } from "../../lib/docs.ts";
 import { readProject } from "../../lib/project.ts";
 import type { DocJson, FigureEntry, Passage, PassageOutlineItem } from "../../types.ts";
-import { normalizeAnchor } from "../anchors.ts";
+import { momentId, momentOf, normalizeAnchor } from "../anchors.ts";
 import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, stripComments } from "../chunk.ts";
 
 type FigureView = FigureEntry & {
@@ -166,33 +166,78 @@ export function passage(project: string, ref: string, around?: string): PassageV
   }
   // ponytail: a picture of an images or video document reads like a figure (its caption, what Claude saw); a
   // transcript line reads with the lines that follow it, up to the passage cap or the next section
-  if (anchor.startsWith("img:") || anchor.startsWith("frame:") || anchor.startsWith("t:")) {
+  if (anchor.startsWith("img:") || anchor.startsWith("frame:")) {
     const marker = `<!-- ${anchor.replace(":", " ")} -->`;
     const at = ls.findIndex((l) => l.includes(marker));
     if (at < 0) throw notFound();
     const s = sectionAt(sections, at);
-    const base = { docId, anchor, path: s?.path ?? "", doc: docInfo };
-    if (!anchor.startsWith("t:")) {
-      const f = figures.find((x) => x.anchor === anchor);
-      const caption = f?.caption || /!\[([^\]]*)\]/.exec(ls[at])?.[1] || "";
-      const file = f?.file || /\]\(([^)\s]+)/.exec(ls[at])?.[1] || "";
+    const f = figures.find((x) => x.anchor === anchor);
+    const caption = f?.caption || /!\[([^\]]*)\]/.exec(ls[at])?.[1] || "";
+    const file = f?.file || /\]\(([^)\s]+)/.exec(ls[at])?.[1] || "";
+    return {
+      docId,
+      anchor,
+      path: s?.path ?? "",
+      doc: docInfo,
+      title: caption,
+      text: [caption, f?.description ?? "", f?.labels?.length ? `Visible text: ${f.labels.join(" · ")}` : ""]
+        .filter(Boolean)
+        .join("\n"),
+      figures: [{ file, anchor, caption, description: f?.description ?? "" }],
+    };
+  }
+  // ponytail: a moment of a video is read by time, never by a line's own anchor — t:04:31 is the line being said at
+  // 04:31 and those after it (to the end of a range, else up to the passage cap), each with its translation; v: is
+  // what the key frames of the range show
+  if (anchor.startsWith("t:") || anchor.startsWith("v:")) {
+    const m = momentOf(anchor.slice(2));
+    if (!m) throw notFound();
+    const of = (kind: string) =>
+      ls.flatMap((l, i) => {
+        const x = new RegExp(`<!--\\s*${kind}\\s+(\\S+?)\\s*-->`).exec(l);
+        const mm = x ? momentOf(x[1]) : null;
+        return mm && mm.n === m.n ? [{ i, at: mm.at }] : [];
+      });
+    const said = of("t");
+    const shown = of("frame");
+    if (!said.length && !shown.length) throw notFound();
+    const s = sectionAt(sections, (said[0] ?? shown[0]).i);
+    const base = { docId, anchor, path: s?.path ?? "", doc: docInfo, title: s?.title ?? "" };
+    const frameOf = (x: { i: number; at: number }) => {
+      const a = `frame:${momentId(m.n, x.at)}`;
+      const f = figures.find((e) => e.anchor === a);
+      const caption = f?.caption || /!\[([^\]]*)\]/.exec(ls[x.i])?.[1] || "";
+      return {
+        file: f?.file || /\]\(([^)\s]+)/.exec(ls[x.i])?.[1] || "",
+        anchor: a,
+        caption,
+        description: f?.description ?? "",
+      };
+    };
+    if (anchor.startsWith("v:")) {
+      const seen = shown.filter((x) => x.at >= m.at - 0.5 && x.at <= (m.to ?? m.at) + 0.5).map(frameOf);
       return {
         ...base,
-        title: caption,
-        text: [caption, f?.description ?? "", f?.labels?.length ? `Visible text: ${f.labels.join(" · ")}` : ""]
-          .filter(Boolean)
-          .join("\n"),
-        figures: [{ file, anchor, caption, description: f?.description ?? "" }],
+        text: seen.map((f) => [f.caption, f.description].filter(Boolean).join("\n")).join("\n\n"),
+        figures: seen,
       };
     }
-    const said: string[] = [];
-    for (let i = at; i < ls.length && !/^#{1,6} /.test(ls[i]); i++) {
-      const t = /<!--\s*t\s/.test(ls[i]) ? stripComments(ls[i]) : "";
-      if (!t) continue;
-      if (said.join("\n").length + t.length > max) break;
-      said.push(t);
+    const first = said.findLast((x) => x.at <= m.at) ?? said[0];
+    const out: string[] = [];
+    let last = first?.at ?? m.at;
+    for (const x of said.filter((y) => first && y.at >= first.at)) {
+      if (m.to !== undefined && x.at > m.to) break;
+      const tr = /<!--\s*(?:[a-z]{2,3}\s+)?=\s*(.*?)\s*-->/.exec(ls[x.i])?.[1];
+      const t = tr ? `${stripComments(ls[x.i])}\n  = ${tr}` : stripComments(ls[x.i]);
+      if (out.length && out.join("\n").length + t.length > max) break;
+      out.push(t);
+      last = x.at;
     }
-    return { ...base, title: s?.title ?? "", text: said.join("\n"), figures: [] };
+    return {
+      ...base,
+      text: out.join("\n"),
+      figures: shown.filter((x) => m.to !== undefined && x.at >= m.at && x.at <= Math.max(last, m.to)).map(frameOf),
+    };
   }
   const s = sections.find((x) => x.anchor === anchor);
   if (!s) throw notFound();

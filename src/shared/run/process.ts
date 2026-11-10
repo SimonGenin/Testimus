@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { constants, setPriority } from "node:os";
 import { delimiter, join } from "node:path";
 import { reasonOf, TimeoutError } from "./work.ts";
 
@@ -14,6 +15,9 @@ export type RunSpec = {
   keepStdin?: boolean;
   signal?: AbortSignal;
   timeoutMs?: number;
+  // ponytail: heavy work that may take an hour (a transcription, a video read frame by frame) runs below the normal
+  // priority, so the PC stays usable; Windows grants it without admin rights
+  priority?: "low";
   onLine?(line: string, stream: Stream): void;
   onSpawn?(pid: number): void;
 };
@@ -172,6 +176,10 @@ export function start(spec: RunSpec): Proc {
   const pid = child.pid;
   if (pid) {
     live.set(pid, child);
+    if (spec.priority === "low")
+      try {
+        setPriority(pid, constants.priority.PRIORITY_BELOW_NORMAL);
+      } catch {}
     spec.onSpawn?.(pid);
   }
   let stdout = "";

@@ -45,11 +45,13 @@ describe("each run kind gets its own MCP allow-list", () => {
     expect(extra("overview")).toEqual([]);
     expect(extra("check")).toEqual(m(["check_record"]));
     expect(extra("analyze")).toEqual(m(["analysis_record"]));
-    expect(extra("generate")).toEqual(m(["tests_create", "tests_edit", "tests_save", "tests_addImage", "check_run"]));
+    expect(extra("generate")).toEqual(
+      m(["tests_create", "tests_edit", "tests_save", "tests_addImage", "check_run", "media_keep"]),
+    );
     expect(extra("triage")).toEqual(m(["actions_propose"]));
     expect(extra("study")).toEqual(m(["actions_propose"]));
-    expect(extra("fix")).toEqual(m(["tests_edit", "tests_save", "tests_addImage"]));
-    expect(extra("run")).toEqual(m(["tests_edit", "tests_save", "tests_addImage", "check_run"]));
+    expect(extra("fix")).toEqual(m(["tests_edit", "tests_save", "tests_addImage", "media_keep"]));
+    expect(extra("run")).toEqual(m(["tests_edit", "tests_save", "tests_addImage", "check_run", "media_keep"]));
     for (const k of ["chat", "figures", "headers", "check", "generate", "fix", "run"] as const) {
       const a = mcpAccess(k);
       for (const n of NEVER) {
@@ -70,7 +72,10 @@ describe("each run kind gets its own MCP allow-list", () => {
     }
     expect(READS.triage).toBe("all");
     expect(reads("triage")).toEqual(ro);
-    for (const k of ["figures", "headers", "media"] as const) expect(mcpAccess(k).allow, k).toEqual([]);
+    for (const k of ["figures", "headers"] as const) expect(mcpAccess(k).allow, k).toEqual([]);
+    expect(mcpAccess("media").allow, "a survey draws the moments it wants to see whole").toEqual([
+      "mcp__testimus__media_frame",
+    ]);
     expect(reads("check")).toEqual(expect.arrayContaining(["rag.search", "rag.passage", "tests.show"]));
     for (const n of ["runs.list", "xray.search", "issue.comments", "contexts.show", "actions.list", "check.show"])
       expect(reads("check"), n).not.toContain(n);

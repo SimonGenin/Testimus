@@ -1,9 +1,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { env } from "../env.ts";
-import { normalizeAnchor } from "../rag/anchors.ts";
+import { clock, momentOf, normalizeAnchor, parseAnchor } from "../rag/anchors.ts";
 import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
 import type { CheckFile, CitingTest, DocJson, Finding, Source, Step, StepVerdict, Test } from "../types.ts";
+import { writeAtomic } from "./atomic.ts";
 import { stepColumns } from "./columns.ts";
 import { findDoc } from "./docs.ts";
 import { isObserved } from "./media.ts";
@@ -11,7 +12,8 @@ import { natural } from "./natural.ts";
 import { writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { hasRawEmbed } from "./test-blocks.ts";
-import { testMdHash } from "./testfile.ts";
+import { formatSource, parseSource, testMdHash } from "./testfile.ts";
+import { isTimed, momentText, resolveTimed, type Timed, type VideoText, videoText } from "./video/sources.ts";
 
 export type DocText = {
   id: string;
@@ -22,6 +24,7 @@ export type DocText = {
   scopes: Map<string, string | null>;
   pieces?: [string, string][];
   pictures?: Set<string>;
+  video?: VideoText;
 };
 export type Corpus = { docs: Map<string, DocText> };
 
@@ -153,6 +156,158 @@ const stepKey = (s: Step) =>
 const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 const cellOf = (s: Step, column: string) => Object.entries(s.fields).find(([k]) => sameName(k, column))?.[1] ?? "";
 
+const timed = (d: DocText, anchor: string, quote: string): Timed => {
+  d.video ??= videoText(d.md);
+  return resolveTimed(d.video, anchor, quote);
+};
+
+// ponytail: a source in a video is judged against time (video/sources.ts), never against a line's place in doc.md:
+// the moment must be in the video, the words said around it (or, for v:, written under a key frame of the range). What
+// is told for a quote that is not there says where to listen — the closest words and their moment
+function timedFindings(step: number, src: Source, ref: string, anchor: string, r: Timed): Omit<Finding, "pass">[] {
+  const quote = `"${short(flat(src.quote))}"`;
+  const when = momentText(anchor);
+  if (!r.ok) {
+    if (r.why === "no-video" || r.why === "no-moment")
+      return [
+        {
+          step,
+          kind: "source-missing",
+          severity: "error",
+          message:
+            r.why === "no-video"
+              ? `Step ${step}: ${src.docId} has no video with a moment ${anchor}: cite a moment of one of its videos (media_show lists them).`
+              : `Step ${step}: ${anchor} is past the end of the video of ${src.docId}${r.length ? ` (${clock(r.length)} long)` : ""}: cite a moment within it.`,
+          sources: [ref],
+        },
+      ];
+    if (r.why === "no-frame")
+      return [
+        {
+          step,
+          kind: "source-missing",
+          severity: "error",
+          message: `Step ${step}: no key frame of ${src.docId} falls in ${when}, so nothing seen there can be quoted: keep a frame of that range (media_keep { doc, at }), then quote its description.`,
+          sources: [ref],
+        },
+      ];
+    if (r.elsewhere)
+      return [
+        {
+          step,
+          kind: "quote-not-at-anchor",
+          severity: "error",
+          message: `Step ${step}: the quote ${quote} is in ${src.docId} but not at ${when}: it is at ${r.elsewhere} — cite ${src.docId}#${r.elsewhere}.`,
+          sources: [ref, `${src.docId}#${r.elsewhere}`],
+        },
+      ];
+    return [
+      {
+        step,
+        kind: "quote-not-found",
+        severity: "error",
+        message:
+          r.why === "not-seen"
+            ? `Step ${step}: the quote ${quote} is not in the description of a key frame of ${src.docId} at ${when}: copy the exact words of a description (media_show gives them).`
+            : r.nearest
+              ? `Step ${step}: the quote ${quote} is not said in ${src.docId} around ${when}; the closest words there are « ${short(r.nearest.text)} » at ${r.nearest.anchor} — listen to that moment again and quote what is said.`
+              : `Step ${step}: nothing like the quote ${quote} is said in ${src.docId} around ${when}: copy the words of its transcript (media_transcript).`,
+        sources: r.nearest ? [ref, `${src.docId}#${r.nearest.anchor}`] : [ref],
+      },
+    ];
+  }
+  if (!src.quote.trim())
+    return [
+      {
+        step,
+        kind: "quote-not-found",
+        severity: "warning",
+        message: `Step ${step}: source ${ref} has no quote: add the exact words the step relies on.`,
+        sources: [ref],
+      },
+    ];
+  const out: Omit<Finding, "pass">[] = [];
+  if (tooShort(src.quote))
+    out.push({
+      step,
+      kind: "quote-weak",
+      severity: "warning",
+      message: `Step ${step}: the quote ${quote} is too short to prove anything: quote at least ${MIN_WORDS} words (${MIN_CHARS} characters) of ${ref}.`,
+      sources: [ref],
+    });
+  if (r.unsure)
+    out.push({
+      step,
+      kind: "quote-uncertain",
+      severity: "warning",
+      message: `Step ${step}: ${ref} quotes words the transcription was not sure of: listen to ${when} in Documents › Video, then confirm the line or correct it.`,
+      sources: [ref],
+    });
+  return out;
+}
+
+// ponytail: a video source is written at the second of the line its quote starts in (its canonical form) — the same
+// source cited a second off, or mid-line, is brought back to it, so two tests citing one sentence name it alike
+export function canonicalSources(test: Test, corpus: Corpus): { step: number; from: string; to: string }[] {
+  const out: { step: number; from: string; to: string }[] = [];
+  test.steps.forEach((s, i) => {
+    for (const src of s.sources) {
+      if (!src.anchor) continue;
+      const anchor = normalizeAnchor(src.anchor);
+      const d = corpus.docs.get(src.docId);
+      if (!d || !isTimed(anchor) || !src.quote.trim()) continue;
+      const r = timed(d, anchor, src.quote);
+      if (r.ok && r.canonical !== anchor) out.push({ step: i + 1, from: anchor, to: r.canonical });
+    }
+  });
+  return out;
+}
+
+// ponytail: the test's own file is rewritten line by line, only the anchors that move (`to` gives a source's new
+// anchor, or null to leave it) — nothing else of it is touched
+export function moveSources(
+  project: string,
+  id: string,
+  to: (source: Source, anchor: string) => string | null,
+): { from: string; to: string }[] {
+  if (!testExists(project, id)) return [];
+  const { md } = readTest(project, id);
+  let inSources = false;
+  const moved: { from: string; to: string }[] = [];
+  const lines = md.split("\n").map((line) => {
+    if (/^#{1,6}\s/.test(line)) inSources = /^###\s+Sources\s*$/i.test(line.trim());
+    if (!inSources) return line;
+    const bullet = /^\s*[-*]\s+/.exec(line)?.[0];
+    const source = bullet ? parseSource(line.slice(bullet.length).replace(/\r$/, "")) : null;
+    if (!bullet || !source?.anchor) return line;
+    const anchor = normalizeAnchor(source.anchor);
+    const next = to(source, anchor);
+    if (!next || next === anchor) return line;
+    moved.push({ from: `${source.docId}#${anchor}`, to: `${source.docId}#${next}` });
+    return `${bullet}${formatSource({ ...source, anchor: next })}${line.endsWith("\r") ? "\r" : ""}`;
+  });
+  if (moved.length) writeAtomic(join(testDir(project, id), "test.md"), lines.join("\n"));
+  return moved;
+}
+
+// ponytail: a video heard again keeps its transcript before until a person applies its report (or puts the old one
+// back) — until then no source of that video is moved, so going back leaves the tests as they were
+const awaitsReport = (project: string, docId: string, anchor: string): boolean => {
+  const n = momentOf(parseAnchor(anchor).id)?.n ?? 1;
+  return existsSync(join(project, "docs", docId, "video", `${n}.report.json`));
+};
+
+export function canonicalize(project: string, id: string, corpus: Corpus): number {
+  if (!testExists(project, id)) return 0;
+  if (!canonicalSources(readTest(project, id).test, corpus).length) return 0;
+  return moveSources(project, id, (source, anchor) => {
+    const d = corpus.docs.get(source.docId);
+    if (!d || !isTimed(anchor) || !source.quote.trim() || awaitsReport(project, d.id, anchor)) return null;
+    const r = timed(d, anchor, source.quote);
+    return r.ok ? r.canonical : null;
+  }).length;
+}
+
 // ponytail: linked are the columns whose Reference source is on — their cells need a source of their own
 export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly string[] = []): Finding[] {
   const out: Finding[] = [];
@@ -241,6 +396,10 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
           message: `Step ${step} cites ${src.docId}, which is not a document of this project: fix the code or add the document.`,
           sources: [ref],
         });
+        continue;
+      }
+      if (isTimed(anchor)) {
+        for (const f of timedFindings(step, src, ref, anchor, timed(d, anchor, src.quote))) add(f);
         continue;
       }
       if (!d.anchors.has(anchor))
@@ -388,6 +547,13 @@ export function sourceProblem(corpus: Corpus, src: Source): string | null {
   const d = corpus.docs.get(src.docId);
   if (!d) return `${src.docId} is not a document of this project`;
   const anchor = normalizeAnchor(src.anchor ?? "");
+  if (anchor && isTimed(anchor)) {
+    const r = timed(d, anchor, src.quote);
+    if (r.ok) return null;
+    return r.why === "no-video" || r.why === "no-moment" || r.why === "no-frame"
+      ? `${src.docId} has nothing to quote at ${anchor}`
+      : `the quote "${short(flat(src.quote))}" is not at ${src.docId}#${anchor}`;
+  }
   if (!anchor || !d.anchors.has(anchor)) return `${src.docId} has no anchor ${anchor || "(none)"}`;
   if (!src.quote.trim()) return null;
   if (!(scoped(d, anchor) ?? d.text).includes(plainText(src.quote)))
@@ -395,7 +561,8 @@ export function sourceProblem(corpus: Corpus, src: Source): string | null {
   return null;
 }
 
-export function runMechanical(project: string, id: string, corpus?: Corpus): CheckFile {
+export function runMechanical(project: string, id: string, corpus: Corpus = loadCorpus(project)): CheckFile {
+  canonicalize(project, id, corpus);
   return writeCheck(project, id, mechanicalCheck(project, id, corpus));
 }
 
@@ -430,6 +597,7 @@ export function recheckMechanical(project: string, ids: string[]): CheckFile[] {
     const old = readCheck(project, id);
     const fresh = old && !isStale(project, id, old);
     const semantic = fresh ? semanticOf(old) : [];
+    canonicalize(project, id, corpus);
     return writeCheck(
       project,
       id,

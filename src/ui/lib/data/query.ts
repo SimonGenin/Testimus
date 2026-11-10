@@ -21,6 +21,7 @@ const MACHINE = new Set<string>([
   "models.hardware",
   "models.list",
   "models.planDir",
+  "models.speech",
   "project.list",
   "system.secrets",
   "system.settings",

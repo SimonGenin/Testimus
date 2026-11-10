@@ -14,6 +14,7 @@ import { Pane } from "../ui/Pane.tsx";
 import { Skeleton } from "../ui/Skeleton.tsx";
 import { type } from "../ui/type.ts";
 import { DocBadges, PassageText } from "./PassageView.tsx";
+import { isVideoSource, VideoSource } from "./VideoSource.tsx";
 
 const styles = stylex.create({
   tab: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", backgroundColor: color.surface },
@@ -69,7 +70,8 @@ export function PassageDialog({
     ),
   );
   const source = all[at] ?? first;
-  const read = useRead("rag.passage", { ref: `${source.docId}#${source.anchor}` });
+  const timed = isVideoSource(source.anchor);
+  const read = useRead("rag.passage", { ref: `${source.docId}#${source.anchor}` }, { enabled: !timed });
   const p = read.data as unknown as Passage | undefined;
   const docs = useRead("docs.list", {}, { enabled: !!read.error });
   const listed = docs.data as unknown as DocRef[] | undefined;
@@ -130,7 +132,9 @@ export function PassageDialog({
     );
   const body = (
     <section aria-label={`Source ${sourceLabel(source)}`} {...stylex.props(styles.body)}>
-      {gone ? (
+      {timed ? (
+        <VideoSource source={source} from={from} size={frame === "tab" ? "sm" : "md"} />
+      ) : gone ? (
         <>
           <Banner tone="danger" title="Document deleted">
             {goneText(source.docId)}

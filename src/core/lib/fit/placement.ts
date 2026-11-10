@@ -1,15 +1,32 @@
-import type { CatalogEntry, Device, GpuInfo, MachineProfile } from "../../types.ts";
-import { integrated } from "../machine/gpus.ts";
+import type { CatalogEntry, Device, GpuInfo, MachineProfile, RuntimeId } from "../../types.ts";
+import { integrated, usableGpus } from "../machine/gpus.ts";
 import { mainGpu } from "../machine/profile.ts";
 
+// ponytail: a model run by a native engine (llama.cpp, whisper.cpp) is one file; an ONNX one is a folder
 export function isGguf(entry: CatalogEntry): boolean {
   return !entry.runtimes.includes("transformers");
 }
 
-// Where a model's weights live on this PC: on the main GPU when its runtime can reach it (llama.cpp always, onnxruntime
-// through DirectML when the catalog has a DirectML variant), else on the processor
+// The engine that runs a catalog entry on this PC: onnxruntime when the entry has an ONNX form, else its native engine
+export function runtimeFor(entry: CatalogEntry): RuntimeId | null {
+  for (const r of ["transformers", "llamacpp", "whispercpp"] as const) if (entry.runtimes.includes(r)) return r;
+  return null;
+}
+
+// ponytail: whisper.cpp publishes no Vulkan build for Windows — only an NVIDIA card (its CUDA 12.4 build, driver 551
+// or later) takes speech off the processor
+export const WHISPER_CUDA_DRIVER = 551;
+export function nvidiaReady(machine: MachineProfile | null, minDriver: number): boolean {
+  return usableGpus(machine?.gpus ?? []).some(
+    (g) => g.vendor === "nvidia" && g.driver !== undefined && Number.parseFloat(g.driver) >= minDriver,
+  );
+}
+
+// Where a model's weights live on this PC: on the main GPU when its runtime can reach it (llama.cpp always, whisper.cpp
+// on an NVIDIA card, onnxruntime through DirectML when the catalog has a DirectML variant), else on the processor
 export function deviceFor(entry: CatalogEntry, machine: MachineProfile | null): "gpu" | "cpu" {
   if (!machine || !entry.devices.includes("gpu") || !mainGpu(machine)) return "cpu";
+  if (entry.runtimes.includes("whispercpp")) return nvidiaReady(machine, WHISPER_CUDA_DRIVER) ? "gpu" : "cpu";
   return isGguf(entry) || entry.dtypeByDevice?.dml ? "gpu" : "cpu";
 }
 

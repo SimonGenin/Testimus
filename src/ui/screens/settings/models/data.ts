@@ -12,6 +12,8 @@ export type UsePlan = UsePackOut["plan"];
 export type AdviceRow = CommandOutput<"models.advice">[number];
 export type SetDirOut = CommandOutput<"models.planDir">;
 export type Hardware = CommandOutput<"models.hardware">;
+export type Speech = CommandOutput<"models.speech">;
+export type SpeechModel = Speech["models"][number];
 export type RagStatus = CommandOutput<"rag.status">;
 export type Activation = RagStatus["activation"];
 
@@ -103,6 +105,28 @@ export const NOT_IN_USE: Vocab = { tone: "neutral", icon: "circle-dashed", label
 export const IN_USE: Vocab = { tone: "success", icon: "check", label: "In use" };
 export const PROCESSOR_ONLY: Vocab = { tone: "warning", icon: "cpu", label: "Processor only" };
 export const SUGGESTED: Vocab = { tone: "neutral", icon: "target", label: "Suggested for this PC" };
+export const ADVISED: Vocab = { tone: "accent", icon: "target", label: "Advised for this PC" };
+
+// ponytail: a transcription model's speed is seconds of video heard in a second — said as a factor, and as the time
+// an hour of video takes
+export function speedFactor(speed: number): string {
+  return `× ${speed >= 10 ? Math.round(speed) : Math.round(speed * 10) / 10}`;
+}
+
+export function hourIn(speed: number): string {
+  const minutes = 60 / speed;
+  if (minutes < 1) return "an hour in under a minute";
+  if (minutes >= 90) return `an hour in about ${Math.round(minutes / 6) / 10} h`;
+  return `an hour in about ${Math.round(minutes)} min`;
+}
+
+// ponytail: the memory a model takes where it runs here, beside what is free there — the short form of fit.message
+export function fitMemory(fit: SpeechModel["fit"]): string {
+  const onCard = fit.device === "gpu";
+  const need = onCard ? fit.needMB.vram : fit.needMB.ram;
+  const free = onCard ? fit.freeMB.vram : fit.freeMB.ram;
+  return `${size(need)} ${onCard ? "on the card" : "of memory"}${free === null ? "" : `, ${size(free)} free`}`;
+}
 
 export const ORIGIN: Record<Activation, string> = {
   machine: "This PC's choice",

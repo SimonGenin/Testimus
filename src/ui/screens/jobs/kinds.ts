@@ -6,12 +6,10 @@ import type { JobNode } from "../../lib/jobs.ts";
 
 export type StatusFilter = "all" | "running" | "failed" | "done" | "stopped";
 
+const isDocs = (k: string) => k.startsWith("docs.") || k.startsWith("media.") || k === "describe-figures";
+
 export const KINDS: { id: string; label: string; kinds: (k: string) => boolean }[] = [
-  {
-    id: "documents",
-    label: "Documents",
-    kinds: (k) => k.startsWith("docs.") || k === "describe-figures",
-  },
+  { id: "documents", label: "Documents", kinds: isDocs },
   { id: "index", label: "Index", kinds: (k) => k === "rag-index" || k === "search-index" },
   { id: "generate", label: "Generate", kinds: (k) => k === "generate" },
   { id: "check", label: "Check", kinds: (k) => k === "check" },
@@ -53,7 +51,7 @@ export function findNode(nodes: JobNode[], id: string): JobNode | null {
 export const CLAUDE_KINDS = ["claude", "actions.triage", "fix", "chat", "columns"];
 
 export function kindIcon(kind: string): IconName {
-  if (kind.startsWith("docs.") || kind === "describe-figures") return "documents";
+  if (isDocs(kind)) return "documents";
   if (kind === "generate") return "generate";
   if (kind === "check") return "check-circle";
   if (kind === "rag-index" || kind === "search-index") return "layers";

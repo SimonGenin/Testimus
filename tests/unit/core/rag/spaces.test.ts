@@ -113,16 +113,16 @@ afterEach(() => {
 describe("vector spaces", () => {
   it("keep two models side by side; switching back reuses the first space without re-embedding", async () => {
     const first = await indexProject(dir, quietCtx(dir));
-    expect(first).toMatchObject({ embedding: BGE, embedded: 14, vectorsRebuilt: true });
+    expect(first).toMatchObject({ embedding: BGE, embedded: 15, vectorsRebuilt: true });
     use(QWEN);
     const second = await indexProject(dir, quietCtx(dir));
-    expect(second).toMatchObject({ embedding: QWEN, embedded: 14, vectorsRebuilt: true });
+    expect(second).toMatchObject({ embedding: QWEN, embedded: 15, vectorsRebuilt: true });
     expect(second.space).not.toBe(first.space);
     expect(second.docs.every((d) => d.status === "unchanged")).toBe(true);
     const listed = await spaces();
     expect(listed.map((s) => [s.model, s.complete, s.active, s.chunks]).sort()).toEqual([
-      [BGE, true, false, 14],
-      [QWEN, true, true, 14],
+      [BGE, true, false, 15],
+      [QWEN, true, true, 15],
     ]);
 
     use(null);
@@ -139,10 +139,10 @@ describe("vector spaces", () => {
     const qwen = await indexProject(dir, quietCtx(dir));
     use(null);
     const forced = await indexProject(dir, quietCtx(dir), { force: true });
-    expect(forced).toMatchObject({ embedding: BGE, embedded: 14, vectorsRebuilt: true });
+    expect(forced).toMatchObject({ embedding: BGE, embedded: 15, vectorsRebuilt: true });
     expect(forced.docs.every((d) => d.status === "indexed")).toBe(true);
     const listed = await spaces();
-    expect(listed.find((s) => s.id === qwen.space)).toMatchObject({ model: QWEN, complete: true, chunks: 14 });
+    expect(listed.find((s) => s.id === qwen.space)).toMatchObject({ model: QWEN, complete: true, chunks: 15 });
   });
 
   it("a changed chunk leaves inactive spaces incomplete until they are activated again", async () => {
@@ -154,15 +154,15 @@ describe("vector spaces", () => {
     const changed = await indexProject(dir, quietCtx(dir));
     expect(changed).toMatchObject({ embedding: QWEN, embedded: 1 });
     const after = await spaces();
-    expect(after.find((s) => s.model === BGE)).toMatchObject({ complete: false, chunks: 14 });
-    expect(after.find((s) => s.model === QWEN)).toMatchObject({ complete: true, chunks: 15 });
+    expect(after.find((s) => s.model === BGE)).toMatchObject({ complete: false, chunks: 15 });
+    expect(after.find((s) => s.model === QWEN)).toMatchObject({ complete: true, chunks: 16 });
 
     use(null);
     const db = openDb(indexFile(dir));
     try {
       const v = await vector(db, dir, "signal", {});
       expect(v.ids).toEqual([]);
-      expect(v.degraded).toMatch(/incomplete \(14\/15\)/);
+      expect(v.degraded).toMatch(/incomplete \(15\/16\)/);
     } finally {
       db.close();
     }
@@ -177,7 +177,7 @@ describe("vector spaces", () => {
     installed.clear();
     const warns: string[] = [];
     const r = await indexProject(dir, { ...quietCtx(dir), log: (_l, m) => warns.push(m) });
-    expect(r).toMatchObject({ embedding: "none", dims: 0, embedded: 0, chunks: 14 });
+    expect(r).toMatchObject({ embedding: "none", dims: 0, embedded: 0, chunks: 15 });
     expect(r.degraded).toMatch(/No embedding model is installed/);
     expect(warns.join()).toMatch(/lexical index only/);
     const hits = await search(dir, "EXI_MOP_SPF_511_A_1670");
@@ -191,7 +191,7 @@ describe("vector spaces", () => {
     const st = (await invoke("rag.status", {}, { project: dir })) as Record<string, unknown> & {
       docs: { indexed: string }[];
     };
-    expect(st).toMatchObject({ embedding: "none", activation: "none", profileMatches: false, chunks: 14 });
+    expect(st).toMatchObject({ embedding: "none", activation: "none", profileMatches: false, chunks: 15 });
     expect(st.degraded).toMatch(/lexical search only/);
     expect(st.docs.map((d) => d.indexed)).toEqual(["fresh", "fresh", "fresh", "fresh", "fresh"]);
     expect(calls).toEqual([]);
@@ -214,7 +214,7 @@ describe("vector spaces", () => {
     use(GGUF);
     calls = [];
     const r = await indexProject(dir, quietCtx(dir));
-    expect(r).toMatchObject({ embedding: GGUF, embedded: 14 });
+    expect(r).toMatchObject({ embedding: GGUF, embedded: 15 });
     expect(new Set(calls)).toEqual(new Set([`doc:llamacpp:${GGUF}`]));
     const listed = await spaces();
     expect(listed).toHaveLength(2);

@@ -15,6 +15,7 @@ const OPS: PerfOp[] = [
   "search.total",
   "model.load",
   "claude.run",
+  "speech",
 ];
 const STRINGS = ["model", "fingerprint", "runtime", "device", "quantization", "project", "jobId"] as const;
 const NUMBERS = ["tokens", "loadMs", "peakRssMB", "vramMB"] as const;

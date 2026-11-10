@@ -54,25 +54,23 @@ test("a video becomes a document: transcribed, surveyed, its transcript goes to 
   await expect(row).toContainText("Observed");
   await row.click();
   await page.getByRole("button", { name: "Prepare and read" }).click();
-  const transcript = page.getByRole("listbox", { name: "Transcript" });
-  await expect(transcript.getByRole("option")).toHaveCount(11, { timeout: 30_000 });
+  const transcript = page.getByRole("list", { name: "What is said" });
+  await expect(transcript.getByRole("button", { name: /^\d\d:\d\d$/ })).toHaveCount(11, { timeout: 30_000 });
   await expect(row).toContainText("Video · 02:40");
-  const line = transcript.getByRole("option", { name: /clic droit sur le sectionneur/ }).first();
-  await line.click();
-  await expect(line).toHaveAttribute("aria-selected", "true");
+  await transcript.getByRole("button", { name: "00:32", exact: true }).click();
+  await expect(transcript.locator('li[aria-current="true"]')).toContainText("clic droit sur le sectionneur");
   const at = await page.getByLabel("Video essai PCC.mp4").evaluate((v: HTMLVideoElement) => v.currentTime);
   expect(at).toBe(32);
-  await expect(page.getByRole("listbox", { name: "Chapters" })).toContainText("Refus de manœuvre");
-  await expect(page.getByRole("list", { name: "Key frames" }).getByRole("listitem")).toHaveCount(3);
+  await expect(transcript.getByRole("button", { name: /Refus de manœuvre/ })).toBeVisible();
+  await expect(transcript.getByText("Unsure")).toHaveCount(1);
+  await expect(transcript.getByText(/DE · Bon, refermez maintenant/)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Key frames" }).getByRole("listitem")).toHaveCount(4);
 });
 
 test("the fixture's video opens at a moment a source names", async ({ page }) => {
   await boot(page, "#/documents/Manoeuvre_d_un_sectionneur_au_PCC#t:00:47");
-  const transcript = page.getByRole("listbox", { name: "Transcript" });
-  await expect(transcript.getByRole("option", { name: /La fenêtre Propriétés/ }).first()).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  const transcript = page.getByRole("list", { name: "What is said" });
+  await expect(transcript.locator('li[aria-current="true"]')).toContainText("La fenêtre Propriétés");
   await shoot(page, "media-video");
 });
 

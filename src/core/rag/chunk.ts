@@ -217,15 +217,26 @@ function split(body: string): string[] {
 // ponytail: a line of an images or video document — a picture (img, frame) or a transcript line — is chunked by its
 // own kind, never as a section's text
 const MEDIA_LINE = /<!--\s*(img|frame|t)\s+(\S+?)\s*-->/;
+const TRANSLATED = /<!--\s*(?:[a-z]{2,3}\s+)?=\s*(.*?)\s*-->/;
+
+// ponytail: a media line goes with the lines of its paragraph — a key frame's description is written under it
+function withoutMedia(body: string): string {
+  let inMedia = false;
+  return body
+    .split("\n")
+    .filter((l) => {
+      if (MEDIA_LINE.test(l)) inMedia = true;
+      else if (!l.trim()) inMedia = false;
+      return !inMedia;
+    })
+    .join("\n");
+}
 
 export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[]): Chunk[] {
   const sections = parseSections(md);
   const chunks: Chunk[] = [];
   for (const s of sections) {
-    const body = s.body
-      .split("\n")
-      .filter((l) => !MEDIA_LINE.test(l))
-      .join("\n");
+    const body = withoutMedia(s.body);
     const parts = split(body).filter((p) => stripComments(p));
     parts.forEach((raw, i) => {
       chunks.push({
@@ -284,7 +295,9 @@ function mediaChunks(doc: DocJson, md: string, entries: FigureEntry[], sections:
     const anchor = `${m[1]}:${m[2]}`;
     const s = sectionAt(sections, i);
     if (m[1] === "t") {
-      const text = stripComments(line);
+      // ponytail: what was said in another language is searched in the project's too — its translation rides with it
+      const translation = TRANSLATED.exec(line)?.[1];
+      const text = translation ? `${stripComments(line)}\n  = ${translation}` : stripComments(line);
       if (run && (run.s !== s || approxTokens([...run.text, text].join("\n")) > MAX_TOKENS)) flush();
       run ??= { anchor, text: [], s };
       run.text.push(text);

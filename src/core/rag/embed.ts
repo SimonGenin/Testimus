@@ -1,3 +1,4 @@
+import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { perfFields, perfScope, timeOp, withPerfScope } from "../lib/models-perf.ts";
 import type { EmbedMode, ResolvedModel, RuntimeId } from "../types.ts";
@@ -12,14 +13,20 @@ import type { SearchOpts } from "./search/filter.ts";
 
 // ponytail: the runtime of each kind of model; tests put a counting or failing runtime here (no real model runs in a
 // unit test, and env has no seam for it), --mock serves every model from the mock one
-export const runtimes: Record<RuntimeId, Runtime> = {
+export const runtimes: Record<Exclude<RuntimeId, "whispercpp">, Runtime> = {
   transformers: transformersRuntime,
   llamacpp: llamacppRuntime,
   mock: mockRuntime,
 };
 
 function runtimeOf(m: ResolvedModel): Runtime {
-  return runtimes[env.mock ? "mock" : m.runtime];
+  if (env.mock) return runtimes.mock;
+  if (m.runtime === "whispercpp")
+    throw new UserError(
+      `${m.entry.label} is a transcription model: it hears videos, it neither embeds nor reranks.`,
+      "Choose an embedding or a reranker model for the search (testimus models catalog).",
+    );
+  return runtimes[m.runtime];
 }
 
 function spaceOfModel(m: ResolvedModel): string | undefined {

@@ -200,6 +200,44 @@ export function every(ms: number, tick: () => unknown, signal?: AbortSignal): ()
   return stop;
 }
 
+export type Watch = { beat(): void; stop(): void; signal: AbortSignal };
+
+// ponytail: long work that reports as it goes (a transcription piece by piece, ffmpeg's -progress) is given no fixed
+// deadline — an hour of video is not a failure. It is stopped when nothing was heard from it for `quietMs` (its signal
+// aborts with a TimeoutError). A PC that slept is not stuck: when the clock jumps between two looks, the wait starts
+// again, so a laptop closed in the middle of a conversion wakes up and goes on
+export function watch(quietMs: number, signal?: AbortSignal, now: () => number = Date.now): Watch {
+  const ctrl = new AbortController();
+  const lookMs = Math.max(250, Math.min(5000, quietMs / 4));
+  let heard = now();
+  let looked = now();
+  const stopTick = every(lookMs, () => {
+    const t = now();
+    if (t - looked > lookMs * 4) heard = t;
+    looked = t;
+    if (t - heard > quietMs) {
+      ctrl.abort(new TimeoutError(`Nothing heard for ${Math.round(quietMs / 1000)} s`));
+      stopTick();
+    }
+  });
+  const onAbort = () => {
+    ctrl.abort(reasonOf(signal as AbortSignal));
+    stopTick();
+  };
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener("abort", onAbort, { once: true });
+  return {
+    beat: () => {
+      heard = now();
+    },
+    stop: () => {
+      stopTick();
+      signal?.removeEventListener("abort", onAbort);
+    },
+    signal: ctrl.signal,
+  };
+}
+
 // ponytail: a burst of values becomes one call `ms` after the last of them, with every value gathered — or `maxMs`
 // after the first when the burst goes on
 export function debounce<T>(

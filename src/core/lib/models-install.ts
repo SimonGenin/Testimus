@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
+import { closeSync, existsSync, openSync, readdirSync, readSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -22,6 +22,7 @@ import { opSignal, perfStats, speedLine } from "./models-perf.ts";
 import { budgets, putInstall, readRegistry, updateRegistry } from "./models-registry.ts";
 import { resolveInstalled } from "./models-resolve.ts";
 import { readSettings } from "./project.ts";
+import { installedWhisper } from "./whisper.ts";
 
 const MB = 1024 * 1024;
 
@@ -29,6 +30,7 @@ const MB = 1024 * 1024;
 // build; --mock answers the probe like a load on this machine, the tests make it fail
 export const installDeps = {
   probe: async (m: ResolvedModel): Promise<{ dims: number; maxTokens: number }> => {
+    if (m.entry.kind === "speech") return speechProbe(m);
     const servers = await import("../rag/runtimes/llama-server.ts");
     const before = new Set(servers.liveServers());
     try {
@@ -40,6 +42,36 @@ export const installDeps = {
   findLlamaBuild: async (dir: string): Promise<LlamaRuntime | null> =>
     (await import("../rag/runtimes/llamacpp.ts")).identifyLlamaBuild(dir),
 };
+
+// ponytail: a transcription model is tried without loading it — its file is a GGML file of the catalog's size, and
+// the engine that runs it is on this PC; the first video heard measures the rest
+function speechProbe(m: ResolvedModel): { dims: number; maxTokens: number } {
+  const path = m.install.path ?? "";
+  const head = Buffer.alloc(4);
+  const fd = openSync(path, "r");
+  try {
+    readSync(fd, head, 0, 4, 0);
+  } finally {
+    closeSync(fd);
+  }
+  if (head.readUInt32LE(0) !== 0x67676d6c)
+    throw new UserError(
+      `${path} is not a whisper.cpp model file.`,
+      `Download it again: testimus models pull ${m.entry.id}.`,
+    );
+  const want = m.entry.source.file?.size;
+  if (want && statSync(path).size !== want)
+    throw new UserError(
+      `${path} is ${statSync(path).size} bytes, the catalog says ${want}: the download was cut short.`,
+      `Download it again: testimus models pull ${m.entry.id}.`,
+    );
+  if (!installedWhisper())
+    throw new UserError(
+      `${m.entry.label} is whole, but the transcription engine (whisper.cpp) is not on this PC.`,
+      "Install it in Settings › Models › Transcription, or: testimus models pullWhisper.",
+    );
+  return { dims: 0, maxTokens: m.entry.maxInputTokens };
+}
 
 export function sizeOf(path: string): number {
   if (!existsSync(path)) return 0;
@@ -79,7 +111,9 @@ export async function probeInstall(
       ms,
       ok,
       message: ok
-        ? `${entry.label} answered in ${ms} ms (${p.dims} dimensions).`
+        ? entry.kind === "speech"
+          ? `${entry.label} is whole and its engine is on this PC.`
+          : `${entry.label} answered in ${ms} ms (${p.dims} dimensions).`
         : `${entry.label} gives ${p.dims} dimensions, the catalog says ${entry.dims}.`,
     };
   } catch (e) {

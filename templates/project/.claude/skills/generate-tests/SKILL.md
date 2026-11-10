@@ -82,7 +82,7 @@ side of each gesture was searched. When two documents disagree, apply the preced
   precise anchor: the section whose own text says it. What only a figure shows is cited
   `<docId>#fig:<n>` with its caption, after you looked at the picture. An item written in a
   Reference source column has its own line ending `@<column> "<item>"`.
-- **Observed documents** (photos, videos: `img:`, `t:`, `frame:`) say how a step is done — where to
+- **Observed documents** (photos, videos: `img:`, `t:`, `v:`, `frame:`) say how a step is done — where to
   click, the exact labels, the screens in turn — never what is expected. Use them for the Action;
   an expected result needs a written document.
 - **No source: search, then decide.** `rag_mentions` the object, `rag_search` the behavior, open

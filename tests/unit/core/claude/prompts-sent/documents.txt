@@ -122,7 +122,8 @@ These pictures show the real system (screens of the simulator, a desk, a cabin):
 frames of a video they filmed. They show what the system does and how a tester gets there — never what it is
 required to do: say what you see, never what should happen.
 
-Open each picture below with Read, look at it, and give:
+Open the pictures below with Read — all of them in the same turn, one call each, sent together — look at each,
+and give:
 - description: two to four sentences in French for a tester: which screen or object it is,
   what state it shows, where things are and what the operator does or can do there.
 - labels: every text visible in the picture, copied verbatim (same spelling, accents, case, abbreviations; never
@@ -152,15 +153,93 @@ Reply with only this block, one entry per picture, keyed by its anchor:
 ```
 
 =====
-Testimus video survey run for the video « manoeuvre.mp4 » (02:40) of the document Manoeuvre_d_un_sectionneur_au_PCC Manœuvre d'un sectionneur au PCC.
+Testimus media run for the document Manoeuvre_d_un_sectionneur_au_PCC Manœuvre d'un sectionneur au PCC.
+
+These pictures show the real system (screens of the simulator, a desk, a cabin): photos taken by the team, or
+frames of a video they filmed. They show what the system does and how a tester gets there — never what it is
+required to do: say what you see, never what should happen.
+
+Open the pictures below with Read — all of them in the same turn, one call each, sent together — look at each,
+and give:
+- description: two to four sentences in French for a tester: which screen or object it is,
+  what state it shows, where things are and what the operator does or can do there.
+- labels: every text visible in the picture, copied verbatim (same spelling, accents, case, abbreviations; never
+  translated or corrected), one entry per title, button, menu item, field or message; [] when none is readable.
+- kind: one of screen, diagram, symbol, table-image, photo (screen = a software window, photo = anything else).
+A frame of a video comes with what is said around it and the part of the video it belongs to: use them to
+name what the operator is doing. The frames are in time order: from the second one on, start the
+description with what changed since the frame before it (« The disconnector S12 goes from closed to open,
+its indicator turns red »), in plain sentences a test step can quote. Never copy what is said into the
+description: describe the picture.
+Do not edit any file.
+
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- Manoeuvre_d_un_sectionneur_au_PCC: Vidéo filmée au PCC pendant la recette du 05/11, version 3.2 du simulateur.
+
+From the user, for this run only:
+Use the 2024 wording.
+
+Pictures:
+- frame:01:00 — docs/Manoeuvre_d_un_sectionneur_au_PCC/figures/frame-1-60.jpg — Image at 01:00
+    part: Menu contextuel
+    said around it: [00:47] La fenêtre Propriétés indique un sectionneur.
+
+Reply with only this block, one entry per picture, keyed by its anchor:
+```media
+{"frame:01:00": {"description": "…", "labels": ["…"], "kind": "screen"}}
+```
+
+=====
+Testimus video plan run for the video « manoeuvre.mp4 » (02:40) of the document Manoeuvre_d_un_sectionneur_au_PCC Manœuvre d'un sectionneur au PCC.
 
 The video was filmed on the real system: it shows what the system does and how an operator works, never what it
-is required to do. Open each mosaic below with Read: it shows the video's frames in time order, 4 × 4, each tile
-numbered with its moment. Then give, in French:
-- chapters: the parts of the video, each with the moment it starts (mm:ss) and a short title saying what the
-  operator does there; the first starts at 00:00.
-- moments: at most 40 moments worth seeing whole (a screen that changes, a menu, a message, an alarm),
-  each with its moment (mm:ss, one of the tiles' or between them) and why in a few words.
+is required to do. Cut it into chapters: the parts a tester would look for, each with the moment it starts
+(mm:ss) and a short title in French saying what the operator does there. The first starts at
+00:00; a five-minute video has three to six chapters, a long one a chapter every few minutes.
+
+What is said, timed, is in docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/said.txt — Read it whole (each line starts with
+its moment; a line in another language is followed by its language in brackets).
+Do not edit any file.
+
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- Manoeuvre_d_un_sectionneur_au_PCC: Vidéo filmée au PCC pendant la recette du 05/11, version 3.2 du simulateur.
+
+From the user, for this run only:
+Use the 2024 wording.
+
+Reply with only this block:
+```video
+{"chapters": [{"at": "00:00", "title": "…"}]}
+```
+
+=====
+Testimus video survey run for the video « manoeuvre.mp4 » (02:40) of the document Manoeuvre_d_un_sectionneur_au_PCC Manœuvre d'un sectionneur au PCC.
+
+Part to survey: « Menu contextuel », from 00:40 to 01:20.
+
+The video was filmed on the real system: it shows what the system does and how an operator works, never what it
+is required to do. Open the mosaics below with Read, all in the same turn (one call each, sent together): they
+show the candidate frames of this part in time order, 3 × 3, each tile numbered with its moment; a red frame marks
+where the screen changed since the tile before. A mosaic shows that something happens, not what a screen says:
+to read it, open the changes you need (the place that changed, at the size it was filmed), again in one turn, or draw a moment whole with the tool media_frame (doc Manoeuvre_d_un_sectionneur_au_PCC, video 1, at mm:ss) —
+at most 10 times, only where a mosaic and its change leave a doubt.
+
+Give the moments of this part worth keeping whole as key frames — at most 2, fewer when little
+changes: a screen once it has settled after a change, a menu open, a message or an alarm, the state of a form
+just before it is validated. Each with its moment (mm:ss, a tile's or between two) and why in at most ten words
+of French. A screen already kept is not kept again: skip a frame that shows nothing new.
 Do not edit any file.
 
 Read first — reference material, never edit it:
@@ -176,12 +255,82 @@ From the user, for this run only:
 Use the 2024 wording.
 
 Mosaics:
-- docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/mosaic-1.jpg — tiles 1 00:00, 2 00:20
+- docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/mosaic-1-1.jpg — tiles 1 00:00, 2 00:20
 
-What is said (Whisper's transcript, timed):
-[00:02] Bonjour, on ouvre le poste.
+Changes, at real size:
+- tile 2 00:20 — docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/change-2.jpg
+
+What is said in this part (timed):
+[00:47] La fenêtre Propriétés indique un sectionneur.
 
 Reply with only this block:
 ```video
-{"chapters": [{"at": "00:00", "title": "…"}], "moments": [{"at": "00:42", "why": "…"}]}
+{"moments": [{"at": "00:42", "why": "…"}]}
+```
+
+=====
+Testimus video translation run for the video « manoeuvre.mp4 » of the document Manoeuvre_d_un_sectionneur_au_PCC Manœuvre d'un sectionneur au PCC.
+
+Translate each line below into French. They are what an operator or a trainer says in a
+video of the real system, as a speech model heard it: translate what is said, plainly, keep every code, name of
+equipment, label of the screen and number as it is, and never add nor explain. A line that is only noise or
+makes no sense gets an empty string. Under a line is what was said just before and after it: never translate
+that — it tells what the speakers talk about, so a word the speech model misheard is translated as the word
+that was meant. Do not edit any file.
+
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- Manoeuvre_d_un_sectionneur_au_PCC: Vidéo filmée au PCC pendant la recette du 05/11, version 3.2 du simulateur.
+
+From the user, for this run only:
+Use the 2024 wording.
+
+Lines (moment · language · what was said):
+- 01:32 · German · So, dann bitte den Trennschalter S12 wieder schließen.
+
+Reply with only this block, one entry per line, keyed by its moment:
+```translation
+{"01:32": "…"}
+```
+
+=====
+Testimus transcript fixes run for the video « manoeuvre.mp4 » of the document Manoeuvre_d_un_sectionneur_au_PCC Manœuvre d'un sectionneur au PCC.
+
+Below is what a speech model heard in a video of the real system. It mishears the project's own words: codes,
+names of equipment, acronyms. Propose a correction only for a line where you have a clue that another word was
+said, and say which clue:
+- glossary: a term of the project's glossary sounds like what was written;
+- screen: a text visible on the screen at that moment (given under the line) is the word that was said;
+- document: another document of the project names the thing — find it with Grep in docs/*/doc.md before you
+  propose, and name it. Never docs/Manoeuvre_d_un_sectionneur_au_PCC/ itself: its text comes from this video.
+Never rewrite a line to make it nicer, never fix punctuation or case, never translate; keep every other word as
+it was heard. No clue, no proposal. A line marked « unsure » is one the model itself doubted. Do not edit any
+file.
+
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- Manoeuvre_d_un_sectionneur_au_PCC: Vidéo filmée au PCC pendant la recette du 05/11, version 3.2 du simulateur.
+
+From the user, for this run only:
+Use the 2024 wording.
+
+Glossary: S12, PCC
+
+Lines (moment · what was heard):
+- 01:02 · unsure · le message de refus de manœuvre apparaît
+    on screen: Propriétés
+
+Reply with only this block ([] when nothing is to correct):
+```fixes
+[{"at": "00:42", "text": "the line as it should read", "clue": "glossary", "why": "…"}]
 ```

@@ -7,7 +7,13 @@ import { describeFigures } from "../../../../src/core/claude/figures.ts";
 import { fixTest } from "../../../../src/core/claude/fix.ts";
 import { docGiven } from "../../../../src/core/claude/given.ts";
 import { claudeHeaders } from "../../../../src/core/claude/headers.ts";
-import { readPictures, surveyVideo } from "../../../../src/core/claude/media.ts";
+import {
+  planVideo,
+  proposeFixes,
+  readPictures,
+  surveyVideo,
+  translateLines,
+} from "../../../../src/core/claude/media.ts";
 import { OVERVIEW_MARKER } from "../../../../src/core/claude/overview.ts";
 import { contextDir } from "../../../../src/core/claude/prompt.ts";
 import { checkSignedIn, resetProbe } from "../../../../src/core/claude/status.ts";
@@ -294,21 +300,53 @@ describe("the prompts the Claude runs send", () => {
       { note: RUN.note },
     );
     await readPictures(dir, "RECETTE_TCO_12-10", quietCtx(dir), { force: true, ...claude });
+    const V = "Manoeuvre_d_un_sectionneur_au_PCC";
+    const video = { name: "manoeuvre.mp4", duration: 160, n: 1 };
+    const mosaics = [
+      {
+        file: "video/1/mosaic-1-1.jpg",
+        tiles: [
+          { n: 1, at: 0 },
+          { n: 2, at: 20 },
+        ],
+      },
+    ];
+    await readPictures(dir, V, quietCtx(dir), {
+      anchors: ["frame:01:00"],
+      context: () => ["part: Menu contextuel", "said around it: [00:47] La fenêtre Propriétés indique un sectionneur."],
+      ...claude,
+    });
+    await planVideo(dir, V, quietCtx(dir), video, { said: "video/1/said.txt", mosaics: [] }, claude);
     await surveyVideo(
       dir,
-      "Manoeuvre_d_un_sectionneur_au_PCC",
+      V,
       quietCtx(dir),
-      { name: "manoeuvre.mp4", duration: 160 },
-      [
-        {
-          file: "video/1/mosaic-1.jpg",
-          tiles: [
-            { n: 1, at: 0 },
-            { n: 2, at: 20 },
-          ],
-        },
-      ],
-      "[00:02] Bonjour, on ouvre le poste.",
+      video,
+      {
+        title: "Menu contextuel",
+        from: 40,
+        to: 80,
+        budget: 2,
+        said: "[00:47] La fenêtre Propriétés indique un sectionneur.",
+      },
+      { mosaics, crops: [{ n: 2, at: 20, file: "video/1/change-2.jpg" }] },
+      claude,
+    );
+    await translateLines(
+      dir,
+      V,
+      quietCtx(dir),
+      video,
+      [{ at: 92, end: 104, text: "So, dann bitte den Trennschalter S12 wieder schließen.", lang: "de" }],
+      claude,
+    );
+    await proposeFixes(
+      dir,
+      V,
+      quietCtx(dir),
+      video,
+      [{ at: 62, end: 74, text: "le message de refus de manœuvre apparaît", unsure: true, screen: ["Propriétés"] }],
+      ["S12", "PCC"],
       claude,
     );
     await expect(sent()).toMatchFileSnapshot(file("documents"));

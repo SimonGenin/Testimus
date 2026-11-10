@@ -12,7 +12,7 @@ import type {
   ResolvedModel,
   RuntimeId,
 } from "../types.ts";
-import { deviceFor, deviceOf, isGguf } from "./fit/placement.ts";
+import { deviceFor, deviceOf, isGguf, runtimeFor } from "./fit/placement.ts";
 import { unsupportedOn } from "./fit/support.ts";
 import { fitOf, gb, releaseOurs } from "./fit/verdict.ts";
 import { knownMachine, machineProfile, platformOf, systemName } from "./machine/profile.ts";
@@ -82,14 +82,15 @@ function foundOnDisk(entry: CatalogEntry): Installation | null {
   const dir = modelsDir();
   const roots = [...(dir ? [dir] : []), ...modelRoots().map((r) => r.dir)];
   if (isGguf(entry)) {
-    if (!entry.runtimes.includes("llamacpp")) return null;
+    const runtime = runtimeFor(entry);
+    if (!runtime) return null;
     for (const root of roots) {
       const file = ggufPath(root, entry);
       if (file && existsSync(file))
         return {
           model: entry.id,
           via: "path",
-          runtime: "llamacpp",
+          runtime,
           path: file,
           revision: hf.revision,
           status: "installed",
@@ -117,7 +118,10 @@ function foundOnDisk(entry: CatalogEntry): Installation | null {
 }
 
 function registered(entry: CatalogEntry): Installation | null {
-  const mine = readRegistry().installs.filter((i) => i.model === entry.id && i.status !== "broken");
+  // ponytail: before 2026-11-10 « whisper-small-q8 » was an ONNX folder run by transformers.js — a PC that still
+  // has it registered does not have the whisper.cpp file this entry now names
+  const runs = (i: Installation) => entry.kind !== "speech" || entry.runtimes.includes(i.runtime);
+  const mine = readRegistry().installs.filter((i) => i.model === entry.id && i.status !== "broken" && runs(i));
   return mine.find((i) => i.path && existsSync(i.path)) ?? null;
 }
 
@@ -129,9 +133,7 @@ export function resolveInstalled(id: string, queryTask = DEFAULT_QUERY_TASK): Re
 }
 
 export function downloadRuntime(entry: CatalogEntry): RuntimeId | null {
-  if (entry.runtimes.includes("transformers")) return "transformers";
-  if (entry.runtimes.includes("llamacpp")) return "llamacpp";
-  return null;
+  return runtimeFor(entry);
 }
 
 type One = { model: ResolvedModel | null; source: ModelSource; reason: string };

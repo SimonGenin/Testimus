@@ -28,7 +28,12 @@ export function useSetProject() {
           const before = c.getQueryData<Info>(k);
           if (before) {
             const claude = { ...before.project.claude, ...patch.claude };
-            c.setQueryData<Info>(k, { ...before, project: { ...before.project, ...patch, claude } as ProjectJson });
+            const project = { ...before.project, ...patch, claude };
+            if (patch.video) {
+              const { glossary, ...video } = { ...before.project.video, ...patch.video };
+              project.video = glossary ? { ...video, glossary } : video;
+            }
+            c.setQueryData<Info>(k, { ...before, project: project as ProjectJson });
           }
           return () => c.setQueryData(k, before);
         },

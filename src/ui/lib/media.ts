@@ -28,11 +28,32 @@ export function clock(seconds: number): string {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-// ponytail: the second a t: or frame: anchor names (t:04:30, frame:3/04:30, t:04:30-2), null for another anchor
-export function momentOf(anchor: string): { n: number; at: number } | null {
-  const m = /^(?:t|frame):(?:(\d+)\/)?(?:(\d+):)?(\d{1,2}):(\d{2})(?:-\d+)?$/.exec(anchor.trim());
+export type Moment = { n: number; at: number; to?: number; kind: "t" | "v" | "frame" };
+
+const secs = (h: string | undefined, m: string, s: string) => Number(h ?? 0) * 3600 + Number(m) * 60 + Number(s);
+
+// ponytail: the moment of a video an anchor names — the second of a line said (t:04:30) or of a key frame
+// (frame:3/04:30), or a range of seconds, said (t:02:36..02:52) or seen (v:02:36..02:52); null for another anchor.
+// A moment is a second of the video, never a line's rank: the -2 a line once carried is read and dropped
+export function momentOf(anchor: string): Moment | null {
+  const m = /^(t|v|frame):(?:(\d+)\/)?(?:(\d+):)?(\d{1,2}):(\d{2})(?:-\d+)?(?:\.\.(?:(\d+):)?(\d{1,2}):(\d{2}))?$/.exec(
+    anchor.trim(),
+  );
   if (!m) return null;
-  return { n: m[1] ? Number(m[1]) : 1, at: Number(m[2] ?? 0) * 3600 + Number(m[3]) * 60 + Number(m[4]) };
+  const at = secs(m[3], m[4], m[5]);
+  const to = m[7] !== undefined && m[1] !== "frame" ? secs(m[6], m[7], m[8]) : undefined;
+  return {
+    kind: m[1] as Moment["kind"],
+    n: m[2] ? Number(m[2]) : 1,
+    at,
+    ...(to !== undefined && to > at ? { to } : {}),
+  };
+}
+
+// ponytail: a moment or a range as its anchor writes it (the video's number in front unless it is file 1)
+export function momentAnchor(kind: "t" | "v", n: number, at: number, to?: number): string {
+  const range = to !== undefined && Math.floor(to) > Math.floor(at) ? `${clock(at)}..${clock(to)}` : clock(at);
+  return `${kind}:${n === 1 ? range : `${n}/${range}`}`;
 }
 
 export const isPictureAnchor = (anchor: string) => /^(fig|img|frame):/.test(anchor.trim());

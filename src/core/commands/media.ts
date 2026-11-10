@@ -1,43 +1,28 @@
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { readPictures } from "../claude/media.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
+import { claudeVersion } from "../claude/status.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { docDir, readDoc, readFigures } from "../lib/docs.ts";
+import { docDir, readDoc, readFigures, writeFigures } from "../lib/docs.ts";
 import { afterConversion, convertSteps, inSlot, recheckCiting, runOf, withIndex } from "../lib/docs-pipeline.ts";
 import { ffmpegOrFail } from "../lib/ffmpeg.ts";
-import {
-  copyMediaFiles,
-  dropMediaFile,
-  filesOf,
-  imageAnchor,
-  isMediaDoc,
-  ordered,
-  type Rejected,
-} from "../lib/media.ts";
-import { readVideo, transcriptLines, writeMediaMd } from "../lib/media-md.ts";
+import { copyMediaFiles, dropMediaFile, filesOf, imageAnchor, ordered, type Rejected } from "../lib/media.ts";
+import { frameAnchor, readFixes, readVideo, transcriptLines, writeMediaMd, writeVideo } from "../lib/media-md.ts";
 import { migrateMedia } from "../lib/media-migrate.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
-import { videoSummary } from "../lib/media-video.ts";
 import { docName } from "../lib/names.ts";
-import { normalizeFrame } from "../lib/video-frames.ts";
-import { videoIo } from "../lib/video-io.ts";
-import { clock, momentOf } from "../rag/anchors.ts";
-import type { DocJson, MediaFile } from "../types.ts";
-import { LINE, MEDIA_FILE, PICKED, REJECTED, SOURCE_TYPE, VIDEO_SUMMARY } from "./media-schemas.ts";
+import { normalizeFrame } from "../lib/video/frames.ts";
+import { videoIo } from "../lib/video/io.ts";
+import { frameContext, videoSummary } from "../lib/video/pipeline.ts";
+import { drawKeyFrames, keyMoments, syncFrameEntries } from "../lib/video/survey.ts";
+import { secondsOf } from "../rag/anchors.ts";
+import type { MediaFile } from "../types.ts";
+import { applyChoices, doc, index, mediaDoc, momentIn, video, videoOf } from "./media-args.ts";
+import { LINE, MEDIA_FILE, PICKED, REJECTED, SOURCE_TYPE, VIDEO_CHOICES, VIDEO_SUMMARY } from "./media-schemas.ts";
+import { commands as speech } from "./media-speech.ts";
 
-const doc = z.string().describe("Document id (the folder name under docs/) of an images or video document");
-const video = z.coerce
-  .number()
-  .int()
-  .optional()
-  .describe("The video's number in the document (media.show); default: its first video");
-const index = z
-  .boolean()
-  .default(true)
-  .describe(
-    "Then update the search index in the same job, once the conversions running in this project are done (a failed index run keeps the files)",
-  );
 const read = z
   .boolean()
   .optional()
@@ -78,27 +63,6 @@ const jobOut = z.object({
     .describe("With index: what the index run that followed did"),
 });
 
-function mediaDoc(project: string, id: string): DocJson {
-  const d = readDoc(project, id);
-  if (!isMediaDoc(d))
-    throw new UserError(
-      `${id} is not an images or video document.`,
-      "Images and videos are documents of their own: add them with docs.addFiles, or to an images document with media.add.",
-    );
-  return d;
-}
-
-function videoOf(project: string, id: string, n?: number): MediaFile {
-  const videos = filesOf(mediaDoc(project, id)).filter((f) => f.kind === "video");
-  const f = n === undefined ? videos[0] : videos.find((x) => x.n === n);
-  if (!f)
-    throw new UserError(
-      n === undefined ? `${id} has no video.` : `${id} has no video ${n}.`,
-      `testimus media show ${id} lists its files.`,
-    );
-  return f;
-}
-
 const outOf = (project: string, id: string, extra: Partial<z.input<typeof jobOut>>) => {
   const d = readDoc(project, id);
   return {
@@ -121,6 +85,7 @@ export const commands = [
     input: z.object({
       doc,
       files: PICKED,
+      video: VIDEO_CHOICES.optional().describe("What to hear of the videos added: languages, sound track, part"),
       describeFigures: read,
       model: MODEL.optional().describe("Claude model that reads the pictures (default: project.json claude.model)"),
       effort: EFFORT.optional().describe("Claude effort for the pictures (default: low)"),
@@ -143,6 +108,8 @@ export const commands = [
       const r = await inSlot(ctx, project, steps, async () => {
         ctx.step?.("copy");
         ({ added, rejected } = copyMediaFiles(project, input.doc, input.files));
+        if (input.video)
+          for (const f of added.filter((x) => x.kind === "video")) applyChoices(project, input.doc, f.n, input.video);
         if (!added.length) ctx.log("warn", `No file was added: ${rejected[0]?.why ?? "nothing given"}`);
         ctx.step?.("convert");
         const d = await convertMedia(ctx, project, input.doc, {
@@ -192,7 +159,7 @@ export const commands = [
   command({
     name: "media.show",
     summary:
-      "Show an images or video document's files: each image with its anchor (img:<n>), picture and what Claude read in it; each video with its length, chapters and key frames (frame:…). The transcript is media.transcript.",
+      "Show an images or video document's files: each image with its anchor (img:<n>), picture and what Claude read in it; each video with its length, sound tracks, languages heard, chapters and key frames (frame:…, each with the description a source may quote). The transcript is media.transcript.",
     input: z.object({ doc }),
     output: z.object({
       doc: z.string().describe("The document"),
@@ -240,7 +207,7 @@ export const commands = [
   command({
     name: "media.transcript",
     summary:
-      "The timed transcript of a video (Whisper, on this PC), whole or between two moments: each line with its anchor t:mm:ss, quotable verbatim in a source.",
+      "What is said in a video, heard on this PC, whole or between two moments: each line with the second it starts at (t:mm:ss), its language, its translation when it was said in another language than the project's, and whether the engine doubted it. A source cites a moment (docId#t:04:30) or a range (docId#t:02:36..02:52) and quotes the words said there; what is seen without a word is cited from a key frame's description (docId#v:02:36..02:52).",
     input: z.object({
       doc,
       video,
@@ -260,8 +227,7 @@ export const commands = [
       const project = projectOf(ctx);
       const f = videoOf(project, input.doc, input.video);
       const v = readVideo(project, input.doc, f.n);
-      const at = (s?: string) =>
-        s === undefined ? undefined : /^\d+(\.\d+)?$/.test(s.trim()) ? Number(s) : momentOf(s)?.at;
+      const at = (s?: string) => (s === undefined ? undefined : (secondsOf(s) ?? undefined));
       const from = at(input.from) ?? 0;
       const to = at(input.to) ?? Number.POSITIVE_INFINITY;
       return {
@@ -269,7 +235,9 @@ export const commands = [
         video: f.n,
         duration: v?.duration ?? f.duration ?? 0,
         transcribed: !!v?.transcribed,
-        lines: v ? transcriptLines(f.n, v).filter((l) => l.end >= from && l.at <= to) : [],
+        lines: v
+          ? transcriptLines(f.n, v, readFixes(project, input.doc, f.n)).filter((l) => l.end >= from && l.at <= to)
+          : [],
       };
     },
   }),
@@ -294,27 +262,21 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const f = videoOf(project, input.doc, input.video);
-      const secs = /^\d+(\.\d+)?$/.test(input.at.trim()) ? Number(input.at) : momentOf(input.at)?.at;
       const v = readVideo(project, input.doc, f.n);
-      const length = v?.duration ?? f.duration ?? 0;
-      if (secs === undefined || secs < 0 || (length && secs > length))
-        throw new UserError(
-          `No moment ${input.at} in ${f.name}${length ? ` (${clock(length)})` : ""}.`,
-          "Give a moment as mm:ss within the video.",
-        );
+      const secs = momentIn(input.at, v?.duration ?? f.duration ?? 0, f.name);
       const key = v?.keyFrames.find((k) => Math.floor(k.at) === Math.floor(secs) && k.figure);
       if (key?.figure && existsSync(join(docDir(project, input.doc), key.figure)))
         return {
           file: join(docDir(project, input.doc), key.figure),
           at: key.at,
-          anchor: `frame:${f.n === 1 ? clock(key.at) : `${f.n}/${clock(key.at)}`}`,
+          anchor: frameAnchor(f.n, key.at),
         };
       const out = join(project, ".testimus", "frames", input.doc, `${f.n}-${Math.floor(secs)}.jpg`);
       if (!existsSync(out)) {
         ffmpegOrFail();
         const raw = `${out.slice(0, -4)}.raw.jpg`;
         try {
-          await videoIo.frameAt(join(docDir(project, input.doc), f.file), secs, raw, ctx.signal);
+          await videoIo.frameAt(join(docDir(project, input.doc), f.file), secs, raw, { hdr: !!v?.hdr }, ctx.signal);
           await normalizeFrame(raw, out);
         } finally {
           rmSync(raw, { force: true });
@@ -323,6 +285,107 @@ export const commands = [
       return { file: out, at: secs };
     },
   }),
+  command({
+    name: "media.keep",
+    summary:
+      "Make any second of a video a key frame: its picture is drawn in full and added to the document with its anchor frame:mm:ss, so a source may cite it (docId#frame:07:12, or a range v:07:10..07:15 that holds it) and a step may embed it. Its description is the one given, else Claude's (it reads the picture with what is said around it); without either it stays empty until the document is read again.",
+    input: z.object({
+      doc,
+      at: z.string().describe("The moment, mm:ss or h:mm:ss (or seconds)"),
+      video,
+      description: z
+        .string()
+        .optional()
+        .describe(
+          "What the frame shows, in the project's language — give it when you looked at the frame yourself (media.frame)",
+        ),
+      model: MODEL.optional().describe("Claude model that reads the frame (default: project.json claude.model)"),
+      effort: EFFORT.optional().describe("Claude effort for the frame (default: low)"),
+    }),
+    output: z.object({
+      anchor: z.string().describe("The key frame's anchor, frame:mm:ss"),
+      at: z.number().describe("Its moment, seconds"),
+      figure: z.string().describe("Its picture, relative to the document folder"),
+      description: z.string().describe("What it shows (empty when nobody read it yet)"),
+      added: z.boolean().describe("False when that second was a key frame already"),
+    }),
+    mutates: true,
+    job: "media.keep",
+    positional: ["doc", "at"],
+    subject: (i) => i.doc,
+    label: (i, project) => docName(project, i.doc),
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      const f = videoOf(project, input.doc, input.video);
+      const v = readVideo(project, input.doc, f.n);
+      if (!v)
+        throw new UserError(
+          `${f.name} was not read yet.`,
+          `Convert the document first: testimus docs convert ${input.doc}.`,
+        );
+      const at = momentIn(input.at, v.duration, f.name);
+      const anchor = frameAnchor(f.n, at);
+      const had = v.keyFrames.find((k) => Math.floor(k.at) === Math.floor(at) && k.figure);
+      const fixes = readFixes(project, input.doc, f.n);
+      if (!had) {
+        ffmpegOrFail();
+        const frames = keyMoments([...v.keyFrames, { at, why: "", asked: true }], v.duration);
+        const drawn = await drawKeyFrames(ctx, project, input.doc, f, { ...v, keyFrames: frames }, fixes);
+        writeVideo(project, input.doc, f.n, { ...(readVideo(project, input.doc, f.n) ?? v), keyFrames: drawn });
+      }
+      const given = input.description?.replace(/\s+/g, " ").trim();
+      if (given) {
+        const all = readFigures(project, input.doc);
+        const e = all.find((x) => x.anchor === anchor);
+        if (e && !e.description.trim()) {
+          e.description = given;
+          writeFigures(project, input.doc, all);
+        }
+      } else if (!ctx.llm && (await claudeVersion()).ok) {
+        const e = readFigures(project, input.doc).find((x) => x.anchor === anchor);
+        if (!e?.description.trim())
+          await readPictures(project, input.doc, ctx, {
+            model: input.model,
+            effort: input.effort,
+            anchors: [anchor],
+            context: frameContext(project, input.doc),
+          });
+      }
+      syncFrameEntries(project, input.doc, f.n, readVideo(project, input.doc, f.n)?.keyFrames ?? [], fixes);
+      writeMediaMd(project, input.doc);
+      recheckCiting(ctx, project, readDoc(project, input.doc));
+      const e = readFigures(project, input.doc).find((x) => x.anchor === anchor);
+      return {
+        anchor,
+        at: had?.at ?? at,
+        figure: e?.file ?? "",
+        description: e?.description ?? "",
+        added: !had,
+      };
+    },
+  }),
+  command({
+    name: "media.set",
+    summary:
+      "Choose what is heard of a video — the languages spoken in it, the sound track, the part to transcribe — kept on the video; it is heard that way the next time (media.retranscribe).",
+    input: z.object({
+      doc,
+      video,
+      ...VIDEO_CHOICES.shape,
+      allTracks: z.boolean().optional().describe("Hear all the sound tracks again, mixed (drops track)"),
+      whole: z.boolean().optional().describe("Transcribe the whole video again (drops from and to)"),
+    }),
+    output: MEDIA_FILE,
+    mutates: true,
+    positional: ["doc"],
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      const f = videoOf(project, input.doc, input.video);
+      applyChoices(project, input.doc, f.n, input);
+      return videoOf(project, input.doc, f.n);
+    },
+  }),
+  ...speech,
   command({
     name: "media.migrate",
     summary:

@@ -116,7 +116,7 @@ describe("search primitives", () => {
 describe("index", () => {
   it("indexes the fixture project and finds a code exactly with BM25", async () => {
     const r = await indexProject(dir, quietCtx(dir));
-    expect(r).toMatchObject({ embedding: "bge-m3-q8", dims: 1024, vectorsRebuilt: true, chunks: 14, embedded: 14 });
+    expect(r).toMatchObject({ embedding: "bge-m3-q8", dims: 1024, vectorsRebuilt: true, chunks: 15, embedded: 15 });
     expect(calls.every((c) => c.startsWith("doc:bge-m3-q8:"))).toBe(true);
     const state = readState(dir);
     expect(state).toMatchObject({
@@ -175,7 +175,7 @@ describe("index", () => {
     rmSync(join(dir, "docs", D4), { recursive: true });
     const removed = await indexProject(dir, quietCtx(dir));
     expect(removed.docs.find((d) => d.docId === D4)?.status).toBe("removed");
-    expect(removed.chunks).toBe(12);
+    expect(removed.chunks).toBe(13);
   });
 
   it("falls back to BM25 when the active model has no vectors yet, instead of refusing", async () => {
@@ -264,7 +264,7 @@ describe("rag commands", () => {
       profileMatches: boolean;
       docs: { indexed: string }[];
     };
-    expect(after).toMatchObject({ chunks: 14, profileMatches: true });
+    expect(after).toMatchObject({ chunks: 15, profileMatches: true });
     expect(after.docs.map((d) => d.indexed)).toEqual(["fresh", "fresh", "fresh", "fresh", "fresh"]);
     const hits = (await invoke("rag.search", { query: "EXI_MOP_SPF_511_A_1670" }, { project: dir })) as {
       anchor: string;

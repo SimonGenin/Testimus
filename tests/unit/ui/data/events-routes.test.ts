@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { apply, applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
-import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
+import { createQueryClient, isMachine, key } from "../../../../src/ui/lib/data/query.ts";
 import { keysOfKind, keysOfPaths } from "../../../../src/ui/lib/data/refresh.ts";
 
 const names = (paths: string[]) => keysOfPaths(paths).map((k) => k[0]);
@@ -57,6 +57,26 @@ describe("which reads a changed file refreshes", () => {
     expect(keysOfPaths(["tests/T-1/test.md"])).not.toContainEqual(["claude.preview"]);
   });
 
+  it("project.json refreshes the glossary of the transcription with the project", () => {
+    expect(keysOfPaths(["project.json"])).toContainEqual(["media.glossary"]);
+    expect(keysOfPaths(["project.json"])).toContainEqual(["project.info"]);
+    expect(keysOfPaths(["columns.json"])).not.toContainEqual(["media.glossary"]);
+  });
+
+  it("a video's files refresh what shows that video: its transcript, the corrections proposed, its report, the passages", () => {
+    for (const path of ["docs/V-1/video/1.json", "docs/V-1/video/1.proposals.json", "docs/V-1/files/1-demo.mp4"])
+      expect(keysOfPaths([path]), path).toEqual([
+        ["media.show", { doc: "V-1" }],
+        ["media.transcript", { doc: "V-1" }],
+        ["media.proposals", { doc: "V-1" }],
+        ["media.report", { doc: "V-1" }],
+        ["media.glossary"],
+        ["rag.passage"],
+        ["docs.show", { id: "V-1" }],
+      ]);
+    expect(keysOfPaths(["docs/V-1/context.md"])).not.toContainEqual(["media.proposals", { doc: "V-1" }]);
+  });
+
   it("the columns and Xray's step schema refresh the project and the columns", () => {
     expect(names(["columns.json"])).toEqual(["project.info", "columns.list"]);
     expect(names(["xray.json"])).toEqual(["project.info", "columns.list"]);
@@ -83,6 +103,27 @@ describe("which reads a finished job refreshes", () => {
     expect(keysOfKind("search-index")).toEqual([["search.all"]]);
     expect(keysOfKind("push")).toEqual([["xray.status"], ["xray.folders"], ["xray.search"]]);
     expect(keysOfKind("pull")).toEqual([["xray.search"]]);
+  });
+
+  it("a key frame kept, corrections proposed, a lighter copy and a measure refresh the video and its document", () => {
+    for (const kind of ["media.keep", "media.propose", "media.lighten", "media.measure"])
+      expect(keysOfKind(kind), kind).toEqual([
+        ["media.show"],
+        ["media.transcript"],
+        ["media.proposals"],
+        ["docs.show"],
+        ["docs.list"],
+      ]);
+    expect(keysOfKind("media.fix")).toEqual([]);
+    expect(keysOfKind("media.measured")).toEqual([]);
+  });
+
+  it("a download or a check of a model refreshes what this PC transcribes with, on any project", () => {
+    for (const kind of ["models-pull", "models-verify"])
+      expect(keysOfKind(kind), kind).toContainEqual(["models.speech"]);
+    expect(isMachine("models.speech")).toBe(true);
+    expect(key("models.speech", {}, "/p")).toEqual([null, "models.speech", {}]);
+    expect(isMachine("media.glossary")).toBe(false);
   });
 
   it("a conversation with the documents refreshes the earlier conversations and the one it continued", () => {

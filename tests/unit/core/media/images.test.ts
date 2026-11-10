@@ -89,7 +89,7 @@ describe("images picked together", () => {
       [1, "analysed", "figures/img-1.jpg", "2026-10-12T15:00:00", 2000],
       [2, "analysed", "figures/img-2.jpg", "2026-10-12T09:30:00", 800],
     ]);
-    expect(d.converted?.with).toBe("media 1");
+    expect(d.converted?.with).toBe("media 2");
     expect(runs).toHaveLength(1);
     expect(runs[0].stdin).toContain(
       "- img:2 — docs/Visite_du_PCC/figures/img-2.jpg — IMG_1.jpg — taken 2026-10-12 09:30",

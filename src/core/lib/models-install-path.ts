@@ -4,7 +4,7 @@ import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type { CatalogEntry, Installation, InstallState } from "../types.ts";
-import { deviceOf, isGguf } from "./fit/placement.ts";
+import { deviceOf, isGguf, runtimeFor } from "./fit/placement.ts";
 import { machineProfile } from "./machine/profile.ts";
 import { catalog, needEntry } from "./models-catalog.ts";
 import { copyTree } from "./models-dir.ts";
@@ -96,7 +96,7 @@ export async function addPath(input: { path: string; model?: string; copy: boole
     const install: Installation = {
       model: entry.id,
       via: "path",
-      runtime: gguf ? "llamacpp" : "transformers",
+      runtime: runtimeFor(entry) ?? "llamacpp",
       path: where,
       ...(entry.source.hf ? { revision: entry.source.hf.revision } : {}),
       ...(gguf && entry.source.file ? { sha256: entry.source.file.sha256 } : {}),

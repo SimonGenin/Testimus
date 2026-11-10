@@ -93,7 +93,7 @@ export function DocDetail({
     chosen ??
     (!media
       ? "text"
-      : /^(t|frame):/.test(anchor) && files.some((f) => f.kind === "video")
+      : /^(t|v|frame):/.test(anchor) && files.some((f) => f.kind === "video")
         ? "video"
         : anchor.startsWith("§")
           ? "text"

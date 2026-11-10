@@ -181,6 +181,29 @@ export const OVERVIEW_OPTION = z.object({
     .describe("Every Claude run is told to read docs/OVERVIEW.md first (only while enabled; off when absent)"),
 });
 
+export const VIDEO_OPTIONS = z.object({
+  spoken: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Languages expected in the videos, as codes (fr, en, de…): one = heard in it; several = each passage in the one detected among them; none or absent = each passage in the language detected",
+    ),
+  glossary: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Terms given to the transcription (codes, acronyms, names of equipment), most important first; absent = taken from the documents",
+    ),
+  density: z
+    .enum(["sober", "normal", "detailed"])
+    .optional()
+    .describe("How many key frames a video gets: sober (half), normal (about 40 a half-hour), detailed (more)"),
+  translate: z
+    .boolean()
+    .optional()
+    .describe("Claude translates what is said in another language than the project's (on when absent)"),
+});
+
 export const PROJECT_JSON = z.object({
   name: z.string().describe("Display name"),
   jiraProject: z.string().describe("Jira project key"),
@@ -210,4 +233,5 @@ export const PROJECT_JSON = z.object({
     })
     .describe("Claude defaults"),
   glossary: z.record(z.string(), z.string()).optional().describe("Acronyms and their long forms"),
+  video: VIDEO_OPTIONS.optional().describe("How the project's videos are read (defaults when absent)"),
 });

@@ -3,7 +3,7 @@
     "file": "figures/frame-1-20.jpg",
     "anchor": "frame:00:20",
     "caption": "Image at 00:20",
-    "description": "Image simulée de Image at 00:20 : la fenêtre Propriétés d'un sectionneur est ouverte sur le TCO, son menu contextuel propose « Autoriser l'ouverture ».",
+    "description": "Le synoptique de traction est affiché, le sectionneur S12 est visible entre les deux sous-stations.",
     "kind": "screen",
     "labels": [
       "Propriétés",
@@ -11,10 +11,21 @@
     ]
   },
   {
-    "file": "figures/frame-1-80.jpg",
-    "anchor": "frame:01:20",
-    "caption": "Image at 01:20",
-    "description": "Image simulée de Image at 01:20 : la fenêtre Propriétés d'un sectionneur est ouverte sur le TCO, son menu contextuel propose « Autoriser l'ouverture ».",
+    "file": "figures/frame-1-60.jpg",
+    "anchor": "frame:01:00",
+    "caption": "Image at 01:00",
+    "description": "Le menu contextuel du sectionneur S12 s'ouvre : seul « Propriétés » est proposé.",
+    "kind": "screen",
+    "labels": [
+      "Propriétés",
+      "Autoriser l'ouverture"
+    ]
+  },
+  {
+    "file": "figures/frame-1-100.jpg",
+    "anchor": "frame:01:40",
+    "caption": "Image at 01:40",
+    "description": "La fenêtre Propriétés passe au premier plan, le sectionneur est indiqué fermé, sans télécommande.",
     "kind": "screen",
     "labels": [
       "Propriétés",
@@ -25,7 +36,7 @@
     "file": "figures/frame-1-140.jpg",
     "anchor": "frame:02:20",
     "caption": "Image at 02:20",
-    "description": "Image simulée de Image at 02:20 : la fenêtre Propriétés d'un sectionneur est ouverte sur le TCO, son menu contextuel propose « Autoriser l'ouverture ».",
+    "description": "Le bandeau d'alarmes affiche le refus de manœuvre, le voyant du sectionneur S12 devient rouge.",
     "kind": "screen",
     "labels": [
       "Propriétés",

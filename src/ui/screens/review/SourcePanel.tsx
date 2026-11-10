@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Finding, Passage, Source } from "../../../core/types.ts";
 import { DocBadges, PassageText } from "../../components/sources/PassageView.tsx";
+import { type CitedIn, isVideoSource, VideoSource } from "../../components/sources/VideoSource.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Loading } from "../../components/ui/Loading.tsx";
@@ -52,6 +53,8 @@ export type SourcePanelProps = {
   source: Source;
   label: string;
   misplaced?: Finding;
+  /** the test and the step the source backs, with that step's sources: a video's range moved here is saved to it */
+  from?: CitedIn;
   onClose: () => void;
 };
 
@@ -67,7 +70,9 @@ export type SourceFootProps = {
 // ponytail: the panel and its foot read the same passage (one read, the data layer's cache)
 function usePassage(source: Source) {
   const ref = `${source.docId}#${source.anchor}`;
-  const r = useRead("rag.passage", source.quote.trim() ? { ref, around: source.quote } : { ref });
+  const r = useRead("rag.passage", source.quote.trim() ? { ref, around: source.quote } : { ref }, {
+    enabled: !isVideoSource(source.anchor),
+  });
   const passage = r.data as (Passage & { quoteFound?: boolean }) | undefined;
   const gone = r.isError && r.error.code === "doc-gone";
   return { ref, r, passage, gone };
@@ -138,7 +143,7 @@ export function SourcePanel(p: SourcePanelProps) {
           <Button size="sm" variant="quiet" iconOnly icon="close" label="Close the source panel" onClick={p.onClose} />
         }
       >
-        <div aria-busy={!passage && !r.isError} {...stylex.props(styles.body)}>
+        <div aria-busy={!passage && !r.isError && !isVideoSource(source.anchor)} {...stylex.props(styles.body)}>
           <div {...stylex.props(type.small, styles.doc)}>
             <span {...stylex.props(type.code, styles.code)}>{passage ? passage.doc.code : source.docId}</span>
             {passage && <span>v{passage.doc.version}</span>}
@@ -151,7 +156,9 @@ export function SourcePanel(p: SourcePanelProps) {
             </Banner>
           )}
           <span {...stylex.props(type.code, styles.ref)}>{ref}</span>
-          {gone ? (
+          {isVideoSource(source.anchor) ? (
+            <VideoSource source={source} from={p.from} />
+          ) : gone ? (
             <>
               <Banner tone="neutral" icon="x-circle" title="Document deleted">
                 {goneText(source.docId)}

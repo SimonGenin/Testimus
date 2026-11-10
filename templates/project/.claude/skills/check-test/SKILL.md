@@ -33,7 +33,7 @@ every passage they cite at once — tests of one request often share their passa
    does not state, or claims more than it (every type when the passage names one).
 3. **A `fig:` source**: `rag_figure <docId> <n>`, then `Read` the image at the path it gives. The
    caption proves only that the figure exists; never accept a claim on a picture you did not look at.
-4. **An observed document** (`img:`, `t:`, `frame:` — photos and videos of the real system) supports
+4. **An observed document** (`img:`, `t:`, `v:`, `frame:` — photos and videos of the real system) supports
    how a step is done, never what is expected. A claim in the Action that the picture or the
    transcript contradicts is a finding; an expected result a written document contradicts is
    `contradicted` even when a picture shows it.

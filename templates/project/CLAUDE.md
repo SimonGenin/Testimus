@@ -19,7 +19,7 @@ project is in Team notes, at the end: it wins over the generic rules.
   (its pictures and what each one shows), `doc.json` (title, version, `status` draft · submitted ·
   validated, `amends`: the documents it amends), `context.md` when the team wrote one — what it
   knows about the document (`docs_show` returns it as `context`). Photos and videos of the real
-  system are documents too (anchors `img:<n>`, `t:mm:ss`, `frame:mm:ss`): they are **observed** —
+  system are documents too (anchors `img:<n>`, `t:mm:ss`, `v:mm:ss..mm:ss`, `frame:mm:ss`): they are **observed** —
   how the system behaves and how a step is done, never what is required — unless the team marked
   the document as the reference (`doc.json` `reference: true`).
 - `docs/OVERVIEW.md` — how the documents fit together. Background to find your way, never a
@@ -117,8 +117,14 @@ One line per claim: `- <docId>#<anchor> "<short quote copied exactly from doc.md
 
 - Anchors, as `doc.md` writes them: `§<number>` a section (the title's slug for an unnumbered
   one), `req:<id>` a requirement, `fig:<n>` a figure (the quote is its caption), `page:<n>` a page
-  of a PDF, `img:<n>` · `t:mm:ss` · `frame:mm:ss` an image, a transcript line, a frame of an
-  observed document.
+  of a PDF, `img:<n>` an image of an observed document.
+- In a video (`media_transcript`, `media_show`): `t:mm:ss` what is said at that second, or
+  `t:mm:ss..mm:ss` over a range — the quote is the words said there, as the transcript writes
+  them (a line marked unsure was doubted by the engine: prefer another, or say so);
+  `v:mm:ss..mm:ss` what is seen over a range, or `frame:mm:ss` one key frame — the quote is
+  copied from the description of a key frame of that range. No key frame where you need one:
+  look at the moment with `media_frame`, then keep it with `media_keep` (give its description),
+  and cite it. A translation shown beside a line is never quoted: quote the line as it was said.
 - The quote is verbatim — same words, accents, apostrophes and punctuation, no ellipsis — and it
   is **inside the cited passage** (the section with its sub-sections, the requirement's statement,
   the figure's caption). Long enough to point at one place: at least four words. The mechanical

@@ -23,9 +23,11 @@ src/core/lib/         the domain modules (analysis: a test's analysis, its proof
                         a folder import adds); overview (docs/OVERVIEW.md: its format, basis, changes, the section
                         check, the line every run gets; + overview-after: one update per import batch, in line);
                         media (an images or video document's files; + media-add, media-md: its doc.md,
-                        media-pipeline: its conversion, media-video: a video's steps, media-migrate: the 2026-11-05
-                        batches into documents), video-io (the ffmpeg / Whisper seam), video-frames (dHash, mosaics),
-                        ffmpeg (the pinned build, models.pullFfmpeg);
+                        media-pipeline: its conversion, media-migrate: the 2026-11-05 batches into documents);
+                        video/ (a video, all on this PC: io — the seam, ffmpeg and whisper.cpp as processes —, wav,
+                        passages, lines, glossary, engine, speech — pieces, resume, one at a time —, frames, survey,
+                        pipeline — a video's steps —, sources — a source held against time —, report, estimate,
+                        measure), ffmpeg and whisper (the pinned builds, models.pullFfmpeg, models.pullWhisper);
                         jira/ (http, read, steps, labels, push) and sync/ (connect, pull, push), ported from Xray Editor;
                         models-* (catalog, packs, download, install*, registry, resolve, perf, advice, quality, store,
                         dir, use);
@@ -52,7 +54,7 @@ src/core/claude/      run (claude -p), access (the tools of each kind of run), g
                       Claude is given: each module that runs claude -p exports its `prompts` templates; previewRun: one
                       request piece by piece)
 src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates,
-                      video (ffmpeg and Whisper made up)
+                      video (ffmpeg and whisper.cpp made up: the sound, the voice detector, the engine, the screens)
 src/shared/           Node only, used by the core and the desktop shell: run/work.ts, run/process.ts, loopback, table,
                       tests (which test a file path touches), unc (a network path is never opened)
 src/faces/            cli.ts (+ cli-args: argv → a command and its input), mcp.ts, http.ts — thin adapters over the
@@ -191,10 +193,10 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_READ_MS` | `tests.list=12000,docs.list=3000`: those reads answer that many ms late, every time (the loading line under a skeleton, « answering slowly », Try again) |
 | `TESTIMUS_MOCK_DOWNLOAD_MS`, `TESTIMUS_MOCK_UPDATES`, `TESTIMUS_MOCK_UPDATE_MS` | fake downloads and updates |
 | `TESTIMUS_MOCK_FFMPEG` | `found` (default: a fake ffmpeg is registered), `absent`: videos are kept unread |
-| `TESTIMUS_MOCK_WHISPER` | `found` (default: a made-up French transcript, a line every 15 s), `absent`: no transcript |
+| `TESTIMUS_MOCK_WHISPER` | `found` (default: a made-up engine and its model — a sentence every 15 s, one the engine doubts, one in German), `absent`: no engine, no transcript |
 
 Other variables: `TESTIMUS_MODELS` (dev models folder, `D:/Projects/Testimus/.models`), `TESTIMUS_MACHINE` (impose a
-machine profile), `TESTIMUS_FFMPEG_ANY_OS` (`1`: `models.pullFfmpeg` downloads the win64 build on any system — tests), `TESTIMUS_SHELL`, `TESTIMUS_NODE`, `TESTIMUS_API_TARGET` (Vite proxy in `--ui-dev`),
+machine profile), `TESTIMUS_FFMPEG_ANY_OS` and `TESTIMUS_WHISPER_ANY_OS` (`1`: `models.pullFfmpeg` / `models.pullWhisper` download the win64 build on any system — tests), `TESTIMUS_SHELL`, `TESTIMUS_NODE`, `TESTIMUS_API_TARGET` (Vite proxy in `--ui-dev`),
 `TESTIMUS_JIRA_TOKEN` / `TESTIMUS_XRAY_SECRET` (secrets for `system.setCredentials` without the command line).
 
 Several mock servers on `localhost` share one cookie jar and clash: give each its own port and use `127.0.0.1`.

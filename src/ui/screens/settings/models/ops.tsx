@@ -16,9 +16,15 @@ export const packLabel = (id: string) => `${id.charAt(0).toUpperCase()}${id.slic
 
 export const MEASURE = "measure:";
 
+// ponytail: the transcription engine and ffmpeg are downloaded by models-pull jobs too: their subject is their key
+export const WHISPER = "whisper.cpp";
+export const FFMPEG = "ffmpeg";
+const ENGINES: Record<string, string> = { [WHISPER]: "the transcription engine", [FFMPEG]: "ffmpeg" };
+
 function found(j: Job, name: (id: string) => string): Started | null {
   if (j.kind === "models-usePack") return { key: j.subject, kind: j.kind, label: `Installing ${packLabel(j.subject)}` };
-  if (j.kind === "models-pull") return { key: j.subject, kind: j.kind, label: `Downloading ${name(j.subject)}` };
+  if (j.kind === "models-pull")
+    return { key: j.subject, kind: j.kind, label: `Downloading ${ENGINES[j.subject] ?? name(j.subject)}` };
   if (j.kind === "models-verify") return { key: j.subject, kind: j.kind, label: `Verifying ${name(j.subject)}` };
   if (j.kind === "rag-index" || j.kind === "rag.index")
     return { key: "index", kind: j.kind, label: "Indexing the documents" };

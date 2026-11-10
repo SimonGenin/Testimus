@@ -42,6 +42,18 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
       commande, pour que tous les outils connaissent ces liens. Optionnel. Corrigé après chaque import, de façon
       intelligente : on met à jour ce qui change, on ne recommence pas tout.
 
+- [x] **Les vidéos comme sources, à la seconde** (2026-11-10, le plan était `VIDEO-SOURCES.md`). Une source cite
+      un moment ou une plage, dite ou vue ; le lecteur maison la rejoue en boucle. La parole sort du serveur
+      (whisper.cpp, large-v3 turbo), par morceaux repris un à un, une langue par passage, traduite par Claude ; ce
+      qu'un humain corrige n'est jamais écrasé ; les images se prennent sur les écrans posés.
+      - Reste à faire avec l'équipe : 5 minutes transcrites à la main sur 3 vidéos (Documents › Video ›
+        Reference…) pour mesurer le jargon ; la vitesse sur un portable sans carte NVIDIA ; mesurer les runs
+        Claude d'une vidéo de plus de dix minutes (ceux d'une vidéo courte sont mesurés : ARCHITECTURE.md §16).
+
+      - Laissé ouvert : les fichiers son seuls (.mp3, .m4a), « qui parle », un build Vulkan pour les puces Intel et
+        AMD, un plafond de disque par projet, une option « jamais à Claude » pour certaines vidéos, l'index mis à
+        jour pendant qu'une longue vidéo est entendue.
+
 ## 3. Index, modèles et recherche
 
 - [x] **Pas de warnings pendant l'indexation.** Pendant qu'elle tourne, l'indexation affiche des avertissements de

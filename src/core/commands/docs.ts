@@ -18,7 +18,7 @@ import {
   runOf,
   withUploads,
 } from "../lib/docs-pipeline.ts";
-import { isImage, isMediaDoc, isVideo } from "../lib/media.ts";
+import { filesOf, isImage, isMediaDoc, isVideo } from "../lib/media.ts";
 import { addMediaDocs } from "../lib/media-add.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
@@ -36,7 +36,15 @@ import {
   model,
   pdfProfile,
 } from "./docs-schemas.ts";
-import { PICKED } from "./media-schemas.ts";
+import { applyChoices } from "./media-args.ts";
+import { PICKED, VIDEO_CHOICES } from "./media-schemas.ts";
+
+// ponytail: what was chosen for the videos added is kept on each of them before the first conversion hears it
+function chooseVideos(project: string, docs: DocJson[], choices: z.infer<typeof VIDEO_CHOICES>): void {
+  for (const d of docs)
+    for (const f of filesOf(readDoc(project, d.id)).filter((x) => x.kind === "video"))
+      applyChoices(project, d.id, f.n, choices);
+}
 
 export const commands = [
   command({
@@ -52,6 +60,9 @@ export const commands = [
         ),
       name: z.string().optional().describe("File name of an uploaded document (with dataBase64, instead of file)"),
       dataBase64: z.string().optional().describe("Content of an uploaded file, base64 (the UI's drop zone)"),
+      video: VIDEO_CHOICES.optional().describe(
+        "A video: what to hear of it — the languages spoken, the sound track, the part to transcribe",
+      ),
       pdfName: z.string().optional().describe("File name of an uploaded PDF rendering (with pdfBase64)"),
       pdfBase64: z.string().optional().describe("Content of an uploaded PDF rendering, base64"),
       id: z.string().optional().describe("Document id; default: the code read from the file name"),
@@ -92,7 +103,8 @@ export const commands = [
               rejected[0]?.why ?? "The file was not added.",
               "Give a JPEG, PNG or WebP image, or a video.",
             );
-          if (!input.convert) return { ...added[0], citedBy: [] };
+          if (input.video) chooseVideos(project, added, input.video);
+          if (!input.convert) return { ...readDoc(project, added[0].id), citedBy: [] };
           const steps = convertSteps([{ id: "copy", label: "Copy the file" }, ...MEDIA_STEPS], {
             ...input,
             study: true,
@@ -150,6 +162,9 @@ export const commands = [
         .string()
         .optional()
         .describe("Title of the images document made from the images picked together (default « Images <date> »)"),
+      video: VIDEO_CHOICES.optional().describe(
+        "The videos among them: what to hear — the languages spoken, the sound track, the part to transcribe",
+      ),
     }),
     output: z.object({
       added: z.array(docJson).describe("The documents added, in the order of the files"),
@@ -196,7 +211,8 @@ export const commands = [
         if (media.length) {
           ctx.progress({ message: "Adding the images and videos" });
           const r = addMediaDocs(project, media, { images: input.images, title: input.title, kind: input.kind });
-          out.added.push(...r.added);
+          if (input.video) chooseVideos(project, r.added, input.video);
+          out.added.push(...r.added.map((d) => readDoc(project, d.id)));
           out.rejected.push(...r.rejected.map((x) => ({ name: x.name, why: x.why, code: "failed" as const })));
         }
         return out;

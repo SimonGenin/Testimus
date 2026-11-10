@@ -9,6 +9,9 @@ import type { SearchUse } from "../types.ts";
 
 const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", "Skill"];
 const READ_TOOLS = ["Read", "Glob", "Grep", "Skill"];
+// ponytail: a run on pictures or on a video opens the files its prompt names and, to propose a correction, looks a
+// word up in the documents: no skill is its job's, and every tool it does not use is paid in each of its runs
+const MEDIA_TOOLS = ["Read", "Grep"];
 
 // ponytail: what a Claude run takes from search, through its MCP tools — the words and the document's structure always,
 // the active embedding to rank, never the reranker: Claude reads the passages and judges better than any reranker. The
@@ -47,7 +50,7 @@ export type RunKind =
 export const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
   figures: ["Read"],
-  media: READ_TOOLS,
+  media: MEDIA_TOOLS,
   headers: ["Read"],
   check: READ_TOOLS,
   analyze: READ_TOOLS,
@@ -62,6 +65,9 @@ export const TOOLS: Record<RunKind, string[]> = {
 };
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
+// ponytail: a run that writes a test may make any second of a video a key frame (it looked at it with media.frame),
+// so what is seen there can be cited and embedded — the one change to a document a writing run may make
+const KEEP_FRAME = "media.keep";
 
 // ponytail: what a run answers with, and what it may change — each a command of the app, so a refused answer says what
 // to fix and Claude corrects it in the same run
@@ -72,9 +78,9 @@ const EXTRA: Record<RunKind, string[]> = {
   headers: [],
   check: ["check.record"],
   analyze: ["analysis.record"],
-  generate: ["tests.create", ...TEST_WRITES, "check.run"],
-  fix: TEST_WRITES,
-  run: [...TEST_WRITES, "check.run"],
+  generate: ["tests.create", ...TEST_WRITES, "check.run", KEEP_FRAME],
+  fix: [...TEST_WRITES, KEEP_FRAME],
+  run: [...TEST_WRITES, "check.run", KEEP_FRAME],
   triage: ["actions.propose"],
   action: [],
   columns: [],
@@ -125,7 +131,7 @@ export const READS: Record<Exclude<RunKind, "action">, readonly string[] | "all"
     "docs.overviewShow",
   ],
   figures: [],
-  media: [],
+  media: ["media.frame"],
   headers: [],
   check: [...DOCS, "tests.list", "tests.show", "search.all", "columns.list"],
   analyze: [...DOCS, ...TESTS, "analysis.show"],
@@ -178,7 +184,7 @@ export function readOnlyCommands(): string[] {
 // project is open, a test run's results (a tester's findings: Claude reads runs, never marks one) and the overview of the
 // documents (written by its own run only)
 const NOT_IN_ACTION =
-  /^runs\.(?!list$|show$|history$)|^(claude\.run|analysis\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|chat\.ask|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
+  /^runs\.(?!list$|show$|history$)|^(claude\.run|analysis\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|media\.propose|chat\.ask|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|pullWhisper|remove|setDir|use|usePack|useSpeech)$/;
 
 export function runCommands(kind: RunKind): string[] {
   const all = commandList().map((c) => c.name);

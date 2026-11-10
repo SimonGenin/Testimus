@@ -7,7 +7,7 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DocumentsScreen } from "../../../../src/ui/screens/documents/DocumentsScreen.tsx";
 import { api, FakeEventSource, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
-import { at, type DocRef, doc, mountDocs } from "./helpers.tsx";
+import { type DocRef, doc, mountDocs } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeFetch();
@@ -186,57 +186,17 @@ describe("images, videos and text files are documents", () => {
     expect(await screen.findByRole("button", { name: "Observed, not the reference" })).toBeInTheDocument();
   });
 
-  it("a video document plays: the transcript beside it, a line goes to its moment, a link opens it at one", async () => {
-    api.routes["docs.list"] = () => [video];
+  it("images are added to an images document, never to a video: a video is a document of its own", async () => {
+    api.routes["docs.list"] = () => [images(), video];
+    shown(images());
+    api.routes["media.show"] = () => pictures;
+    const page = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "PHOTOS" } });
+    expect(await screen.findByRole("button", { name: "Add images…" })).toBeInTheDocument();
+    page.unmount();
     shown(video);
-    api.routes["media.show"] = () => ({
-      doc: "FILM",
-      type: "video",
-      observed: true,
-      images: [],
-      videos: [
-        {
-          n: 1,
-          name: "manoeuvre.mp4",
-          file: "files/manoeuvre.mp4",
-          duration: 160,
-          transcribed: true,
-          lines: 2,
-          chapters: [
-            { at: 0, title: "Ouverture du poste" },
-            { at: 40, title: "Menu contextuel" },
-          ],
-          keyFrames: [
-            { at: 80, anchor: "frame:01:20", figure: "figures/frame-1-80.jpg", why: "Le menu ouvert", description: "" },
-          ],
-        },
-      ],
-    });
-    api.routes["media.transcript"] = () => ({
-      doc: "FILM",
-      video: 1,
-      duration: 160,
-      transcribed: true,
-      lines: [
-        { anchor: "t:00:02", at: 2, end: 14, text: "Bonjour, on ouvre le poste." },
-        { anchor: "t:00:32", at: 32, end: 44, text: "Là on fait clic droit sur le sectionneur." },
-      ],
-    });
-    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM#t:00:32" } });
-    const transcript = await screen.findByRole("listbox", { name: "Transcript" });
-    const v = screen.getByLabelText("Video manoeuvre.mp4") as HTMLVideoElement;
-    expect(v.getAttribute("src")).toMatch(/files\/docs\/FILM\/files\/manoeuvre\.mp4.*#t=32$/);
-    const line = within(transcript).getByRole("option", { name: /Là on fait clic droit/ });
-    await waitFor(() => expect(line).toHaveAttribute("aria-selected", "true"));
-    fireEvent.click(within(transcript).getByRole("option", { name: /Bonjour/ }));
-    expect(v.currentTime).toBe(2);
-    expect(within(transcript).getByRole("option", { name: /Bonjour/ })).toHaveAttribute("aria-selected", "true");
-    fireEvent.click(screen.getByRole("option", { name: /Menu contextuel/ }));
-    expect(v.currentTime).toBe(40);
-    fireEvent.click(
-      within(screen.getByRole("list", { name: "Key frames" })).getByRole("button", { name: /frame:01:20/ }),
-    );
-    expect(v.currentTime).toBe(80);
-    expect(at).toBeTruthy();
+    api.routes["media.show"] = () => ({ doc: "FILM", type: "video", observed: true, videos: [], images: [] });
+    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
+    expect(await screen.findByRole("button", { name: "Reference, not observed" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add images…" })).toBeNull();
   });
 });

@@ -17,6 +17,7 @@ import { type Described, isMedia } from "../../lib/media.ts";
 import { jobToast } from "../../lib/toast.ts";
 import { convertDoc, importClaude, setImportClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
+import { VideoEstimate } from "./HearAgain.tsx";
 
 const styles = stylex.create({
   wrap: { padding: space.s5, overflowY: "auto", flex: 1, minHeight: 0 },
@@ -105,9 +106,14 @@ function Options({
           disabled={offline}
           onChange={onFigures}
           label={again ? "Claude reads the pictures not read yet" : "Claude reads the pictures and surveys the videos"}
-          hint="Claude opens each picture (20 a run) and writes what it shows and the text it reads in it; a video is first surveyed from its mosaics (chapters, moments to see). What Claude reads is searched, never quoted."
+          hint="Claude opens each picture (20 a run) and writes what it shows and the text it reads in it; a video is planned from what is said (its chapters), then surveyed part by part for its key frames, each described with what is said around it."
         />
         <ClaudeChoice />
+        {(doc.source.files ?? [])
+          .filter((f) => f.kind === "video")
+          .map((f) => (
+            <VideoEstimate key={f.n} docId={doc.id} video={f.n} />
+          ))}
       </div>
     );
   return (

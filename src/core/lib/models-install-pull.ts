@@ -1,7 +1,7 @@
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
 import type { CatalogEntry, Dtype, InstallState } from "../types.ts";
-import { deviceOf, isGguf } from "./fit/placement.ts";
+import { deviceOf, isGguf, runtimeFor } from "./fit/placement.ts";
 import { machineProfile } from "./machine/profile.ts";
 import { needEntry } from "./models-catalog.ts";
 import { applySetDir, planSetDir } from "./models-dir.ts";
@@ -98,7 +98,7 @@ async function pullOnce(ctx: Ctx, input: PullInput, entry: CatalogEntry): Promis
   putInstall({
     model: entry.id,
     via: "download",
-    runtime: gguf ? "llamacpp" : "transformers",
+    runtime: runtimeFor(entry) ?? "llamacpp",
     path: res.path,
     revision: entry.source.hf.revision,
     ...(gguf && entry.source.file ? { sha256: entry.source.file.sha256 } : {}),

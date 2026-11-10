@@ -19,7 +19,16 @@ import { projectOverview } from "../lib/project-info.ts";
 import { initProject } from "../lib/project-init.ts";
 import { retrievalOverride } from "../rag/schemas.ts";
 import type { RetrievalOverride } from "../rag/search/filter.ts";
-import { IF_MTIME, OVERVIEW_OPTION, PRESET, PROJECT_JSON, RAG_CHOICE, STEP_COLUMN, XRAY_JSON } from "../schemas.ts";
+import {
+  IF_MTIME,
+  OVERVIEW_OPTION,
+  PRESET,
+  PROJECT_JSON,
+  RAG_CHOICE,
+  STEP_COLUMN,
+  VIDEO_OPTIONS,
+  XRAY_JSON,
+} from "../schemas.ts";
 import type { ProjectJson } from "../types.ts";
 
 const opened = z.object({
@@ -323,6 +332,19 @@ export const commands = [
         .describe(
           "Claude defaults: { model, effort, presets: [{label, prompt}], contexts: [ids], overview: { enabled, inEveryRun } }.",
         ),
+      video: VIDEO_OPTIONS.extend({
+        glossary: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe(
+            "Terms given to the transcription, most important first (replaces the list); null goes back to the terms taken from the documents",
+          ),
+      })
+        .optional()
+        .describe(
+          "How the project's videos are read: { spoken: [codes], glossary: [terms] | null, density, translate } (only the keys given change).",
+        ),
     }),
     output: PROJECT_JSON.describe("project.json as written"),
     mutates: true,
@@ -364,6 +386,15 @@ export const commands = [
           }),
         },
       };
+      if (input.video) {
+        const { glossary, spoken, ...rest } = input.video;
+        const video = { ...cur.video, ...rest };
+        if (spoken) video.spoken = [...new Set(spoken.map((l) => l.trim().toLowerCase()).filter(Boolean))];
+        if (glossary === null) delete video.glossary;
+        else if (glossary) video.glossary = glossary.map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean);
+        if (!video.spoken?.length) delete video.spoken;
+        next.video = video;
+      }
       if (input.rag?.reference === null) delete next.rag.reference;
       else if (input.rag?.reference) next.rag.reference = input.rag.reference;
       writeProject(dir, next);

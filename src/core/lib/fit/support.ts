@@ -8,6 +8,7 @@ export function unsupportedOn(entry: CatalogEntry, machine: MachineProfile): str
   if (machine.onnx === null && entry.runtimes.includes("transformers"))
     return "runs on onnxruntime, which does not load on this PC (see Settings › Doctor)";
   if (platformOf(machine) === "win32") return null;
+  if (entry.runtimes.includes("whispercpp")) return null;
   if (!entry.runtimes.includes("transformers")) return "runs on llama.cpp, which Testimus ships for Windows only";
   if (entry.dtypeByDevice?.dml) return "is made for DirectML, which exists only on Windows";
   return null;

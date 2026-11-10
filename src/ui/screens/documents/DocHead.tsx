@@ -164,7 +164,7 @@ export function DocHead({
         </span>
       </div>
       <div {...stylex.props(styles.acts)}>
-        {media && onAddMedia && !running && (
+        {media && doc.type !== "video" && onAddMedia && !running && (
           <Button
             size="sm"
             icon="plus"

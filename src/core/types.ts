@@ -182,6 +182,7 @@ export type FindingKind =
   | "column-unsourced"
   | "item-not-found"
   | "observed-only"
+  | "quote-uncertain"
   | "other";
 export type Finding = {
   step?: number;
@@ -245,7 +246,9 @@ export type DocSource = {
 };
 // ponytail: one file of an images or video document — its copy under files/, numbered once for good (img:<n>; a
 // video's anchors carry its number unless it is file 1), the picture made from an image under figures/; what Claude
-// read lives in figures.json (img:<n>, frame:<at>), a video's transcript and plan in video/<n>.json
+// read lives in figures.json (img:<n>, frame:<at>), a video's transcript and plan in video/<n>.json. A video keeps
+// what the team chose for it: the languages spoken in it (none: the project's, else each passage's own), the sound
+// track to hear (none: all of them, mixed) and the part to transcribe (none: all of it)
 export type MediaFile = {
   n: number;
   name: string;
@@ -259,21 +262,91 @@ export type MediaFile = {
   duration?: number;
   state: "new" | "ready" | "analysed" | "failed";
   error?: string;
+  spoken?: string[];
+  track?: number;
+  range?: { from: number; to: number };
 };
-// ponytail: docs/<id>/video/<n>.json — what the video pipeline found in video n: ffprobe's facts, Whisper's timed
-// transcript (verbatim, quotable at t:…), the candidate frames (scene changes and one every 5 s, near-duplicates
-// dropped), and what Claude chose from the mosaics (chapters, key frames), kept so a new reading gives the same anchors
+// ponytail: one line of what is said in a video — a sentence at most, placed in the video's own time (seconds), in
+// the language it was said in (`lang`, as Whisper names it: fr, en, de…). `p` is how sure the engine was of its
+// words (0–1) and `unsure` says the line is to be listened to before it is trusted; `translation` is Claude's, in the
+// project's language, shown and searched beside the line, never quotable; `by: "human"` marks a line a person
+// corrected or confirmed (video/<n>.fixes.json), which no machine pass replaces
+export type SpokenLine = {
+  at: number;
+  end: number;
+  text: string;
+  lang?: string;
+  p?: number;
+  unsure?: boolean;
+  translation?: string;
+  by?: "human";
+};
+// ponytail: what made a transcript — the model and the engine, the languages asked for (none: each passage's own) and
+// those heard (seconds of each), the glossary given, how long it took on which device. A piece of sound whose `made`
+// is the one wanted is never transcribed again
+export type TranscriptMade = {
+  model: string;
+  engine: string;
+  spoken: string[];
+  glossary: string;
+};
+export type VideoTrack = { language?: string; title?: string };
+// ponytail: docs/<id>/video/<n>.json — what the video pipeline found in video n, each part kept as it is done so a
+// conversion goes on where it stopped: ffprobe's facts, the timed transcript (quotable at t:…), the candidate frames
+// (the settled screens, each with where it changed), and what Claude chose (chapters, key frames), kept so a new
+// reading gives the same anchors. `before` is the transcript a new transcription replaced, kept until its report is
+// applied (media.report)
 export type VideoData = {
   duration: number;
   width?: number;
   height?: number;
   audio: boolean;
-  transcript: { at: number; end: number; text: string }[];
-  transcribed?: { with: string; at: string; language?: string };
-  candidates: { at: number; file: string }[];
+  tracks?: VideoTrack[];
+  hdr?: boolean;
+  codec?: string;
+  keyEvery?: number;
+  bytes?: number;
+  transcript: SpokenLine[];
+  transcribed?: {
+    with: string;
+    at: string;
+    model?: string;
+    engine?: string;
+    device?: "gpu" | "cpu";
+    languages?: Record<string, number>;
+    spoken?: string[];
+    glossary?: string;
+    tookMs?: number;
+    pieces?: { done: number; total: number };
+    language?: string;
+  };
+  translated?: { at: string; into: string; model?: string };
+  candidates: { at: number; file: string; box?: [number, number, number, number]; why?: string }[];
+  shaky?: boolean;
   chapters: { at: number; title: string }[];
-  keyFrames: { at: number; why: string; figure?: string }[];
+  planned?: { at: string; model?: string };
+  keyFrames: { at: number; why: string; figure?: string; asked?: boolean }[];
   surveyed?: { at: string; model?: string };
+  light?: { file: string; at: string; why: string };
+  before?: { transcript: SpokenLine[]; with: string; at: string };
+};
+// ponytail: docs/<id>/video/<n>.fixes.json — state, never derived: what a person corrected or confirmed. A fix owns
+// its range of time: whatever a later transcription hears there is dropped and the person's text stays (confirming is
+// a fix whose text is what was heard). A key frame's description a person corrected is kept the same way, by its second
+export type LineFix = { from: number; to: number; heard: string; text: string; by: string; at: string };
+export type FrameFix = { second: number; was: string; text: string; by: string; at: string };
+export type VideoFixes = { lines: LineFix[]; frames: FrameFix[] };
+// ponytail: docs/<id>/video/<n>.proposals.json — corrections Claude proposes for lines it doubts, each with the clue
+// it rests on (the glossary, a text visible on screen at that moment, a document); a person accepts or refuses, Claude
+// never applies one
+export type FixProposal = {
+  id: string;
+  from: number;
+  to: number;
+  heard: string;
+  text: string;
+  clue: "glossary" | "screen" | "document";
+  why: string;
 };
 // ponytail: how a document is converted, chosen when Claude studied it (or by the team) and kept so that every
 // reconversion gives the same result
@@ -433,7 +506,7 @@ export type ActiveChoice = RagChoice & { variant?: PackVariant };
 
 // Models
 
-export type RuntimeId = "transformers" | "llamacpp" | "mock";
+export type RuntimeId = "transformers" | "llamacpp" | "whispercpp" | "mock";
 export type ModelKind = "embedding" | "reranker" | "speech";
 export type Device = "cpu" | "dml" | "webgpu" | "gpu";
 export type Dtype = "fp32" | "fp16" | "q8" | "int8" | "uint8" | "q4" | "q4f16" | "bnb4";
@@ -505,7 +578,20 @@ export type ModelsRegistry = {
   installs: Installation[];
   llamacpp?: LlamaRuntime;
   ffmpeg?: FfmpegRuntime;
+  whisper?: WhisperRuntime;
   catalog?: CatalogEntry[];
+};
+// ponytail: whisper.cpp as Testimus runs it — its server (the model stays loaded for a whole video), its voice
+// detector and that detector's model, from the pinned build (NVIDIA: cuda, else cpu) or found on the PATH
+export type WhisperBackend = "cuda" | "cpu";
+export type WhisperRuntime = {
+  dir: string;
+  server: string;
+  vad: string;
+  vadModel: string;
+  build: string;
+  backend: WhisperBackend;
+  via: "download" | "path";
 };
 // ponytail: ffmpeg and ffprobe, downloaded (the pinned win64 build) or found on the PATH (macOS / Linux, development)
 export type FfmpegRuntime = { ffmpeg: string; ffprobe: string; build: string; via: "download" | "path" };
@@ -590,7 +676,8 @@ export type PerfOp =
   | "search.vector"
   | "search.total"
   | "model.load"
-  | "claude.run";
+  | "claude.run"
+  | "speech";
 export type PerfLine = {
   at: string;
   op: PerfOp;
@@ -662,6 +749,17 @@ export type ProjectJson = {
   };
   claude: ClaudeConfig;
   glossary?: Record<string, string>;
+  video?: VideoOptions;
+};
+// ponytail: how the project's videos are read — the languages expected in them (none: each passage's own, detected),
+// the terms given to the transcription (none: taken from the documents), how many key frames (sober · normal ·
+// detailed) and whether what is said in another language is translated into the project's
+export type VideoDensity = "sober" | "normal" | "detailed";
+export type VideoOptions = {
+  spoken?: string[];
+  glossary?: string[];
+  density?: VideoDensity;
+  translate?: boolean;
 };
 
 export type Context = { id: string; name: string; text: string; paths: string[]; files: string[] };
@@ -673,7 +771,7 @@ export type Settings = {
   projects: string[];
   lastProject: string;
   claude: { exe: string };
-  models: { allowRemote: boolean };
+  models: { allowRemote: boolean; speech?: string };
   agents?: { max?: number; adaptive?: boolean; measured?: AgentsMeasure };
   /** a service the user chose to work without: the system check says « not used », not « failed » */
   atlassian?: { skipJira?: boolean; skipXray?: boolean };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DocJson, MediaFile, SourceType } from "../../../../src/core/types.ts";
 import { sourcePlace } from "../../../../src/ui/lib/fields.ts";
-import { clock, isMedia, isPictureAnchor, momentOf, typeLabel } from "../../../../src/ui/lib/media.ts";
+import { clock, isMedia, isPictureAnchor, momentAnchor, momentOf, typeLabel } from "../../../../src/ui/lib/media.ts";
 
 const file = (n: number, kind: MediaFile["kind"], duration?: number): MediaFile => ({
   n,
@@ -37,9 +37,18 @@ describe("moments and anchors", () => {
   });
 
   it("reads the moment of a transcript line or a key frame, with its video's number", () => {
-    expect(momentOf("t:04:30")).toEqual({ n: 1, at: 270 });
-    expect(momentOf("frame:3/01:00:05")).toEqual({ n: 3, at: 3605 });
-    expect(momentOf("t:00:07-2")).toEqual({ n: 1, at: 7 });
+    expect(momentOf("t:04:30")).toEqual({ kind: "t", n: 1, at: 270 });
+    expect(momentOf("frame:3/01:00:05")).toEqual({ kind: "frame", n: 3, at: 3605 });
+    expect(momentOf("t:00:07-2")).toEqual({ kind: "t", n: 1, at: 7 });
+    expect(momentOf("t:02:36..02:52")).toEqual({ kind: "t", n: 1, at: 156, to: 172 });
+    expect(momentOf("v:2/02:36..1:02:52")).toEqual({ kind: "v", n: 2, at: 156, to: 3772 });
+    expect(momentOf("frame:02:36..02:52")).toEqual({ kind: "frame", n: 1, at: 156 });
+    expect(momentOf("t:02:52..02:36")).toEqual({ kind: "t", n: 1, at: 172 });
+    expect([momentAnchor("t", 1, 156, 172), momentAnchor("v", 2, 156, 172), momentAnchor("t", 1, 156)]).toEqual([
+      "t:02:36..02:52",
+      "v:2/02:36..02:52",
+      "t:02:36",
+    ]);
     expect(momentOf("img:3")).toBeNull();
   });
 

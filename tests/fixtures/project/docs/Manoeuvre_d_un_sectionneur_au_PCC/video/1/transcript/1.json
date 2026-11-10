@@ -1,0 +1,94 @@
+{
+  "made": {
+    "model": "whisper-large-v3-turbo-q8",
+    "engine": "whisper.cpp mock cpu",
+    "spoken": [],
+    "glossary": "78febd6a892c"
+  },
+  "from": 0,
+  "to": 160,
+  "lines": [
+    {
+      "at": 2,
+      "end": 13,
+      "text": "Bonjour, on ouvre le poste de commande et on se connecte avec le profil régulateur.",
+      "lang": "fr",
+      "p": 0.94
+    },
+    {
+      "at": 17,
+      "end": 28,
+      "text": "Sur le synoptique de traction, on repère le sectionneur S12 entre les deux sous-stations.",
+      "lang": "fr",
+      "p": 0.92
+    },
+    {
+      "at": 32,
+      "end": 43,
+      "text": "Là on fait clic droit sur le sectionneur, et on voit que seul Propriétés est proposé.",
+      "lang": "fr",
+      "p": 0.93
+    },
+    {
+      "at": 47,
+      "end": 58,
+      "text": "La fenêtre Propriétés indique un sectionneur sans télécommande, à l'état fermé.",
+      "lang": "fr",
+      "p": 0.95
+    },
+    {
+      "at": 62,
+      "end": 73,
+      "text": "On demande l'autorisation d'ouverture, le message de refus de manœuvre apparaît dans le bandeau d'alarmes.",
+      "lang": "fr",
+      "p": 0.48,
+      "unsure": true
+    },
+    {
+      "at": 77,
+      "end": 88,
+      "text": "On acquitte l'alarme, puis on ferme la fenêtre et on revient au synoptique.",
+      "lang": "fr",
+      "p": 0.93
+    },
+    {
+      "at": 92,
+      "end": 103,
+      "text": "So, dann bitte den Trennschalter S12 wieder schließen.",
+      "lang": "de",
+      "p": 0.96
+    },
+    {
+      "at": 107,
+      "end": 118,
+      "text": "Bonjour, on ouvre le poste de commande et on se connecte avec le profil régulateur.",
+      "lang": "fr",
+      "p": 0.94
+    },
+    {
+      "at": 122,
+      "end": 133,
+      "text": "Sur le synoptique de traction, on repère le sectionneur S12 entre les deux sous-stations.",
+      "lang": "fr",
+      "p": 0.92
+    },
+    {
+      "at": 137,
+      "end": 148,
+      "text": "Là on fait clic droit sur le sectionneur, et on voit que seul Propriétés est proposé.",
+      "lang": "fr",
+      "p": 0.93
+    },
+    {
+      "at": 152,
+      "end": 163,
+      "text": "La fenêtre Propriétés indique un sectionneur sans télécommande, à l'état fermé.",
+      "lang": "fr",
+      "p": 0.95
+    }
+  ],
+  "languages": {
+    "fr": 119.79999999999998,
+    "de": 12.400000000000006
+  }
+}

@@ -13,9 +13,13 @@ describe("models/catalog.json", () => {
       if (e.heavier) expect(byId.get(e.heavier)?.kind, `${e.id}.heavier`).toBe(e.kind);
       expect(Object.keys(e.source).sort(), e.id).toEqual(e.source.file ? ["file", "hf"] : ["hf"]);
       expect(
-        e.runtimes.every((r) => r === "transformers" || r === "llamacpp"),
+        e.runtimes.every((r) => r === "transformers" || r === "llamacpp" || r === "whispercpp"),
         e.id,
       ).toBe(true);
+      expect(
+        e.runtimes.includes("whispercpp"),
+        `${e.id}: whisper.cpp runs the transcription models, and only them`,
+      ).toBe(e.kind === "speech");
     }
   });
 

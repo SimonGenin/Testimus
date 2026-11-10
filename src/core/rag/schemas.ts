@@ -94,7 +94,7 @@ export const retrievalSettings = z
 
 export const spaceFingerprint = z
   .object({
-    runtime: z.enum(["transformers", "llamacpp", "mock"]).describe("Runtime that computes the vectors"),
+    runtime: z.enum(["transformers", "llamacpp", "whispercpp", "mock"]).describe("Runtime that computes the vectors"),
     model: z.string().describe("Hash of the model's weights (sha256:…)"),
     modelId: z.string().describe("Catalog id of the embedding model"),
     pooling: z.string().describe("Pooling of the token vectors (cls, mean, last)"),

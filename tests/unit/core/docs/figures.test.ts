@@ -171,7 +171,7 @@ describe("figure descriptions", () => {
       docs: { docId: string; described: number; figures: number }[];
     };
     expect(r.docs.map((d) => [d.docId, d.figures, d.described])).toEqual([
-      ["Manoeuvre_d_un_sectionneur_au_PCC", 3, 3],
+      ["Manoeuvre_d_un_sectionneur_au_PCC", 4, 4],
       ["Notes_de_reunion", 0, 0],
       ["RECETTE_TCO_12-10", 2, 2],
       [D3, 1, 1],

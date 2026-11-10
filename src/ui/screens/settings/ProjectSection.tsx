@@ -11,7 +11,8 @@ import { type } from "../../components/ui/type.ts";
 import { desktop, reveal } from "../../lib/desktop.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { useInfo, useProjectField, useSetProject } from "./project.ts";
-import { Column, Columns, Grid, Section, Stack } from "./Section.tsx";
+import { Anchor, Column, Columns, Grid, Section, Stack } from "./Section.tsx";
+import { VideosSetting } from "./VideosSetting.tsx";
 
 const styles = stylex.create({
   folder: { display: "flex", alignItems: "center", gap: space.s3, minWidth: 0 },
@@ -47,7 +48,7 @@ export function ProjectSection() {
     <Section
       id="project"
       title="Project"
-      intro="This project's identity in Jira and its folder. What Claude is given is under Context."
+      intro="This project's identity in Jira, its folder and how its videos are read. What Claude is given is under Context."
     >
       <Columns>
         <Column>
@@ -108,6 +109,9 @@ export function ProjectSection() {
               </Stack>
             )}
           </Card>
+        </Column>
+        <Column>
+          <Anchor id="project-videos">{p && <VideosSetting video={p.video} />}</Anchor>
         </Column>
       </Columns>
     </Section>

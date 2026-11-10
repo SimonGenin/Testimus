@@ -9,12 +9,12 @@ import { readDoc, readDocMd, readFigures, writeDoc } from "./docs.ts";
 import { whileConverting } from "./docs-index.ts";
 import { filesOf, prepareImage, syncImageEntries, updateFile, updateFiles } from "./media.ts";
 import { writeMediaMd } from "./media-md.ts";
-import { processVideo } from "./media-video.ts";
+import { fixedFrames, frameContext, processVideo } from "./video/pipeline.ts";
 
 // ponytail: the Claude run reading the pictures is built by claude/media.ts (tests/unit/core/claude/catalog.test.ts)
 export const promptsUsed = ["media"];
 
-export const MEDIA_CONVERTER = "media 1";
+export const MEDIA_CONVERTER = "media 2";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -25,14 +25,16 @@ export const MEDIA_STEPS = [
 ];
 
 // ponytail: an images or video document is converted from its files — each image not prepared yet becomes its picture
-// (jpg ≤ 2000 px, EXIF orientation and date), each video goes through ffprobe, Whisper and its frames, Claude reads
-// the pictures 20 a run (read: the conversion's describeFigures), and doc.md is written again. A file that cannot be
-// read is marked failed with its reason and the others go on; without Claude the pictures stay, unread
+// (jpg ≤ 2000 px, EXIF orientation and date), each video goes through its own steps (video/pipeline.ts: what is said,
+// the chapters, the frames), Claude reads the pictures 20 a run (read: the conversion's describeFigures) — a key frame
+// with what is said around it and the frame before —, and doc.md is written again. A file that cannot be read is
+// marked failed with its reason and the others go on; without Claude the pictures stay, unread. `again` hears the
+// videos anew (only `video`, when given)
 export function convertMedia(
   ctx: Ctx,
   project: string,
   id: string,
-  o: { read: boolean; force?: boolean; run: JobRun },
+  o: { read: boolean; force?: boolean; again?: boolean; video?: number; run: JobRun },
 ): Promise<DocJson> {
   return whileConverting(project, async () => {
     const warnings: string[] = [];
@@ -63,14 +65,26 @@ export function convertMedia(
     syncImageEntries(project, id);
     for (const f of filesOf(readDoc(project, id)).filter((x) => x.kind === "video")) {
       if (ctx.signal.aborted) break;
-      const r = await processVideo(ctx, project, id, f, { claude, force: o.force, run: o.run });
+      const mine = o.video === undefined || o.video === f.n;
+      const r = await processVideo(ctx, project, id, f, {
+        claude,
+        force: o.force && mine,
+        again: o.again && mine,
+        run: o.run,
+      });
       warnings.push(...r.warnings);
     }
     writeMediaMd(project, id);
     if (claude && !ctx.signal.aborted) {
       ctx.step?.("read");
       try {
-        await readPictures(project, id, ctx, { ...o.run, force: o.force });
+        await readPictures(project, id, ctx, {
+          ...o.run,
+          force: o.force,
+          context: frameContext(project, id),
+          kept: fixedFrames(project, id),
+        });
+        writeMediaMd(project, id);
       } catch (e) {
         if (ctx.signal.aborted) throw e;
         warnings.push(`Claude did not read the pictures: ${message(e)}`);

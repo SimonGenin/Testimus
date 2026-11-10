@@ -33,14 +33,18 @@ export type Plan = { row: PackRow; out: UsePackOut; accept?: boolean };
 
 type Pick = { embedding?: string; reranker?: string | null; accept?: boolean };
 
+/** what downloading, checking or removing a model needs of it: a search model's catalog row, or a transcription model */
+export type ModelRef = { id: string; label: string; sizeMB: number; fit?: Fit | null; kind?: string };
+
 type Start = (jobId: string, key: string, kind: string, label: string, then?: (result: unknown) => void) => void;
 
-const MODEL_READS: Prefix[] = [
+export const MODEL_READS: Prefix[] = [
   ["models.list"],
   ["models.catalog"],
   ["models.packs"],
   ["models.usage"],
   ["models.advice"],
+  ["models.speech"],
   ["rag.status"],
   ["jobs.list"],
 ];
@@ -64,7 +68,7 @@ export function useModelActions(o: {
   const [folder, setFolder] = useState<FolderAsk | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planning, setPlanning] = useState(false);
-  const [removing, setRemoving] = useState<{ row: CatalogRow; inst: Installed } | null>(null);
+  const [removing, setRemoving] = useState<{ row: ModelRef; inst: Installed } | null>(null);
   const [benches, setBenches] = useState<Record<string, Bench>>({});
   const fx = { invalidates: MODEL_READS };
 
@@ -142,7 +146,7 @@ export function useModelActions(o: {
     }
   };
 
-  const pull = async (r: CatalogRow) => {
+  const pull = async (r: ModelRef) => {
     try {
       const out = await execute(client, "models.pull", { model: r.id }, fx);
       setAsk(null);
@@ -154,7 +158,7 @@ export function useModelActions(o: {
     }
   };
 
-  const askPull = (r: CatalogRow) =>
+  const askPull = (r: ModelRef) =>
     setAsk({
       title: `Download ${r.label}?`,
       text: `Onto this PC${o.dir ? `, into ${o.dir}` : ""}. Nothing changes for the project until you use it.`,
@@ -164,7 +168,7 @@ export function useModelActions(o: {
       go: () => pull(r),
     });
 
-  const install = (r: CatalogRow, chosen = false) => {
+  const install = (r: ModelRef, chosen = false) => {
     if (!chosen && o.dir === null) {
       setFolder({ needMB: r.sizeMB, next: () => install(r, true) });
       return;
@@ -258,7 +262,7 @@ export function useModelActions(o: {
     });
   };
 
-  const verify = async (r: CatalogRow) => {
+  const verify = async (r: ModelRef) => {
     try {
       const { jobId } = await execute(client, "models.verify", { model: r.id }, fx);
       o.start(jobId, r.id, "models-verify", `Verifying ${r.label}`, (out) => {
@@ -266,7 +270,7 @@ export function useModelActions(o: {
         toast({
           tone: v.ok ? "success" : "danger",
           title: v.ok ? `${r.label} works` : `${r.label} failed its check`,
-          detail: `${v.message} (${v.dims} dimensions, ${v.ms} ms)`,
+          detail: v.dims ? `${v.message} (${v.dims} dimensions, ${v.ms} ms)` : v.message,
         });
       });
     } catch (e) {

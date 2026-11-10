@@ -28,6 +28,8 @@ import { MEASURE, type Op, packLabel, useOps } from "./models/ops.tsx";
 import { PackActions } from "./models/PackActions.tsx";
 import { PackCard } from "./models/PackCard.tsx";
 import { PackPlanDialog } from "./models/PackPlanDialog.tsx";
+import { RemoveDialog } from "./models/RemoveDialog.tsx";
+import { TranscriptionCard } from "./models/TranscriptionCard.tsx";
 import { Anchor, Hint, Section, Stack } from "./Section.tsx";
 
 const styles = stylex.create({
@@ -49,8 +51,9 @@ const styles = stylex.create({
 
 const GLOBAL = ["index", "dir"];
 
-// ponytail: the search models of this PC — where they are stored, the advice, the packs of the open project (one in
-// use), and the catalog of models with what is installed here; every job is followed where its subject shows
+// ponytail: the models of this PC — where they are stored, the advice, the packs of the open project (one in use),
+// what videos are heard with, and the catalog of search models with what is installed here; every job is followed
+// where its subject shows
 export function ModelsSection() {
   const app = useApp();
   const hasProject = !!app.info;
@@ -66,6 +69,9 @@ export function ModelsSection() {
   const shownBench = useRef<string | null>(null);
   const table = useRef<HTMLDivElement>(null);
   const dir = dirs.data ? dirs.data.dir : undefined;
+  const speechIds = new Set((catalog.data ?? []).filter((c) => c.kind === "speech").map((c) => c.id));
+  const searchModels = catalog.data?.filter((c) => c.kind !== "speech");
+  const searchInstalled = (installed.data ?? []).filter((i) => !speechIds.has(i.model));
   const drive = dir
     ? (hw.data?.drives ?? []).filter((d) => onDrive(dir, d.root)).sort((x, y) => y.root.length - x.root.length)[0]
     : undefined;
@@ -228,6 +234,19 @@ export function ModelsSection() {
           </Stack>
         )}
       </Anchor>
+      <Anchor id="models-transcription">
+        <TranscriptionCard
+          installed={installed.data ?? []}
+          ops={ops}
+          busy={busy}
+          needsFolder={!!dirs.data && !(dirs.data.runtimesDir ?? dirs.data.dir)}
+          start={start}
+          onFolder={a.setFolder}
+          onInstall={(m) => a.install(m)}
+          onVerify={(m) => void a.verify(m)}
+          onRemove={(row, inst) => a.setRemoving({ row, inst })}
+        />
+      </Anchor>
       <Anchor id="models-catalog">
         <div ref={table}>
           <Card footer={open && <AddFolder />}>
@@ -236,14 +255,14 @@ export function ModelsSection() {
               open={open}
               onOpenChange={setOpen}
               meta={
-                catalog.data
-                  ? `${catalog.data.length} in the catalog · ${installed.data?.length ?? 0} on this PC`
+                searchModels
+                  ? `${searchModels.length} in the catalog · ${searchInstalled.length} on this PC`
                   : catalog.isError
                     ? "Could not be read"
                     : "Loading the catalog"
               }
             >
-              {!catalog.data ? (
+              {!searchModels ? (
                 catalog.isError ? (
                   <Hint>The catalog could not be read: Try again above.</Hint>
                 ) : (
@@ -254,8 +273,8 @@ export function ModelsSection() {
                 )
               ) : (
                 <ModelsTable
-                  rows={catalog.data}
-                  installed={installed.data ?? []}
+                  rows={searchModels}
+                  installed={searchInstalled}
                   inUse={inUse}
                   ops={ops}
                   busy={busy}
@@ -341,38 +360,13 @@ export function ModelsSection() {
         </Modal>
       )}
       {a.removing && (
-        <Modal
-          size="sm"
-          title={`Remove ${a.removing.row.label}?`}
-          confirm={{
-            verb: "Remove",
-            danger: a.removing.inst.via !== "path",
-            icon: a.removing.inst.via === "path" ? null : undefined,
-            onConfirm: () => a.remove(),
-          }}
+        <RemoveDialog
+          label={a.removing.row.label}
+          inst={a.removing.inst}
+          speech={a.removing.row.kind === "speech"}
+          onConfirm={() => a.remove()}
           onClose={() => a.setRemoving(null)}
-        >
-          <Stack>
-            <p {...stylex.props(styles.plain)}>
-              {a.removing.inst.via === "download"
-                ? `Its files (${size(a.removing.inst.sizeMB)}) are deleted from ${a.removing.inst.where}.`
-                : `Testimus forgets it; the folder ${a.removing.inst.where} stays on disk.`}
-            </p>
-            <Hint>
-              Vector spaces built with it stay in the index until you drop them in{" "}
-              <Button
-                variant="link"
-                label="Settings › Search"
-                disabled={hasProject ? false : "Open a project first"}
-                onClick={() => {
-                  a.setRemoving(null);
-                  app.navigate("settings", "search");
-                }}
-              />
-              .
-            </Hint>
-          </Stack>
-        </Modal>
+        />
       )}
     </Section>
   );

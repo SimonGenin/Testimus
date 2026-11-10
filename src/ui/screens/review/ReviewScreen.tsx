@@ -289,6 +289,11 @@ export function ReviewScreen() {
       source={sel.source}
       label={sel.label ?? (sel.step ? `Source of step ${sel.step}` : "Source of the whole-test finding")}
       misplaced={notAtAnchor(findings, selKey, sel.step)}
+      from={
+        data && sel.step && sel.finding === undefined
+          ? { test: data.id, step: sel.step, sources: data.test.steps[sel.step - 1]?.sources ?? [] }
+          : undefined
+      }
       onClose={() => view.patch({ sel: null })}
     />
   ) : (
