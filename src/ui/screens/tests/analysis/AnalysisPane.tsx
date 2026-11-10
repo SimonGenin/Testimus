@@ -15,7 +15,7 @@ import { Skeleton } from "../../../components/ui/Skeleton.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { execute } from "../../../lib/data/query.ts";
 import { plural, relTime } from "../../../lib/format.ts";
-import { color, size, space } from "../../../styles/tokens.stylex.ts";
+import { color, space } from "../../../styles/tokens.stylex.ts";
 import { firstLine } from "../step/stepText.ts";
 import { ColumnsRead } from "./ColumnsRead.tsx";
 import { DecidedList } from "./DecidedList.tsx";
@@ -23,13 +23,7 @@ import { ProposalCard } from "./ProposalCard.tsx";
 import type { ProposalView, useAnalysis } from "./useAnalysis.ts";
 
 const styles = stylex.create({
-  pane: {
-    flex: "0 1 auto",
-    width: size.dock,
-    minWidth: size.sidebar,
-    display: "flex",
-    minHeight: 0,
-  },
+  pane: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", backgroundColor: color.surface },
   body: {
     boxSizing: "border-box",
     display: "flex",
@@ -63,7 +57,7 @@ function byPlace(list: ProposalView[]): [string, ProposalView[]][] {
   return [...out];
 }
 
-// ponytail: Claude's analysis of the test beside the editor — before one exists, the box that starts it; while it
+// ponytail: Claude's analysis of the test, a tab beside the editor's — before one exists, the box that starts it; while it
 // runs, the same box with its timer and Cancel; then Claude's reading, the proposals to decide grouped by the step they
 // are about, what was decided, the items no document holds and how each column was treated
 export function AnalysisPane({

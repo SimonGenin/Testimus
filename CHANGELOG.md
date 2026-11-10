@@ -8,11 +8,12 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 - Chaque écran est fait de sections (2 à 4, au plus 2 l'une au-dessus de l'autre), chacune avec ses onglets : on tire un onglet par sa poignée vers une autre section (seules les places qui peuvent le prendre s'affichent), on replie une section en bande d'icônes, on redimensionne librement par une petite poignée qui ne déplace que les deux sections qui l'entourent, même de part et d'autre d'une section repliée (sous la largeur minimale, « Release to collapse » prévient et relâcher replie la section), et la barre du haut ajoute une colonne, coupe une section en deux ou remet la disposition de l'écran. Chaque écran garde la sienne.
 - Claude devient un onglet de chaque écran au lieu du dock à droite (Ctrl J le montre ou le replie) ; sa conversation suit d'un écran à l'autre.
+- Une source ouverte (dans un test, l'analyse, Generate, un run ou une réponse de Claude) s'affiche dans un onglet « Source » à droite du travail, et non plus dans une fenêtre par-dessus : on lit le passage en gardant le test sous les yeux.
 - Le rail de gauche n'a plus que des icônes, plus petites, bien centrées et un peu plus espacées, le nom de chaque écran en infobulle.
 - Dans une colonne étroite, les boutons au-dessus de la liste des tests restent sur une ligne : le filtre Assignee montre le nombre de personnes cochées au lieu de leurs noms, puis « New test » ne garde que son « + » ; tout revient quand on élargit.
 - Les blocs Claude n'affichent plus « Ctrl+Enter to send » à côté du bouton d'envoi : le raccourci marche toujours, la place revient au reste.
 
-- Analyser un test existant contre les documents : Claude relie ce qui est juste à ses passages et propose des changements, que l'équipe accepte ou refuse un par un.
+- Analyser un test existant contre les documents : Claude relie ce qui est juste à ses passages et propose des changements, que l'équipe accepte ou refuse un par un. L'analyse s'ouvre dans un onglet « Analysis » à droite du test (jamais par-dessus), avec le nombre de propositions à décider ; déplacée ailleurs, elle y revient la fois suivante.
 - Un nouveau projet démarre avec trois demandes rapides : « One action per step », « Checkable results » et « Missing cases ».
 - Dock Claude : plus de note séparée, on écrit dans la seule zone de texte.
 - Le « + » des blocs Claude (dock, Generate, note d'un document, Smart columns) offre partout les mêmes choix : contextes à cocher, « Save the text as a context… », « Manage contexts… ».

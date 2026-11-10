@@ -1058,7 +1058,14 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   `layout.ts`, `useWorkspace` keeping it per screen in lib/prefs `layout<Screen>`), the pieces are the kit's
   `components/ui/workspace/`. **Claude is a tab of every screen** (`useClaudeTab`): the shell keeps one dock (its
   conversation and runs survive a change of screen) and moves its element into the Claude tab of the screen shown;
-  a request (Ask Claude, a run, the palette) shows that tab, Ctrl J shows it or folds it. Setup and the kit catalogue
+  a request (Ask Claude, a run, the palette) shows that tab, Ctrl J shows it or folds it. **What a piece of the work
+  opens to consult or decide beside it is a tab, never a pane inside the work's tab** (the test's analysis): the piece
+  offers a side tab (`useSideTab`, its content drawn into it through a portal, so it stays the piece's) while it is
+  open; it arrives in the section it was in last, else the nearest one right of the work, else a new column on the
+  right (`layout.ts` `place`), shown, and goes when closed. A source opened anywhere (`openSource`) is read in the
+  **Source tab** of the screen shown (`SourceTab`: the shell offers it to the screen's sections, `useBar`), in place of
+  the screen's own Source tab when it has one (Review), closed when the screen changes; only a screen without
+  sections shows it in a dialog. Setup and the kit catalogue
   have no sections. Minimum width 520 px. The project at the top of the rail opens a menu of the known projects (a quick switch) and one action, « All
   projects… », to First launch › Project — the one place that opens a folder, opens by Jira key, creates, hides,
   deletes or shows a project in Explorer; reached from the app (its route says so, `#/setup/project/app`: the project

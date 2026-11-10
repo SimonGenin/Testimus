@@ -280,6 +280,33 @@ export function reveal(l: Layout, tab: TabId): Layout {
   return setActive(l, s.id, tab);
 }
 
+/** a tab that comes and goes (a test's analysis) arrives beside the work, never over it: in the section it was in last
+ * time when that one is still there, else the nearest section right of the main tab's column, else a new column on the
+ * right, else the last section without the main tab — shown there, its section open */
+export function place(l: Layout, tab: TabId, main?: TabId, was?: string): Layout {
+  if (sectionOf(l, tab)) return reveal(l, tab);
+  const next = clone(l);
+  const home = main ? sectionOf(next, main) : undefined;
+  const at = home ? (locate(next, home.id)?.column ?? -1) : -1;
+  const right = at >= 0 ? next.columns.slice(at + 1).flatMap((c) => c.sections) : [];
+  const into = (was ? findSection(next, was) : undefined) ?? right[0];
+  if (!into && sectionCount(next) < LIMITS.max) {
+    next.columns.push({
+      sections: [{ id: nextId(next), tabs: [tab], active: tab, collapsed: false }],
+      width: NEW_COLUMN_WIDTH,
+      split: null,
+    });
+    return next;
+  }
+  const others = allSections(next).filter((x) => x !== home);
+  const s = into ?? others[others.length - 1] ?? home;
+  if (!s) return l;
+  s.tabs.push(tab);
+  s.active = tab;
+  s.collapsed = false;
+  return tidy(next);
+}
+
 export const resizeColumn = (l: Layout, column: number, width: number): Layout => ({
   columns: l.columns.map((c, i) => (i === column ? { ...c, width: clampWidth(width) } : c)),
 });

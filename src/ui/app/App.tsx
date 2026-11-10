@@ -16,8 +16,8 @@ import { Rail } from "../components/shell/Rail.tsx";
 import { ServerLost } from "../components/shell/ServerLost.tsx";
 import { TopBar, TopBarContext, useTopBarSlots } from "../components/shell/TopBar.tsx";
 import { UpdateNotice } from "../components/shell/UpdateNotice.tsx";
-import { PassageDialog } from "../components/sources/PassageDialog.tsx";
 import { docLink } from "../components/sources/PassageView.tsx";
+import { SourceTab } from "../components/sources/SourceTab.tsx";
 import { Toaster } from "../components/ui/Toast.tsx";
 import { AppContext, type AppState, type ClaudeRun, type Focus, SETUP_FROM_APP, type SourceFrom } from "../lib/app.ts";
 import type { CommandInfo } from "../lib/data/client.ts";
@@ -99,6 +99,10 @@ export function App() {
   const bar = useTopBarSlots();
   const running = useRunningJobs({ quiet: true });
   const { claudeRunning, setClaudeRunning } = useClaudeLock(running);
+
+  // ponytail: a source is read beside the work of the screen it was opened from; another screen does not inherit it
+  // biome-ignore lint/correctness/useExhaustiveDependencies: closed when the screen changes
+  useEffect(() => setSource(null), [route.screen]);
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
   const { refreshInfo, closeProject: close } = p;
@@ -274,17 +278,14 @@ export function App() {
         />
       )}
       {byKey && <OpenByKey onClose={() => setByKey(false)} />}
-      {source && (
-        <PassageDialog
-          source={source.source}
-          from={source.from}
-          onClose={() => setSource(null)}
-          onOpenDoc={(docId, anchor, quote, cited) => {
-            setSource(null);
-            navigate("documents", docLink(docId, anchor, quote, cited));
-          }}
-        />
-      )}
+      <SourceTab
+        opened={source}
+        onClose={() => setSource(null)}
+        onOpenDoc={(docId, anchor, quote, cited) => {
+          setSource(null);
+          navigate("documents", docLink(docId, anchor, quote, cited));
+        }}
+      />
       <Toaster />
       <DesktopBridge booted={p.booted} />
       <UpdateNotice booted={p.booted} />

@@ -12,6 +12,7 @@ import {
   neighbor,
   normalize,
   pendingSection,
+  place,
   REFUSED,
   refusal,
   resizeColumn,
@@ -136,6 +137,33 @@ describe("moving a tab", () => {
     const stacked = moveTab(REVIEW, "claude", { kind: "split", section: "s2", where: "below" });
     const lower = stacked.columns[1].sections[1].id;
     expect(neighbor(stacked, lower, "up")).toEqual({ kind: "tabs", section: "s2", index: 1 });
+  });
+});
+
+describe("a tab that comes and goes", () => {
+  it("arrives in the nearest section right of the work, shown and open", () => {
+    const l = place(setCollapsed(REVIEW, "s3", true), "analysis", "test");
+    expect(tabsOf(l)).toEqual([[["queue"]], [["test"]], [["source", "claude", "analysis"]]]);
+    expect(sectionOf(l, "analysis")).toMatchObject({ active: "analysis", collapsed: false });
+  });
+
+  it("opens a column on the right when nothing is right of the work, and never joins the work's section", () => {
+    const two = layoutOf(column(300, section(["queue", "claude"])), column(null, section(["test"])));
+    expect(tabsOf(place(two, "analysis", "test"))).toEqual([[["queue", "claude"]], [["test"]], [["analysis"]]]);
+    const full = layoutOf(
+      column(300, section(["queue"]), section(["source"])),
+      column(null, section(["test"]), section(["claude"])),
+    );
+    expect(tabsOf(place(full, "analysis", "test"))).toEqual([
+      [["queue"], ["source"]],
+      [["test"], ["claude", "analysis"]],
+    ]);
+  });
+
+  it("comes back to the section it was in last, and is only shown when it is already there", () => {
+    expect(tabsOf(place(REVIEW, "analysis", "test", "s1"))[0]).toEqual([["queue", "analysis"]]);
+    expect(tabsOf(place(REVIEW, "analysis", "test", "gone"))[2]).toEqual([["source", "claude", "analysis"]]);
+    expect(sectionOf(place(REVIEW, "claude", "test"), "claude")?.active).toBe("claude");
   });
 });
 

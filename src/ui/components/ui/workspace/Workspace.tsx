@@ -14,6 +14,7 @@ import type { WorkspaceController } from "../../../lib/workspace/useWorkspace.ts
 import { color, space } from "../../../styles/tokens.stylex.ts";
 import { ResizeHandle } from "../ResizeHandle.tsx";
 import { TabGhost } from "./TabGhost.tsx";
+import { WorkspaceHost } from "./useSideTab.tsx";
 import { useTabDrag } from "./useTabDrag.ts";
 import { WorkspaceColumn } from "./WorkspaceColumn.tsx";
 
@@ -156,66 +157,68 @@ export function Workspace({ ws }: WorkspaceProps) {
   };
 
   return (
-    <div
-      ref={root}
-      data-workspace={ws.label}
-      onPointerDownCapture={(e) => {
-        if (pending && !(e.target as HTMLElement).closest(`[data-ws-section="${pending.id}"]`)) ws.dismiss();
-      }}
-      {...stylex.props(styles.root)}
-    >
-      {layout.columns.map((c, i) => {
-        const e = edges.find((x) => x.at === i);
-        return (
-          <Fragment key={c.sections[0]?.id ?? i}>
-            {e && (
-              <ResizeHandle
-                label={`Resize sections ${e.p + 1} and ${e.q + 1}`}
-                side={e.resized === e.p ? "right" : "left"}
-                quiet
-                value={e.now}
-                min={e.min}
-                max={e.max}
-                defaultValue={NEW_COLUMN_WIDTH}
-                onChange={(px) => resize(e, px, false)}
-                onCommit={(px) => {
-                  resize(e, px, true);
-                  trading.current = null;
-                }}
-                fold={{
-                  min: true,
-                  max: true,
-                  onPast: (end) => setFolding(end === "min" ? e.resized : end === "max" ? e.other : null),
-                  onFold: (end, from) => {
-                    setFolding(null);
-                    const sum = trading.current?.sum ?? e.sum;
+    <WorkspaceHost.Provider value={ws}>
+      <div
+        ref={root}
+        data-workspace={ws.label}
+        onPointerDownCapture={(e) => {
+          if (pending && !(e.target as HTMLElement).closest(`[data-ws-section="${pending.id}"]`)) ws.dismiss();
+        }}
+        {...stylex.props(styles.root)}
+      >
+        {layout.columns.map((c, i) => {
+          const e = edges.find((x) => x.at === i);
+          return (
+            <Fragment key={c.sections[0]?.id ?? i}>
+              {e && (
+                <ResizeHandle
+                  label={`Resize sections ${e.p + 1} and ${e.q + 1}`}
+                  side={e.resized === e.p ? "right" : "left"}
+                  quiet
+                  value={e.now}
+                  min={e.min}
+                  max={e.max}
+                  defaultValue={NEW_COLUMN_WIDTH}
+                  onChange={(px) => resize(e, px, false)}
+                  onCommit={(px) => {
+                    resize(e, px, true);
                     trading.current = null;
-                    ws.foldColumn(end === "min" ? e.resized : e.other, [
-                      { column: e.resized, width: from },
-                      ...(e.trade ? [{ column: e.other, width: sum - from }] : []),
-                    ]);
-                  },
-                }}
+                  }}
+                  fold={{
+                    min: true,
+                    max: true,
+                    onPast: (end) => setFolding(end === "min" ? e.resized : end === "max" ? e.other : null),
+                    onFold: (end, from) => {
+                      setFolding(null);
+                      const sum = trading.current?.sum ?? e.sum;
+                      trading.current = null;
+                      ws.foldColumn(end === "min" ? e.resized : e.other, [
+                        { column: e.resized, width: from },
+                        ...(e.trade ? [{ column: e.other, width: sum - from }] : []),
+                      ]);
+                    },
+                  }}
+                />
+              )}
+              <WorkspaceColumn
+                ws={ws}
+                column={c}
+                index={i}
+                prefix={prefix}
+                drag={drag}
+                fill={i === fill}
+                main={i === mainColumn}
+                strip={stripOf(i)}
+                onWidth={onWidth}
+                folding={folding === i}
               />
-            )}
-            <WorkspaceColumn
-              ws={ws}
-              column={c}
-              index={i}
-              prefix={prefix}
-              drag={drag}
-              fill={i === fill}
-              main={i === mainColumn}
-              strip={stripOf(i)}
-              onWidth={onWidth}
-              folding={folding === i}
-            />
-          </Fragment>
-        );
-      })}
-      {drag.drag && dragged && (
-        <TabGhost x={drag.drag.x} y={drag.drag.y} label={dragged.label} icon={dragged.icon} claude={dragged.claude} />
-      )}
-    </div>
+            </Fragment>
+          );
+        })}
+        {drag.drag && dragged && (
+          <TabGhost x={drag.drag.x} y={drag.drag.y} label={dragged.label} icon={dragged.icon} claude={dragged.claude} />
+        )}
+      </div>
+    </WorkspaceHost.Provider>
   );
 }

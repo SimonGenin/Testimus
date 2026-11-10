@@ -45,17 +45,19 @@ test("LFRPS12-1420 opens with fields in xray.json order, Data folded, smart colu
   await shoot(page, "tests-editor");
 });
 
-test("a source chip opens the passage with the quote highlighted", async ({ page }) => {
+test("a source chip opens the passage in a Source tab beside the test, the quote highlighted", async ({ page }) => {
   await openTest(page, "LFRPS12-1420");
   await step(page, 2)
     .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6 “Selon le type/ })
     .click();
-  const dialog = page.getByRole("dialog").filter({ has: page.getByRole("region", { name: /^Source / }) });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator("mark")).toContainText("Selon le type de sectionneur, le menu contextuel diffère");
+  const source = page.getByRole("complementary").filter({ has: page.getByRole("region", { name: /^Source / }) });
+  await expect(source).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Source/ })).toHaveAttribute("aria-selected", "true");
+  await expect(step(page, 2)).toBeVisible();
+  await expect(source.locator("mark")).toContainText("Selon le type de sectionneur, le menu contextuel diffère");
   await shoot(page, "passage");
-  await dialog.getByRole("button", { name: "Close" }).click();
-  await expect(dialog).toBeHidden();
+  await source.getByRole("button", { name: "Close the source" }).click();
+  await expect(source).toHaveCount(0);
 });
 
 test("editing the summary and an action saves test.md", async ({ page }) => {

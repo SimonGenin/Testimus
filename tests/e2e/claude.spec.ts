@@ -24,10 +24,10 @@ test("Ask a document streams an answer whose source chips open the passage", asy
   await shoot(page, "dock-ask");
 
   await chip.click();
-  const dialog = page.getByRole("dialog").filter({ has: page.getByRole("region", { name: /^Source / }) });
-  await expect(dialog.locator("mark")).toContainText("Selon le type de sectionneur, le menu contextuel diffère");
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
+  const source = page.getByRole("complementary").filter({ has: page.getByRole("region", { name: /^Source / }) });
+  await expect(source.locator("mark")).toContainText("Selon le type de sectionneur, le menu contextuel diffère");
+  await source.getByRole("button", { name: "Close the source" }).click();
+  await expect(source).toHaveCount(0);
 });
 
 test("the palette asks a question in the dock, on the open document", async ({ page }) => {

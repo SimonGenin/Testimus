@@ -2,8 +2,10 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { type ReactNode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionControls } from "../../../../src/ui/components/ui/workspace/SectionControls.tsx";
+import { useSideTab } from "../../../../src/ui/components/ui/workspace/useSideTab.tsx";
 import { Workspace } from "../../../../src/ui/components/ui/workspace/Workspace.tsx";
 import { column, layoutOf, section } from "../../../../src/ui/lib/workspace/layout.ts";
 import { askReveal } from "../../../../src/ui/lib/workspace/signals.ts";
@@ -15,7 +17,28 @@ const LAYOUT = layoutOf(
   column(420, section(["source", "claude"])),
 );
 
-function Screen() {
+function Work() {
+  const [open, setOpen] = useState(false);
+  const [n, setN] = useState(0);
+  const side = useSideTab(
+    { id: "analysis", label: "Analysis", icon: "verify", ...(n ? { count: n } : {}) },
+    open,
+    <button type="button" onClick={() => setN((x) => x + 1)}>
+      Count one more
+    </button>,
+  );
+  return (
+    <>
+      <p>the test</p>
+      <button type="button" onClick={() => (open && !side.shown ? side.reveal() : setOpen(!open))}>
+        Analysis
+      </button>
+      {side.node}
+    </>
+  );
+}
+
+function Screen({ work = <p>the test</p> }: { work?: ReactNode }) {
   const ws = useWorkspace({
     pref: "layoutReview",
     label: "Review",
@@ -27,7 +50,7 @@ function Screen() {
         label: "Test",
         icon: "tests",
         main: true,
-        content: <p>the test</p>,
+        content: work,
         footer: <button type="button">Validate</button>,
       },
       { id: "source", label: "Source", icon: "quote", content: <input aria-label="note" /> },
@@ -288,5 +311,32 @@ describe("Workspace", () => {
     expect(screen.getByText("New column on the left")).toBeInTheDocument();
     fireEvent.pointerUp(window, { clientX: 200, clientY: 420 });
     expect(tabsKept()).toEqual([[["queue"]], [["test", "claude"], ["source"]]]);
+  });
+
+  it("a tab the work opens arrives beside it, shown; it holds what the work draws there, and goes when closed", () => {
+    render(<Screen work={<Work />} />);
+    fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
+    expect(tab("Analysis")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByRole("tablist")[2]).toContainElement(tab("Analysis"));
+    expect(tab("Test")).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Count one more" }));
+    expect(tab("Analysis")).toHaveTextContent("1");
+    fireEvent.click(tab("Claude"));
+    fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
+    expect(tab("Analysis")).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
+    expect(screen.queryByRole("tab", { name: /^Analysis/ })).toBeNull();
+  });
+
+  it("comes back to the section the user moved it to", async () => {
+    render(<Screen work={<Work />} />);
+    const toggle = () => fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
+    toggle();
+    fireEvent.keyDown(tab("Analysis"), { key: "ArrowLeft", altKey: true, shiftKey: true });
+    fireEvent.keyDown(tab("Analysis"), { key: "ArrowLeft", altKey: true, shiftKey: true });
+    expect(screen.getAllByRole("tablist")[0]).toContainElement(tab("Analysis"));
+    toggle();
+    toggle();
+    expect(screen.getAllByRole("tablist")[0]).toContainElement(tab("Analysis"));
   });
 });

@@ -32,10 +32,10 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(request.getByRole("list", { name: "Sections" }).getByRole("checkbox").first()).toBeVisible();
   await shoot(page, "generate-sections");
   await request.getByRole("button", { name: "Text", exact: true }).first().click();
-  const passage = page.getByRole("dialog");
-  await expect(passage.getByRole("region", { name: /^Source / })).toBeVisible();
+  const passage = page.getByRole("complementary").filter({ has: page.getByRole("region", { name: /^Source / }) });
+  await expect(passage).toBeVisible();
   await shoot(page, "generate-section-text");
-  await page.keyboard.press("Escape");
+  await passage.getByRole("button", { name: "Close the source" }).click();
   await expect(passage).toHaveCount(0);
   await request.getByRole("button", { name: "Back to the whole document" }).click();
 

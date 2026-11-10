@@ -5,6 +5,7 @@ import type { ColumnModes, Folder, LocalTestRef, Precondition, Step, StepImage, 
 import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
+import { useSideTab } from "../../components/ui/workspace/useSideTab.tsx";
 import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { pendingAutosaves } from "../../lib/data/autosave.ts";
@@ -279,6 +280,31 @@ export function TestEditor({
     reload: () => doc.reload("analysis"),
   });
   const toDecide = analysis.analysis?.proposals.filter((p) => p.state === "open").length ?? 0;
+  // ponytail: the analysis is a tab of the screen's sections, beside the test (never over it); it stays the editor's
+  const analysisTab = useSideTab(
+    {
+      id: "analysis",
+      label: "Analysis",
+      icon: "verify",
+      claude: true,
+      ...(toDecide ? { count: toDecide } : {}),
+      ...(analysis.running ? { dot: "claude" as const } : {}),
+    },
+    analysisOpen || !!analysis.running,
+    test && (
+      <AnalysisPane
+        test={test}
+        state={analysis}
+        defaults={app.info?.project.claude ?? { model: "sonnet", effort: "medium" }}
+        locked={locked}
+        onSelect={(p) => {
+          if (p.now) showStep(p.kind === "step" ? Math.max(p.now - 1, 0) : p.now - 1);
+        }}
+        onOpenSource={app.openSource}
+        onClose={() => setAnalysisOpen(false)}
+      />
+    ),
+  );
 
   if (doc.error)
     return (
@@ -385,7 +411,10 @@ export function TestEditor({
           analysis={{
             open: analysisOpen || !!analysis.running,
             count: toDecide,
-            onToggle: () => setAnalysisOpen((o) => !o),
+            onToggle: () => {
+              if (analysisOpen && !analysisTab.shown) analysisTab.reveal();
+              else setAnalysisOpen((o) => !o);
+            },
           }}
           onPush={() => void actions.askPush()}
           editing={!!onBack}
@@ -652,19 +681,7 @@ export function TestEditor({
           />
         )}
       </div>
-      {(analysisOpen || !!analysis.running) && (
-        <AnalysisPane
-          test={test}
-          state={analysis}
-          defaults={app.info?.project.claude ?? { model: "sonnet", effort: "medium" }}
-          locked={locked}
-          onSelect={(p) => {
-            if (p.now) showStep(p.kind === "step" ? Math.max(p.now - 1, 0) : p.now - 1);
-          }}
-          onOpenSource={app.openSource}
-          onClose={() => setAnalysisOpen(false)}
-        />
-      )}
+      {analysisTab.node}
     </div>
   );
 }
