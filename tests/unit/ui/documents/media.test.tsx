@@ -181,9 +181,14 @@ describe("images, videos and text files are documents", () => {
     api.routes["media.show"] = () => pictures;
     api.routes["docs.set"] = (i) => ({ ...images(), reference: i.reference, contextMtime: null });
     mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "PHOTOS" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Reference, not observed" }));
+    const head = () => within((screen.getAllByRole("heading", { level: 2 })[0] as HTMLElement).closest("header")!);
+    expect(await waitFor(() => head().getByText("Observed"))).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for this document" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Mark as the reference" }));
     await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "PHOTOS", reference: true }));
-    expect(await screen.findByRole("button", { name: "Observed, not the reference" })).toBeInTheDocument();
+    expect(await waitFor(() => head().getByText("Reference"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More actions for this document" }));
+    expect(await screen.findByRole("menuitem", { name: "Mark as observed" })).toBeInTheDocument();
   });
 
   it("images are added to an images document, never to a video: a video is a document of its own", async () => {
@@ -196,7 +201,8 @@ describe("images, videos and text files are documents", () => {
     shown(video);
     api.routes["media.show"] = () => ({ doc: "FILM", type: "video", observed: true, videos: [], images: [] });
     mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
-    expect(await screen.findByRole("button", { name: "Reference, not observed" })).toBeInTheDocument();
+    const head = await screen.findByRole("heading", { level: 2, name: video.title });
+    expect(within(head.closest("header")!).getByText("Observed")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add images…" })).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DocJson } from "../../../core/types.ts";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { Tabs } from "../../components/ui/Tabs.tsx";
@@ -129,6 +130,13 @@ export function DocHead({
     },
   ];
   const entries: MenuEntry[] = [
+    ...(media && onReference && !running
+      ? [
+          doc.reference
+            ? { label: "Mark as observed", icon: "eye" as const, onSelect: () => onReference(false) }
+            : { label: "Mark as the reference", icon: "validated" as const, onSelect: () => onReference(true) },
+        ]
+      : []),
     ...before,
     "separator",
     { label: "Delete this document…", icon: "trash", danger: true, onSelect: onDelete },
@@ -153,6 +161,20 @@ export function DocHead({
               </>
             )}
           </span>
+          {media && (
+            <Badge
+              size="sm"
+              outline
+              tone={doc.reference ? "success" : "neutral"}
+              icon={doc.reference ? "validated" : "eye"}
+              label={doc.reference ? "Reference" : "Observed"}
+              tooltip={
+                doc.reference
+                  ? "The team marked it as the reference: a test may cite it for an expected result"
+                  : "The real system as seen: a test cites it for how, never alone for an expected result"
+              }
+            />
+          )}
         </div>
         <span {...stylex.props(type.small, styles.facts)}>
           {media
@@ -192,14 +214,6 @@ export function DocHead({
                     ).then((p) => p.length && onAddMedia(pickedOfPaths(p)))
                 : undefined
             }
-          />
-        )}
-        {media && onReference && !running && (
-          <Button
-            size="sm"
-            icon={doc.reference ? "eye" : "validated"}
-            label={doc.reference ? "Observed, not the reference" : "Reference, not observed"}
-            onClick={() => onReference(!doc.reference)}
           />
         )}
         {reading && (
