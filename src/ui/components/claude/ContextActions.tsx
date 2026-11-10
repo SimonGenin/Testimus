@@ -57,8 +57,9 @@ export function ContextActions({
             onClick={() => setSaving(true)}
           />
         )}
+        {!disabled && !copying && <CopyContext open={false} onOpenChange={setCopying} onCopied={() => {}} />}
       </div>
-      {!disabled && <CopyContext open={copying} onOpenChange={setCopying} onCopied={(id) => onCreated(id, "copy")} />}
+      {!disabled && copying && <CopyContext open onOpenChange={setCopying} onCopied={(id) => onCreated(id, "copy")} />}
       {saving && onSaved && <SaveContext note={text ?? ""} onSaved={onSaved} onClose={() => setSaving(false)} />}
     </div>
   );

@@ -251,13 +251,13 @@ describe("dock contexts", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Documents/ }));
     await waitFor(() => expect(callsOf("claude.preview").at(-1)?.input).toEqual({ use: "chat" }));
     const dialog = await graph();
-    await within(dialog).findByRole("group", { name: "Your words" });
+    await within(dialog).findByRole("region", { name: "Your words" });
     expect(callsOf("claude.preview").at(-1)?.input).toEqual({
       use: "chat",
       note: "Uniformise",
       conversation: "User (Whole project): Uniformise\n\nClaude: Fait",
     });
-    expect(within(dialog).getByRole("group", { name: "Your words" })).toHaveTextContent("The conversation so far");
+    expect(within(dialog).getByRole("region", { name: "Your words" })).toHaveTextContent("The conversation so far");
   });
 
   it("when what the run is given cannot be read, the run goes as it is: nothing of its own is sent", async () => {

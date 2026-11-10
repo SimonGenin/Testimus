@@ -45,26 +45,25 @@ describe("the dock's and the contexts' icons, as the design draws them", () => {
     expect(runBadges({ ...run, steps: 0 }, true)[0]).toMatchObject({ label: "Nothing changed", tone: "neutral" });
   });
 
-  it("in the graph of what a run is given, each piece leads with what it is — a saved context with context — then how it is given", async () => {
+  it("in the list of what a run is given, each piece leads with what it is — a saved context with context —, and the piece read beside says it again", async () => {
     net.routes["claude.preview"] = (i) => previewOf(GIVEN, { ...i, note: "a note", conversation: "User: hello" });
     render(<ContextDialog asked={{ use: "ask-test" }} onClose={() => {}} />, { wrapper: dataWrapper() });
     const dialog = screen.getByRole("dialog", { name: "Context" });
     expect(iconOf(dialog)).toBe("context");
     const saved = await within(dialog).findByRole("checkbox", { name: "Glossaire RATP" });
-    expect(iconsIn(saved.closest("label"))).toEqual(["context"]);
-    expect(iconsIn(saved.closest("li"))).toEqual(["context", "link"]);
-    const lead = (name: string) => iconsIn(within(dialog).getByText(name).closest("li")).slice(0, 3);
-    expect(lead("Ask Claude on a test")).toEqual(["lock", "send", "text"]);
-    expect(lead("Edit test")).toEqual(["lock", "layers", "download"]);
-    expect(lead("Project rules")).toEqual(["lock", "file", "download"]);
-    expect(lead("14 tools of the app")).toEqual(["lock", "terminal", "download"]);
-    expect(lead("How the documents fit together")).toEqual(["tree", "link"]);
-    expect(lead("Spécifications J5")).toEqual(["documents", "search"]);
-    expect(lead("What the team knows about D401")).toEqual(["quote", "text"]);
-    expect(lead("Your note for this run")).toEqual(["lock", "keyboard", "text"]);
-    expect(lead("The conversation so far")).toEqual(["lock", "history", "text"]);
-    const target = within(dialog).getByRole("heading", { name: "Request to Claude" }).parentElement;
-    expect(iconOf(target)).toBe("claude");
+    expect(iconsIn(saved.closest("li"))).toEqual(["context"]);
+    const lead = (name: string) => iconsIn(within(dialog).getByText(name).closest("li"));
+    expect(lead("Ask Claude on a test")).toEqual(["send"]);
+    expect(lead("Edit test")).toEqual(["layers"]);
+    expect(lead("Project rules")).toEqual(["file"]);
+    expect(lead("14 tools of the app")).toEqual(["terminal"]);
+    expect(lead("How the documents fit together")).toEqual(["tree"]);
+    expect(lead("Spécifications J5")).toEqual(["documents"]);
+    expect(lead("What the team knows about D401")).toEqual(["quote"]);
+    expect(lead("Your note for this run")).toEqual(["keyboard"]);
+    expect(lead("The conversation so far")).toEqual(["history"]);
+    fireEvent.click(within(dialog).getByText("Edit test"));
+    expect(iconOf(within(dialog).getByRole("article", { name: "Edit test" }))).toBe("layers");
     expect(iconOf(within(dialog).getByRole("button", { name: "New context" }))).toBe("plus");
   });
 

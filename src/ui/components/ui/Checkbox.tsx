@@ -78,6 +78,8 @@ export type CheckboxProps = {
   value?: string;
   /** true, or the reason, shown as a tooltip */
   disabled?: boolean | string;
+  /** the box alone: the label is its accessible name, not shown — the row it sits in shows the name beside it */
+  bare?: boolean;
   /** the catalogue only */
   debugState?: "hover" | "focus";
 };
@@ -94,6 +96,7 @@ export function Checkbox({
   name,
   value,
   disabled = false,
+  bare = false,
   debugState,
 }: CheckboxProps) {
   const id = useId();
@@ -115,8 +118,9 @@ export function Checkbox({
           name={name}
           value={value}
           disabled={off}
-          aria-labelledby={hint ? `${id}-label` : undefined}
-          aria-describedby={hint ? `${id}-hint` : undefined}
+          aria-label={bare ? label : undefined}
+          aria-labelledby={hint && !bare ? `${id}-label` : undefined}
+          aria-describedby={hint && !bare ? `${id}-hint` : undefined}
           onChange={(e) => onChange(e.target.checked)}
           {...stylex.props(
             styles.box,
@@ -134,21 +138,23 @@ export function Checkbox({
           </span>
         )}
       </span>
-      <span {...stylex.props(styles.text)}>
-        <span id={`${id}-label`} {...stylex.props(icon && styles.withIcon)}>
-          {icon && (
-            <span {...stylex.props(styles.lead)}>
-              <Icon name={icon} />
+      {!bare && (
+        <span {...stylex.props(styles.text)}>
+          <span id={`${id}-label`} {...stylex.props(icon && styles.withIcon)}>
+            {icon && (
+              <span {...stylex.props(styles.lead)}>
+                <Icon name={icon} />
+              </span>
+            )}
+            {label}
+          </span>
+          {hint && (
+            <span id={`${id}-hint`} {...stylex.props(styles.hint)}>
+              {hint}
             </span>
           )}
-          {label}
         </span>
-        {hint && (
-          <span id={`${id}-hint`} {...stylex.props(styles.hint)}>
-            {hint}
-          </span>
-        )}
-      </span>
+      )}
     </label>
   );
   return typeof disabled === "string" ? <Tooltip label={disabled}>{row}</Tooltip> : row;

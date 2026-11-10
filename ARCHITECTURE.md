@@ -1132,10 +1132,13 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   SaveState, Answer, Ask, Passage, Raw, Facts, Timer, Pane, Tile, Card, Badge vocabularies…). `Text` is every field
   (boxed, inline, bare, table cell) with its save state, Claude's lock and its autosave; `ClaudeBlock` (every place
   Claude is asked) is built on `Text`, and its « Context » button always comes from `components/claude/useRunContext`
-  (2026-11-10; it replaced the « + » menu of saved contexts): it opens `ContextDialog`, which draws with the kit's
-  `FlowMap` everything `claude.preview` says the run is given — instruction, skills, rules, tools, contexts, documents
-  and what the team knows about them — each piece linked to the request, with its weight, why it is there and how it
-  travels (said in full, pointed at, loaded by Claude Code, searched). A tick holds for this run only (`contexts` /
+  (2026-11-10; it replaced the « + » menu of saved contexts): it opens `ContextDialog`, which lists everything
+  `claude.preview` says the run is given — what can be changed first (the saved contexts, the documents and what the
+  team knows about them, the background, the user's words), what every run of the kind gets last (instruction, skill,
+  rules, tools) — and reads the piece picked beside the list: why it is there, how it travels (said in full, pointed
+  at, loaded by Claude Code, searched), its file and its text as Claude gets it; on top, the tokens Claude starts with
+  and the documents it may search (2026-11-10: it replaced a graph of links to the request, which said nothing the
+  list did not). A tick holds for this run only (`contexts` /
   `without` in the command's input); a locked piece is shown and cannot be unticked; the saved contexts are created,
   edited and deleted there, and the block's own text is saved as one (no second text box for a note; guard G3). The
   same dialog picks a kept list (a document's, a test's) in its `standing` mode. Nothing of the

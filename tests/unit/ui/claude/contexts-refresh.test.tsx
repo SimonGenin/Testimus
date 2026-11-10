@@ -133,7 +133,10 @@ describe("a saved context changed where it is ticked shows at once everywhere it
 
     const graph = await graphOfTest();
     const row = within(graph).getByRole("checkbox", { name: "Glossary" }).closest("li") as HTMLElement;
-    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    fireEvent.click(within(row).getByText("Glossary"));
+    fireEvent.click(
+      within(within(graph).getByRole("article", { name: "Glossary" })).getByRole("button", { name: "Edit" }),
+    );
     const editor = await screen.findByRole("dialog", { name: "Edit the context" });
     const name = await within(editor).findByRole("textbox", { name: /^Name/ });
     await waitFor(() => expect(name).toHaveValue("Glossary"));

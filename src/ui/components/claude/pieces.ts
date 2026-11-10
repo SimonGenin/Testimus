@@ -1,7 +1,5 @@
-import type { ReactNode } from "react";
 import type { CommandInput, CommandOutput } from "../../../core/commands/index.ts";
 import { plural } from "../../lib/format.ts";
-import type { FlowGroup, FlowNode } from "../ui/FlowMap.tsx";
 import type { IconName } from "../ui/Icon.tsx";
 import { kilo } from "./turns.ts";
 
@@ -13,14 +11,15 @@ export type Asked = Pick<CommandInput<"claude.preview">, "use" | "scope" | "docs
 /** what the user chose for one run, as every run command takes it: spread into its input */
 export type RunPick = { contexts?: string[]; without?: string[] };
 
-const HOW: Record<Piece["how"], { icon: IconName; word: string }> = {
+/** how a piece reaches Claude: the word said in full, and the short one beside its size in a row (none when said) */
+export const HOW: Record<Piece["how"], { icon: IconName; word: string; short?: string }> = {
   inline: { icon: "text", word: "Said in full" },
-  pointer: { icon: "link", word: "Pointed at" },
-  auto: { icon: "download", word: "Loaded by Claude Code" },
-  search: { icon: "search", word: "Searched" },
+  pointer: { icon: "link", word: "Pointed at", short: "pointed at" },
+  auto: { icon: "download", word: "Loaded by Claude Code", short: "loaded" },
+  search: { icon: "search", word: "Searched as Claude works", short: "searched" },
 };
 
-const ICON: Record<Piece["kind"], IconName> = {
+export const ICON: Record<Piece["kind"], IconName> = {
   instruction: "send",
   skill: "layers",
   rules: "file",
@@ -33,18 +32,27 @@ const ICON: Record<Piece["kind"], IconName> = {
   conversation: "history",
 };
 
+export const CONTEXTS = "Your contexts";
+
+// ponytail: what can be changed first — the saved contexts, the documents, the background, the user's words —, what
+// every run of this kind is given last
 const GROUPS: { label: string; kinds: Piece["kind"][] }[] = [
-  { label: "The request", kinds: ["instruction", "skill", "rules", "tools"] },
-  { label: "Background", kinds: ["overview"] },
-  { label: "Contexts", kinds: ["context"] },
+  { label: CONTEXTS, kinds: ["context"] },
   { label: "Documents", kinds: ["document", "docnote"] },
+  { label: "Background", kinds: ["overview"] },
   { label: "Your words", kinds: ["note", "conversation"] },
+  { label: "Always given", kinds: ["instruction", "skill", "rules", "tools"] },
 ];
+
+export type PieceGroup = { label: string; pieces: Piece[] };
 
 export const CONTEXT = "context:";
 export const contextId = (p: Piece) => p.id.slice(CONTEXT.length);
 
-export const tokens = (chars: number) => `~${kilo(Math.round(chars / 4))} tokens`;
+const count = (chars: number) => kilo(Math.round(chars / 4));
+export const tokens = (chars: number) => `~${count(chars)} tokens`;
+/** a size beside a name, where the column says it is tokens */
+export const tokensShort = (chars: number) => `~${count(chars)}`;
 
 export const changed = (pick: RunPick) => !!pick.contexts || !!pick.without?.length;
 
@@ -83,53 +91,21 @@ export function toggle(pick: RunPick, base: Piece[], piece: string, on: boolean)
 
 export const countOn = (pieces: Piece[]) => pieces.filter((p) => p.on).length;
 
-// ponytail: the total says what Claude holds as it starts — what is said, loaded or read first; a document is searched,
-// never sent whole, so its size is told apart
-export function totalOf(pieces: Piece[]): { total: string; note: string } {
-  const on = pieces.filter((p) => p.on);
-  const held = on.filter((p) => p.how !== "search").reduce((n, p) => n + p.chars, 0);
-  const searched = on.filter((p) => p.kind === "document");
-  return {
-    total: `${on.length} of ${plural(pieces.length, "piece")} · ${tokens(held)}`,
-    note: searched.length
-      ? `Said, loaded or read first. ${plural(searched.length, "document")} more to search, never sent whole.`
-      : "Said, loaded or read first.",
-  };
+/** what Claude holds as it starts: what is said, loaded or read first — a document is searched, never sent whole */
+export const held = (pieces: Piece[]) => pieces.filter((p) => p.on && p.how !== "search");
+
+// ponytail: the total in words — the tokens Claude starts with, and apart, the documents it may search
+export function totalOf(pieces: Piece[]): { start: string; searched?: string } {
+  const start = tokens(held(pieces).reduce((n, p) => n + p.chars, 0));
+  const docs = pieces.filter((p) => p.on && p.kind === "document");
+  if (!docs.length) return { start };
+  const size = docs.reduce((n, p) => n + p.chars, 0);
+  return { start, searched: `searches ${plural(docs.length, "document")} (${tokens(size)}), never sent whole` };
 }
 
-// ponytail: the pieces as the graph draws them — the request, the background, the saved contexts (always shown: the
-// library is managed there), the documents each with what the team wrote about it under it, the user's own words
-export function groupsOf(
-  pieces: Piece[],
-  o: {
-    /** a piece that cannot be ticked here though the run could leave it out: the reason */
-    lock?: (p: Piece) => string | undefined;
-    /** at the end of a piece's row (a saved context: Edit) */
-    actions?: (p: Piece) => ReactNode;
-    /** under the saved contexts: New context, Save the text as a context, Copy from another project */
-    library?: ReactNode;
-  } = {},
-): FlowGroup[] {
-  const node = (p: Piece): FlowNode => ({
-    id: p.id,
-    name: p.name,
-    on: p.on,
-    locked: p.locked || o.lock?.(p),
-    icon: ICON[p.kind],
-    how: HOW[p.how],
-    size: p.chars ? tokens(p.chars) : undefined,
-    weight: p.chars,
-    why: p.why,
-    detail: [p.detail, p.how === "pointer" || p.how === "auto" ? p.path : ""].filter(Boolean).join(" · ") || undefined,
-    text: p.text,
-    under: !!p.parent && pieces.some((x) => x.id === p.parent),
-    actions: o.actions?.(p),
-  });
-  return GROUPS.map((g) => ({
-    label: g.label,
-    nodes: pieces.filter((p) => g.kinds.includes(p.kind)).map(node),
-    ...(g.label === "Contexts"
-      ? { empty: "No saved context yet. Create one, or write in the box and save the text as one.", actions: o.library }
-      : {}),
-  })).filter((g) => g.nodes.length > 0 || g.label === "Contexts");
-}
+// ponytail: the pieces in the dialog's groups — the saved contexts' group stays when empty (the library is managed
+// there), the others go
+export const groupsOf = (pieces: Piece[]): PieceGroup[] =>
+  GROUPS.map((g) => ({ label: g.label, pieces: pieces.filter((p) => g.kinds.includes(p.kind)) })).filter(
+    (g) => g.pieces.length > 0 || g.label === CONTEXTS,
+  );

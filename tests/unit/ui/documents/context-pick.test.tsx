@@ -95,15 +95,15 @@ describe("the saved contexts a document is read with", () => {
     );
     expect(dialog).toHaveTextContent("The ticked contexts are kept for every run on this document.");
     expect(box(dialog, "Operator positions")).toBeChecked();
-    expect(box(dialog, "Operator positions")).toHaveAccessibleDescription("Attached to the document D-1");
+    expect(box(dialog, "Operator positions").closest("li")).toHaveTextContent("Attached to the document D-1");
     expect(box(dialog, "Signalling glossary")).not.toBeChecked();
     expect(within(dialog).getAllByRole("checkbox")).toHaveLength(2);
-    for (const name of ["How the documents fit together", "Spécifications J5"])
-      expect(
-        within(within(dialog).getByText(name).closest("li") as HTMLElement).getByRole("img", {
-          name: "Chosen for each run, where you write to Claude",
-        }),
-      ).toBeInTheDocument();
+    for (const name of ["How the documents fit together", "Spécifications J5"]) {
+      fireEvent.click(within(dialog).getByText(name, { selector: "li *" }));
+      expect(within(dialog).getByRole("article", { name })).toHaveTextContent(
+        "ChosenFor each run, where you write to Claude",
+      );
+    }
     expect(screen.queryByRole("button", { name: "Add context" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Remove / })).toBeNull();
   });
@@ -140,7 +140,7 @@ describe("the saved contexts a document is read with", () => {
     show({ contexts: ["c-ops"] });
     const dialog = await graph();
     fireEvent.click(
-      within(box(dialog, "Operator positions").closest("li") as HTMLElement).getByRole("button", { name: "Edit" }),
+      within(within(dialog).getByRole("article", { name: "Operator positions" })).getByRole("button", { name: "Edit" }),
     );
     const editor = await screen.findByRole("dialog", { name: "Edit the context" });
     expect(await within(editor).findByRole("textbox", { name: /^Name/ })).toHaveValue("Operator positions");

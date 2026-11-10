@@ -109,10 +109,20 @@ const counted = (text: RegExp) => waitFor(() => expect(button()).toHaveTextConte
 const dialog = () => screen.getByRole("dialog", { name: "Context" });
 const open = async () => {
   fireEvent.click(button());
-  await within(dialog()).findByRole("group", { name: "What Claude is given" });
+  await within(dialog()).findByRole("listbox", { name: "Always given" });
   return dialog();
 };
 const box = (name: string) => within(dialog()).getByRole("checkbox", { name });
+const row = (name: string) => within(dialog()).getByText(name, { selector: "li *" }).closest("li") as HTMLElement;
+const group = (name: string) => within(dialog()).getAllByRole("region", { name })[0];
+const read = (name: string) => {
+  fireEvent.click(within(row(name)).getByText(name));
+  return within(dialog()).getByRole("article", { name });
+};
+const ticks = () =>
+  within(dialog())
+    .queryAllByRole("checkbox")
+    .map((c) => c.getAttribute("aria-label"));
 const total = () => within(dialog()).getByRole("status");
 const done = () => fireEvent.click(within(dialog()).getByRole("button", { name: "Done" }));
 const send = () => fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -132,60 +142,73 @@ describe("the Context of a Claude block", () => {
     expect(onRun).toHaveBeenCalledWith({ prompt: "Raccourcis" });
   });
 
-  it("opens the graph of what claude.preview says the run is given, group by group, with the user's own words", async () => {
+  it("lists what claude.preview says the run is given — what can be changed first, what always goes last — with the user's own words and the tokens Claude starts with", async () => {
     mount({ start: "Raccourcis" });
     await counted(/^Context10$/);
     const d = await open();
     expect(d).toHaveAccessibleDescription(/Everything Claude is given with this request/);
-    const names = within(within(d).getByRole("group", { name: "What Claude is given" }))
-      .getAllByRole("group")
-      .map((g) => g.getAttribute("aria-label"))
-      .filter((n) => !n?.endsWith("in full"));
-    await waitFor(() => expect(within(d).getByRole("group", { name: "Your words" })).toBeInTheDocument());
-    expect(names.slice(0, 4)).toEqual(["The request", "Background", "Contexts", "Documents"]);
+    await waitFor(() => expect(group("Your words")).toBeInTheDocument());
+    expect(
+      within(d)
+        .getAllByRole("listbox")
+        .map((l) => l.getAttribute("aria-label")),
+    ).toEqual(["Your contexts", "Documents", "Background", "Your words", "Always given"]);
     expect(asked().at(-1)).toEqual({ ...ASKED, note: "Raccourcis" });
-    expect(within(d).getByRole("group", { name: "The request" })).toHaveTextContent("4 of 4");
-    expect(within(d).getByRole("group", { name: "Contexts" })).toHaveTextContent("1 of 2");
-    expect(within(d).getByRole("group", { name: "Your words" })).toHaveTextContent("Your note for this run");
-    expect(within(d).getByRole("heading", { name: "Request to Claude" })).toBeInTheDocument();
-    expect(total()).toHaveTextContent(/^10 of 11 pieces · ~1\.7k tokens$/);
-    expect(d).toHaveTextContent("Said, loaded or read first. 2 documents more to search, never sent whole.");
+    expect(group("Your contexts")).toHaveTextContent("1 of 2 ticked");
+    expect(group("Always given")).not.toHaveTextContent("ticked");
+    expect(group("Your words")).toHaveTextContent("Your note for this run");
+    expect(total()).toHaveTextContent(/^Claude starts with ~1\.7k tokens$/);
+    expect(d).toHaveTextContent("and searches 2 documents (~60k tokens), never sent whole");
     expect(d).toHaveTextContent("Your choice holds for this run only. The defaults are set in Settings › Context.");
-    const glossary = box("Glossary").closest("li") as HTMLElement;
-    expect(glossary).toHaveTextContent("Said in full · ~300 tokens");
-    expect(box("Glossary")).toHaveAccessibleDescription("A default of the project");
-    expect(box("Old notes").closest("li")).toHaveTextContent("Pointed at · ~500 tokens");
-    expect(box("Old notes").closest("li")).toHaveTextContent("1 file: plan.pdf");
-    expect(box("Spécifications J5").closest("li")).toHaveTextContent("Searched · ~48k tokens");
-    expect(screen.getByText("Edit test").closest("li")).toHaveTextContent(".claude/skills/edit-test/SKILL.md");
+    expect(row("Glossary")).toHaveTextContent("A default of the project");
+    expect(row("Glossary")).toHaveTextContent("~300");
+    expect(row("Old notes")).toHaveTextContent("pointed at~500");
+    expect(row("Spécifications J5")).toHaveTextContent("searched~48k");
+    expect(row("Edit test")).toHaveTextContent("loaded~1.0k");
     done();
     expect(screen.queryByRole("dialog", { name: "Context" })).toBeNull();
   });
 
-  it("a locked piece cannot be unticked: the request's own pieces and the user's words show a lock, no checkbox", async () => {
+  it("the piece picked is read beside the list: why it is there, how it reaches Claude, its file and what it says", async () => {
+    mount();
+    await counted(/^Context9$/);
+    const d = await open();
+    const first = within(d).getByRole("article", { name: "Glossary" });
+    expect(first).toHaveTextContent("A default of the project");
+    expect(first).toHaveTextContent("GivenSaid in full · ~300 tokens");
+    expect(within(first).getByLabelText("Glossary, in full")).toHaveTextContent("PCC = poste");
+    expect(within(d).getByRole("option", { selected: true })).toHaveTextContent("Glossary");
+    const skill = read("Edit test");
+    expect(skill).toHaveTextContent("GivenLoaded by Claude Code · ~1.0k tokens");
+    expect(skill).toHaveTextContent("Loaded from.claude/skills/edit-test/SKILL.md");
+    expect(within(d).queryByRole("button", { name: "Edit" })).toBeNull();
+    const tools = read("14 tools of the app");
+    expect(
+      within(within(tools).getByRole("list", { name: "The tools" }))
+        .getAllByRole("listitem")
+        .map((t) => t.textContent),
+    ).toEqual(["Read", "Edit", "tests_show"]);
+    const doc = read("Spécifications J5");
+    expect(doc).toHaveTextContent("DetailsD401 · v3");
+    expect(doc).toHaveTextContent("It is never sent whole.");
+    expect(read("Old notes")).toHaveTextContent("This runLeft out");
+  });
+
+  it("a locked piece cannot be unticked: the request's own pieces and the user's words have no checkbox", async () => {
     mount({ start: "Raccourcis" });
     await counted(/^Context10$/);
     const d = await open();
-    await within(d).findByRole("group", { name: "Your words" });
-    for (const name of ["Ask Claude on a test", "Edit test", "Project rules", "14 tools of the app"]) {
+    await within(d).findByRole("listbox", { name: "Your words" });
+    for (const name of ["Ask Claude on a test", "Edit test", "Project rules", "14 tools of the app"])
       expect(within(d).queryByRole("checkbox", { name })).toBeNull();
-      expect(
-        within(screen.getByText(name).closest("li") as HTMLElement).getByRole("img", { name: "Always goes with it" }),
-      ).toBeInTheDocument();
-    }
     expect(within(d).queryByRole("checkbox", { name: "Your note for this run" })).toBeNull();
-    expect(within(d).getAllByRole("img", { name: "Always goes with it" })).toHaveLength(5);
-    expect(
-      within(d)
-        .getAllByRole("checkbox")
-        .map((c) => c.closest("label")?.textContent),
-    ).toEqual([
-      "How the documents fit together",
-      "GlossaryA default of the project",
-      "Old notesSaved, not attached to this run",
-      "Spécifications J5A document of this run",
+    expect(ticks()).toEqual([
+      "Glossary",
+      "Old notes",
+      "Spécifications J5",
       "What the team knows about D401",
-      "SignalisationA document of the project: Claude may search it",
+      "Signalisation",
+      "How the documents fit together",
     ]);
   });
 
@@ -196,8 +219,8 @@ describe("the Context of a Claude block", () => {
     fireEvent.click(box("Glossary"));
     await waitFor(() => expect(box("Glossary")).not.toBeChecked());
     expect(asked().at(-1)).toEqual({ ...ASKED, without: ["context:glossary"] });
-    expect(total()).toHaveTextContent(/^8 of 10 pieces/);
-    expect(box("Glossary")).toHaveAccessibleDescription("Saved, not attached to this run");
+    expect(total()).toHaveTextContent(/^Claude starts with ~1\.4k tokens$/);
+    expect(row("Glossary")).toHaveTextContent("Saved, not attached to this run");
     done();
     expect(button()).toHaveTextContent(/^Context8 · changed$/);
     send();
@@ -212,8 +235,8 @@ describe("the Context of a Claude block", () => {
     fireEvent.click(box("Old notes"));
     await waitFor(() => expect(box("Old notes")).toBeChecked());
     expect(asked().at(-1)).toEqual({ ...ASKED, contexts: ["glossary", "old"] });
-    expect(box("Old notes")).toHaveAccessibleDescription("Chosen for this run");
-    expect(total()).toHaveTextContent(/^10 of 10 pieces/);
+    expect(row("Old notes")).toHaveTextContent("Chosen for this run");
+    expect(total()).toHaveTextContent(/^Claude starts with ~2\.2k tokens$/);
     done();
     expect(button()).toHaveTextContent(/^Context10 · changed$/);
     send();
@@ -253,11 +276,11 @@ describe("the Context of a Claude block", () => {
     await waitFor(() => expect(box("Spécifications J5")).not.toBeChecked());
     expect(asked().at(-1)).toEqual({ ...ASKED, without: ["doc:D401"] });
     expect(box("What the team knows about D401")).not.toBeChecked();
-    expect(within(dialog()).getByRole("group", { name: "Documents" })).toHaveTextContent("1 of 3");
-    expect(dialog()).toHaveTextContent("1 document more to search, never sent whole.");
+    expect(group("Documents")).toHaveTextContent("1 of 3 ticked");
+    expect(dialog()).toHaveTextContent("and searches 1 document (~12k tokens), never sent whole");
     fireEvent.click(box("Signalisation"));
     await waitFor(() => expect(box("Signalisation")).not.toBeChecked());
-    expect(dialog()).toHaveTextContent(/Said, loaded or read first\.$|Said, loaded or read first\.[^0-9]/);
+    expect(dialog()).not.toHaveTextContent("searches");
     done();
     send();
     expect(onRun).toHaveBeenLastCalledWith({ prompt: "", without: ["doc:D401", "doc:SIG"] });
@@ -398,9 +421,9 @@ describe("the saved contexts, managed in the Context dialog", () => {
     };
     mount();
     await counted(/^Context9$/);
-    const d = await open();
-    expect(within(d).getAllByRole("button", { name: "Edit" })).toHaveLength(2);
-    fireEvent.click(within(box("Glossary").closest("li") as HTMLElement).getByRole("button", { name: "Edit" }));
+    await open();
+    expect(within(read("Old notes")).getByRole("button", { name: "Edit" })).toBeEnabled();
+    fireEvent.click(within(read("Glossary")).getByRole("button", { name: "Edit" }));
     const edit = await screen.findByRole("dialog", { name: "Edit the context" });
     const name = await within(edit).findByRole("textbox", { name: /^Name/ });
     expect(name).toHaveValue("Glossary");
@@ -443,15 +466,16 @@ describe("the saved contexts, managed in the Context dialog", () => {
     expect(onRun).toHaveBeenCalledWith({ prompt: "", contexts: ["glossary", "ctx-g"] });
   });
 
-  it("with no saved context yet, the graph says how to make one", async () => {
+  it("with no saved context yet, the list says what one is and how to make it", async () => {
     base = base.filter((p) => p.kind !== "context");
     mount();
     await counted(/^Context8$/);
-    const d = await open();
-    const contexts = within(d).getByRole("group", { name: "Contexts" });
+    await open();
+    const contexts = group("Your contexts");
     expect(contexts).toHaveTextContent(
-      "No saved context yet. Create one, or write in the box and save the text as one.",
+      "Contexts are notes written once and given to Claude on every run: a house style, a glossary.",
     );
+    expect(within(dialog()).getByRole("article", { name: "Spécifications J5" })).toBeInTheDocument();
     expect(within(contexts).getByRole("button", { name: "New context" })).toBeEnabled();
     expect(within(contexts).getByRole("button", { name: "Copy from another project…" })).toBeEnabled();
   });
@@ -539,21 +563,17 @@ describe("a standing list of saved contexts (a test's, a document's)", () => {
     expect(onRun).toHaveBeenCalledWith({ prompt: "a note" });
   });
 
-  it("everything else is only shown: locked, with the reason it is not chosen here", async () => {
+  it("everything else is only shown, with the reason it is not chosen here", async () => {
     mount({ standing: standing(() => {}) });
     await counted(/^Context9$/);
-    const d = await open();
-    expect(
-      within(d)
-        .getAllByRole("checkbox")
-        .map((c) => c.closest("label")?.textContent),
-    ).toEqual(["GlossaryA default of the project", "Old notesSaved, not attached to this run"]);
+    await open();
+    expect(ticks()).toEqual(["Glossary", "Old notes"]);
+    expect(group("Documents")).toHaveTextContent(/^DocumentsChosen for each run/);
+    expect(group("Background")).toHaveTextContent(/^BackgroundChosen for each run/);
+    expect(group("Always given")).not.toHaveTextContent("Chosen for each run");
     for (const name of ["How the documents fit together", "Spécifications J5", "Signalisation"])
-      expect(
-        within(screen.getByText(name).closest("li") as HTMLElement).getByRole("img", {
-          name: "Chosen for each run, where you write to Claude",
-        }),
-      ).toBeInTheDocument();
+      expect(read(name)).toHaveTextContent("ChosenFor each run, where you write to Claude");
+    expect(read("Edit test")).not.toHaveTextContent("Chosen");
   });
 
   it("says when the owner could not take the list", async () => {
@@ -580,7 +600,7 @@ describe("a standing list of saved contexts (a test's, a document's)", () => {
     expect(box("Old notes").closest("label")).toHaveAccessibleDescription(why);
     expect(within(d).getByRole("button", { name: "New context" })).toBeDisabled();
     expect(within(d).queryByRole("button", { name: "Copy from another project…" })).toBeNull();
-    expect(within(d).getAllByRole("button", { name: "Edit" })[0]).toBeEnabled();
+    expect(within(read("Old notes")).getByRole("button", { name: "Edit" })).toBeEnabled();
     expect(onChange).not.toHaveBeenCalled();
   });
 });

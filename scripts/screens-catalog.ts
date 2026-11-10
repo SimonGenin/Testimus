@@ -737,7 +737,7 @@ function fixtureShots(): Shot[] {
     },
     {
       id: "dock-context",
-      note: "The Context of the dock's next run: the graph of what Claude is given",
+      note: "The Context of the dock's next run: what Claude is given, listed, the piece picked read beside",
       hash: "#/documents",
       prep: async (p) => {
         const d = await dock(p);

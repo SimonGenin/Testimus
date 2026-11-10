@@ -16,7 +16,7 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 - Analyser un test existant contre les documents : Claude relie ce qui est juste à ses passages et propose des changements, que l'équipe accepte ou refuse un par un. L'analyse s'ouvre dans un onglet « Analysis » à droite du test (jamais par-dessus), avec le nombre de propositions à décider ; déplacée ailleurs, elle y revient la fois suivante.
 - Un nouveau projet démarre avec trois demandes rapides : « One action per step », « Checkable results » et « Missing cases ».
 - Dock Claude : plus de note séparée, on écrit dans la seule zone de texte.
-- Le bouton « Context » de chaque bloc Claude ouvre un schéma de tout ce qui part avec la demande — consigne, règles, outils, contextes, documents et ce que l'équipe en sait — et on y coche ou décoche ce qui accompagne ce run ; les contextes enregistrés se créent et se gèrent au même endroit.
+- Le bouton « Context » de chaque bloc Claude liste tout ce qui part avec la demande — contextes, documents et ce que l'équipe en sait, puis consigne, règles et outils — avec, à côté, le texte exact de l'élément choisi et en haut le nombre de tokens de départ ; on y coche ou décoche ce qui accompagne ce run, et les contextes enregistrés s'y créent et s'y gèrent.
 - Un document décoché n'est ni cherché, ni lu, ni cité par Claude pour ce run.
 - Settings › Context dit, run par run, ce que Claude reçoit, ce qu'il peut toucher et ce qu'il rend ; les contextes par défaut s'y règlent.
 - La vérification dit pour chaque étape si le passage cité l'appuie, et lequel elle a lu ; chaque anomalie que les documents tranchent vient avec sa correction, et le test reçoit une seule action « Fix ».

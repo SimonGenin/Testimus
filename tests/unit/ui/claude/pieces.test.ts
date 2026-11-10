@@ -3,10 +3,14 @@ import {
   changed,
   countOn,
   groupsOf,
+  HOW,
+  held,
+  ICON,
   pickOf,
   type RunPick,
   toggle,
   tokens,
+  tokensShort,
   totalOf,
 } from "../../../../src/ui/components/claude/pieces.ts";
 import { piece, previewOf } from "../../helpers/fake-preview.ts";
@@ -75,79 +79,53 @@ describe("a tick, said the way the run commands take it", () => {
 });
 
 describe("what a run is given, in words", () => {
-  it("counts the pieces that go, and sizes them in tokens", () => {
+  it("counts the pieces that go, and sizes them in tokens, in full or beside a name", () => {
     expect(countOn(BASE)).toBe(7);
     expect(tokens(400)).toBe("~100 tokens");
     expect(tokens(6000)).toBe("~1.5k tokens");
     expect(tokens(192000)).toBe("~48k tokens");
+    expect(tokensShort(6000)).toBe("~1.5k");
   });
 
-  it("the total is what Claude holds as it starts; a document is searched, so it is told apart", () => {
+  it("the total is what Claude starts with; a document is searched, never sent whole, so it is told apart", () => {
+    expect(held(BASE).map((p) => p.id)).toEqual([
+      "instruction",
+      "tools",
+      "overview",
+      "context:a",
+      "context:b",
+      "docnote:D1",
+    ]);
     expect(totalOf(BASE)).toEqual({
-      total: "7 of 8 pieces · ~460 tokens",
-      note: "Said, loaded or read first. 1 document more to search, never sent whole.",
+      start: "~460 tokens",
+      searched: "searches 1 document (~48k tokens), never sent whole",
     });
     const none = BASE.map((p) => (p.kind === "document" ? { ...p, on: false } : p));
-    expect(totalOf(none).note).toBe("Said, loaded or read first.");
-    expect(totalOf([BASE[0]]).total).toBe("1 of 1 piece · ~100 tokens");
+    expect(totalOf(none)).toEqual({ start: "~460 tokens" });
   });
 });
 
-describe("the pieces as the graph draws them", () => {
-  it("groups them — the request, the background, the saved contexts, the documents, the user's words — and drops an empty group but the contexts'", () => {
-    const groups = groupsOf(BASE);
-    expect(groups.map((g) => [g.label, g.nodes.map((n) => n.id)])).toEqual([
-      ["The request", ["instruction", "tools"]],
-      ["Background", ["overview"]],
-      ["Contexts", ["context:a", "context:b", "context:x"]],
+describe("the pieces in the dialog's groups", () => {
+  it("what can be changed first — the saved contexts, the documents, the background, the user's words — what always goes last; an empty group goes but the contexts'", () => {
+    const groups = groupsOf(previewOf(BASE, { note: "a note", conversation: "User: hello" }).pieces);
+    expect(groups.map((g) => [g.label, g.pieces.map((p) => p.id)])).toEqual([
+      ["Your contexts", ["context:a", "context:b", "context:x"]],
       ["Documents", ["doc:D1", "docnote:D1"]],
+      ["Background", ["overview"]],
+      ["Your words", ["note", "conversation"]],
+      ["Always given", ["instruction", "tools"]],
     ]);
-    const bare = groupsOf([BASE[0]], { library: "the library" });
-    expect(bare.map((g) => g.label)).toEqual(["The request", "Contexts"]);
-    expect(bare[1]).toMatchObject({ nodes: [], actions: "the library" });
-    expect(bare[1].empty).toMatch(/^No saved context yet/);
-    const words = groupsOf(previewOf(BASE, { note: "a note", conversation: "User: hello" }).pieces);
-    expect(words.at(-1)).toMatchObject({ label: "Your words" });
-    expect(words.at(-1)?.nodes.map((n) => n.id)).toEqual(["note", "conversation"]);
+    expect(groupsOf([BASE[0]]).map((g) => [g.label, g.pieces.length])).toEqual([
+      ["Your contexts", 0],
+      ["Always given", 1],
+    ]);
   });
 
-  it("a node says what it is, how it is given, its size and weight, and where its file is when Claude reads it there", () => {
-    const nodes = groupsOf(BASE).flatMap((g) => g.nodes);
-    const of = (id: string) => nodes.find((n) => n.id === id);
-    expect(of("context:a")).toMatchObject({
-      name: "Attached",
-      on: true,
-      locked: undefined,
-      icon: "context",
-      how: { icon: "text", word: "Said in full" },
-      size: "~300 tokens",
-      weight: 1200,
-      why: "A default of the project",
-      text: "PCC",
-      under: false,
-    });
-    expect(of("context:x")).toMatchObject({
-      on: false,
-      how: { icon: "link", word: "Pointed at" },
-      detail: "contexts/x/context.md",
-    });
-    expect(of("overview")?.detail).toBe("docs/OVERVIEW.md");
-    expect(of("doc:D1")).toMatchObject({ how: { icon: "search", word: "Searched" }, detail: "D1 · v3" });
-    expect(of("docnote:D1")?.under).toBe(true);
-    expect(of("tools")).toMatchObject({ locked: true, size: undefined, how: { word: "Loaded by Claude Code" } });
-    const alone = groupsOf([BASE[7]]).find((g) => g.label === "Documents");
-    expect(alone?.nodes[0].under, "a note whose document is not listed hangs under nothing").toBe(false);
-  });
-
-  it("a piece can be locked here with its reason, and end its row with its own actions", () => {
-    const groups = groupsOf(BASE, {
-      lock: (p) => (p.kind === "context" ? undefined : "Chosen for each run"),
-      actions: (p) => (p.kind === "context" ? `edit ${p.id}` : undefined),
-    });
-    const nodes = groups.flatMap((g) => g.nodes);
-    expect(nodes.find((n) => n.id === "overview")?.locked).toBe("Chosen for each run");
-    expect(nodes.find((n) => n.id === "instruction")?.locked).toBe(true);
-    expect(nodes.find((n) => n.id === "context:a")).toMatchObject({ locked: undefined, actions: "edit context:a" });
-    expect(nodes.find((n) => n.id === "doc:D1")?.actions).toBeUndefined();
+  it("each kind of piece has its icon, and each way it reaches Claude its words", () => {
+    expect(ICON.context).toBe("context");
+    expect(ICON.document).toBe("documents");
+    expect(HOW.inline).toEqual({ icon: "text", word: "Said in full" });
+    expect(HOW.auto).toEqual({ icon: "download", word: "Loaded by Claude Code", short: "loaded" });
+    expect(HOW.search.short).toBe("searched");
   });
 });

@@ -74,6 +74,18 @@ describe("Checkbox", () => {
     );
   });
 
+  it("bare is the box alone: still named by its label, which is not shown", () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <Checkbox bare checked={false} onChange={onChange} label="Glossary" hint="A default of the project" />,
+    );
+    const box = screen.getByRole("checkbox", { name: "Glossary" });
+    expect(container).toHaveTextContent(/^$/);
+    expect(box).not.toHaveAccessibleDescription();
+    fireEvent.click(box);
+    expect(onChange).toHaveBeenLastCalledWith(true);
+  });
+
   it("disabled cannot be changed, and gives its reason as a tooltip", () => {
     vi.useFakeTimers();
     const onChange = vi.fn();
