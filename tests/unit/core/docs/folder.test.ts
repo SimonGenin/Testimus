@@ -57,6 +57,7 @@ describe("docs.scanFolder", () => {
     writeFileSync(join(dir, "Photos PCC", "IMG_2.JPG"), "jpeg");
     writeFileSync(join(dir, "Essai PCC.mp4"), "mp4");
     writeFileSync(join(dir, "Message.mp3"), "mp3");
+    writeFileSync(join(dir, "Courriel.msg"), "msg");
     const s = await call<Scan>("docs.scanFolder", { dir }, P);
     const f = byRel(s);
     expect(f["SOSIE_300_D401-1_1_01_00.docx"]).toMatchObject({
@@ -79,7 +80,8 @@ describe("docs.scanFolder", () => {
       { importable: true, id: "Photos_PCC", group: "Photos PCC" },
     ]);
     expect(f["Essai PCC.mp4"]).toMatchObject({ importable: true, id: "Essai_PCC" });
-    expect(f["Message.mp3"]).toMatchObject({ reason: "not-supported", why: "Testimus cannot convert .mp3 files yet" });
+    expect(f["Message.mp3"]).toMatchObject({ importable: true, id: "Message" });
+    expect(f["Courriel.msg"]).toMatchObject({ reason: "not-supported", why: "Testimus cannot convert .msg files yet" });
     expect(f["~$SIE_300_D401-1_1_01_00.docx"]).toMatchObject({ reason: "lock-file", why: "Word's lock file" });
     expect(f["Thumbs.db"]).toMatchObject({ reason: "not-a-document" });
     expect(f["desktop.ini"]).toMatchObject({ reason: "not-a-document" });
@@ -96,8 +98,8 @@ describe("docs.scanFolder", () => {
       why: "the same document code as SOSIE_300_D401-1_1_01_00.docx",
     });
     expect(s.files.some((x) => x.rel.startsWith(".svn/"))).toBe(false);
-    expect(s.documents).toBe(5);
-    expect(s.leftAside).toBe(s.files.length - 6 - 1 - 2);
+    expect(s.documents).toBe(6);
+    expect(s.leftAside).toBe(s.files.length - 7 - 1 - 2);
     expect(s.truncated).toBe(false);
   });
 

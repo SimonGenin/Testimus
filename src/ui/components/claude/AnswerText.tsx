@@ -4,6 +4,7 @@ import type { Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
+import { videoPreview } from "../sources/VideoPreview.tsx";
 import { SourceChip } from "../ui/SourceChip.tsx";
 import { type } from "../ui/type.ts";
 
@@ -87,6 +88,7 @@ export function AnswerText({
               compact
               figure={isPictureAnchor(x.anchor)}
               observed={observed(x.docId)}
+              preview={videoPreview(x)}
               onOpen={() => onOpenSource(x)}
             />
           ),

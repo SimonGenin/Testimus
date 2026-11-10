@@ -1,4 +1,5 @@
 import type { Source } from "../../../../core/types.ts";
+import { videoPreview } from "../../../components/sources/VideoPreview.tsx";
 import { SourceChip } from "../../../components/ui/SourceChip.tsx";
 import { sourceLabel } from "../../../lib/fields.ts";
 import { isPictureAnchor, useObserved } from "../../../lib/media.ts";
@@ -22,6 +23,7 @@ export function StepSource({
       quote={source.quote || undefined}
       figure={isPictureAnchor(source.anchor)}
       observed={observed(source.docId)}
+      preview={videoPreview(source)}
       compact={compact}
       pressed={pressed}
       onOpen={onOpen && (() => onOpen(source))}

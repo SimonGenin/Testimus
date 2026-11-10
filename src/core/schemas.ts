@@ -202,6 +202,19 @@ export const VIDEO_OPTIONS = z.object({
     .boolean()
     .optional()
     .describe("Claude translates what is said in another language than the project's (on when absent)"),
+  margin: z
+    .number()
+    .min(0)
+    .max(30)
+    .optional()
+    .describe("Seconds played before and after a cited range when a source is opened (4 when absent)"),
+  diskCapGB: z
+    .number()
+    .min(0)
+    .optional()
+    .describe(
+      "The room the project's videos may take on disk, GB (originals, lighter copies, frames): a video that would pass it is refused when added; 0 or absent = no cap",
+    ),
 });
 
 export const PROJECT_JSON = z.object({

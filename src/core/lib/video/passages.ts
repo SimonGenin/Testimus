@@ -63,6 +63,28 @@ export function piecesOf(duration: number, silences: Silence[], from = 0, to = d
   return out;
 }
 
+const LIMIT_FLOOR_MS = 120_000;
+const LIMIT_SLACK = 10;
+const WHISPER_WINDOW_S = 30;
+const START_MS_PER_MB = 250;
+
+// ponytail: no part of a hearing has a fixed time limit — each follows what it is given and what this PC does. The
+// voice detector goes many times faster than the sound on any processor: it may take as long as its piece lasts. A
+// passage may take ten times what this PC needs for it, from the speed its last transcriptions measured for the model
+// (seconds of sound a second; a careful guess before the first), counted on Whisper's window of 30 s since a shorter
+// passage costs the same. The engine's start reads the model from the disk: a quarter of a second a megabyte. None is
+// under two minutes — a card's first passage compiles its kernels, and a busy PC is not a stuck one
+export const voicesLimitMs = (seconds: number): number => Math.max(LIMIT_FLOOR_MS, Math.round(seconds * 1000));
+
+export const passageLimitMs = (seconds: number, speed: number): number =>
+  Math.max(
+    LIMIT_FLOOR_MS,
+    Math.round((Math.max(WHISPER_WINDOW_S, seconds) / Math.max(0.05, speed)) * LIMIT_SLACK * 1000),
+  );
+
+export const startLimitMs = (modelMB: number): number =>
+  Math.max(LIMIT_FLOOR_MS, Math.round(modelMB * START_MS_PER_MB));
+
 export type Detected = { language: string; p: number; probabilities: Record<string, number> };
 
 export const SURE = 0.6;

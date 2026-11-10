@@ -440,6 +440,96 @@ describe("Settings › Models › Transcription: the models", () => {
     expect(await screen.findByText("834 MB freed")).toBeInTheDocument();
   });
 
+  it("« Measure… » lists the videos with a reference and their last measures, measures one with the model in use, and compares by language", async () => {
+    speech = said({ active: "turbo", models: [turbo, heard("small", { label: "Whisper small" })] });
+    let measured = false;
+    const film = (measures: unknown[]) => ({ doc: "FILM", video: 1, name: "manoeuvre.mp4", language: "fr", measures });
+    net.routes["media.measures"] = () => ({
+      videos: [
+        film(
+          measured
+            ? [{ model: "turbo", at: "2026-11-10T10:00:00.000Z", wer: 0.064, jargon: 0.5, timing: 0.4 }]
+            : [{ model: "small", at: "2026-11-09T10:00:00.000Z", wer: 0.21 }],
+        ),
+        { doc: "REUNION", video: 2, name: "reunion.m4a", measures: [] },
+      ],
+      byLanguage: measured ? [{ language: "fr", model: "turbo", videos: 1, wer: 0.064, jargon: 0.5 }] : [],
+    });
+    net.routes["media.measure"] = () => {
+      measured = true;
+      return { doc: "FILM", video: 1, at: "", from: 0, to: 22, words: 5, rows: [] };
+    };
+    mountSettings(<ModelsSection />);
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Measure the transcription models" });
+    const videos = await within(dialog).findByRole("table", { name: "Videos with a reference transcript" });
+    const row = await within(videos).findByRole("row", { name: /manoeuvre\.mp4/ });
+    expect(within(row).getByText("French")).toBeInTheDocument();
+    expect(within(row).getByText("Whisper small: 21 % of the words wrong · 09/11/2026")).toBeInTheDocument();
+    expect(
+      within(within(videos).getByRole("row", { name: /reunion\.m4a/ })).getByText("Not measured yet"),
+    ).toBeVisible();
+    expect(within(dialog).queryByRole("table", { name: "The models by language" })).toBeNull();
+    const before = calls("media.measures").length;
+    fireEvent.click(within(row).getByRole("button", { name: "Measure with Whisper large-v3 turbo" }));
+    await waitFor(() => expect(inputs("media.measure")).toEqual([{ doc: "FILM", video: 1, models: ["turbo"] }]));
+    expect(await screen.findByText("manoeuvre.mp4 measured")).toBeInTheDocument();
+    await waitFor(() => expect(calls("media.measures").length).toBeGreaterThan(before));
+    expect(
+      await within(dialog).findByText(
+        "Whisper large-v3 turbo: 6.4 % of the words wrong, 50 % of the project's words right, anchors off by 0.4 s · 10/11/2026",
+      ),
+    ).toBeInTheDocument();
+    const by = within(dialog).getByRole("table", { name: "The models by language" });
+    const fr = within(by).getByRole("row", { name: /French/ });
+    expect(within(fr).getByText("Whisper large-v3 turbo")).toBeInTheDocument();
+    expect(within(fr).getByText("6.4 %")).toBeInTheDocument();
+    expect(within(fr).getByText("50 %")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Measure the transcription models" })).toBeNull());
+  });
+
+  it("« Measure… » without a reference says so; without a model in use nothing is measured; a failure is said", async () => {
+    speech = said({ models: [heard("small", { label: "Whisper small" })] });
+    net.routes["media.measures"] = () => ({ videos: [], byLanguage: [] });
+    const first = mountSettings(<ModelsSection />);
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    expect(await screen.findByText("No video has a reference transcript yet.")).toBeInTheDocument();
+    expect(screen.getByText(/A video gets a reference in Documents › Video › Reference…/)).toBeInTheDocument();
+    first.unmount();
+
+    net.routes["media.measures"] = () => ({
+      videos: [{ doc: "FILM", video: 1, name: "manoeuvre.mp4", measures: [] }],
+      byLanguage: [],
+    });
+    const second = mountSettings(<ModelsSection />);
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    expect(await screen.findByRole("button", { name: "Measure" })).toBeDisabled();
+    second.unmount();
+
+    speech = said({ active: "turbo", models: [turbo] });
+    net.routes["media.measure"] = () => {
+      throw new Fail("The transcription engine is not on this PC.");
+    };
+    const third = mountSettings(<ModelsSection />);
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Measure with Whisper large-v3 turbo" }));
+    expect(await screen.findByText("manoeuvre.mp4 could not be measured")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Measure with Whisper large-v3 turbo" })).toBeEnabled(),
+    );
+    third.unmount();
+
+    net.routes["media.measures"] = () => {
+      throw new Fail("The project's documents cannot be listed.");
+    };
+    mountSettings(<ModelsSection />);
+    fireEvent.click(await within(await part()).findByRole("button", { name: "Measure…" }));
+    expect(
+      await screen.findByText("The measures could not be read: The project's documents cannot be listed."),
+    ).toBeInTheDocument();
+  });
+
   it("the model catalog below lists the search models only", async () => {
     catalog = [
       row("emb-s", { state: "installed" }),

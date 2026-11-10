@@ -46,7 +46,9 @@ export const MEDIA_FILE = z.object({
   n: z.number().describe("The file's number in the document, never given again: an image's anchor is img:<n>"),
   name: z.string().describe("The original file's name"),
   file: z.string().describe("The copy, relative to the document folder (files/…)"),
-  kind: z.enum(["image", "video"]).describe("An image or a video"),
+  kind: z
+    .enum(["image", "video"])
+    .describe("An image, or a video (a recording of sound alone is a video without picture)"),
   sha256: z.string().describe("sha256 of the copy"),
   figure: z.string().optional().describe("An image's picture, relative to the document folder (figures/img-<n>.jpg)"),
   takenAt: z.string().optional().describe("When the image was taken (EXIF), local time"),
@@ -68,7 +70,8 @@ export const REJECTED = z
       name: z.string().describe("The file's name"),
       why: z.string().describe("Why it was not added"),
       code: z
-        .enum(["not-media", "later", "duplicate", "failed"])
+        .enum(["not-media", "later", "duplicate", "failed", "disk-cap"])
+
         .describe(
           "not-media: neither an image nor a video; later: HEIC or sound (a later version); duplicate: already in the document; failed: unreadable",
         ),
@@ -86,6 +89,7 @@ export const VIDEO_SUMMARY = z.object({
   unsure: z.number().describe("Lines the engine doubted and nobody confirmed or corrected yet"),
   fixed: z.number().describe("Ranges a person corrected or confirmed: no transcription replaces them"),
   audio: z.boolean().describe("Whether the video has sound"),
+  sound: z.boolean().describe("A recording of sound alone: heard and cited like a video, with no frame"),
   tracks: z
     .array(
       z.object({

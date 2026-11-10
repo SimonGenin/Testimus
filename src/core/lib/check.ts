@@ -25,6 +25,8 @@ export type DocText = {
   pieces?: [string, string][];
   pictures?: Set<string>;
   video?: VideoText;
+  /** timed sources (anchor, quote) a report of a new hearing or description could not find again */
+  lost?: Set<string>;
 };
 export type Corpus = { docs: Map<string, DocText> };
 
@@ -52,6 +54,8 @@ export function loadCorpus(project: string): Corpus {
     const md = readFileSync(mdFile, "utf8");
     const doc: Partial<DocJson> = findDoc(project, e.name) ?? {};
     const d: DocText = { id: e.name, doc, anchors: anchorsOf(md), text: plainText(md), md, scopes: new Map() };
+    const lost = join(dir, e.name, "video", "lost.json");
+    if (existsSync(lost)) d.lost = new Set(JSON.parse(readFileSync(lost, "utf8")) as string[]);
     docs.set(e.name, d);
     if (doc.code && !docs.has(doc.code)) docs.set(doc.code, d);
   }
@@ -399,7 +403,17 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
         continue;
       }
       if (isTimed(anchor)) {
-        for (const f of timedFindings(step, src, ref, anchor, timed(d, anchor, src.quote))) add(f);
+        const gone = d.lost?.has(`${anchor}\n${src.quote}`);
+        for (const f of timedFindings(step, src, ref, anchor, timed(d, anchor, src.quote)))
+          add(
+            gone && f.kind === "quote-not-found"
+              ? {
+                  ...f,
+                  kind: "source-missing",
+                  message: `${f.message} The video was heard or described again since this source was written.`,
+                }
+              : f,
+          );
         continue;
       }
       if (!d.anchors.has(anchor))

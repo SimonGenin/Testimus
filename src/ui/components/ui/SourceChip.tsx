@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 import { border, color, fontFamily, fontSize, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Tooltip } from "./Tooltip.tsx";
@@ -99,6 +100,9 @@ export type SourceChipProps = {
   observed?: boolean;
   /** inside a line of text: the reference alone */
   compact?: boolean;
+  /** shown above the words of its tooltip on hover — a video source's nearest key frame and first line; mounted only
+   * then, so a chip that is not hovered reads nothing */
+  preview?: ReactNode;
   /** the catalogue only */
   debugState?: "hover" | "focus";
 };
@@ -114,6 +118,7 @@ export function SourceChip({
   figure = false,
   observed = false,
   compact = false,
+  preview,
   debugState,
 }: SourceChipProps) {
   const bad = state === "ok" ? null : STATE[state];
@@ -167,5 +172,9 @@ export function SourceChip({
   ) : (
     <span {...look}>{inner}</span>
   );
-  return <Tooltip label={tip}>{chip}</Tooltip>;
+  return (
+    <Tooltip label={tip} content={preview}>
+      {chip}
+    </Tooltip>
+  );
 }

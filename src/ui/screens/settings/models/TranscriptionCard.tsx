@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { useState } from "react";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Loading } from "../../../components/ui/Loading.tsx";
@@ -11,6 +12,7 @@ import { Hint } from "../Section.tsx";
 import type { FolderAsk, ModelRef } from "./actions.ts";
 import type { Installed } from "./data.ts";
 import { FfmpegCard } from "./FfmpegCard.tsx";
+import { MeasureDialog } from "./MeasureDialog.tsx";
 import { FFMPEG, type Op, WHISPER } from "./ops.tsx";
 import { SpeechEngine } from "./SpeechEngine.tsx";
 import { SpeechModels } from "./SpeechModels.tsx";
@@ -56,6 +58,7 @@ export function TranscriptionCard({
   const app = useApp();
   const speech = useRead("models.speech", {});
   const act = useSpeechActions({ needsFolder, setFolder: onFolder, start });
+  const [measuring, setMeasuring] = useState(false);
   const s = speech.data;
   const chosen = s?.chosen ? s.models.find((m) => m.id === s.chosen) : undefined;
   const onProcessor = !!s && !s.engine.card && s.engine.backend !== "cuda";
@@ -132,12 +135,22 @@ export function TranscriptionCard({
               ) makes it about twice as fast.
             </Banner>
           )}
-          <Hint>
-            Measure on your own videos: type a few minutes of a video as you hear them in Documents › Video › Reference;
-            the models installed are then held against it.
-          </Hint>
+          <div {...stylex.props(styles.chosen)}>
+            <Hint>
+              Measure on your own videos: type a few minutes of a video as you hear them in Documents › Video ›
+              Reference; the models installed are then held against it.
+            </Hint>
+            <Button
+              size="sm"
+              icon="verify"
+              label="Measure…"
+              disabled={app.info ? false : "Open a project first"}
+              onClick={() => setMeasuring(true)}
+            />
+          </div>
         </>
       )}
+      {measuring && s && <MeasureDialog models={s.models} onClose={() => setMeasuring(false)} />}
     </section>
   );
 }

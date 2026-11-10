@@ -82,8 +82,10 @@ function marked(text: string, quote: string) {
   ];
 }
 
-// ponytail: a source in a video, made to be checked in ten seconds — the range it cites plays in a loop with a margin
-// around it, drawn on the timeline, with what is said under the picture (the cited lines lit, the quote marked, a
+// ponytail: a source in a video, made to be checked in ten seconds — the range it cites plays in a loop, as soon as it
+// is opened (a moment alone opens paused on its line), with the project's margin around it (project.json video.margin,
+// read before the player is drawn so the loop starts where it will stay), drawn on the timeline, with what is said
+// under the picture (the cited lines lit, the quote marked, a
 // translation beside a line said in another language) or, for what is seen, the key frames of the range and their
 // descriptions. Opened from a step, the range's bounds can be dragged and the source written back to the test
 export function VideoSource({ source, from, size = "sm" }: { source: Source; from?: CitedIn; size?: "sm" | "md" }) {
@@ -94,12 +96,13 @@ export function VideoSource({ source, from, size = "sm" }: { source: Source; fro
   const v = shown.data?.videos.find((x) => x.n === n);
   const around = m ? { from: String(Math.max(0, m.at - 20)), to: String((m.to ?? m.at) + 30) } : {};
   const said = useRead("media.transcript", { doc: source.docId, video: n, ...around }, { enabled: !!m && !!v });
+  const info = useRead("project.info", {}, { enabled: !!m });
   const [moved, setMoved] = useState<{ of: string; range: VideoRange } | null>(null);
   const [lightening, setLightening] = useState(false);
   const [saving, setSaving] = useState(false);
   if (!m) return null;
   if (shown.isError) return <p {...stylex.props(styles.plain)}>This video could not be shown: {shown.error.message}</p>;
-  if (!shown.data)
+  if (!shown.data || info.isPending)
     return (
       <div role="status" aria-busy="true" aria-label="Loading the video">
         <Skeleton lines={3} />
@@ -183,7 +186,10 @@ export function VideoSource({ source, from, size = "sm" }: { source: Source; fro
         label={`Video ${v.name}`}
         size={size}
         duration={v.duration}
+        sound={v.sound}
         range={range}
+        margin={info.data?.project.video?.margin}
+        autoPlay={m.to !== undefined}
         onRange={adjustable ? (r) => setMoved({ of: key, range: r }) : undefined}
         chapters={v.chapters}
         marks={v.keyFrames.map((k) => ({ at: k.at, label: `${clock(k.at)} ${k.why}`.trim() }))}

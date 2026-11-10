@@ -4,6 +4,7 @@ import { readDoc, readFigures, writeFigures } from "../lib/docs.ts";
 import { filesOf, imageAnchor, ordered, updateFiles } from "../lib/media.ts";
 import { readProject } from "../lib/project.ts";
 import { spokenName } from "../lib/video/passages.ts";
+import { rememberSeen } from "../lib/video/report.ts";
 import { clock, momentOf } from "../rag/anchors.ts";
 import type { DocJson, FigureEntry, FixProposal, SpokenLine } from "../types.ts";
 import { type Described, described, FIGURES_BATCH, parseEntries } from "./figures.ts";
@@ -209,8 +210,9 @@ export function surveyPrompt(
     ...(o.crops.length
       ? [
           "",
-          "Changes, at real size:",
-          ...o.crops.map((c) => `- tile ${c.n} ${clock(c.at)} — docs/${slash(doc.id)}/${slash(c.file)}`),
+          // ponytail: one line, not one per tile — every tile shown whose place changed has its crop on disk, named
+          // by the tile, and a line each was fifty-four lines of paths in a run measured for its tokens
+          `Changes, at real size — the change of tile n is docs/${slash(doc.id)}/video/${video.n}/change-<n>.jpg, for tiles ${o.crops.map((c) => c.n).join(", ")}.`,
         ]
       : []),
     "",
@@ -500,13 +502,24 @@ export async function readPictures(
   const got = new Set<string>();
   const g = docGiven(project, "media", docId, opts);
   const order = figures.filter((f) => f.anchor.startsWith("frame:")).map((f) => f.anchor);
-  for (let i = 0; i < todo.length; i += FIGURES_BATCH) {
+  rememberSeen(
+    project,
+    docId,
+    todo.flatMap((t) => {
+      const text = t.anchor.startsWith("frame:") ? figures.find((f) => f.anchor === t.anchor)?.description.trim() : "";
+      return text ? [{ anchor: t.anchor, text }] : [];
+    }),
+  );
+  // ponytail: a run each for the last one to five pictures would cost as much as a full one — up to five more ride
+  // with the batches there are (21 pictures: one run, not two)
+  const size = Math.ceil(todo.length / Math.max(1, Math.ceil((todo.length - 5) / FIGURES_BATCH)));
+  for (let i = 0; i < todo.length; i += size) {
     if (ctx.signal.aborted) break;
     const now0 = new Map(readFigures(project, docId).map((f) => [f.anchor, f]));
-    const batch = todo.slice(i, i + FIGURES_BATCH).map((t) => {
+    const batch = todo.slice(i, i + size).map((t) => {
       if (!opts.context || !t.anchor.startsWith("frame:")) return t;
       const prev = order[order.indexOf(t.anchor) - 1];
-      const inBatch = prev && todo.slice(i, i + FIGURES_BATCH).some((x) => x.anchor === prev);
+      const inBatch = prev && todo.slice(i, i + size).some((x) => x.anchor === prev);
       const before = prev && !inBatch ? now0.get(prev)?.description : undefined;
       return { ...t, context: opts.context(t.anchor, before) };
     });
@@ -693,29 +706,36 @@ export async function proposeFixes(
   opts: JobRun = {},
 ): Promise<{ proposals: FixProposal[]; costUsd: number }> {
   const doc = readDoc(project, docId);
-  const todo = lines.filter((l) => l.by !== "human").slice(0, FIXES_LINES);
-  const r = await mediaRun(project, docId, ctx, {
-    ...opts,
-    effort: opts.effort || "medium",
-    prompt: (extra) =>
-      fixesPrompt(
-        doc,
-        video,
-        todo.map((l) => ({ key: clock(l.at), lang: l.lang, text: l.text, unsure: !!l.unsure, screen: l.screen })),
-        glossary,
-        extra,
-      ),
-    label: `Corrections proposed for ${video.name}`,
-    says: `Claude reads the transcript of ${video.name}`,
-  });
-  const b = r.ok ? readBlock(r.reply, FIXES_TAG, PROPOSALS) : null;
-  const proposals: FixProposal[] = (b?.value ?? []).flatMap((x) => {
-    const at = atOf(x.at);
-    const line = at === null ? undefined : todo.find((l) => Math.floor(l.at) === Math.floor(at));
-    const text = x.text.replace(/\s+/g, " ").trim();
-    if (!line || !text || text === line.text) return [];
-    return [
-      {
+  const all = lines.filter((l) => l.by !== "human");
+  const proposals: FixProposal[] = [];
+  let costUsd = 0;
+  // ponytail: a long transcript is read a batch a run, to its end — never its first lines only
+  for (let i = 0; i < all.length; i += FIXES_LINES) {
+    if (ctx.signal.aborted) break;
+    const todo = all.slice(i, i + FIXES_LINES);
+    const part = all.length > FIXES_LINES ? ` · ${clock(todo[0].at)} – ${clock(todo[todo.length - 1].at)}` : "";
+    const r = await mediaRun(project, docId, ctx, {
+      ...opts,
+      effort: opts.effort || "medium",
+      prompt: (extra) =>
+        fixesPrompt(
+          doc,
+          video,
+          todo.map((l) => ({ key: clock(l.at), lang: l.lang, text: l.text, unsure: !!l.unsure, screen: l.screen })),
+          glossary,
+          extra,
+        ),
+      label: `Corrections proposed for ${video.name}${part}`,
+      says: `Claude reads the transcript of ${video.name}${part}`,
+    });
+    costUsd += r.costUsd;
+    const b = r.ok ? readBlock(r.reply, FIXES_TAG, PROPOSALS) : null;
+    for (const x of b?.value ?? []) {
+      const at = atOf(x.at);
+      const line = at === null ? undefined : todo.find((l) => Math.floor(l.at) === Math.floor(at));
+      const text = x.text.replace(/\s+/g, " ").trim();
+      if (!line || !text || text === line.text) continue;
+      proposals.push({
         id: `${Math.floor(line.at)}`,
         from: line.at,
         to: line.end,
@@ -723,8 +743,8 @@ export async function proposeFixes(
         text,
         clue: x.clue,
         why: (x.why ?? "").trim(),
-      },
-    ];
-  });
-  return { proposals, costUsd: r.costUsd };
+      });
+    }
+  }
+  return { proposals, costUsd };
 }

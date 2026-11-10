@@ -257,8 +257,7 @@ Use the 2024 wording.
 Mosaics:
 - docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/mosaic-1-1.jpg — tiles 1 00:00, 2 00:20
 
-Changes, at real size:
-- tile 2 00:20 — docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/change-2.jpg
+Changes, at real size — the change of tile n is docs/Manoeuvre_d_un_sectionneur_au_PCC/video/1/change-<n>.jpg, for tiles 2.
 
 What is said in this part (timed):
 [00:47] La fenêtre Propriétés indique un sectionneur.

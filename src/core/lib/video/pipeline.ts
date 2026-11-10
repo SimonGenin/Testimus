@@ -9,10 +9,10 @@ import type { MediaFile, SpokenLine, VideoData } from "../../types.ts";
 import { docDir, readDoc, readFigures } from "../docs.ts";
 import { installedFfmpeg } from "../ffmpeg.ts";
 import { machineProfile } from "../machine/profile.ts";
-import { filesOf, updateFile } from "../media.ts";
+import { filesOf, SOUND, updateFile } from "../media.ts";
 import { frameAnchor, readFixes, readVideo, spokenLines, writeMediaMd, writeVideo } from "../media-md.ts";
 import { readProject } from "../project.ts";
-import { speechSetup } from "./engine.ts";
+import { speechFit, speechSetup } from "./engine.ts";
 import { speechGlossary } from "./glossary.ts";
 import { videoIo } from "./io.ts";
 import { buildReport } from "./report.ts";
@@ -95,6 +95,7 @@ export async function processVideo(
       const probe = await videoIo.probe(src, ctx.signal);
       save({
         ...empty(probe.duration, probe.audio),
+        ...(probe.picture ? {} : { sound: true }),
         ...(probe.width ? { width: probe.width, height: probe.height } : {}),
         ...(probe.tracks.length ? { tracks: probe.tracks } : {}),
         ...(probe.hdr ? { hdr: true } : {}),
@@ -128,12 +129,13 @@ export async function processVideo(
       }
     };
     const look = async () => {
+      if (now().sound) return;
       if (
         now().candidates.length &&
         !(o.claude && !now().surveyed && now().candidates.some((c) => !existsSync(join(root, c.file))))
       )
         return;
-      const found = await findCandidates(ctx, project, docId, f, now(), lines());
+      const found = await findCandidates(ctx, project, docId, f, now(), lines(), { force: o.force });
       save({ ...now(), ...found });
     };
     await Promise.all([words(), look()]);
@@ -187,16 +189,31 @@ async function hear(
   now: () => VideoData,
   out: VideoOutcome,
 ): Promise<void> {
-  const setup = speechSetup(await machineProfile().catch(() => null));
-  if ("missing" in setup) {
+  // ponytail: the memory a model is held against is the one free now — a profile older than a minute is taken again
+  let machine = await machineProfile().catch(() => null);
+  if (machine && env.now().getTime() - Date.parse(machine.at) > 60_000)
+    machine = await machineProfile({ refresh: true }).catch(() => machine);
+  const wanted = speechSetup(machine);
+  if ("missing" in wanted) {
     if (!now().transcribed)
       out.warnings.push(
-        setup.missing === "engine"
+        wanted.missing === "engine"
           ? `${f.name}: the transcription engine is not on this PC, so the video has no transcript. Install it in Settings › Models › Transcription (or: testimus models pullWhisper), then convert the document again.`
           : `${f.name}: no transcription model is on this PC, so the video has no transcript. Install one in Settings › Models › Transcription (or: testimus models pull whisper-large-v3-turbo-q8), then convert the document again.`,
       );
     return;
   }
+  const room = speechFit(wanted, machine);
+  // ponytail: a transcript the better model made is never replaced by a lighter model's because memory is short today
+  if (room.setup && room.setup.entry.id !== wanted.entry.id && now().transcribed?.model === wanted.entry.id) {
+    out.warnings.push(
+      `${f.name}: ${wanted.entry.label} does not fit in the memory free now, so the video was not heard again and keeps its transcript. Close other programs, then hear it again.`,
+    );
+    return;
+  }
+  if (room.note) out.warnings.push(`${f.name}: ${room.note}`);
+  if (!room.setup) return;
+  const setup = room.setup;
   const p = readProject(project);
   const glossary = speechGlossary(project);
   const spoken = (f.spoken ?? p.video?.spoken ?? []).map((l) => l.toLowerCase());
@@ -366,6 +383,7 @@ export function videoSummary(project: string, docId: string, f: MediaFile) {
     unsure: lines.filter((l) => l.unsure && l.by !== "human").length,
     fixed: fixes.lines.length,
     audio: v?.audio ?? true,
+    sound: !!v?.sound || (!v && SOUND.test(f.name)),
     tracks: v?.tracks ?? [],
     ...(f.track !== undefined ? { track: f.track } : {}),
     ...(f.spoken ? { spoken: f.spoken } : {}),

@@ -84,6 +84,8 @@ const PATHS: Rule[] = [
       ["media.proposals", { doc: m[1] }],
       ["media.report", { doc: m[1] }],
       ["media.glossary"],
+      ["media.disk"],
+      ["media.measures"],
       ["rag.passage"],
       ["docs.show", { id: m[1] }],
     ],
@@ -150,7 +152,7 @@ const KINDS: Rule[] = [
   ],
   [
     /^media\.(keep|propose|lighten|measure)$/,
-    () => [["media.show"], ["media.transcript"], ["media.proposals"], ["docs.show"], ["docs.list"]],
+    () => [["media.show"], ["media.transcript"], ["media.proposals"], ["media.measures"], ["docs.show"], ["docs.list"]],
   ],
   [/^docs\.overview$/, () => [["docs.overviewShow"], ["claude.prompts"], ["claude.preview"]]],
   [/^generate$/, () => [["review.queue"], ["gen.preview"], ["gen.show"], ["actions.list"]]],

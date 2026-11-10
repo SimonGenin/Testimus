@@ -16,10 +16,10 @@ import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { osUser } from "../lib/review.ts";
+import { capMB, videosMB } from "../lib/video/disk.ts";
 import { estimateOf } from "../lib/video/estimate.ts";
 import { speechGlossary } from "../lib/video/glossary.ts";
 import { videoIo } from "../lib/video/io.ts";
-import { measureSpeech, readReference, writeReference } from "../lib/video/measure.ts";
 import { SPOKEN_LANGUAGES } from "../lib/video/passages.ts";
 import { lighten } from "../lib/video/pipeline.ts";
 import { applyReport, buildReport, readReport, undoTranscription } from "../lib/video/report.ts";
@@ -353,7 +353,7 @@ export const commands = [
       const d = await inSlot(ctx, project, steps, async () => {
         ctx.step?.("convert");
         const converted = await convertMedia(ctx, project, input.doc, {
-          read: shouldDescribeFigures(project),
+          read: !readDoc(project, input.doc).private && shouldDescribeFigures(project),
           again: true,
           video: f.n,
           run: runOf(input),
@@ -387,7 +387,8 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const f = videoOf(project, input.doc, input.video);
-      return { report: readVideo(project, input.doc, f.n)?.before ? buildReport(project, input.doc, f.n) : null };
+      const v = readVideo(project, input.doc, f.n);
+      return { report: v?.before || v?.seenBefore ? buildReport(project, input.doc, f.n) : null };
     },
   }),
   command({
@@ -418,7 +419,8 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const f = videoOf(project, input.doc, input.video);
-      if (!readVideo(project, input.doc, f.n)?.before)
+      const waits = readVideo(project, input.doc, f.n);
+      if (!waits?.before && !waits?.seenBefore)
         throw new UserError(
           `No new transcription of ${f.name} waits for its report.`,
           `testimus media retranscribe ${input.doc} makes one.`,
@@ -529,6 +531,9 @@ export const commands = [
         .object({
           needMB: z.number().describe("Room the video and what is drawn from it take, MB"),
           freeMB: z.number().nullable().describe("Room free on the project's drive, MB"),
+          usedMB: z.number().describe("Room the project's videos take today, MB"),
+          capMB: z.number().optional().describe("The cap the team set for them (project.json video.diskCapGB), MB"),
+          over: z.boolean().describe("True when this video would pass the cap: it would be refused"),
         })
         .describe("Disk space"),
     }),
@@ -538,13 +543,20 @@ export const commands = [
       const machine = await machineProfile().catch(() => null);
       const p = readProject(project);
       const claude = (await claudeVersion()).ok && p.rag.describeFigures !== false;
-      const o = { density: p.video?.density, claude, folder: join(project, "docs") };
+      const used = { usedMB: videosMB(project), capMB: capMB(project), here: !!input.doc };
+      const o = { density: p.video?.density, claude, folder: join(project, "docs"), used };
       if (input.doc) {
         const f = videoOf(project, input.doc, input.video);
         const v = readVideo(project, input.doc, f.n);
         const src = join(docDir(project, input.doc), f.file);
         const probe = v
-          ? { duration: v.duration, bytes: v.bytes ?? 0, audio: v.audio, tracks: v.tracks?.length ?? (v.audio ? 1 : 0) }
+          ? {
+              duration: v.duration,
+              bytes: v.bytes ?? 0,
+              audio: v.audio,
+              tracks: v.tracks?.length ?? (v.audio ? 1 : 0),
+              picture: !v.sound,
+            }
           : await videoIo.probe(src, ctx.signal).then((x) => ({ ...x, tracks: x.tracks.length }));
         const part = f.range ? Math.max(0, Math.min(probe.duration, f.range.to) - f.range.from) : probe.duration;
         const e = estimateOf({ ...probe, duration: probe.duration }, machine, o);
@@ -584,84 +596,6 @@ export const commands = [
       const f = videoOf(project, input.doc, input.video);
       mediaDoc(project, input.doc);
       return { file: await lighten(ctx, project, input.doc, f, input.why) };
-    },
-  }),
-  command({
-    name: "media.reference",
-    summary:
-      "Keep or read the reference transcript of a video: a few minutes typed by hand as a person hears them, a sentence a line, each starting with its moment ([02:36] …). The transcription models are measured against it (media.measure). An empty text removes it.",
-    input: z.object({
-      doc,
-      video,
-      text: z.string().optional().describe("The reference, to keep; leave out to read the one kept"),
-    }),
-    output: z.object({
-      lines: z
-        .array(z.object({ at: z.number().describe("Moment, seconds"), text: z.string().describe("What is said") }))
-        .describe("The reference's lines"),
-    }),
-    mutates: true,
-    positional: ["doc"],
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const f = videoOf(project, input.doc, input.video);
-      if (input.text !== undefined) writeReference(project, input.doc, f.n, input.text);
-      return { lines: readReference(project, input.doc, f.n) };
-    },
-  }),
-  command({
-    name: "media.measure",
-    summary:
-      "Measure the transcription models installed on this PC against a video's reference transcript: the glossary's terms written right (where a mistake costs: a step quotes them), the word error rate, how far the anchors are from where the sentences start, and how fast it went. Nothing of the document changes.",
-    input: z.object({
-      doc,
-      video,
-      models: z
-        .array(z.string())
-        .optional()
-        .describe("Catalog ids of the models to measure (default: every one installed)"),
-    }),
-    output: z.object({
-      doc: z.string().describe("The document"),
-      video: z.number().describe("The video's number"),
-      at: z.string().describe("When it was measured"),
-      from: z.number().describe("Start of the part measured, seconds"),
-      to: z.number().describe("End of the part measured, seconds"),
-      words: z.number().describe("Words of the reference"),
-      rows: z
-        .array(
-          z.object({
-            model: z.string().describe("Catalog id"),
-            label: z.string().describe("Its name"),
-            device: z.enum(["gpu", "cpu"]).describe("Where it ran"),
-            jargon: z
-              .number()
-              .nullable()
-              .describe("Share of the glossary's terms said that it wrote right, 0 to 1 (null: none was said)"),
-            terms: z.number().describe("Glossary terms said in the reference"),
-            wer: z.number().describe("Word error rate, 0 is perfect"),
-            timing: z
-              .number()
-              .nullable()
-              .describe("Median gap between a sentence's start and its line's anchor, seconds"),
-            speed: z.number().describe("Seconds of video heard in a second"),
-          }),
-        )
-        .describe("One row a model, the best first"),
-    }),
-    mutates: true,
-    job: "media.measure",
-    positional: ["doc"],
-    subject: (i) => i.doc,
-    label: (i, project) => docName(project, i.doc),
-    async run(ctx, input) {
-      const project = projectOf(ctx);
-      const f = videoOf(project, input.doc, input.video);
-      const r = await measureSpeech(ctx, project, input.doc, f, input.models);
-      return {
-        ...r,
-        rows: [...r.rows].sort((a, b) => (b.jargon ?? 0) - (a.jargon ?? 0) || a.wer - b.wer),
-      };
     },
   }),
 ];

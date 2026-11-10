@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { UserError } from "../command.ts";
+import { privateDocs } from "../lib/docs.ts";
 import type { SearchUse } from "../types.ts";
 
 // ponytail: what a Claude run may touch — the built-in tools and the app's own commands (the MCP tools) by kind of
@@ -65,8 +66,9 @@ export const TOOLS: Record<RunKind, string[]> = {
 };
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
-// ponytail: a run that writes a test may make any second of a video a key frame (it looked at it with media.frame),
-// so what is seen there can be cited and embedded — the one change to a document a writing run may make
+// ponytail: a run that writes a test, or proposes what a test should cite, may make any second of a video a key
+// frame (it looked at it with media.frame), so what is seen there can be cited and embedded — the one change to a
+// document such a run may make
 const KEEP_FRAME = "media.keep";
 
 // ponytail: what a run answers with, and what it may change — each a command of the app, so a refused answer says what
@@ -77,7 +79,7 @@ const EXTRA: Record<RunKind, string[]> = {
   media: [],
   headers: [],
   check: ["check.record"],
-  analyze: ["analysis.record"],
+  analyze: ["analysis.record", KEEP_FRAME],
   generate: ["tests.create", ...TEST_WRITES, "check.run", KEEP_FRAME],
   fix: [...TEST_WRITES, KEEP_FRAME],
   run: [...TEST_WRITES, "check.run", KEEP_FRAME],
@@ -210,11 +212,18 @@ export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
 // (claude/run.ts), and every command that finds or reads a document for Claude leaves them out or refuses them
 export const WITHOUT_DOCS = "TESTIMUS_WITHOUT_DOCS";
 
-export const leftOutDocs = (llm?: boolean): string[] =>
-  llm ? (process.env[WITHOUT_DOCS] ?? "").split(",").filter(Boolean) : [];
+export const leftOutDocs = (llm: boolean | undefined, project: string): string[] =>
+  llm ? [...new Set([...(process.env[WITHOUT_DOCS] ?? "").split(",").filter(Boolean), ...privateDocs(project)])] : [];
 
-export function refuseLeftOut(llm: boolean | undefined, docId: string): void {
-  if (leftOutDocs(llm).includes(docId))
+export function refuseLeftOut(llm: boolean | undefined, docId: string, project: string): void {
+  if (!llm) return;
+  if (privateDocs(project).includes(docId))
+    throw new UserError(
+      `${docId} is never given to Claude.`,
+      "The team keeps this document from Claude: do not search, read or cite it.",
+      "doc-private",
+    );
+  if (leftOutDocs(llm, project).includes(docId))
     throw new UserError(
       `${docId} is left out of this run.`,
       "The user took this document out of the run: do not search, read or cite it.",

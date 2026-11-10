@@ -24,27 +24,31 @@ function realRegistry(): ModelsRegistry | null {
 
 const real = realRegistry();
 
+function realEngine(): string {
+  const r = real as ModelsRegistry;
+  // ponytail: the unit tests never reach the network; the engine is on this PC — its own address alone is let through
+  env.http = async (req) => {
+    if (!req.url.startsWith("http://127.0.0.1:")) throw new Error(`Not this PC: ${req.url}`);
+    const res = await fetch(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: (req.bodyBytes as BodyInit | undefined) ?? req.body,
+      signal: req.signal,
+    });
+    return { status: res.status, headers: {}, text: await res.text() };
+  };
+  updateRegistry((mine) => {
+    mine.dir = r.dir;
+    mine.runtimesDir = r.runtimesDir;
+    mine.ffmpeg = r.ffmpeg;
+    mine.whisper = r.whisper;
+  });
+  return fixtureCopy("video-real");
+}
+
 describe.skipIf(!real)("a synthetic video through the real engine", () => {
   it("is heard on this PC: the sentence comes out, at its place, and the alarm is a key frame", async () => {
-    const r = real as ModelsRegistry;
-    // ponytail: the unit tests never reach the network; the engine is on this PC — its own address alone is let through
-    env.http = async (req) => {
-      if (!req.url.startsWith("http://127.0.0.1:")) throw new Error(`Not this PC: ${req.url}`);
-      const res = await fetch(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: (req.bodyBytes as BodyInit | undefined) ?? req.body,
-        signal: req.signal,
-      });
-      return { status: res.status, headers: {}, text: await res.text() };
-    };
-    updateRegistry((mine) => {
-      mine.dir = r.dir;
-      mine.runtimesDir = r.runtimesDir;
-      mine.ffmpeg = r.ffmpeg;
-      mine.whisper = r.whisper;
-    });
-    const P = fixtureCopy("video-real");
+    const P = realEngine();
     const d = await call<DocJson>(
       "docs.add",
       { file: SYNTHETIC, id: "SYNTHETIC", video: { spoken: ["en"] }, describeFigures: false, index: false },
@@ -67,5 +71,31 @@ describe.skipIf(!real)("a synthetic video through the real engine", () => {
     expect(v.keyFrames.some((k) => Math.abs(k.at - 12) <= 0.5)).toBe(true);
     const md = readFileSync(join(P, "docs", "SYNTHETIC", "doc.md"), "utf8");
     expect(md).toMatch(/\[00:0[345]\] .*<!-- t 00:0[345] -->/);
+  }, 300_000);
+
+  // ponytail: no language is given — the engine itself must tell each passage's (the answer's detected_language and
+  // its probability, which only the real whisper-server can prove), and the beat of 2 s must not come out as speech
+  it("tells the language of each passage by itself when none is given", async () => {
+    const P = realEngine();
+    const d = await call<DocJson>(
+      "docs.add",
+      { file: SYNTHETIC, id: "SYNTHETIC_AUTO", describeFigures: false, index: false },
+      P,
+    );
+    expect(d.converted?.warnings).toEqual([]);
+    const v = JSON.parse(readFileSync(join(P, "docs", "SYNTHETIC_AUTO", "video", "1.json"), "utf8")) as VideoData;
+    expect(v.transcribed?.spoken).toEqual([]);
+    expect(Object.keys(v.transcribed?.languages ?? {})).toEqual(["en"]);
+    expect(v.transcribed?.languages?.en).toBeGreaterThan(5);
+    expect(v.transcript.length).toBeGreaterThan(0);
+    expect(v.transcript.every((l) => l.lang === "en")).toBe(true);
+    const said = v.transcript
+      .map((l) => l.text)
+      .join(" ")
+      .toLowerCase();
+    expect(said).toContain("traction overview");
+    expect(said).toContain("alarm banner");
+    expect(v.transcript[0].at).toBeGreaterThan(3);
+    expect(v.transcript[0].at).toBeLessThan(5.5);
   }, 300_000);
 });

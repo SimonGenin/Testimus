@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useContext, useState } from "react";
 import type { CheckFile, GenTestProgress, Source, StepImage, Test } from "../../../core/types.ts";
+import { videoPreview } from "../../components/sources/VideoPreview.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
@@ -155,6 +156,7 @@ export function WritingCard({
                 quote={s.quote || undefined}
                 figure={isPictureAnchor(s.anchor)}
                 observed={observed(s.docId)}
+                preview={videoPreview(s)}
                 onOpen={openSource && (() => openSource(s))}
               />
             ))}

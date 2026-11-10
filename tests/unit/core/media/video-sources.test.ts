@@ -311,8 +311,9 @@ describe("a video heard again", () => {
     });
     expect(testMd()).toContain(`${V}#t:00:36 "${B}"`);
     expect(video().before).toBeUndefined();
-    const lost = check().findings.find((f) => f.kind === "quote-not-found");
+    const lost = check().findings.find((f) => f.kind === "source-missing");
     expect(lost?.message).toContain("the closest words there are « La fenêtre des propriétés montre");
+    expect(lost?.message).toContain("The video was heard or described again since this source was written.");
     expect((await call<{ report: unknown }>("media.report", { doc: V }, P)).report).toBeNull();
     await expect(call("media.applyReport", { doc: V, index: false }, P)).rejects.toThrow("No new transcription");
   });

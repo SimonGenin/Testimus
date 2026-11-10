@@ -229,7 +229,11 @@ export type DocJson = {
   // documents this one is about (an images document made from photos once attached to another): shown, given to
   // Claude with it, never an amendment
   relatesTo?: string[];
+  // never given to Claude: no run reads, searches or describes it (a video shows faces and carries voices and names);
+  // the team still reads, plays and cites it by hand
+  private?: boolean;
 };
+
 // ponytail: what a document is made of — a Word or PDF file (with its twin), a text file, or files of its own: one or
 // several images, a video, or images and videos together. No type: read from source.file's extension. `name` is
 // where the original came from (its path on this PC, the name of an upload, the first file of an images document)
@@ -289,6 +293,10 @@ export type TranscriptMade = {
   engine: string;
   spoken: string[];
   glossary: string;
+  /** the one sound track heard (absent: all of them, mixed) */
+  track?: number;
+  /** the second of the video the sound drawn starts at (absent: its start); a piece's from and to count from there */
+  from?: number;
 };
 export type VideoTrack = { language?: string; title?: string };
 // ponytail: docs/<id>/video/<n>.json — what the video pipeline found in video n, each part kept as it is done so a
@@ -298,6 +306,9 @@ export type VideoTrack = { language?: string; title?: string };
 // applied (media.report)
 export type VideoData = {
   duration: number;
+  /** a recording of sound alone: heard, cut into chapters and cited like a video, with no frame */
+  sound?: boolean;
+
   width?: number;
   height?: number;
   audio: boolean;
@@ -329,6 +340,8 @@ export type VideoData = {
   surveyed?: { at: string; model?: string };
   light?: { file: string; at: string; why: string };
   before?: { transcript: SpokenLine[]; with: string; at: string };
+  /** what Claude had written under the key frames before it described them again, until the report is applied */
+  seenBefore?: { at: string; frames: { at: number; text: string }[] };
 };
 // ponytail: docs/<id>/video/<n>.fixes.json — state, never derived: what a person corrected or confirmed. A fix owns
 // its range of time: whatever a later transcription hears there is dropped and the person's text stays (confirming is
@@ -760,6 +773,8 @@ export type VideoOptions = {
   glossary?: string[];
   density?: VideoDensity;
   translate?: boolean;
+  margin?: number;
+  diskCapGB?: number;
 };
 
 export type Context = { id: string; name: string; text: string; paths: string[]; files: string[] };

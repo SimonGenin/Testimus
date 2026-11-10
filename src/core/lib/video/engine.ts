@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import type { CatalogEntry, Fit, MachineProfile, PerfLine } from "../../types.ts";
-import { deviceFor } from "../fit/placement.ts";
-import { fitOf } from "../fit/verdict.ts";
+import { needOf } from "../fit/need.ts";
+import { deviceFor, gpuPool } from "../fit/placement.ts";
+import { fitOf, gb } from "../fit/verdict.ts";
 import { catalog } from "../models-catalog.ts";
 import { perfStats, readPerf } from "../models-perf.ts";
 import { budgets } from "../models-registry.ts";
@@ -56,6 +57,77 @@ export function speechSetup(
     threads: speechThreads(machine?.cpu.threads),
     engine: `whisper.cpp ${w.build} ${w.backend}`,
   };
+}
+
+export type SpeechRoom = { entry: CatalogEntry; gpu: boolean; note?: string } | { entry: null; note: string };
+
+// ponytail: the memory is looked at before a model is loaded, with what the fit of the search models goes by (what the
+// model took here, else the catalog's figure, held against what is free now). A model that does not fit on the card
+// but fits in memory is heard on the processor; one that fits nowhere gives way to the heaviest lighter model
+// installed that does; when nothing fits there is no transcript — said plainly, rather than an engine that dies
+// loading. A card whose free memory nobody can read is tried
+export function speechRoom(
+  wanted: CatalogEntry,
+  lighter: CatalogEntry[],
+  machine: MachineProfile,
+  o: { gpu: boolean; lines?: PerfLine[] },
+): SpeechRoom {
+  const pool = o.gpu ? gpuPool(machine) : null;
+  const card = pool && !pool.shared ? pool.freeMB : null;
+  const ram = machine.ramFreeMB;
+  const place = (e: CatalogEntry): "gpu" | "cpu" | null => {
+    const need = needOf(e, o.lines);
+    if (o.gpu && (card === null || need.vram <= card)) return "gpu";
+    return need.ram <= ram ? "cpu" : null;
+  };
+  const need = needOf(wanted, o.lines);
+  const onCard = card === null ? "" : `about ${gb(need.vram)} on the graphics card (${gb(card)} free there)`;
+  const first = place(wanted);
+  if (first === "gpu" || (first === "cpu" && !o.gpu)) return { entry: wanted, gpu: first === "gpu" };
+  if (first === "cpu")
+    return {
+      entry: wanted,
+      gpu: false,
+      note: `${wanted.label} needs ${onCard}: the video is heard on the processor, several times slower. Close what uses the card to hear the next one faster.`,
+    };
+  const short = `${wanted.label} needs ${onCard ? `${onCard} or ` : ""}about ${gb(need.ram)} of memory, and this PC has ${gb(ram)} free`;
+  for (const e of lighter) {
+    const at = place(e);
+    if (at)
+      return {
+        entry: e,
+        gpu: at === "gpu",
+        note: `${short}: the video is heard with ${e.label}, the lighter model. Close other programs and hear it again (testimus media retranscribe) for the better one.`,
+      };
+  }
+  return {
+    entry: null,
+    note: `${short}, so the video has no transcript. Close other programs, or install a lighter model in Settings › Models › Transcription, then convert the document again.`,
+  };
+}
+
+// ponytail: the setup a video is really heard with on this PC now — the one chosen, moved to the processor or to a
+// lighter installed model when the memory free at this moment asks for it (speechRoom); without a machine profile
+// nothing can be checked and the setup is tried as it is
+export function speechFit(
+  setup: SpeechSetup,
+  machine: MachineProfile | null,
+  lines: PerfLine[] = readPerf(),
+): { setup: SpeechSetup | null; note?: string } {
+  if (!machine) return { setup };
+  const ram = (e: CatalogEntry) => needOf(e, lines).ram;
+  const lighter = speechModels()
+    .filter((m) => m.path && ram(m.entry) < ram(setup.entry))
+    .sort((a, b) => ram(b.entry) - ram(a.entry));
+  const room = speechRoom(
+    setup.entry,
+    lighter.map((m) => m.entry),
+    machine,
+    { gpu: setup.gpu, lines },
+  );
+  if (!room.entry) return { setup: null, note: room.note };
+  const model = lighter.find((m) => m.entry.id === room.entry.id)?.path ?? setup.model;
+  return { setup: { ...setup, entry: room.entry, model, gpu: room.gpu }, ...(room.note ? { note: room.note } : {}) };
 }
 
 // ponytail: how many seconds of sound a model transcribes in a second on this PC — what its last runs here measured

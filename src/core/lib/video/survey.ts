@@ -9,6 +9,7 @@ import type { FigureEntry, MediaFile, SpokenLine, VideoData, VideoDensity, Video
 import { writeAtomic } from "../atomic.ts";
 import { docDir, readFigures, writeFigures } from "../docs.ts";
 import { frameAnchor, frameFigure } from "../media-md.ts";
+import { readJson } from "../project.ts";
 import {
   type Box,
   candidatesOf,
@@ -22,11 +23,12 @@ import {
   rankOf,
   sharpness,
 } from "./frames.ts";
-import { SCAN_FPS, videoIo } from "./io.ts";
+import { SCAN_FPS, shotFile, videoIo } from "./io.ts";
 
 const TILES = MOSAIC_SIDE * MOSAIC_SIDE;
 const PART_MOSAICS = 6;
-const PART_CROPS = 12;
+const LOOK_S = 600;
+const HEAVY = 625_000;
 const PLAN_TILES = TILES * 2;
 const MAX_PARTS = 12;
 const SLICE_S = 300;
@@ -69,9 +71,17 @@ export function strongest(cands: Cand[], most: number): Cand[] {
   return out.sort((a, b) => a.at - b.at);
 }
 
+type Looked = { key: string; slices: { from: number; changes: number[]; cuts: number[] }[] };
+
 // ponytail: the candidate frames of a video — a light pass says when the screen changes somewhere, the moments are
-// chosen (frames.ts), drawn in one reading of the video, and those showing the same screen as the one before are
-// dropped. A video filmed by hand never settles: there the sharpest of the frames around each moment is kept
+// chosen (frames.ts), drawn, and those showing the same screen as the one before are dropped. A video filmed by hand
+// never settles: there the sharpest of the frames around each moment is kept.
+// Both readings go by slices of ten minutes, like the speech, each kept as it is done: what a slice's pass found goes
+// in video/<n>/look.json (one small file rewritten whole — the moments alone, no picture — rather than a file a
+// slice: nothing to assemble, nothing left behind), and a frame drawn is its own file under frames/, named by its
+// rank. A look cut short goes on at the first slice not read and draws only the frames not there; the same video
+// looked through again later (a new survey) is not read twice for its changes. Another video under the same name, or
+// `force`, starts over. A video the card decodes is one of 5 Mbit/s or more (io.ts says why)
 export async function findCandidates(
   ctx: Ctx,
   project: string,
@@ -79,30 +89,49 @@ export async function findCandidates(
   f: MediaFile,
   v: VideoData,
   said: SpokenLine[],
+  o: { force?: boolean } = {},
 ): Promise<Pick<VideoData, "candidates" | "shaky">> {
   const root = docDir(project, docId);
   const src = join(root, f.file);
   const dir = join(root, "video", String(f.n), "frames");
+  const lookFile = join(root, "video", String(f.n), "look.json");
   const pct = (part: number) => (s: number) =>
     ctx.progress({
       message: `Looking through ${f.name}`,
       done: Math.min(100, Math.round(part * 50 + (v.duration ? (s / v.duration) * 50 : 0))),
       total: 100,
     });
-  const changes = await videoIo.changes(src, pct(0), ctx.signal);
+  const key = JSON.stringify([f.sha256, LOOK_S, SCAN_FPS]);
+  let looked = o.force ? null : readJson<Looked | null>(lookFile, null);
+  if (looked?.key !== key) {
+    rmSync(dir, { recursive: true, force: true });
+    looked = { key, slices: [] };
+  }
+  const slices = Array.from({ length: Math.max(1, Math.ceil(v.duration / LOOK_S)) }, (_, i) => ({
+    from: i * LOOK_S,
+    ...(v.duration ? { to: Math.min(v.duration, (i + 1) * LOOK_S) } : {}),
+  }));
+  const look = { hdr: !!v.hdr, card: v.duration > 0 && (v.bytes ?? 0) > HEAVY * v.duration };
+  for (const s of slices) {
+    if (looked.slices.some((x) => x.from === s.from)) continue;
+    looked.slices.push({ from: s.from, ...(await videoIo.changes(src, { ...look, ...s }, pct(0), ctx.signal)) });
+    writeAtomic(lookFile, JSON.stringify(looked));
+  }
+  const all = (pick: (s: Looked["slices"][number]) => number[]) => looked.slices.flatMap(pick).sort((a, b) => a - b);
+  const changes = all((s) => s.changes);
   const shaky = isShaky(changes, v.duration);
-  const cands = candidatesOf({ changes, duration: v.duration, said });
+  const cands = candidatesOf({ changes, cuts: all((s) => s.cuts), duration: v.duration, said });
   const why = new Map(cands.map((c) => [rankOf(c.at), c.why]));
   const last = Math.max(0, Math.floor(v.duration * SCAN_FPS) - 1);
   const around = (r: number) => (shaky ? [r - 1, r, r + 1] : [r]).filter((x) => x >= 0 && x <= last);
-  const shots = await videoIo.shots(
-    src,
-    dir,
-    cands.flatMap((c) => around(Math.min(last, rankOf(c.at)))),
-    { hdr: !!v.hdr },
-    pct(1),
-    ctx.signal,
-  );
+  const ranks = [...new Set(cands.flatMap((c) => around(Math.min(last, rankOf(c.at)))))].sort((a, b) => a - b);
+  for (const s of slices) {
+    const missing = ranks.filter(
+      (r) => r >= s.from * SCAN_FPS && (s.to === undefined || r < s.to * SCAN_FPS) && !existsSync(shotFile(dir, r)),
+    );
+    if (missing.length) await videoIo.shots(src, dir, missing, { ...look, ...s }, pct(1), ctx.signal);
+  }
+  const shots = ranks.map((r) => ({ at: r / SCAN_FPS, file: shotFile(dir, r) })).filter((s) => existsSync(s.file));
   let picked = shots;
   if (shaky) {
     const best = new Map<number, { shot: (typeof shots)[number]; sharp: number }>();
@@ -117,7 +146,9 @@ export async function findCandidates(
   }
   const kept = await distinct(picked);
   const keep = new Set(kept.map((k) => k.file));
-  for (const s of shots) if (!keep.has(s.file)) rmSync(s.file, { force: true });
+  if (existsSync(dir))
+    for (const name of readdirSync(dir))
+      if (!keep.has(join(dir, name))) rmSync(join(dir, name), { recursive: true, force: true });
   return {
     candidates: kept.map((c) => {
       const r = rankOf(c.at);
@@ -268,9 +299,12 @@ export async function chooseMoments(
     }
     try {
       const sheets = await mosaics(root, f.n, `mosaic-${i + 1}`, shown, tile);
+      // ponytail: every tile shown whose place changed has that place on disk at its real size, named by the tile's
+      // number (change-<tile>.jpg) so one line of the prompt can say where they all are; until the prompt says it
+      // that way, it lists the first twelve only — a line a crop would be 54 lines a run
       const crops: Crop[] = [];
       for (const [k, c] of shown.entries()) {
-        if (!c.box || crops.length >= PART_CROPS) continue;
+        if (!c.box) continue;
         const file = `video/${f.n}/change-${tile + k}.jpg`;
         if (await crop(join(root, c.file), c.box as Box, join(root, file))) crops.push({ n: tile + k, at: c.at, file });
       }

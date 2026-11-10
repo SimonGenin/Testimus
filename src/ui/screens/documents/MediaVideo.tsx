@@ -185,7 +185,9 @@ export function MediaVideo({
               label={`Video ${v.name}`}
               start={asked?.n === v.n && !cited ? asked.at : undefined}
               range={cited}
+              autoPlay={!!cited}
               duration={v.duration}
+              sound={v.sound}
               chapters={v.chapters}
               marks={v.keyFrames.map((k) => ({ at: k.at, label: `${clock(k.at)} ${k.why}`.trim() }))}
               subtitles={tracks}

@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Source } from "../../../../core/types.ts";
+import { videoPreview } from "../../../components/sources/VideoPreview.tsx";
 import { SourceChip } from "../../../components/ui/SourceChip.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { type ItemLink, sourceLabel } from "../../../lib/fields.ts";
@@ -40,6 +41,7 @@ export function ItemLinks({
               quote={s.quote || undefined}
               figure={isPictureAnchor(s.anchor)}
               observed={observed(s.docId)}
+              preview={videoPreview(s)}
               onOpen={onOpen && (() => onOpen(s))}
             />
           );

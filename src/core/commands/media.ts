@@ -1,6 +1,7 @@
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { refuseLeftOut } from "../claude/access.ts";
 import { readPictures } from "../claude/media.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { claudeVersion } from "../claude/status.ts";
@@ -13,6 +14,7 @@ import { frameAnchor, readFixes, readVideo, transcriptLines, writeMediaMd, write
 import { migrateMedia } from "../lib/media-migrate.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
+import { capMB, videosMB } from "../lib/video/disk.ts";
 import { normalizeFrame } from "../lib/video/frames.ts";
 import { videoIo } from "../lib/video/io.ts";
 import { frameContext, videoSummary } from "../lib/video/pipeline.ts";
@@ -20,8 +22,18 @@ import { drawKeyFrames, keyMoments, syncFrameEntries } from "../lib/video/survey
 import { secondsOf } from "../rag/anchors.ts";
 import type { MediaFile } from "../types.ts";
 import { applyChoices, doc, index, mediaDoc, momentIn, video, videoOf } from "./media-args.ts";
+import { commands as measure } from "./media-measure.ts";
 import { LINE, MEDIA_FILE, PICKED, REJECTED, SOURCE_TYPE, VIDEO_CHOICES, VIDEO_SUMMARY } from "./media-schemas.ts";
 import { commands as speech } from "./media-speech.ts";
+
+function noPicture(v: { sound?: boolean } | null, name: string): void {
+  if (v?.sound)
+    throw new UserError(
+      `${name} is a recording of sound alone: it has no frame.`,
+      "Cite what is said (t:mm:ss); media.transcript gives the lines.",
+      "no-picture",
+    );
+}
 
 const read = z
   .boolean()
@@ -113,7 +125,7 @@ export const commands = [
         if (!added.length) ctx.log("warn", `No file was added: ${rejected[0]?.why ?? "nothing given"}`);
         ctx.step?.("convert");
         const d = await convertMedia(ctx, project, input.doc, {
-          read: input.describeFigures ?? true,
+          read: !readDoc(project, input.doc).private && (input.describeFigures ?? true),
           run: runOf(input),
         });
         return afterConversion(ctx, project, d, runOf(input), {
@@ -157,6 +169,22 @@ export const commands = [
     },
   }),
   command({
+    name: "media.disk",
+    summary:
+      "The room the project's videos take on disk (originals, lighter copies, sound, frames) and the cap the team set for them, if any.",
+    input: z.object({}),
+    output: z.object({
+      usedMB: z.number().describe("Room the documents holding a video take today, MB"),
+      capMB: z.number().optional().describe("The cap (project.json video.diskCapGB), MB; absent = none"),
+    }),
+    mutates: false,
+    async run(ctx) {
+      const project = projectOf(ctx);
+      const cap = capMB(project);
+      return { usedMB: videosMB(project), ...(cap !== null ? { capMB: cap } : {}) };
+    },
+  }),
+  command({
     name: "media.show",
     summary:
       "Show an images or video document's files: each image with its anchor (img:<n>), picture and what Claude read in it; each video with its length, sound tracks, languages heard, chapters and key frames (frame:…, each with the description a source may quote). The transcript is media.transcript.",
@@ -181,6 +209,7 @@ export const commands = [
     positional: ["doc"],
     async run(ctx, input) {
       const project = projectOf(ctx);
+      refuseLeftOut(ctx.llm, input.doc, project);
       const d = mediaDoc(project, input.doc);
       const figures = new Map(readFigures(project, d.id).map((f) => [f.anchor, f]));
       return {
@@ -225,6 +254,7 @@ export const commands = [
     positional: ["doc"],
     async run(ctx, input) {
       const project = projectOf(ctx);
+      refuseLeftOut(ctx.llm, input.doc, project);
       const f = videoOf(project, input.doc, input.video);
       const v = readVideo(project, input.doc, f.n);
       const at = (s?: string) => (s === undefined ? undefined : (secondsOf(s) ?? undefined));
@@ -261,8 +291,10 @@ export const commands = [
     positional: ["doc", "at"],
     async run(ctx, input) {
       const project = projectOf(ctx);
+      refuseLeftOut(ctx.llm, input.doc, project);
       const f = videoOf(project, input.doc, input.video);
       const v = readVideo(project, input.doc, f.n);
+      noPicture(v, f.name);
       const secs = momentIn(input.at, v?.duration ?? f.duration ?? 0, f.name);
       const key = v?.keyFrames.find((k) => Math.floor(k.at) === Math.floor(secs) && k.figure);
       if (key?.figure && existsSync(join(docDir(project, input.doc), key.figure)))
@@ -323,6 +355,8 @@ export const commands = [
           `${f.name} was not read yet.`,
           `Convert the document first: testimus docs convert ${input.doc}.`,
         );
+      refuseLeftOut(ctx.llm, input.doc, project);
+      noPicture(v, f.name);
       const at = momentIn(input.at, v.duration, f.name);
       const anchor = frameAnchor(f.n, at);
       const had = v.keyFrames.find((k) => Math.floor(k.at) === Math.floor(at) && k.figure);
@@ -386,6 +420,7 @@ export const commands = [
     },
   }),
   ...speech,
+  ...measure,
   command({
     name: "media.migrate",
     summary:

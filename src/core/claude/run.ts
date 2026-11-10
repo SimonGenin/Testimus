@@ -6,6 +6,7 @@ import { resolveExe } from "../../shared/run/process.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { withProcess } from "../jobs.ts";
+import { privateDocs } from "../lib/docs.ts";
 import { perfScope, recordPerf } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { shipSkills } from "../lib/shipped.ts";
@@ -185,7 +186,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
   const model = checkModel(o.model);
   const effort = checkEffort(o.effort);
   const addDirs = contextDirs(project, o.given?.contexts ?? []);
-  const without = o.given?.withoutDocs ?? [];
+  const without = [...new Set([...(o.given?.withoutDocs ?? []), ...privateDocs(project)])];
   const inside = (d: string) => `${d.toLowerCase()}${sep}`.startsWith(`${project.toLowerCase()}${sep}`);
   const external = addDirs.filter((d) => !inside(d));
   const mcp = mcpAccess(o.kind);

@@ -17,10 +17,12 @@ import {
   writeContext,
   writeDoc,
 } from "../lib/docs.ts";
-import { isMediaDoc } from "../lib/media.ts";
+import { filesOf, isMediaDoc } from "../lib/media.ts";
 import { writeMediaMd } from "../lib/media-md.ts";
 import { docName } from "../lib/names.ts";
 import { overviewAfterImport } from "../lib/overview-after.ts";
+import { fixedFrames, frameContext } from "../lib/video/pipeline.ts";
+import { reportSeen } from "../lib/video/report.ts";
 import { chunksOf, withIndex } from "../rag/db.ts";
 import { unindexDoc } from "../rag/indexer.ts";
 import type { DocJson } from "../types.ts";
@@ -64,6 +66,12 @@ export const commands = [
         .array(z.string())
         .optional()
         .describe("Ids of the documents this one is about; empty list clears it"),
+      private: z
+        .boolean()
+        .optional()
+        .describe(
+          "True: never give this document to Claude — no run reads, searches, describes or cites it (a video shows faces and carries voices and names); the team still reads and cites it by hand. False gives it back",
+        ),
     }),
     output: docJson.extend({ contextMtime: mtime }),
     mutates: true,
@@ -108,6 +116,8 @@ export const commands = [
         );
       if (input.reference) doc.reference = true;
       else if (input.reference === false) delete doc.reference;
+      if (input.private) doc.private = true;
+      else if (input.private === false) delete doc.private;
       writeDoc(project, doc);
       if (isMediaDoc(doc) && input.title !== undefined && doc.converted) writeMediaMd(project, input.id);
       if (flipped)
@@ -217,7 +227,21 @@ export const commands = [
           docs.push(await describeFigures(project, id, ctx, run));
           continue;
         }
-        const r = await readPictures(project, id, ctx, run);
+        // ponytail: the same reading as a conversion's — a frame a person described is left alone, doc.md is
+        // written again (a description is quotable there), and a test quoting what was written before is told
+        const r = await readPictures(project, id, ctx, {
+          ...run,
+          context: frameContext(project, id),
+          kept: fixedFrames(project, id),
+        });
+        writeMediaMd(project, id);
+        reportSeen(
+          project,
+          id,
+          filesOf(readDoc(project, id))
+            .filter((x) => x.kind === "video")
+            .map((x) => x.n),
+        );
         const pictures = readFigures(project, id).filter((f) => f.file);
         docs.push({
           docId: id,

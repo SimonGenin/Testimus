@@ -111,6 +111,72 @@ describe("a source in a video", () => {
     render(<PassageDialog frame="tab" source={{ docId: "FILM", anchor: "t:02:40", quote: "" }} onClose={() => {}} />);
     await screen.findByRole("list", { name: "What is said" });
     expect(await screen.findByText(/cited 02:36 → 02:47/)).toBeInTheDocument();
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  });
+
+  it("a range plays in its loop as soon as its source is opened, and the next range opened plays too", async () => {
+    const { rerender } = render(
+      <PassageDialog frame="tab" source={{ docId: "FILM", anchor: "t:02:36..02:52", quote: "" }} onClose={() => {}} />,
+    );
+    await screen.findByRole("list", { name: "What is said" });
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(HTMLMediaElement.prototype.play).mock.contexts[0]).toBe(player());
+    expect(screen.getByRole("button", { name: "Loop" })).toHaveAttribute("aria-pressed", "true");
+    rerender(
+      <PassageDialog frame="tab" source={{ docId: "FILM", anchor: "v:00:40..00:50", quote: "" }} onClose={() => {}} />,
+    );
+    expect(await screen.findByText(/cited 00:40 → 00:50/)).toBeInTheDocument();
+    expect(player().currentTime).toBe(36);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("a play the browser refuses leaves the source open and paused, with nothing said about it", async () => {
+    vi.mocked(HTMLMediaElement.prototype.play).mockImplementation(() =>
+      Promise.reject(new DOMException("play() needs a gesture", "NotAllowedError")),
+    );
+    render(
+      <PassageDialog frame="tab" source={{ docId: "FILM", anchor: "t:02:36..02:52", quote: "" }} onClose={() => {}} />,
+    );
+    await screen.findByRole("list", { name: "What is said" });
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/could not/i)).toBeNull();
+  });
+
+  it("plays the project's margin around the range (project.json video.margin), 4 s when it has none", async () => {
+    net.routes["project.info"] = () => ({ dir: "P", project: { name: "P", video: { margin: 10 } }, xray: {} });
+    render(
+      <PassageDialog frame="tab" source={{ docId: "FILM", anchor: "t:02:36..02:52", quote: "" }} onClose={() => {}} />,
+    );
+    await screen.findByRole("list", { name: "What is said" });
+    expect(player().getAttribute("src")).toMatch(/#t=146$/);
+    expect(screen.getByText("margin 10 s")).toBeInTheDocument();
+    expect(screen.getByText("Loop · 02:26 – 03:02")).toBeInTheDocument();
+    cleanup();
+    net.routes["project.info"] = () => ({ dir: "P", project: { name: "P" }, xray: {} });
+    render(
+      <PassageDialog frame="tab" source={{ docId: "FILM", anchor: "t:02:36..02:52", quote: "" }} onClose={() => {}} />,
+    );
+    await screen.findByRole("list", { name: "What is said" });
+    expect(player().getAttribute("src")).toMatch(/#t=152$/);
+    expect(screen.getByText("margin 4 s")).toBeInTheDocument();
+  });
+
+  it("a recording of sound alone is played without a picture", async () => {
+    const show = net.routes["media.show"];
+    net.routes["media.show"] = (input) => {
+      const shown = show(input) as { videos: Record<string, unknown>[] };
+      return { ...shown, videos: shown.videos.map((v) => ({ ...v, sound: true, keyFrames: [] })) };
+    };
+    render(
+      <PassageDialog frame="tab" source={{ docId: "FILM", anchor: "t:02:36..02:52", quote: "" }} onClose={() => {}} />,
+    );
+    await screen.findByRole("list", { name: "What is said" });
+    expect(screen.getByText("Sound only")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Loop" })).toHaveAttribute("aria-pressed", "true");
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
   });
 
   it("what is seen shows the key frames of the range with what each shows", async () => {

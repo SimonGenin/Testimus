@@ -101,7 +101,9 @@ describe("a video added as a document", () => {
     expect(runs[1].stdin).toContain(
       `- docs/${id}/video/1/mosaic-1-1.jpg — tiles 1 00:00, 2 00:20, 3 00:40, 4 01:00, 5 01:20, 6 01:40, 7 02:00, 8 02:20`,
     );
-    expect(runs[1].stdin).toContain(`- tile 2 00:20 — docs/${id}/video/1/change-2.jpg`);
+    expect(runs[1].stdin).toContain(
+      `Changes, at real size — the change of tile n is docs/${id}/video/1/change-<n>.jpg, for tiles 2, 3, 4, 5, 6, 7, 8.`,
+    );
     expect(runs[1].stdin).toContain("[00:02] Bonjour, on ouvre le poste de commande");
     expect(runs[1].stdin).toContain("[01:32] So, dann bitte den Trennschalter S12 wieder schließen.");
     expect(runs[1].stdin).toContain('```chapters\n[{"at": "00:00", "title": "…"}]\n```\n```video\n{"moments": [');
@@ -130,7 +132,7 @@ describe("a video added as a document", () => {
     expect(text).not.toContain("Ouverture du poste et connexion");
     expect(doc(id).converted?.warnings).toEqual([]);
     const left = readdirSync(join(dir(id), "video", "1")).sort();
-    expect(left).toEqual(["chapters.vtt", "said.vtt", "sound.json", "transcript", "translated.vtt"]);
+    expect(left).toEqual(["chapters.vtt", "look.json", "said.vtt", "sound.json", "transcript", "translated.vtt"]);
     expect(readFileSync(join(dir(id), "video", "1", "said.vtt"), "utf8")).toContain(
       "00:01:32.000 --> 00:01:42.000\nSo, dann bitte den Trennschalter S12 wieder schließen.",
     );

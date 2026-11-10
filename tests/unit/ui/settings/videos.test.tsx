@@ -4,9 +4,16 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Glossary } from "../../../../src/ui/screens/settings/GlossaryCard.tsx";
 import { ProjectSection } from "../../../../src/ui/screens/settings/ProjectSection.tsx";
-import { calls, Fail, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
+import { calls, Fail, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
 
-type Video = { spoken?: string[]; glossary?: string[] | null; density?: string; translate?: boolean };
+type Video = {
+  spoken?: string[];
+  glossary?: string[] | null;
+  density?: string;
+  translate?: boolean;
+  margin?: number;
+  diskCapGB?: number;
+};
 
 let project = info();
 let glossary: Glossary;
@@ -130,6 +137,57 @@ describe("Settings › Project › Videos", () => {
     fireEvent.click(within(density).getByRole("radio", { name: "Sober" }));
     await waitFor(() => expect(sent()).toEqual([{ density: "sober" }]));
     await waitFor(() => expect(within(density).getByRole("radio", { name: "Sober" })).toBeChecked());
+  });
+
+  it("a cited range is played with 4 seconds around it until typed otherwise; saved when the field is left, refused out of 0 to 30", async () => {
+    mountSettings(<ProjectSection />);
+    const v = await videos();
+    const margin = within(v).getByRole("textbox", { name: label("Seconds played around a cited range") });
+    expect(margin).toHaveValue("4");
+    expect(within(v).getByText(/this long before and after what it cites/)).toBeInTheDocument();
+    fireEvent.change(margin, { target: { value: "45" } });
+    expect(await within(v).findByText("A number from 0 to 30")).toBeInTheDocument();
+    fireEvent.blur(margin);
+    fireEvent.change(margin, { target: { value: "6" } });
+    expect(calls("project.set")).toHaveLength(0);
+    fireEvent.keyDown(margin, { key: "Enter" });
+    fireEvent.blur(margin);
+    await waitFor(() => expect(sent()).toEqual([{ margin: 6 }]));
+    await waitFor(() => expect(within(v).queryByText("A number from 0 to 30")).toBeNull());
+    fireEvent.change(margin, { target: { value: "" } });
+    fireEvent.blur(margin);
+    await waitFor(() => expect(sent()[1]).toEqual({ margin: 4 }));
+  });
+
+  it("the room for the videos has no cap until one is typed, in GB; emptied, the cap goes", async () => {
+    const first = mountSettings(<ProjectSection />);
+    const cap = () =>
+      within(screen.getByRole("region", { name: "Videos" })).getByRole("textbox", {
+        name: label("Room for the videos (GB)"),
+      });
+    await videos();
+    expect(cap()).toHaveValue("");
+    expect(cap()).toHaveAttribute("placeholder", "No cap");
+    expect(screen.getByText(/A video that would pass it is refused when added; empty: no cap\./)).toBeInTheDocument();
+    fireEvent.change(cap(), { target: { value: "minus" } });
+    expect(await screen.findByText("A number, 0 or more")).toBeInTheDocument();
+    fireEvent.change(cap(), { target: { value: "2,5" } });
+    fireEvent.blur(cap());
+    await waitFor(() => expect(sent()).toEqual([{ diskCapGB: 2.5 }]));
+    first.unmount();
+
+    project = info({ video: { diskCapGB: 20, margin: 0 } });
+    mountSettings(<ProjectSection />);
+    await videos();
+    expect(cap()).toHaveValue("20");
+    expect(
+      within(screen.getByRole("region", { name: "Videos" })).getByRole("textbox", {
+        name: label("Seconds played around a cited range"),
+      }),
+    ).toHaveValue("0");
+    fireEvent.change(cap(), { target: { value: "" } });
+    fireEvent.blur(cap());
+    await waitFor(() => expect(sent()[1]).toEqual({ diskCapGB: 0 }));
   });
 
   it("says these hold for the videos heard from now on", async () => {

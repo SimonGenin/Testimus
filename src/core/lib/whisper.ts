@@ -5,6 +5,7 @@ import { extractZip, llamaIo, sha256File } from "../rag/runtimes/llamacpp.ts";
 import type { MachineProfile, WhisperBackend, WhisperRuntime } from "../types.ts";
 import { writeAtomic } from "./atomic.ts";
 import { nvidiaReady, WHISPER_CUDA_DRIVER } from "./fit/placement.ts";
+import { fromChannel, type Pinned } from "./models-channel.ts";
 import { freeMB, hfUrl } from "./models-download.ts";
 import { readRegistry, runtimesDir, updateRegistry } from "./models-registry.ts";
 import { readJson } from "./project.ts";
@@ -105,10 +106,10 @@ export function whisperOrFail(): WhisperRuntime {
   return w;
 }
 
-async function fetched(
+export async function fetched(
   url: string,
   file: string,
-  want: { sha256: string; size: number; name: string },
+  want: Pinned,
   onBytes: (loaded: number, total: number) => void,
   signal: AbortSignal,
 ): Promise<void> {
@@ -118,6 +119,7 @@ async function fetched(
   }
   const part = `${file}.part`;
   rmSync(part, { force: true });
+  if (await fromChannel(file, want, onBytes, signal)) return;
   try {
     await llamaIo.download(url, part, (l, t) => onBytes(l, t || want.size), signal);
   } catch (e) {
@@ -134,6 +136,42 @@ async function fetched(
     );
   }
   renameSync(part, file);
+}
+
+// ponytail: the publishing side of that copy — `npm run publish` makes sure the channel holds each pinned file
+// (downloaded once, held against its SHA-256); a file already there with the right size is left alone, and a network
+// that refuses leaves the release published without them
+export async function keepOnChannel(
+  channel: string,
+  say: (line: string) => void,
+  signal: AbortSignal,
+): Promise<string[]> {
+  const dir = join(channel, "runtimes");
+  mkdirSync(dir, { recursive: true });
+  const pinned: { url: string; want: Pinned }[] = [
+    ...Object.values(WHISPER_ASSETS).map((want) => ({ url: RELEASE_URL + want.name, want })),
+    { url: hfUrl(VAD_MODEL.repo, VAD_MODEL.revision, VAD_MODEL.name), want: VAD_MODEL },
+  ];
+  const kept: string[] = [];
+  for (const { url, want } of pinned) {
+    const file = join(dir, want.name);
+    if (existsSync(file) && statSync(file).size === want.size) {
+      kept.push(want.name);
+      continue;
+    }
+    const part = `${file}.part`;
+    try {
+      say(`keeping ${want.name} on the channel (${Math.round(want.size / MB)} MB)`);
+      await llamaIo.download(url, part, () => {}, signal);
+      if ((await sha256File(part)) !== want.sha256) throw new Error("does not match its pinned SHA-256");
+      renameSync(part, file);
+      kept.push(want.name);
+    } catch (e) {
+      rmSync(part, { force: true });
+      say(`${want.name} was not kept on the channel: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return kept;
 }
 
 export async function pullWhisperBuild(

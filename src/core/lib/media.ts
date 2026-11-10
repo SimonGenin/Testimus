@@ -1,22 +1,30 @@
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { UserError } from "../command.ts";
 import type { DocJson, DocKind, FigureEntry, MediaFile, SourceType } from "../types.ts";
 import { copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { docDir, readDoc, readFigures, writeDoc, writeFigures } from "./docs.ts";
 import { sha256 } from "./hash.ts";
+import { overCap, shortOfRoom } from "./video/disk.ts";
 
 export const IMAGE = /\.(jpe?g|png|webp)$/i;
-export const VIDEO = /\.(mp4|mov|m4v|mkv|webm|avi|wmv)$/i;
+// ponytail: a recording of sound alone (a voice memo, a meeting) is a video without its picture — the same document,
+// the same chain: heard, cut into chapters, cited to the second; it has no frame to look at
+export const SOUND = /\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i;
+export const VIDEO = /\.(mp4|mov|m4v|mkv|webm|avi|wmv|mp3|m4a|aac|wav|ogg|opus|flac)$/i;
 export const TEXT = /\.(txt|md)$/i;
-// ponytail: what a later version reads (HEIC needs a decoder sharp does not ship, sound alone has no picture): refused
-// with that reason, never as « not a document »
-export const LATER = /\.(heic|heif|mp3|m4a|wav)$/i;
+// ponytail: what a later version reads (HEIC needs a decoder sharp does not ship): refused with that reason, never as
+// « not a document »
+export const LATER = /\.(heic|heif)$/i;
 const MAX_SIDE = 2000;
 
 export type Picked = { path?: string; name?: string; dataBase64?: string };
-export type Rejected = { name: string; why: string; code: "not-media" | "later" | "duplicate" | "failed" };
+export type Rejected = {
+  name: string;
+  why: string;
+  code: "not-media" | "later" | "duplicate" | "failed" | "disk-cap";
+};
 
 export const nameOf = (p: Picked) => basename((p.name || p.path || "").replace(/\\/g, "/"));
 export const isImage = (name: string) => IMAGE.test(name);
@@ -93,15 +101,16 @@ function sha256Of(path: string): string {
   return h.digest("hex");
 }
 
-function bytesOf(f: Picked, name: string): { hash: string; write: (to: string) => void } {
+function bytesOf(f: Picked, name: string): { hash: string; size: number; write: (to: string) => void } {
   if (f.dataBase64 !== undefined) {
     const data = Buffer.from(f.dataBase64, "base64");
-    return { hash: sha256(data), write: (to) => writeAtomic(to, data) };
+    return { hash: sha256(data), size: data.length, write: (to) => writeAtomic(to, data) };
   }
   const path = f.path;
   if (!path || !existsSync(path)) throw new Error(`File not found: ${path ?? name}`);
   return {
     hash: sha256Of(path),
+    size: statSync(path).size,
     write: (to) => copyFileAtomic(path, to),
   };
 }
@@ -121,12 +130,17 @@ export function copyMediaFiles(project: string, docId: string, picked: Picked[])
   for (const p of picked) {
     const name = nameOf(p);
     if (LATER.test(name)) {
-      rejected.push({ name, why: "HEIC photos and sound files come in a later version.", code: "later" });
+      rejected.push({ name, why: "HEIC photos come in a later version: export them as JPEG.", code: "later" });
       continue;
     }
     const kind = isImage(name) ? "image" : isVideo(name) ? "video" : null;
     if (!kind) {
-      rejected.push({ name, why: "Only images (JPEG, PNG, WebP) and videos can be added here.", code: "not-media" });
+      rejected.push({
+        name,
+        why: "Only images (JPEG, PNG, WebP), videos and sound recordings can be added here.",
+        code: "not-media",
+      });
+
       continue;
     }
     let data: ReturnType<typeof bytesOf>;
@@ -139,6 +153,24 @@ export function copyMediaFiles(project: string, docId: string, picked: Picked[])
     const hash = data.hash;
     if (hashes.has(hash)) {
       rejected.push({ name, why: "This file is already in the document.", code: "duplicate" });
+      continue;
+    }
+    const short = kind === "video" ? shortOfRoom(project, data.size) : null;
+    if (short) {
+      rejected.push({
+        name,
+        why: `Not enough room on the project's drive: ${name} needs about ${short.needMB} MB (the copy, its sound and its frames) and ${short.freeMB} MB are free.`,
+        code: "failed",
+      });
+      continue;
+    }
+    const over = kind === "video" ? overCap(project, data.size) : null;
+    if (over) {
+      rejected.push({
+        name,
+        why: `The project's videos take ${over.usedMB} MB of the ${over.capMB} MB the team allows them: this one does not fit. Raise the cap in Settings › Project › Videos (testimus project set --video.disk-cap-gb=<n>), or remove a video.`,
+        code: "disk-cap",
+      });
       continue;
     }
     hashes.add(hash);

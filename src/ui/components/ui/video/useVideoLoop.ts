@@ -18,16 +18,18 @@ type Options = {
   duration: number | undefined;
   onTime: ((seconds: number) => void) | undefined;
   onRange: ((range: VideoRange) => void) | undefined;
+  autoPlay: boolean;
 };
 
 // ponytail: the player's state, read from the <video> element's own events — where it is, how long it is, whether it
 // plays — and the loop: the cited range (the prop, until a bound is dragged), another range asked from outside (a
 // transcript line to listen to), on or off. The loop is checked on every frame shown (requestVideoFrameCallback), since
 // timeupdate comes four times a second and would overrun the end by a quarter of a second; timeupdate checks it where
-// the browser has no frame callback
+// the browser has no frame callback (and for a recording of sound alone, which shows no frame). With autoPlay another
+// range cited plays at once; a play the browser refuses (no gesture yet) is left paused, without a word
 export function useVideoLoop(
   el: RefObject<HTMLVideoElement | null>,
-  { opens, range, margin, duration, onTime, onRange }: Options,
+  { opens, range, margin, duration, onTime, onRange, autoPlay }: Options,
 ) {
   const [time, setTime] = useState(opens);
   const [own, setOwn] = useState(0);
@@ -94,8 +96,10 @@ export function useVideoLoop(
     seen.current = key;
     if (same(range, cited)) return;
     setCited(range);
-    if (range) start(range, undefined);
-    else {
+    if (range) {
+      start(range, undefined);
+      if (autoPlay) play();
+    } else {
       setOther(undefined);
       turn(false);
     }

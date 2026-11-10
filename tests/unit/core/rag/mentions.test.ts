@@ -230,7 +230,7 @@ describe("rag.mentions — less common inputs", () => {
           "| EXI_B_2, EXI_A_1 | 1 | Le pantographe S1 monte |",
         ].join("\n"),
       );
-      expect(mentions(dir, { term: "S1" }).forms).toEqual(["S1"]);
+      expect(mentions(dir, { term: "S1" }).forms).toEqual(["S1", "S 1"]);
       const refs = mentions(dir, { term: "pantographe" }).docs[0].sections.map((s) => s.ref);
       expect(refs.filter((r) => r.includes("@matrix"))).toEqual([...refs.filter((r) => r.includes("@matrix"))].sort());
     });

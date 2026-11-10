@@ -52,7 +52,7 @@ export const section: KitSection = {
     },
     {
       head: "Options",
-      text: '`range` is what a source cites: played in a loop with `margin` seconds around it (4; shorter at the video\'s two ends), from its start, never by itself on arrival · `onRange` makes its two bounds handles (drag, or ← → a second at a time), told when one is let go · `duration` draws the timeline before the file says its length · `chapters` and `marks` are ticks and dots, their words as tooltips · `subtitles` are WebVTT tracks: one is on or off, two go off → first → second · `start` opens at a moment (a source `t:04:30`) · `poster` before it plays · `onTime` follows the playhead (the transcript marks the line said) · `ref`: `seek(seconds)`, `play()`, `pause()`, `loop(range)` — a transcript line to listen to · `onUnplayable` when the browser cannot read the file · `size="sm"` in a side tab: Loop, Back to the excerpt and Subtitles as icons alone.',
+      text: "`range` is what a source cites: played in a loop with `margin` seconds around it (4, or the project's `video.margin`; shorter at the video's two ends), from its start; it waits for Play unless `autoPlay`, which a source just opened gives — the click on its chip is the gesture, and a browser that refuses leaves it paused · `sound` is a recording of sound alone: a short band « Sound only » instead of the picture, no subtitles, no full screen, the same timeline, loop and keys · `onRange` makes its two bounds handles (drag, or ← → a second at a time), told when one is let go · `duration` draws the timeline before the file says its length · `chapters` and `marks` are ticks and dots, their words as tooltips · `subtitles` are WebVTT tracks: one is on or off, two go off → first → second · `start` opens at a moment (a source `t:04:30`) · `poster` before it plays · `onTime` follows the playhead (the transcript marks the line said) · `ref`: `seek(seconds)`, `play()`, `pause()`, `loop(range)` — a transcript line to listen to · `onUnplayable` when the browser cannot read the file · `size=\"sm\"` in a side tab: Loop, Back to the excerpt and Subtitles as icons alone.",
     },
     {
       head: "Keys",
@@ -90,6 +90,18 @@ export const section: KitSection = {
       </Cell>
       <Cell label='size="sm" with onRange: the bounds are handles, two subtitle tracks' column>
         <Adjusted />
+      </Cell>
+      <Cell label="sound: a recording of sound alone, a cited range with a margin of 2 s" column>
+        <Video
+          sound
+          size="sm"
+          src={fileUrl(SAMPLE)}
+          label="Recording manoeuvre.mp4, sound alone"
+          duration={LENGTH}
+          range={CITED}
+          margin={2}
+          chapters={CHAPTERS}
+        />
       </Cell>
     </States>
   ),

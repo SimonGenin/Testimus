@@ -464,7 +464,7 @@ describe("Documents screen", () => {
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
     expect(input).toHaveAttribute(
       "accept",
-      ".docx,.pdf,.txt,.md,.jpg,.jpeg,.png,.webp,.mp4,.mov,.m4v,.mkv,.webm,.avi,.wmv",
+      ".docx,.pdf,.txt,.md,.jpg,.jpeg,.png,.webp,.mp4,.mov,.m4v,.mkv,.webm,.avi,.wmv,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac",
     );
     expect(input).toHaveAttribute("multiple");
     fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
@@ -618,7 +618,7 @@ describe("Documents screen on the desktop", () => {
       title: "Add documents",
       filters: [
         {
-          name: "Documents, images and videos",
+          name: "Documents, images, videos and sound",
           extensions: [
             "docx",
             "pdf",
@@ -635,11 +635,36 @@ describe("Documents screen on the desktop", () => {
             "webm",
             "avi",
             "wmv",
+            "mp3",
+            "m4a",
+            "aac",
+            "wav",
+            "ogg",
+            "opus",
+            "flac",
           ],
         },
         { name: "Word, PDF or text", extensions: ["docx", "pdf", "txt", "md"] },
         { name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] },
-        { name: "Videos", extensions: ["mp4", "mov", "m4v", "mkv", "webm", "avi", "wmv"] },
+        {
+          name: "Videos and sound",
+          extensions: [
+            "mp4",
+            "mov",
+            "m4v",
+            "mkv",
+            "webm",
+            "avi",
+            "wmv",
+            "mp3",
+            "m4a",
+            "aac",
+            "wav",
+            "ogg",
+            "opus",
+            "flac",
+          ],
+        },
       ],
       multiple: true,
     });

@@ -7,12 +7,15 @@ export type VideoShown = MediaShown["videos"][number];
 
 export const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
 export const VIDEO_EXTENSIONS = ["mp4", "mov", "m4v", "mkv", "webm", "avi", "wmv"];
+// ponytail: a recording of sound alone is a video document without a picture — heard and cited the same way
+export const SOUND_EXTENSIONS = ["mp3", "m4a", "aac", "wav", "ogg", "opus", "flac"];
 export const DOC_EXTENSIONS = ["docx", "pdf", "txt", "md"];
 const ext = (list: string[]) => list.map((e) => `.${e}`).join(",");
-export const MEDIA_ACCEPT = ext([...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS]);
-export const DOC_ACCEPT = ext([...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS]);
+export const MEDIA_ACCEPT = ext([...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS]);
+export const DOC_ACCEPT = ext([...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS]);
 export const isImage = (name: string) => /\.(jpe?g|png|webp)$/i.test(name);
-export const isVideo = (name: string) => /\.(mp4|mov|m4v|mkv|webm|avi|wmv)$/i.test(name);
+export const isSound = (name: string) => /\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i.test(name);
+export const isVideo = (name: string) => /\.(mp4|mov|m4v|mkv|webm|avi|wmv)$/i.test(name) || isSound(name);
 
 // ponytail: a document as the core describes it — docs.list and docs.show say its type and whether it is observed
 export type Described = DocJson & { type: SourceType; observed: boolean };
@@ -58,8 +61,8 @@ export function momentAnchor(kind: "t" | "v", n: number, at: number, to?: number
 
 export const isPictureAnchor = (anchor: string) => /^(fig|img|frame):/.test(anchor.trim());
 
-// ponytail: what a document is, in the words of the list — Word · PDF · Text · Images · 46 · Video · 12:40; images
-// and videos together say both
+// ponytail: what a document is, in the words of the list — Word · PDF · Text · Images · 46 · Video · 12:40 (Sound ·
+// 12:40 for a recording of sound alone); images and videos together say both
 export function typeLabel(doc: Pick<Described, "source" | "type">): string {
   const t = doc.type;
   const files = doc.source.files ?? [];
@@ -68,7 +71,10 @@ export function typeLabel(doc: Pick<Described, "source" | "type">): string {
   if (t === "pdf") return "PDF";
   if (t === "txt") return "Text";
   if (t === "images") return `Images · ${images}`;
-  if (t === "video") return videos[0]?.duration ? `Video · ${clock(videos[0].duration)}` : "Video";
+  if (t === "video") {
+    const word = videos.length > 0 && videos.every((v) => isSound(v.name)) ? "Sound" : "Video";
+    return videos[0]?.duration ? `${word} · ${clock(videos[0].duration)}` : word;
+  }
   if (t === "mixed") return `Images · ${images} · ${videos.length === 1 ? "Video" : `${videos.length} videos`}`;
   return "Word";
 }

@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Source, StepVerdict as Verdict } from "../../../core/types.ts";
+import { videoPreview } from "../../components/sources/VideoPreview.tsx";
 import { Badge, STEP_VERDICT } from "../../components/ui/Badge.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -76,6 +77,7 @@ export function StepVerdict({
                 reference={sourceLabel(source)}
                 figure={isPictureAnchor(source.anchor)}
                 observed={observed(source.docId)}
+                preview={videoPreview(source)}
                 pressed={selected === chipMark(step, source)}
                 onOpen={onOpen && (() => onOpen(source))}
               />

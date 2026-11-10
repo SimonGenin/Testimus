@@ -691,6 +691,10 @@ if (import.meta.main) {
     if (!folder) return;
     const channel = uncPath(args.channel || folder);
     process.stdout.write(`published to ${publishRelease(out, folder, channel)}; installs look in ${channel}\n`);
+    // ponytail: the transcription engine's pinned files are kept on the channel beside the releases, so a PC that
+    // cannot reach GitHub one day still installs them (src/core/lib/whisper.ts)
+    const { keepOnChannel } = await import("../src/core/lib/whisper.ts");
+    await keepOnChannel(channel, (line) => process.stdout.write(`${line}\n`), new AbortController().signal);
   })().catch((e) => {
     process.stderr.write(`release failed: ${e instanceof Error ? e.message : String(e)}\n`);
     process.exitCode = 1;

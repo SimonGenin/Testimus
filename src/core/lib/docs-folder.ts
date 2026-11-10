@@ -43,8 +43,8 @@ export const FOLDER_MAX_FILES = 2000;
 
 const SYSTEM = /^(thumbs\.db|ehthumbs\.db|desktop\.ini|\.ds_store)$/i;
 const TEMP = /\.(tmp|temp|bak|crdownload|part)$/i;
-const LATER =
-  /\.(docm|dotx?|xlsx?|xlsm|pptx?|rtf|odt|ods|odp|csv|html?|msg|eml|vsdx?|gif|bmp|tiff?|heic|mp3|wav|m4a)$/i;
+const LATER = /\.(docm|dotx?|xlsx?|xlsm|pptx?|rtf|odt|ods|odp|csv|html?|msg|eml|vsdx?|gif|bmp|tiff?|heic)$/i;
+
 const DOCUMENT = /\.(docx|pdf|txt|md)$/i;
 
 const keyOf = (p: string) => join(dirname(p), basename(p, extname(p)).toLowerCase());

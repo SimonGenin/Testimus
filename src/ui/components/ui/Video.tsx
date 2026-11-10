@@ -50,6 +50,21 @@ const styles = stylex.create({
     pointerEvents: "none",
   },
   line: { display: "flex", flexDirection: "column", gap: space.snug },
+  band: {
+    boxSizing: "border-box",
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: space.s4,
+    rowGap: space.s1,
+    paddingBlock: space.s3,
+    paddingInline: space.s4,
+    borderRadius: radius.r3,
+    backgroundColor: color.surfaceSunken,
+    color: color.textMuted,
+  },
+  unseen: { display: "none" },
+  loopingBand: { display: "inline-flex", alignItems: "center", gap: space.snug, marginInlineStart: "auto" },
 });
 
 export type VideoRange = { from: number; to: number };
@@ -85,6 +100,12 @@ export type VideoProps = {
   range?: VideoRange;
   /** seconds played before and after the range (4 by default; shorter at the video's two ends) */
   margin?: number;
+  /** a source just opened: its range plays in its loop at once, and so does another range cited later. A browser that
+   * refuses to play before any gesture leaves it paused, without a word */
+  autoPlay?: boolean;
+  /** a recording of sound alone: no picture — a short band « Sound only » in its place, the same timeline, loop and
+   * keys; no subtitles and no full screen, which are drawn on a picture */
+  sound?: boolean;
   /** given, the range's two bounds can be dragged or moved with the arrows; told when a bound is let go, in whole
    * seconds, from < to. An owner that keeps the moved range gives it back as `range` */
   onRange?: (range: VideoRange) => void;
@@ -109,7 +130,8 @@ const NOT_SUPPORTED = 4;
 // a loop with a margin around it and drawn on the timeline, the loop is left by looking elsewhere and found again with
 // « Back to the excerpt ». The browser's own controls are off: they can neither loop on a range nor show one. The keys
 // (Space or K, ← →, , and . for one frame when paused, L) act while the focus is in the player, never on the page. The
-// group is named by its <video> (aria-labelledby), which keeps the name: a label finds the <video> alone
+// group is named by its <video> (aria-labelledby), which keeps the name: a label finds the <video> alone. A recording
+// of sound alone is played by the same <video>, not drawn: a band says « Sound only » where the picture would be
 export function Video({
   src,
   label,
@@ -120,6 +142,8 @@ export function Video({
   duration,
   range,
   margin = 4,
+  autoPlay = false,
+  sound = false,
   onRange,
   chapters = [],
   marks = [],
@@ -135,13 +159,18 @@ export function Video({
     () => (start !== undefined ? Math.floor(start) : range ? Math.max(0, range.from - margin) : 0),
     [src, start],
   );
-  const p = useVideoLoop(el, { opens, range, margin, duration, onTime, onRange });
+  const p = useVideoLoop(el, { opens, range, margin, duration, onTime, onRange, autoPlay });
   const [rate, setRate] = useState(1);
   const [shown, setShown] = useState(-1);
   const told = useRef<string | null>(null);
-  const tracks = subtitles.length;
+  const tracks = sound ? 0 : subtitles.length;
 
   useImperativeHandle(ref, () => ({ seek: p.go, play: p.play, pause: p.pause, loop: p.loop }));
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a source opened plays once per file; a range cited later is the loop's own to start
+  useEffect(() => {
+    if (autoPlay && range) p.play();
+  }, [src]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: another file or other tracks are new text tracks to set
   useEffect(() => {
@@ -197,12 +226,12 @@ export function Video({
       onKeyDown={keys}
       {...stylex.props(halo.visible, styles.player, size === "sm" && styles.tight)}
     >
-      <span ref={frame} {...stylex.props(styles.frame)}>
+      <span ref={frame} {...stylex.props(sound ? styles.band : styles.frame)}>
         <video
           ref={el}
           id={id}
           src={opens ? `${src}#t=${opens}` : src}
-          poster={poster}
+          poster={sound ? undefined : poster}
           aria-label={label}
           preload="metadata"
           playsInline
@@ -214,14 +243,14 @@ export function Video({
             onUnplayable?.();
           }}
           {...p.media}
-          {...stylex.props(styles.video)}
+          {...stylex.props(sound ? styles.unseen : styles.video)}
         >
-          {subtitles.map((t) => (
-            <track key={t.src} kind="subtitles" src={t.src} label={t.label} srcLang={t.lang} />
-          ))}
+          {!sound &&
+            subtitles.map((t) => <track key={t.src} kind="subtitles" src={t.src} label={t.label} srcLang={t.lang} />)}
         </video>
+        {sound && <span {...stylex.props(type.small)}>Sound only</span>}
         {p.looping && p.span && (
-          <span {...stylex.props(type.small, styles.looping)}>
+          <span {...stylex.props(type.small, sound ? styles.loopingBand : styles.looping)}>
             <Icon name="repeat" size="sm" />
             Loop · {clock(p.span.from)} – {clock(p.span.to)}
           </span>
@@ -254,7 +283,7 @@ export function Video({
           tracks ? { on: shown >= 0, track: tracks > 1 && shown >= 0 ? subtitles[shown]?.label : undefined } : undefined
         }
         onSubtitles={() => setShown((s) => (s + 1 >= tracks ? -1 : s + 1))}
-        onFullScreen={fullScreen}
+        onFullScreen={sound ? undefined : fullScreen}
       />
     </div>
   );

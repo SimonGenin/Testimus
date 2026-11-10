@@ -48,7 +48,7 @@ function filters(v: unknown): FileFilter[] | null {
   const out: FileFilter[] = [];
   for (const f of v) {
     if (!isObj(f) || !text(f.name, 100) || !Array.isArray(f.extensions)) return null;
-    if (!f.extensions.length || f.extensions.length > 20) return null;
+    if (!f.extensions.length || f.extensions.length > 40) return null;
     if (!f.extensions.every((e) => typeof e === "string" && /^(\*|[A-Za-z0-9]{1,16})$/.test(e))) return null;
     out.push({ name: f.name, extensions: [...(f.extensions as string[])] });
   }

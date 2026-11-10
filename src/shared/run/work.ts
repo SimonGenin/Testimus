@@ -200,7 +200,7 @@ export function every(ms: number, tick: () => unknown, signal?: AbortSignal): ()
   return stop;
 }
 
-export type Watch = { beat(): void; stop(): void; signal: AbortSignal };
+export type Watch = { beat(): void; stop(): void; signal: AbortSignal; slept(): boolean };
 
 // ponytail: long work that reports as it goes (a transcription piece by piece, ffmpeg's -progress) is given no fixed
 // deadline — an hour of video is not a failure. It is stopped when nothing was heard from it for `quietMs` (its signal
@@ -211,9 +211,13 @@ export function watch(quietMs: number, signal?: AbortSignal, now: () => number =
   const lookMs = Math.max(250, Math.min(5000, quietMs / 4));
   let heard = now();
   let looked = now();
+  let slept = false;
   const stopTick = every(lookMs, () => {
     const t = now();
-    if (t - looked > lookMs * 4) heard = t;
+    if (t - looked > lookMs * 4) {
+      heard = t;
+      slept = true;
+    }
     looked = t;
     if (t - heard > quietMs) {
       ctrl.abort(new TimeoutError(`Nothing heard for ${Math.round(quietMs / 1000)} s`));
@@ -235,7 +239,32 @@ export function watch(quietMs: number, signal?: AbortSignal, now: () => number =
       signal?.removeEventListener("abort", onAbort);
     },
     signal: ctrl.signal,
+    slept: () => slept,
   };
+}
+
+// ponytail: work that says nothing while it goes (a passage given to the transcription engine, the voice detector on a
+// piece of sound) gets a time limit that sleep does not use up: `ms` with the PC awake. A laptop closed in the middle
+// wakes with a clock that jumped — the wait starts over, and work that failed across the sleep (a connection the
+// night cut) is started over too rather than failed. Only the limit reached awake ends it, with a TimeoutError
+export async function awake<T>(
+  ms: number,
+  work: (signal: AbortSignal) => Promise<T>,
+  signal?: AbortSignal,
+  now: () => number = Date.now,
+): Promise<T> {
+  for (;;) {
+    const w = watch(ms, signal, now);
+    try {
+      return await work(w.signal);
+    } catch (e) {
+      throwIfAborted(signal);
+      if (w.signal.aborted) throw reasonOf(w.signal);
+      if (!w.slept()) throw e;
+    } finally {
+      w.stop();
+    }
+  }
 }
 
 // ponytail: a burst of values becomes one call `ms` after the last of them, with every value gathered — or `maxMs`

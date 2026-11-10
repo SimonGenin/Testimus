@@ -71,6 +71,8 @@ describe("which reads a changed file refreshes", () => {
         ["media.proposals", { doc: "V-1" }],
         ["media.report", { doc: "V-1" }],
         ["media.glossary"],
+        ["media.disk"],
+        ["media.measures"],
         ["rag.passage"],
         ["docs.show", { id: "V-1" }],
       ]);
@@ -111,6 +113,7 @@ describe("which reads a finished job refreshes", () => {
         ["media.show"],
         ["media.transcript"],
         ["media.proposals"],
+        ["media.measures"],
         ["docs.show"],
         ["docs.list"],
       ]);

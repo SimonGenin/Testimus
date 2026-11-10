@@ -56,6 +56,12 @@ export function listDocs(project: string): DocRef[] {
 
 export const isConverted = (doc: Pick<DocJson, "converted">) => !!doc.converted?.at;
 
+// ponytail: the documents the team keeps from Claude (doc.json private) — every run and every command Claude calls
+// leaves them out, whatever the run is given
+export function privateDocs(project: string): string[] {
+  return docIds(project).filter((id) => readDoc(project, id).private);
+}
+
 export function readFigures(project: string, id: string): FigureEntry[] {
   return readJson<FigureEntry[]>(join(docDir(project, id), "figures.json"), []);
 }

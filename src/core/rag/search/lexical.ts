@@ -26,6 +26,16 @@ const phrase = (tokens: string[]) => `"${tokens.join(" ")}"`;
 const searchable = (folded: string) => !STOP_WORDS.has(folded) && (folded.length > 1 || /\d/.test(folded));
 const isCode = (raw: string) => /_/.test(raw) || (/\d/.test(raw) && /\p{L}/u.test(raw));
 
+// ponytail: an equipment code is written « S12 » and said « S 12 » — a transcript keeps what was heard, never bent
+// towards the glossary, so it is the search that brings the two together: each form also looks for the other
+export function spacings(term: string): string[] {
+  const t = term.trim();
+  const glued = /^(\p{L}{1,4})(\d{1,4})$/u.exec(t);
+  if (glued) return [`${glued[1]} ${glued[2]}`];
+  const apart = /^(\p{L}{1,4})\s+(\d{1,4})$/u.exec(t);
+  return apart ? [`${apart[1]}${apart[2]}`] : [];
+}
+
 // ponytail: what a query looks for — its words (a code is one phrase of its parts), their French stems, the glossary
 // and synonym forms it brings, and the indexed words one letter from a word the index lacks (typos on)
 export type QueryTerms = {
@@ -45,8 +55,12 @@ export function queryTerms(
   const exact: string[][] = [];
   const stems: string[][] = [];
   const plainWords: string[] = [];
-  for (const raw of query.split(/\s+/)) {
-    if (!raw) continue;
+  const raws = query.split(/\s+/).filter(Boolean);
+  for (const [i, raw] of raws.entries()) {
+    for (const other of [...spacings(raw), ...(raws[i + 1] ? spacings(`${raw} ${raws[i + 1]}`) : [])]) {
+      const parts = plain(other);
+      if (parts.length) exact.push(parts);
+    }
     if (isCode(raw)) {
       const parts = plain(raw);
       if (parts.length) exact.push(parts);

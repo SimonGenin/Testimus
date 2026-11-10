@@ -24,7 +24,8 @@ export type VideoControlsProps = {
   /** given with subtitle tracks: the one shown (its name when there are several), none when off */
   subtitles?: { on: boolean; track?: string };
   onSubtitles: () => void;
-  onFullScreen: () => void;
+  /** left out for a recording of sound alone: there is no picture to enlarge */
+  onFullScreen?: () => void;
 };
 
 // ponytail: the player's row of controls, all kit buttons; each also has its key on the player (Space or K, ← →, L),
@@ -71,7 +72,7 @@ export function VideoControls({
           onClick={onSubtitles}
         />
       )}
-      <Button size={size} iconOnly icon="expand" label="Full screen" onClick={onFullScreen} />
+      {onFullScreen && <Button size={size} iconOnly icon="expand" label="Full screen" onClick={onFullScreen} />}
     </div>
   );
 }

@@ -203,6 +203,86 @@ describe("Video", () => {
     expect(screen.queryByRole("button", { name: "Back to the excerpt" })).toBeNull();
   });
 
+  it("with autoPlay a cited range plays in its loop as soon as it opens, and so does another range cited later", () => {
+    const { again } = mount({ range: CITED, autoPlay: true });
+    expect(video().getAttribute("src")).toBe("/v.mp4#t=76");
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(button("Pause")).toBeInTheDocument();
+    expect(loopButton()).toHaveAttribute("aria-pressed", "true");
+    at(104.1);
+    expect(video().currentTime).toBe(76);
+    fireEvent.click(button("Pause"));
+    again({ range: { from: 20, to: 30 }, autoPlay: true });
+    expect(video().currentTime).toBe(16);
+    expect(play).toHaveBeenCalledTimes(2);
+    expect(button("Pause")).toBeInTheDocument();
+  });
+
+  it("autoPlay plays nothing without a range, nor when a moved bound comes back as the range", () => {
+    const onRange = vi.fn();
+    mount({ autoPlay: true });
+    expect(play).not.toHaveBeenCalled();
+    cleanup();
+    const { again } = mount({ range: CITED, autoPlay: true, onRange });
+    fireEvent.click(button("Pause"));
+    fireEvent.keyDown(bound("End"), { key: "ArrowRight" });
+    fireEvent.keyUp(bound("End"), { key: "ArrowRight" });
+    expect(onRange).toHaveBeenLastCalledWith({ from: 80, to: 101 });
+    again({ range: { from: 80, to: 101 }, autoPlay: true, onRange });
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(button("Play")).toBeInTheDocument();
+  });
+
+  it("a play the browser refuses (no gesture yet) leaves the player paused, with its loop armed and no error", async () => {
+    play.mockImplementation(() => Promise.reject(new DOMException("play() needs a gesture", "NotAllowedError")));
+    mount({ range: CITED, autoPlay: true });
+    await act(async () => {});
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(button("Play")).toBeInTheDocument();
+    expect(loopButton()).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("alert")).toBeNull();
+    play.mockImplementation(function (this: HTMLMediaElement) {
+      this.dispatchEvent(new Event("play"));
+      return Promise.resolve();
+    });
+    fireEvent.click(button("Play"));
+    expect(button("Pause")).toBeInTheDocument();
+  });
+
+  it("sound: a band « Sound only » stands for the picture, with no subtitles and no full screen — the same keys and loop", () => {
+    const subtitles = [{ src: "/files/said.vtt", label: "original", lang: "fr" }];
+    render(<Video src="/v.mp4" label="Video picture.mp4" duration={200} subtitles={subtitles} />);
+    const picture = video("Video picture.mp4");
+    const seen = { frame: picture.parentElement?.className, video: picture.className };
+    cleanup();
+    mount({ sound: true, range: CITED, subtitles, poster: "/files/p.jpg" });
+    const v = video();
+    expect(v.tagName).toBe("VIDEO");
+    expect(player()).toContainElement(v);
+    expect(within(player()).getByText("Sound only")).toBeInTheDocument();
+    expect(v.parentElement?.className).not.toBe(seen.frame);
+    expect(v.className).not.toBe(seen.video);
+    expect(v).not.toHaveAttribute("poster");
+    expect(v.querySelectorAll("track")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /^Subtitles/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
+    for (const name of ["Play", "− 5 s", "+ 5 s", "× 1", /^Loop/]) expect(button(name)).toBeEnabled();
+    expect(v.getAttribute("src")).toBe("/v.mp4#t=76");
+    expect(screen.getByText("Loop · 01:16 – 01:44")).toBeInTheDocument();
+    expect(screen.getByText("cited 01:20 → 01:40")).toBeInTheDocument();
+    expect(position()).toHaveAttribute("aria-valuemax", "200");
+    fireEvent.keyDown(player(), { key: " " });
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(button("Pause")).toBeInTheDocument();
+    at(104.1);
+    expect(v.currentTime).toBe(76);
+    fireEvent.keyDown(player(), { key: "ArrowRight" });
+    expect(v.currentTime).toBe(81);
+    fireEvent.keyDown(player(), { key: "l" });
+    expect(loopButton()).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText(/^Loop · /)).toBeNull();
+  });
+
   it("loops on the range and its margins: at the end of the margin it goes back to its start", () => {
     const { onTime } = mount({ range: CITED });
     at(103.9);

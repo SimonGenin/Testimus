@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Finding, Source } from "../../../core/types.ts";
+import { videoPreview } from "../../components/sources/VideoPreview.tsx";
 import { Badge, SeverityBadge } from "../../components/ui/Badge.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
@@ -43,6 +44,7 @@ export function FindingSources({
           quote={s.quote || undefined}
           figure={isPictureAnchor(s.anchor)}
           observed={observed(s.docId)}
+          preview={videoPreview(s)}
           pressed={selected === findingMark(index, s)}
           onOpen={() => onSelect(s)}
         />

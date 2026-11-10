@@ -13,7 +13,14 @@ import { useApp } from "../../lib/app.ts";
 import { invalidate, useRead } from "../../lib/data/query.ts";
 import { desktop, pickFiles, pickFolder } from "../../lib/desktop.ts";
 import { message } from "../../lib/format.ts";
-import { DOC_ACCEPT, DOC_EXTENSIONS, IMAGE_EXTENSIONS, isImage, VIDEO_EXTENSIONS } from "../../lib/media.ts";
+import {
+  DOC_ACCEPT,
+  DOC_EXTENSIONS,
+  IMAGE_EXTENSIONS,
+  isImage,
+  SOUND_EXTENSIONS,
+  VIDEO_EXTENSIONS,
+} from "../../lib/media.ts";
 import { OVERVIEW_ROUTE, OVERVIEW_TITLE } from "../../lib/overview.ts";
 import {
   addDocs,
@@ -178,12 +185,12 @@ export function DocumentsScreen() {
                 "Add documents",
                 [
                   {
-                    name: "Documents, images and videos",
-                    extensions: [...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS],
+                    name: "Documents, images, videos and sound",
+                    extensions: [...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS],
                   },
                   { name: "Word, PDF or text", extensions: DOC_EXTENSIONS },
                   { name: "Images", extensions: IMAGE_EXTENSIONS },
-                  { name: "Videos", extensions: VIDEO_EXTENSIONS },
+                  { name: "Videos and sound", extensions: [...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS] },
                 ],
                 true,
               ).then((p) => p.length && add(pickedOfPaths(p)))

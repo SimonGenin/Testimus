@@ -44,7 +44,7 @@ describe("each run kind gets its own MCP allow-list", () => {
     expect(extra("columns")).toEqual([]);
     expect(extra("overview")).toEqual([]);
     expect(extra("check")).toEqual(m(["check_record"]));
-    expect(extra("analyze")).toEqual(m(["analysis_record"]));
+    expect(extra("analyze")).toEqual(m(["analysis_record", "media_keep"]));
     expect(extra("generate")).toEqual(
       m(["tests_create", "tests_edit", "tests_save", "tests_addImage", "check_run", "media_keep"]),
     );

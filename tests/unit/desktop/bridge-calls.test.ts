@@ -298,7 +298,7 @@ describe("argument checks", () => {
     await refused(f([{ extensions: ["docx"] }]));
     await refused(f([{ name: "Docs", extensions: "docx" }]));
     await refused(f(Array.from({ length: 11 }, () => ({ name: "D", extensions: ["docx"] }))));
-    await refused(f([{ name: "D", extensions: Array.from({ length: 21 }, () => "docx") }]));
+    await refused(f([{ name: "D", extensions: Array.from({ length: 41 }, () => "docx") }]));
     await refused(f([{ name: "D", extensions: [7] }]));
     expect(h.showOpenDialog).not.toHaveBeenCalled();
   });

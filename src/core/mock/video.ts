@@ -1,9 +1,11 @@
 import { closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { ffmpegSeam } from "../lib/ffmpeg.ts";
+import { SOUND } from "../lib/media.ts";
 import { putInstall, updateRegistry } from "../lib/models-registry.ts";
 import { SPEECH_DEFAULT } from "../lib/video/engine.ts";
-import { type Heard, type Probe, SCAN_FPS, videoIo } from "../lib/video/io.ts";
+import { type Heard, type Probe, SCAN_FPS, shotFile, videoIo } from "../lib/video/io.ts";
+import { measureIo } from "../lib/video/measure.ts";
 import { header, readWav } from "../lib/video/wav.ts";
 import { VAD_MODEL, whisperSeam } from "../lib/whisper.ts";
 import { clock } from "../rag/anchors.ts";
@@ -42,7 +44,24 @@ export const SAID: { text: string; lang: string; p: number }[] = [
 // JSON description { duration, audio, tracks, hdr, keyEvery } says
 function described(file: string): Probe {
   const b = readFileSync(file);
-  const base = { audio: true, width: 1280, height: 720, tracks: [{}], hdr: false, codec: "h264", keyEvery: 2 };
+  if (SOUND.test(file)) {
+    let duration = 95;
+    try {
+      duration = (JSON.parse(b.toString("utf8")) as { duration?: number }).duration ?? 95;
+    } catch {}
+    return { duration, picture: false, audio: true, tracks: [{}], hdr: false, bytes: b.length };
+  }
+  const base = {
+    picture: true,
+    audio: true,
+    width: 1280,
+    height: 720,
+    tracks: [{}],
+    hdr: false,
+    codec: "h264",
+    keyEvery: 2,
+  };
+
   const i = b.indexOf("mvhd");
   if (i > 0 && i + 36 < b.length) {
     const v1 = b[i + 4] === 1;
@@ -151,6 +170,11 @@ export function setupVideoMock(root: string): void {
   }
   if (process.env.TESTIMUS_MOCK_WHISPER !== "absent") placeMockWhisper(root);
   videoIo.probe = async (file) => described(file);
+  measureIo.denoised = async (src, out) => {
+    mkdirSync(dirname(out), { recursive: true });
+    copyFileSync(src, out);
+  };
+  measureIo.memory = () => ({ peakMB: () => 1240, stop: async () => {} });
   videoIo.sound = async (file, out, o, onSeconds) => {
     const from = o.from ?? 0;
     const length = Math.max(0, (o.to ?? described(file).duration) - from);
@@ -174,19 +198,19 @@ export function setupVideoMock(root: string): void {
     hear: async (wav) => heard(firstSecond(wav)),
     stop: async () => {},
   });
-  videoIo.changes = async (file, onSeconds) => {
-    const { duration } = described(file);
-    onSeconds(duration);
-    const out = [];
-    for (let t = 0; t < duration; t += SCENE_S) out.push(t);
-    return out;
+  videoIo.changes = async (file, o, onSeconds) => {
+    const to = Math.min(o.to ?? Number.POSITIVE_INFINITY, described(file).duration);
+    onSeconds(to);
+    const changes = [];
+    for (let t = Math.ceil((o.from ?? 0) / SCENE_S) * SCENE_S; t < to; t += SCENE_S) changes.push(t);
+    return { changes, cuts: [] };
   };
   videoIo.shots = async (_file, dir, ranks) => {
     mkdirSync(dir, { recursive: true });
     const out: { at: number; file: string }[] = [];
-    for (const [i, r] of [...new Set(ranks)].sort((a, b) => a - b).entries()) {
+    for (const r of [...new Set(ranks)].sort((a, b) => a - b)) {
       const at = r / SCAN_FPS;
-      const f = join(dir, `c-${String(i + 1).padStart(5, "0")}.jpg`);
+      const f = shotFile(dir, r);
       writeFileSync(f, await screen(at, 640, 360, false));
       out.push({ at, file: f });
     }

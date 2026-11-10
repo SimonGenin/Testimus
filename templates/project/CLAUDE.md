@@ -21,7 +21,9 @@ project is in Team notes, at the end: it wins over the generic rules.
   knows about the document (`docs_show` returns it as `context`). Photos and videos of the real
   system are documents too (anchors `img:<n>`, `t:mm:ss`, `v:mm:ss..mm:ss`, `frame:mm:ss`): they are **observed** —
   how the system behaves and how a step is done, never what is required — unless the team marked
-  the document as the reference (`doc.json` `reference: true`).
+  the document as the reference (`doc.json` `reference: true`). A recording of sound alone is a
+  video without a picture: cite what is said (`t:`), it has no frame. A document the team keeps
+  from you is refused by every tool (`doc-private`): never read, search or cite it.
 - `docs/OVERVIEW.md` — how the documents fit together. Background to find your way, never a
   source: cite the documents themselves.
 - `tests/<id>/test.md` — one test (format below); `images/` its pictures; `check.json` its last

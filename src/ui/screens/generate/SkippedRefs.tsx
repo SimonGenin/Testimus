@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useContext } from "react";
 import type { Source } from "../../../core/types.ts";
+import { videoPreview } from "../../components/sources/VideoPreview.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
 import { AppContext } from "../../lib/app.ts";
 import { parseSourceRef, sourceLabel } from "../../lib/fields.ts";
@@ -28,6 +29,7 @@ export function SkippedRefs({ lines, compact = false }: { lines: string[]; compa
           quote={x.quote || undefined}
           figure={isPictureAnchor(x.anchor)}
           observed={observed(x.docId)}
+          preview={videoPreview(x)}
           onOpen={openSource && (() => openSource(x))}
         />
       ))}

@@ -4,6 +4,7 @@ import { sourceLabel } from "../../lib/fields.ts";
 import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { isPictureAnchor, useObserved } from "../../lib/media.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
+import { videoPreview } from "../sources/VideoPreview.tsx";
 import { Answer } from "../ui/Answer.tsx";
 import { Ask } from "../ui/Ask.tsx";
 import { Badge } from "../ui/Badge.tsx";
@@ -148,6 +149,7 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
                   quote={s.quote}
                   figure={isPictureAnchor(s.anchor)}
                   observed={observed(s.docId)}
+                  preview={videoPreview(s)}
                   onOpen={() => a.onOpenSource(s)}
                 />
               ))}

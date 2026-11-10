@@ -203,6 +203,7 @@ export function DocDetail({
               : undefined
           }
           onReference={media ? settings.reference : undefined}
+          onLeftOut={media ? settings.leftOut : undefined}
         />
         <div {...stylex.props(styles.body)}>
           {reading && !tocFolded && view === "text" && (sections.length > 1 || !media) && (

@@ -174,7 +174,23 @@ export function relocate(
 ): { anchor: string } | { nearest?: { anchor: string; text: string } } {
   const a = parseAnchor(anchor);
   const m = momentOf(a.id);
-  if (!m || a.kind !== "t") return {};
+  if (!m) return {};
+  // ponytail: what is seen is looked for the same way, in the descriptions of the key frames around the range — found
+  // under a frame a little outside, the range opens to hold that frame
+  if (a.kind === "v") {
+    const q = plain(quote);
+    const end = m.to ?? m.at;
+    const around = vt.frames
+      .filter((f) => f.n === m.n && f.at >= m.at - REPORT_WINDOW_S && f.at <= end + REPORT_WINDOW_S)
+      .sort((x, y) => x.at - y.at);
+    const hit = q ? around.find((f) => f.text.includes(q)) : undefined;
+    if (hit)
+      return { anchor: `v:${momentId(m.n, Math.min(m.at, Math.floor(hit.at)), Math.max(end, Math.ceil(hit.at)))}` };
+    const middle = (m.at + end) / 2;
+    const best = [...around].sort((x, y) => Math.abs(x.at - middle) - Math.abs(y.at - middle))[0];
+    return best ? { nearest: { anchor: `frame:${momentId(m.n, best.at)}`, text: best.text } } : {};
+  }
+  if (a.kind !== "t") return {};
   const mine = vt.lines.filter((l) => l.n === m.n).sort((x, y) => x.at - y.at);
   const near = mine.filter((l) => l.at >= m.at - REPORT_WINDOW_S && l.at <= (m.to ?? m.at) + REPORT_WINDOW_S);
   const hit = located(near, quote);

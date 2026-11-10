@@ -29,16 +29,21 @@ export type Estimate = {
   seconds: number;
   claude: { runs: number; images: number };
   long: boolean;
-  disk: { needMB: number; freeMB: number | null };
+  disk: { needMB: number; freeMB: number | null; usedMB: number; capMB?: number; over: boolean };
 };
 
 // ponytail: what a video will cost before it is imported — how long this PC takes to hear it (from the speed its last
 // transcriptions measured here, else a careful guess), how long to look through it, Claude's share (its runs, the
 // pictures it reads), and the room it takes. Past two hours it says so: a part can be transcribed instead of the whole
 export function estimateOf(
-  probe: { duration: number; bytes: number; audio: boolean; tracks: number },
+  probe: { duration: number; bytes: number; audio: boolean; tracks: number; picture?: boolean },
   machine: MachineProfile | null,
-  o: { density?: VideoDensity; claude: boolean; folder: string },
+  o: {
+    density?: VideoDensity;
+    claude: boolean;
+    folder: string;
+    used?: { usedMB: number; capMB: number | null; here: boolean };
+  },
 ): Estimate {
   const w = installedWhisper();
   const m = activeSpeech();
@@ -48,9 +53,11 @@ export function estimateOf(
   const speed = m ? speechSpeed(m.entry, device, threads) : { speed: 4, measured: false };
   const speechSeconds = probe.audio ? Math.round(probe.duration / Math.max(0.2, speed.speed)) : 0;
   const withCard = m && card && device === "cpu" ? speechSpeed(m.entry, "gpu", threads) : null;
-  const framesSeconds = Math.round((probe.duration / FRAMES_SPEED) * 2);
-  const images = keyFrameBudget(probe.duration, o.density);
-  const surveys = probe.duration <= WHOLE_S ? 1 : 1 + partsOf([], probe.duration).length;
+  const sound = probe.picture === false;
+  const framesSeconds = sound ? 0 : Math.round((probe.duration / FRAMES_SPEED) * 2);
+  const images = sound ? 0 : keyFrameBudget(probe.duration, o.density);
+  const surveys = sound || probe.duration <= WHOLE_S ? 1 : 1 + partsOf([], probe.duration).length;
+  const used = o.used ?? { usedMB: 0, capMB: null, here: false };
   const need = Math.ceil(
     probe.bytes / MB +
       (probe.duration / 3600) * WAV_MB_PER_HOUR +
@@ -74,9 +81,17 @@ export function estimateOf(
     ...(withCard ? { withCardSeconds: Math.round(probe.duration / withCard.speed) } : {}),
     framesSeconds,
     seconds: speechSeconds + framesSeconds,
-    claude: o.claude ? { runs: surveys + Math.ceil(images / PICTURES_A_RUN), images } : { runs: 0, images: 0 },
+    claude: o.claude
+      ? { runs: surveys + (images ? Math.max(1, Math.ceil((images - 5) / PICTURES_A_RUN)) : 0), images }
+      : { runs: 0, images: 0 },
 
     long: probe.duration > LONG_S,
-    disk: { needMB: need, freeMB: free },
+    disk: {
+      needMB: need,
+      freeMB: free,
+      usedMB: used.usedMB,
+      ...(used.capMB !== null ? { capMB: used.capMB } : {}),
+      over: used.capMB !== null && used.usedMB + (used.here ? 0 : need) > used.capMB,
+    },
   };
 }

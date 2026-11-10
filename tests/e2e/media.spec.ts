@@ -1,4 +1,4 @@
-import { copyFileSync, mkdtempSync } from "node:fs";
+import { copyFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { boot, expect, mockServer, shoot, test } from "./helpers.ts";
@@ -72,6 +72,32 @@ test("the fixture's video opens at a moment a source names", async ({ page }) =>
   const transcript = page.getByRole("list", { name: "What is said" });
   await expect(transcript.locator('li[aria-current="true"]')).toContainText("La fenêtre Propriétés");
   await shoot(page, "media-video");
+});
+
+test("a video is kept from Claude and given back from its head", async ({ page }) => {
+  await boot(page, "#/documents/Manoeuvre_d_un_sectionneur_au_PCC");
+  await page.getByRole("button", { name: "Never to Claude" }).click();
+  await expect(page.getByText("Never given to Claude")).toBeVisible();
+  await page.getByRole("button", { name: "Given to Claude" }).click();
+  await expect(page.getByText("Never given to Claude")).toHaveCount(0);
+});
+
+test("a recording of sound alone becomes a document: heard, with no picture nor key frame", async ({ page }) => {
+  const dir = mkdtempSync(join(tmpdir(), "testimus-sound-"));
+  const memo = join(dir, "reunion traction.mp3");
+  writeFileSync(memo, JSON.stringify({ duration: 130 }));
+  await boot(page, "#/documents");
+  await pick(page, [memo]);
+  const row = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /reunion traction/ });
+  await row.click();
+  await expect(page.getByText(/What is said goes to Claude in its runs/)).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Never give this recording to Claude" })).toBeVisible();
+  await page.getByRole("button", { name: "Prepare and read" }).click();
+  const transcript = page.getByRole("list", { name: "What is said" });
+  await expect(transcript.getByRole("button", { name: /^\d\d:\d\d$/ }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(row).toContainText("Sound · 02:10");
+  await expect(page.getByText("Sound only")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Key frames" }).getByRole("listitem")).toHaveCount(0);
 });
 
 test("tests are generated from an images document like from any other", async ({ page }) => {

@@ -194,6 +194,7 @@ rebuilt; they are never hand-edited.
   test-runs/<run>/     a test run (§9b): run.json (the tests frozen when it was made), results/<testId>.json (what
                          the tester found), results/<testId>/ (screenshots), images/<testId>/ (the tests' pictures)
   eval/behaviors.jsonl the project's retrieval benchmark set (§6)
+  eval/speech/<doc>-<n>.json derived: what each transcription model made of a video's reference (§5)
   index/rag.db         derived: chunks, full text, vectors per space, graph, last index state; per machine, not shared
   .testimus/           derived, not shared: jobs/, runs/<runId>/ (run.json: who, what was sent, the snapshots;
                          mcp.json: the run's own MCP config, §11), gen/<generation>.json (ledger),
@@ -244,8 +245,10 @@ docs/<docId>/
                                models are measured against
   video/<n>.proposals.json   derived: corrections Claude proposed, waiting for a person
   video/<n>.report.json      derived: what a new hearing does to the tests citing the video, until applied
+  video/lost.json            derived: the sources (anchor, quote) the last reports could not find again
   video/<n>/                 derived: transcript/<k>.json (a piece of about ten minutes, with what made it), sound.json
-                               (the silences), said.vtt · translated.vtt · chapters.vtt (WebVTT), said.txt (hours
+                               (the silences), look.json (what each ten-minute slice of the pictures found),
+                               said.vtt · translated.vtt · chapters.vtt (WebVTT), said.txt (hours
                                of speech only: what Claude plans from), light.mp4; while a video is surveyed,
                                frames/ · mosaic-*.jpg · change-*.jpg (dropped once Claude chose)
   doc.json                   { code, title, version, date, kind, status, amends?, contexts?, conversion?, source: {
@@ -378,8 +381,18 @@ docs/<docId>/
     late — measured, a beep at 3.70 s came out at 3.02 s without it), the tracks mixed unless one is chosen, raised
     by one gain measured first (never a compressor). It is worked in **pieces of about ten minutes**, cut in the
     middle of a silence `silencedetect` heard (else cut anyway, 2 s back, the lines heard twice dropped by their
-    time); each piece is kept (`transcript/<k>.json`) with what made it — model, engine, languages, glossary — so a
-    conversion cut short goes on at the next piece and a changed glossary redoes the pieces, nothing else. In a piece
+    time); each piece is kept (`transcript/<k>.json`) with what made it — model, engine, languages, glossary, the
+    sound track heard and where the extracted sound starts in the video (absent: all tracks, from the start) — so a
+    conversion cut short goes on at the next piece and a changed glossary, track or range redoes the pieces, nothing
+    else. **Before the model is loaded** the room is looked at (`engine.ts` `speechRoom`, `speechFit`): the card when
+    it holds the model, else the processor, else the heaviest lighter model installed that fits — said in a warning
+    naming both —, else no transcript and a clear warning; a transcript made by a better model is never replaced by
+    a lighter one's. **Every wait follows the work** (`passages.ts`): the voice detector's, a passage's and the
+    engine's start are limited in proportion to the sound given and to the speed this PC measured for that model
+    (the timings journal), two minutes at least; a clock that jumped is a PC that slept, and the wait starts over
+    (`shared/run/work.ts` `awake`, `watch().slept`); a piece that stalls is heard once more with a fresh engine
+    before a warning. The time left shown starts from the journal's speed and moves to the run's own. In a piece
+
     the voice detector (Silero, `whisper-vad-speech-segments`) finds the speech — silence, music and cabin noise are
     never given to the model, which invents on them —; the speech is grouped into **passages** and each is heard by
     one `whisper-server` kept for the whole video (a process per passage would load the model each time), in **its own
@@ -412,12 +425,25 @@ docs/<docId>/
     regular floor; past 600 the weakest go first. They are drawn in one reading (≤ 1920 px, HDR brought back to
     ordinary colours) and compared **cell by cell** (16 × 9, in colour): the same screen goes, a change keeps where
     it is — a 40 px alarm on a 1280 px screen, which a whole-picture hash missed. A video filmed by hand never
-    settles: the sharpest of the frames around each moment is kept.
+    settles: the sharpest of the frames around each moment is kept, and the same pass tells its **scene cuts**
+    (`scdet`: the picture changes far more than the shake does — on the DMI recording, the swing from the desk to
+    the screen), a candidate a second after each. The pass goes **slice by slice** (ten minutes, like the speech):
+    what each slice found is kept in `video/<n>/look.json` and the frames are named by their rank
+    (`frames/c-<rank>.jpg`), so a look cut short goes on at the first slice not read and draws only the frames
+    missing — measured on five real recordings: the same changes and the same frames, byte for byte, as one pass.
+    **Read cheaply, by measurement** (2026-11-10, ffmpeg 7.1.1 on this PC): the card decodes only a heavy video
+    (5 Mbit/s or more: d3d11va, the frames kept on the card until the pass has dropped those it does not want —
+    1080p at 20 Mbit/s: 37 s of processor became 4, the same result byte for byte, rotation and HDR included; a
+    failure is read again by the processor and that file is not asked of the card again). Plain `-hwaccel d3d11va`
+    falls back by itself but is slower everywhere, and on a light screen recording the card is twice slower than
+    the processor: not used there. `-skip_frame nokey` is **not** used: on a twenty-minute screen recording it
+    missed 23 changes of 120 and saw the others up to 8 s late.
   - **Claude's choice, part by part** (`chooseMoments`): a part is a Claude run — the whole video when it lasts ten
     minutes or less (the run gives the chapters too, in a block of their own), else its chapters, those that follow
     each other sharing a run while their candidates fit four mosaics (`partsOf`), twelve parts at most. A run is
     given its candidates in 3 × 3 mosaics (1440 px: a mosaic shows that something happens, never what a screen
-    says), the place that changed at its real size, what is said meanwhile, the last two moments kept in the part
+    says), the place that changed at its real size — every tile shown whose place changed has its crop on disk,
+    named by the tile (`change-<n>.jpg`), and the prompt says so in one line —, what is said meanwhile, the last two moments kept in the part
     before (a screen kept is not kept again), and `media.frame` to draw a moment whole. The key frames a video is
     worth go with its length (about 40 a half-hour, 150 at most, `video.density`), shared between its parts — a
     ceiling, fewer when little changes. Without Claude: the strongest candidates of each part.
@@ -440,20 +466,62 @@ docs/<docId>/
   the glossary change are redone; the transcript before is kept (`before`) and a report says, source by source, what
   it does to the tests citing the video — holds, moved (the words are within 15 s: the source follows them when the
   report is applied), lost (the closest words and their moment, to hear again). `media.applyReport` rewrites and
-  lets the old transcript go, or puts it back (`undo`); until then no source of that video is moved.
+  lets the old transcript go, or puts it back (`undo`); until then no source of that video is moved. **Key frames
+  described again** (`--force`, another model, `docs.describeFigures`) go through the same report: what Claude had
+  written under them is kept first (`seenBefore`, by `readPictures` itself, so every path does it), each `v:` quote
+  is looked for under the key frames within 15 s of its range (found under a frame a little outside, the range opens
+  to hold it), and frames nobody quotes need no report. A description a person wrote is never read again
+  (`fixedFrames`). Applied, the sources a report could not find are kept in `video/lost.json`: the check then says
+  **`source-missing`** for them — the video was heard or described again since the source was written — where a
+  quote that was never there stays `quote-not-found`.
 - **Any second as a key frame** (`media.keep`): its picture is drawn, described (by who looked at it, else by
   Claude) and added to `doc.md` — a run that writes a test may keep one, so what it saw can be cited and embedded.
+- **A recording of sound alone** (2026-11-10: `.mp3 .m4a .aac .wav .ogg .opus .flac`, `lib/media.ts` `SOUND`) is a
+  video without its picture: the same document (`source.type` `video`, `video/<n>.json` with `sound: true` — an
+  attached cover is not a picture), the same chain — heard in pieces, each passage in its language, translated, cut
+  into chapters by one Claude run from what is said, cited `t:mm:ss` and played in a loop by the same player (a band
+  « Sound only » where the picture would be). It has no candidate, no key frame, no `v:` source; `media.frame` and
+  `media.keep` refuse it (`no-picture`). HEIC photos still wait (`LATER`).
+- **A document the team keeps from Claude** (`doc.json` `private: true`; `docs.add --private`, `docs.set private`,
+  Documents › « Never to Claude »; 2026-11-10 — a video shows faces and carries voices and names, and the add dialog
+  says what goes to Claude: the pictures and what is said, never the sound). Held in four places, so no path forgets
+  it: its conversion runs no Claude (`withoutClaude`: no figure described, no study, no triage, no translation, no
+  survey — its key frames are the strongest candidates); every run leaves it out, whatever it is given
+  (`runClaude`'s `without` ∪ `privateDocs`: `Read(docs/<id>/**)` denied, the run's MCP server told); every command
+  Claude calls refuses it (`refuseLeftOut(llm, id, project)` → `doc-private`: `docs.show`, `rag.*`, `media.show ·
+  transcript · frame · keep`; the searches leave it out), from any Claude session, the project's own `.mcp.json`
+  included; and a run about it is refused before it starts (`docGiven`). The Context dialog shows it off and locked.
+  The team reads, plays, searches and cites it by hand like any document. Not held: what a person's own Claude
+  session opens with its file tools in a terminal — only the app's runs carry the `Read` denial.
+- **The room the videos take** (`lib/video/disk.ts`): before a video is copied in, the drive must hold it and half as
+  much again for what is drawn from it, plus 200 MB (`shortOfRoom`) — never a drive found full halfway; and the team
+  may cap what the project's videos take (`project.json` `video.diskCapGB`, Settings › Project › Videos; `media.disk`
+  says what they take): a video that would pass the cap is refused when it comes in (`disk-cap`), the estimate says
+  so before, and nothing already there is ever removed or left unread because of the cap.
 - **Before a video is heard** (`media.estimate`): how long this PC takes (from what its last transcriptions measured
   here — the timings journal's `speech` lines —, else a careful guess), Claude's share, the room; `media.set` keeps
   what to hear of it (languages, a sound track, a part). **Measured before chosen** (`media.reference`,
-  `media.measure`): the models on this PC against a few minutes typed by hand — the glossary's terms written right,
-  the word error rate, how far a line's anchor is from where its sentence starts, the speed.
+  `media.measure`, `media.measures`; `lib/video/measure.ts`, `numbers.ts`): the models on this PC against a few
+  minutes typed by hand — the glossary's terms written right (strict), the word error rate after normalisation
+  (case, punctuation, and **numbers**: « 203 » and « two hundred and three », « S 12 » and « S12 », « 1 / 8 » and
+  « one of eight » are one form, in French, English and German), how far a line's anchor is from where its sentence
+  starts, the speed, and the **peak memory** of the engine's process (its working set, read every second while it
+  hears; the processor's memory, not what a card holds). `--denoise` hears each model twice, as it is and through
+  ffmpeg's `afftdn`, and the report says in one sentence each whether **denoising** and whether the **lighter
+  quantisation** (q5 against q8, both in the catalog) pay on this reference. What begins after the reference's last
+  sentence is not counted. A measure is kept (`eval/speech/<doc>-<n>.json`, a model not measured again
+  keeps its line while the reference has not changed), and `media.measures` gives every reference video with its
+  measures and the figures **by language and model**, weighted, saying when a language has fewer than three
+  reference videos — Settings › Models › Transcription › « Measure… ».
 - **ffmpeg** (`lib/ffmpeg.ts`, `models.pullFfmpeg`) and **whisper.cpp** (`lib/whisper.ts`, `models.pullWhisper`):
   downloaded on demand like llama.cpp, pinned by their SHA-256 in the code, into the runtimes folder, no admin
   rights, registered in `models.json`. ffmpeg is gyan.dev's essentials build 7.1.1 for win64 (run on Windows on
   2026-11-10). whisper.cpp is the automatic build `b5454` (the tagged versions publish no binaries): its processor
   build (9 MB), or its CUDA 12.4 build (685 MB) on a PC with an NVIDIA card (it runs on an RTX 50) — no Vulkan build
-  exists for Windows —, with the voice detector's model. Decided: no pinned build for macOS or Linux (the release
+  exists for Windows —, with the voice detector's model. **A copy on the team's channel**: each pinned file is
+  first taken from `<channel>/runtimes/<file name>` (Settings › Updates), held against the same SHA-256 — GitHub may
+  take a build's binaries away one day —, and `npm run release --publish` puts the three files there when they are
+  missing (`keepOnChannel`: 9 MB, 685 MB and 1 MB, once). Decided: no pinned build for macOS or Linux (the release
   is win-x64), so there — development only — the programs found on the PATH are taken.
 - **How the documents fit together** (2026-11-08, `docs/OVERVIEW.md`, design wave C « Overview »). A page Claude
   writes on the project's documents: a `##` section per document (its heading ends `<!-- doc <docId> -->`, so the core
@@ -617,7 +685,12 @@ docs/<docId>/
   and `project.json.glossary`; `rag.mentions` expands with them too (`glossary.ts` `expansions`). They live in
   `rag.retrieval`, not in `glossary`, so Try it and `rag.eval --retrieval` try them before they are kept; the
   glossary stays the acronyms list (CLI `project set --glossary`), counted in Settings › Search.
+- **A code said apart** (`search/lexical.ts` `spacings`, 2026-11-10): a transcript keeps what was heard (« S 12 »),
+  never bent towards the glossary, so it is the search that brings it to « S12 » — a short letter prefix and a
+  number, glued or apart, also looks for the other form, as an exact phrase, in the search by words and in
+  `rag.mentions` (which shows it among its forms).
 - **Typos** (`search/typos.ts`): only a query word of 4 letters or more that the index does not hold (fts5vocab over
+
   header and text) also looks for the indexed words one letter away (changed, added, removed, two swapped), at most 3
   per word (most frequent first) and 6 words. A word the index holds is never second-guessed. No model: P1 holds.
 - **Explain** (`rag.search --explain`, `search/explain.ts`): each hit's `why` — rank by words, rank by meaning (null
@@ -675,7 +748,10 @@ above) and by naming only the wanted choice's models.
   `provenOn`. Licences that forbid commercial use are excluded. `kind` is `embedding`, `reranker` or `speech`.
 - **Transcription is a family of its own** (2026-11-10): the `speech` entries are whisper.cpp files (runtime
   `whispercpp`, one GGML file each, MIT, 99 languages) — `whisper-large-v3-turbo-q8` (834 MB, the default: the best
-  text measured, in English as in French) and `whisper-small-q8` (252 MB, for a modest PC). They belong to no pack,
+  text measured, in English as in French) and `whisper-small-q8` (252 MB, for a modest PC), each also in 5 bits
+  (`whisper-large-v3-turbo-q5`, 574 MB; `whisper-small-q5`, 190 MB — same repository and pinned revision, sizes and
+  SHA-256 from Hugging Face; their memory needs are estimated from the 8-bit ones until measured). They belong to no pack,
+
   are installed like any model (`models pull`), checked without being loaded, and never downloaded by a conversion
   on its own (P6). Which one this PC hears with is a choice of this PC (`settings.json models.speech`,
   `models.useSpeech`; none: the best one installed); `models.speech` says what is here, what fits (`fit/`), how fast
@@ -1388,9 +1464,23 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   their descriptions (corrected in place), « Keep the frame at … », « Hear again… » (what to hear, with what it
   costs) and the report of a new hearing; « Reference… » holds the minutes typed by hand and measures the models. A
   PC that cannot play the original asks for the lighter copy by itself. Settings › Project › Videos holds the
-  languages expected, the translation, the density of key frames and the glossary. The icons `captions`, `expand`,
-  `pause` and `repeat` were added to `icons.ts` by hand while `design/` was not in the checkout: its four `.svg` are
-  owed to `design/icons/`.
+  languages expected, the translation, the density of key frames, the glossary, the seconds played around a cited
+  range (`video.margin`, 4) and the room the videos may take. **A cited range plays as soon as its source is
+  opened** (`autoPlay`: a refused `play()` leaves the player paused, without a word; a moment alone opens paused),
+  and **hovering a video source** shows the nearest key frame and the first line cited (or the frame's description
+  for what is seen) — the kit's `Tooltip` takes `content`, `SourceChip` a `preview`, `sources/VideoPreview.tsx`
+  reads `media.show` / `media.transcript` only while the chip is hovered, and a source that is not a video costs
+  nothing. A recording of sound alone has the same player with a band « Sound only » in place of the picture.
+  **Before a video is first converted** (`VideoBefore`, in `ConvertDoc`): the languages spoken, the sound track
+  when the file has several, a part only (From / To — the fields « Hear again… » has, one component:
+  `HeardFields`), each kept by `media.set` and the estimate read again; one sentence on what goes to Claude and
+  « Never give this video to Claude ». The head of an images or video document has « Never to Claude » / « Given to
+  Claude » beside the reference toggle. Settings › Models › Transcription › « Measure… » (`MeasureDialog`,
+  `media.measures`) lists the videos that have a reference, measures one with the active model, and shows the
+  figures by language. The icons `captions`, `expand`, `pause` and `repeat` were added to `icons.ts` by hand while
+  `design/` was not in the checkout (it is the design sessions' own, never written from here): their four `.svg`,
+  drawn from the same shapes, wait in `.build/video-sources/icons/` for `design/icons/`.
+
 - **How the documents fit together on the Documents screen** (design wave C « Overview »): the list's first row
   (`~overview`, a route no document id can take; « By Claude », what it was last updated after), then the documents
   under a « Documents » group head; its page renders the text as React elements (headings, Claude's words with their
@@ -1513,10 +1603,14 @@ first-class: every screen works without the bridge.
   without a card (expected 2 to 4 times slower than this PC's processor, where a passage costs 12 s); the processor
   build end to end through the app (its server was timed by hand); Egyptian Arabic; the colours of a real HDR
   `.mov` after the tone map; the size at which a picture really reaches Claude through `Read`; the Claude runs of a
-  video longer than ten minutes (the plan, then the parts: measured below on a two-minute video only). Left open
-  (VIDEO-SOURCES §9): sound-only files, who speaks, a Vulkan build, a disk cap per project, videos that must never
-  reach Claude; the index is updated once after a video's conversion, not as its pieces are heard; and
-  `media.frame` gives Claude a path it then Reads (two turns a look — the MCP face answers in text only).
+  video longer than ten minutes are measured below on thirteen minutes of one. **Decided, not built** (VIDEO-SOURCES
+  §9): no Vulkan build of whisper.cpp — it would be our own compiled binary to host and pin, and the plan asks for it
+  only once slowness on Intel and AMD chips is reported; no « who speaks » — whisper.cpp does not tell, a second
+  tool would, and the plan keeps it out until someone asks. The team's own part: a few minutes typed by hand on three
+  videos (Documents › Video › Reference…, Settings › Models › Transcription › Measure…). Known limits: the index is
+  updated once after a video's conversion, not as its pieces are heard; `media.frame` gives Claude a path it then
+  Reads (two turns a look — the MCP face answers in text only).
+
 - **The video prompts, measured** (2026-11-10, §11 « Prompts are measured »; real `claude -p` runs converting a real
   recording — a DMI demonstration filmed by hand, 2 min 06, English with two German sentences, 36 lines, 63
   candidate frames — in a new project, on this PC; one run per cell, so a figure is an order of magnitude).
@@ -1541,6 +1635,32 @@ first-class: every screen works without the bridge.
   « Trägesteller », is translated « bogies » by Opus and « brake cylinders » by Sonnet, with or without what is
   said around it. A first « after » asked for chapters and moments in one object: Opus closed a brace too early
   and the answer was lost — hence two blocks.
+
+  **A video longer than ten minutes** (the plan, then the parts), same day: thirteen minutes of a real recording of
+  the PCC filmed by hand on a phone (HEVC 1080p, French, 226 lines heard, about 290 candidate frames), one conversion
+  per model, in a new project. There is no « before » for it: the first design was never run on a long video.
+
+  | Conversion of 13 minutes | Sonnet high | Opus high |
+  |---|---|---|
+  | Heard on the graphics card | 24 s | 24 s |
+  | Claude runs (plan · parts · pictures) | 12 (1 · 9 · 2) | 11 (1 · 9 · 1) |
+  | The plan run (what is said, in the prompt) | 16 700 tokens in, 1 turn, $0.06 | 16 700, 1 turn, $0.12 |
+  | A part's run | 27 000 – 80 000 in, 8 – 16 s | 24 000 – 141 000 in, 8 – 19 s |
+  | Input · output tokens, all runs | 638 000 · 21 000 | 496 000 · 26 000 |
+  | Cost reported by Claude | $1.20 | $2.31 |
+  | From the file to the document | 578 s | 369 s |
+  | Chapters · key frames | 11 · 21 | 9 · 22 |
+
+  Sonnet's conversion shared the PC with the whole test suite: its pass over the pictures took 265 s of its 578,
+  against 63 s in Opus's (the card decoding by then), so the two wall times do not compare. Eleven chapters shared nine runs
+ (chapters that follow each other and whose
+  candidates fit four mosaics ride together). Sonnet's 21 pictures cost a second run for the last one — since then
+  up to five more ride with a run (Opus's 22 went in one: 96 000 tokens in, 18 000 out, 136 s — the longest run of a
+  conversion is the one that writes the descriptions). Read by hand: the chapters follow what the trainer does (the
+  screen, the CAI, moving in the view, the test profile and the simulation, a train's label and its identification
+  window), each key frame is a window or a state of its own (a list open, a form just before it is validated, the
+  label gone green), and the descriptions say what changed since the frame before.
+
 
 - **The prompts of 2026-11-10, measured** (§11 « Prompts are measured »; real `claude -p` runs on a copy of a
   project holding the specification `SOSIE_211_D401-1_3`, « before » = the code and prompts of the commit before the

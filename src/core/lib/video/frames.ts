@@ -10,6 +10,7 @@ const TILE_H = 270;
 const MAX_SIDE = 2000;
 const STILL_S = 0.5;
 const LONG_STILL_S = 10;
+const HOLD_S = 1;
 const SHAKY = 0.6;
 export const MAX_CANDIDATES = 600;
 const GRID_W = 16;
@@ -46,9 +47,16 @@ const stepOf = (duration: number) => (duration <= 600 ? 5 : Math.min(30, Math.ro
 // is caught open, not opening; a cursor on its way is skipped without being recognised), and again just before the
 // next change when the screen stayed long (the form as it was when « Validate » was clicked). To these are added the
 // moments the speech points at and a regular floor. Past 600 the weakest go first — the floor, then the speech's,
-// never an even thinning that would lose a short event
+// never an even thinning that would lose a short event.
+// A video filmed by hand changes at every frame, so when its picture changes says nothing: there the changes of scene
+// are taken instead (`cuts`: the moments the picture changed much more than the shake did — the camera cut, or swung
+// from the desk to a screen), each a second later, once the new scene holds: on a real cabin video the swing lasts
+// three frames of the pass, and the sharpest of the frames around half a second after it was still the blur of the
+// move. They cannot be told from `changes`, a list of moments with no size; the same light pass measures them (io.ts),
+// so there is no second reading
 export function candidatesOf(o: {
   changes: number[];
+  cuts?: number[];
   duration: number;
   said: Pick<SpokenLine, "at" | "text">[];
   cap?: number;
@@ -69,6 +77,7 @@ export function candidatesOf(o: {
       add(t, "screen");
       if (next - t >= LONG_STILL_S && i + 1 < o.changes.length) add(next - 1 / SCAN_FPS, "before");
     });
+  else for (const t of o.cuts ?? []) add(t + HOLD_S, "screen");
   for (const l of o.said) {
     add(l.at, "said");
     if (CUES.test(l.text)) add(l.at + 2, "said");

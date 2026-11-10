@@ -10,6 +10,7 @@ import { whileConverting } from "./docs-index.ts";
 import { filesOf, prepareImage, syncImageEntries, updateFile, updateFiles } from "./media.ts";
 import { writeMediaMd } from "./media-md.ts";
 import { fixedFrames, frameContext, processVideo } from "./video/pipeline.ts";
+import { reportSeen } from "./video/report.ts";
 
 // ponytail: the Claude run reading the pictures is built by claude/media.ts (tests/unit/core/claude/catalog.test.ts)
 export const promptsUsed = ["media"];
@@ -85,6 +86,13 @@ export function convertMedia(
           kept: fixedFrames(project, id),
         });
         writeMediaMd(project, id);
+        reportSeen(
+          project,
+          id,
+          filesOf(readDoc(project, id))
+            .filter((x) => x.kind === "video")
+            .map((x) => x.n),
+        );
       } catch (e) {
         if (ctx.signal.aborted) throw e;
         warnings.push(`Claude did not read the pictures: ${message(e)}`);

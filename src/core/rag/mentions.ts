@@ -5,6 +5,7 @@ import { chunkDoc, lines, parseSections } from "./chunk.ts";
 import { chunksOf, indexedContents, withIndex } from "./db.ts";
 import { expandTerm } from "./glossary.ts";
 import { corpusKey, projectDocs } from "./indexer.ts";
+import { spacings } from "./search/lexical.ts";
 import { fold, STOP_WORDS, stemWord } from "./stem-fr.ts";
 
 type MentionsInput = {
@@ -209,14 +210,25 @@ export function mentions(project: string, input: MentionsInput): Mentions {
   if (!term) throw new UserError("Nothing to look for: the term is empty.", "Give a word, a code or an acronym.");
   const page = Math.max(1, Math.floor(input.page ?? 1));
   const pageSize = Math.max(1, Math.floor(input.pageSize ?? 50));
-  const forms = input.regex ? [term] : input.glossary === false ? [term] : expandTerm(project, term);
+  const known = input.regex ? [term] : input.glossary === false ? [term] : expandTerm(project, term);
+  // ponytail: « S12 » also looks for « S 12 » (what a transcript heard) and the reverse — as a phrase, never stemmed
+  const spaced = input.regex ? [] : known.flatMap(spacings).filter((f) => !known.includes(f));
+  const forms = [...known, ...spaced];
   const matchers: Matcher[] = input.regex
     ? [regexMatcher(term)]
-    : forms.flatMap((f) => [phraseMatcher(f), input.stem === false ? null : stemMatcher(f)]).filter((m) => !!m);
+    : [
+        ...known.flatMap((f) => [phraseMatcher(f), input.stem === false ? null : stemMatcher(f)]),
+        ...spaced.map(phraseMatcher),
+      ].filter((m) => !!m);
   const shownForms =
     input.regex || input.stem === false
       ? forms
-      : [...new Set(forms.flatMap((f) => (stemMatcher(f) ? [f, `${contentStems(f).join(" ")}*`] : [f])))];
+      : [
+          ...new Set([
+            ...known.flatMap((f) => (stemMatcher(f) ? [f, `${contentStems(f).join(" ")}*`] : [f])),
+            ...spaced,
+          ]),
+        ];
 
   type Group = MentionSection & { docId: string; pos: number };
   const groups: Group[] = [];

@@ -393,6 +393,7 @@ export const commands = [
         if (glossary === null) delete video.glossary;
         else if (glossary) video.glossary = glossary.map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean);
         if (!video.spoken?.length) delete video.spoken;
+        if (!video.diskCapGB) delete video.diskCapGB;
         next.video = video;
       }
       if (input.rag?.reference === null) delete next.rag.reference;

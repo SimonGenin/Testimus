@@ -34,6 +34,25 @@ describe("models/catalog.json", () => {
     }
   });
 
+  it("the transcription models, best first: each 5-bit file beside its 8-bit one, same repository and revision, smaller", () => {
+    const speech = SHIPPED.entries.filter((e) => e.kind === "speech");
+    expect(speech.map((e) => e.id)).toEqual([
+      "whisper-large-v3-turbo-q8",
+      "whisper-large-v3-turbo-q5",
+      "whisper-small-q8",
+      "whisper-small-q5",
+    ]);
+    for (const light of speech.filter((e) => e.quantization === "q5")) {
+      const heavy = byId.get(light.id.replace(/-q5$/, "-q8"));
+      expect(heavy?.quantization, light.id).toBe("q8");
+      expect(light.source.hf?.repo, light.id).toBe(heavy?.source.hf?.repo);
+      expect(light.source.hf?.revision, light.id).toBe(heavy?.source.hf?.revision);
+      expect(light.source.hf?.path, light.id).toMatch(/-q5_\d\.bin$/);
+      expect(light.source.file?.size, light.id).toBeLessThan(heavy?.source.file?.size ?? 0);
+      expect(light.size.downloadMB, light.id).toBe(Math.round((light.source.file?.size ?? 0) / 1024 / 1024));
+    }
+  });
+
   it("P8 — every pack resolves with transformers.js and llama.cpp; Light and Performance with transformers.js alone", () => {
     expect(SHIPPED.packs.map((p) => p.id)).toEqual(["light", "performance", "balanced", "quality"]);
     for (const p of SHIPPED.packs) {

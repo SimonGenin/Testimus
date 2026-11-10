@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Finding, Source } from "../../../core/types.ts";
+import { videoPreview } from "../../components/sources/VideoPreview.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { SourceChip } from "../../components/ui/SourceChip.tsx";
@@ -69,6 +70,7 @@ export function Links({
               quote={s.quote || undefined}
               figure={isPictureAnchor(s.anchor)}
               observed={observed(s.docId)}
+              preview={videoPreview(s)}
               pressed={selected === chipMark(step, s)}
               onOpen={() => onOpen(s)}
             />
@@ -79,6 +81,7 @@ export function Links({
             reference={`${l.item} · ${sourceLabel(l.sources[0])}`}
             figure={isPictureAnchor(l.sources[0].anchor)}
             observed={observed(l.sources[0].docId)}
+            preview={videoPreview(l.sources[0])}
             pressed={selected === chipMark(step, l.sources[0])}
             onOpen={() => onOpen(l.sources[0])}
           />
@@ -91,6 +94,7 @@ export function Links({
                 compact
                 reference={sourceLabel(s)}
                 quote={s.quote || undefined}
+                preview={videoPreview(s)}
                 pressed={selected === chipMark(step, s)}
                 onOpen={() => onOpen(s)}
               />

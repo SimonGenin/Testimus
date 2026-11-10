@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DocJson } from "../../../core/types.ts";
+import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { Tabs } from "../../components/ui/Tabs.tsx";
@@ -12,7 +13,9 @@ import {
   type Described,
   IMAGE_EXTENSIONS,
   isMedia,
+  isSound,
   MEDIA_ACCEPT,
+  SOUND_EXTENSIONS,
   typeLabel,
   VIDEO_EXTENSIONS,
 } from "../../lib/media.ts";
@@ -84,6 +87,7 @@ export function DocHead({
   onDelete,
   onAddMedia,
   onReference,
+  onLeftOut,
 }: {
   doc: Described;
   sections: number;
@@ -101,10 +105,13 @@ export function DocHead({
   onAddMedia?: (picked: Picked[]) => void;
   /** an images or video document: mark it as the reference, or back to observed */
   onReference?: (reference: boolean) => void;
+  /** an images or video document: keep it from Claude (no run reads, searches or describes it), or give it back */
+  onLeftOut?: (kept: boolean) => void;
 }) {
   const from = typeLabel(doc);
   const media = isMedia(doc.type);
   const files = doc.source.files ?? [];
+  const videos = files.filter((f) => f.kind === "video");
   const converted = !!doc.converted?.at;
   const reading = !running && converted;
   const dir = project();
@@ -150,6 +157,7 @@ export function DocHead({
               </>
             )}
           </span>
+          {media && doc.private && <Badge size="sm" tone="warning" icon="lock" label="Never given to Claude" />}
         </div>
         <span {...stylex.props(type.small, styles.facts)}>
           {media
@@ -179,7 +187,12 @@ export function DocHead({
                 ? () =>
                     void pickFiles(
                       "Add images or videos",
-                      [{ name: "Images and videos", extensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS] }],
+                      [
+                        {
+                          name: "Images, videos and sound",
+                          extensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS],
+                        },
+                      ],
                       true,
                     ).then((p) => p.length && onAddMedia(pickedOfPaths(p)))
                 : undefined
@@ -192,6 +205,14 @@ export function DocHead({
             icon={doc.reference ? "eye" : "validated"}
             label={doc.reference ? "Observed, not the reference" : "Reference, not observed"}
             onClick={() => onReference(!doc.reference)}
+          />
+        )}
+        {media && onLeftOut && !running && (
+          <Button
+            size="sm"
+            icon={doc.private ? "claude" : "lock"}
+            label={doc.private ? "Given to Claude" : "Never to Claude"}
+            onClick={() => onLeftOut(!doc.private)}
           />
         )}
         {reading && (
@@ -214,8 +235,14 @@ export function DocHead({
                           },
                         ]
                       : []),
-                    ...(files.some((f) => f.kind === "video")
-                      ? [{ value: "video" as const, label: "Video", icon: "play" as const }]
+                    ...(videos.length
+                      ? [
+                          {
+                            value: "video" as const,
+                            label: videos.every((f) => isSound(f.name)) ? "Sound" : "Video",
+                            icon: "play" as const,
+                          },
+                        ]
                       : []),
                     { value: "text", label: "Text", icon: "text" },
                   ]

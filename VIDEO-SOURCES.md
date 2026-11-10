@@ -6,13 +6,19 @@ vraies vidéos** des projets SOSIE (français) et Égypte (anglais, avec de l'al
 n'est construit, sauf ce que la partie 1 décrit. Quand une décision est prise, elle va dans ARCHITECTURE.md (§5, §6, §16) et
 la tâche dans ROADMAP.md ; ce fichier peut alors disparaître.
 
-> **État au 2026-11-10 (soir) : construit.** Les étapes 1 à 7 du §8 sont dans le code ; les décisions sont écrites dans
-> ARCHITECTURE.md (§5 « A video », « A source in a video is held against time », §6 « Transcription », §12 « The
-> player », §16 pour ce qui n'est pas prouvé). La partie 1 décrit donc l'ancien état. Deux écarts par rapport au plan,
-> mesurés pendant la construction : sur un processeur, un passage coûte environ 12 s quelle que soit sa durée (fenêtre
-> de 30 s de Whisper, parcourue deux fois avec la langue), donc les passages y font 28 s et non 10 s ; et le premier
-> passage entendu par une carte NVIDIA paie environ 35 s de préparation, une seule fois. Les questions du §9 restent
-> ouvertes. Ce fichier peut être supprimé quand vous le voulez.
+> **État au 2026-11-10 (soir) : construit, contrôlé point par point.** Les étapes 1 à 7 du §8 sont dans le code ; les
+> décisions sont écrites dans ARCHITECTURE.md (§5 « A video », « A source in a video is held against time », §6
+> « Transcription », §12 « The player », §16 pour ce qui est mesuré et ce qui ne l'est pas). La partie 1 décrit donc
+> l'ancien état. Un contrôle indépendant du plan contre le code a relevé 26 points faits à moitié ou absents : ils ont
+> été construits ensuite, avec leurs tests. Écarts voulus, mesurés pendant la construction : sur un processeur, un
+> passage coûte environ 12 s quelle que soit sa durée (fenêtre de 30 s de Whisper, parcourue deux fois avec la
+> langue), donc les passages y font 28 s et non 10 s ; le premier passage entendu par une carte NVIDIA paie environ
+> 35 s de préparation, une seule fois ; une vidéo de dix minutes ou moins est repérée et découpée en chapitres par un
+> seul run Claude (§5.2 en prévoyait deux niveaux : mesuré, neuf runs devenaient trois).
+> Questions du §9 : construits — les fichiers son seuls, le plafond de disque par projet, « jamais à Claude » ;
+> tranchés sans construire, comme le plan le propose — pas de build Vulkan tant que la lenteur ne gêne pas, pas de
+> « qui parle » tant que personne ne le demande ; reste à l'équipe — les minutes transcrites à la main sur trois
+> vidéos (l'outil est là : Reference…, Measure…). Ce fichier peut être supprimé quand vous le voulez.
 
 Le but : une vidéo filmée par l'équipe (PCC, simulateur, cabine, réunion enregistrée) devient une source aussi fiable
 qu'une spécification. Une étape de test peut citer **la seconde** où l'opérateur dit ou fait quelque chose ; un clic

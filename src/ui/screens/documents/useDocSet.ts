@@ -6,9 +6,9 @@ import { errorToast } from "../../lib/toast.ts";
 
 type Shown = CommandOutput<"docs.show">;
 
-// ponytail: what the team decides on a document from its head and side — its status (shown at once, put back on a
-// refusal) and whether an images or video document is the reference; the document read after each save is the one
-// the page shows
+// ponytail: what the team decides on a document from its head and side — its status and whether it is kept from
+// Claude (both shown at once, put back on a refusal), whether an images or video document is the reference; the
+// document read after each save is the one the page shows
 export function useDocSet(id: string) {
   const client = useQueryClient();
   const k = key("docs.show", { id, brief: true }) as unknown as readonly unknown[];
@@ -16,11 +16,16 @@ export function useDocSet(id: string) {
     invalidates: [["docs.list"]],
     optimistic: (c, input) => {
       const before = c.getQueryData<Shown>(k);
-      if (before && input.status) c.setQueryData<Shown>(k, { ...before, doc: { ...before.doc, status: input.status } });
+      const patch = {
+        ...(input.status ? { status: input.status } : {}),
+        ...(input.private !== undefined ? { private: input.private } : {}),
+      };
+      if (before && Object.keys(patch).length)
+        c.setQueryData<Shown>(k, { ...before, doc: { ...before.doc, ...patch } });
       return () => c.setQueryData(k, before);
     },
   });
-  const save = (input: { status?: DocJson["status"]; reference?: boolean }) =>
+  const save = (input: { status?: DocJson["status"]; reference?: boolean; private?: boolean }) =>
     set.mutate(
       { id, ...input },
       {
@@ -31,5 +36,6 @@ export function useDocSet(id: string) {
   return {
     status: (status: DocJson["status"]) => save({ status }),
     reference: (reference: boolean) => save({ reference }),
+    leftOut: (kept: boolean) => save({ private: kept }),
   };
 }

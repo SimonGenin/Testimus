@@ -50,9 +50,11 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
         Reference…) pour mesurer le jargon ; la vitesse sur un portable sans carte NVIDIA ; mesurer les runs
         Claude d'une vidéo de plus de dix minutes (ceux d'une vidéo courte sont mesurés : ARCHITECTURE.md §16).
 
-      - Laissé ouvert : les fichiers son seuls (.mp3, .m4a), « qui parle », un build Vulkan pour les puces Intel et
-        AMD, un plafond de disque par projet, une option « jamais à Claude » pour certaines vidéos, l'index mis à
-        jour pendant qu'une longue vidéo est entendue.
+      - Fait depuis (même jour) : les fichiers son seuls (.mp3, .m4a…), le plafond de disque par projet, « Never
+        to Claude » pour un document.
+      - Décidé, pas construit : « qui parle » (hors périmètre tant que personne ne le demande) ; un build Vulkan
+        pour les puces Intel et AMD (seulement si la lenteur gêne : ce serait notre propre binaire à compiler
+        et à héberger). Limite connue : l'index est mis à jour une fois la vidéo convertie, pas pendant.
 
 ## 3. Index, modèles et recherche
 

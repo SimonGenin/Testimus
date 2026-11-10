@@ -658,6 +658,9 @@ describe("before and beside a conversion", () => {
         wer: expect.any(Number),
         timing: 0,
         speed: expect.any(Number),
+        seconds: expect.any(Number),
+        memoryMB: 1240,
+        at: expect.any(String),
       },
     ]);
     expect(video()).toEqual(before);
@@ -683,7 +686,9 @@ describe("the transcription models of this PC", () => {
     expect(s).toMatchObject({ active: "whisper-large-v3-turbo-q8", chosen: null });
     expect(s.models.map((m) => [m.id, m.installed, m.active])).toEqual([
       ["whisper-large-v3-turbo-q8", true, true],
+      ["whisper-large-v3-turbo-q5", false, false],
       ["whisper-small-q8", false, false],
+      ["whisper-small-q5", false, false],
     ]);
     expect(s.models.filter((m) => m.advised).length).toBe(1);
     await expect(call("models.useSpeech", { model: "whisper-small-q8" }, null)).rejects.toThrow("is not on this PC");
@@ -743,6 +748,11 @@ describe("the transcription models of this PC", () => {
     const list = await call<{ model: string; runtime: string }[]>("models.list", {}, null);
     expect(list.find((m) => m.model === "whisper-large-v3-turbo-q8")?.runtime).toBe("whispercpp");
     const cat = await call<{ id: string; kind: string }[]>("models.catalog", { kind: "speech" }, null);
-    expect(cat.map((c) => c.id)).toEqual(["whisper-large-v3-turbo-q8", "whisper-small-q8"]);
+    expect(cat.map((c) => c.id)).toEqual([
+      "whisper-large-v3-turbo-q8",
+      "whisper-large-v3-turbo-q5",
+      "whisper-small-q8",
+      "whisper-small-q5",
+    ]);
   });
 });

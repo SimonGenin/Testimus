@@ -27,7 +27,10 @@ src/core/lib/         the domain modules (analysis: a test's analysis, its proof
                         video/ (a video, all on this PC: io — the seam, ffmpeg and whisper.cpp as processes —, wav,
                         passages, lines, glossary, engine, speech — pieces, resume, one at a time —, frames, survey,
                         pipeline — a video's steps —, sources — a source held against time —, report, estimate,
-                        measure), ffmpeg and whisper (the pinned builds, models.pullFfmpeg, models.pullWhisper);
+                        measure + numbers — a model against a reference, numbers read alike —, disk — the room the
+                        videos take and its cap), ffmpeg and whisper (the pinned builds, models.pullFfmpeg,
+                        models.pullWhisper; models-channel: the engine's files taken from the team's channel first, and
+                        a publish keeps them there);
                         jira/ (http, read, steps, labels, push) and sync/ (connect, pull, push), ported from Xray Editor;
                         models-* (catalog, packs, download, install*, registry, resolve, perf, advice, quality, store,
                         dir, use);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SourceChip } from "../../../../src/ui/components/ui/SourceChip.tsx";
 
@@ -8,6 +8,12 @@ afterEach(cleanup);
 
 const cls = (el: Element) => el.getAttribute("class") ?? "";
 const QUOTE = "Selon le type de sectionneur, le menu contextuel diffère";
+
+let mounted = 0;
+function Seen() {
+  mounted++;
+  return <span data-testid="seen">02:44 Le voyant devient rouge</span>;
+}
 
 describe("SourceChip", () => {
   it("is a button with the reference and the quote that opens the passage", () => {
@@ -91,6 +97,47 @@ describe("SourceChip", () => {
     );
     const c = (n: string) => cls(screen.getByRole("button", { name: n }));
     expect(new Set([c("§1"), c("§2"), c("§3")]).size).toBe(3);
+  });
+
+  it("a preview is mounted above the tooltip's words only while the chip is hovered; without one nothing is added", () => {
+    vi.useFakeTimers();
+    try {
+      mounted = 0;
+      render(
+        <>
+          <SourceChip reference="FILM 02:36" quote="le refus" preview={<Seen />} onOpen={() => {}} />
+          <SourceChip reference="§5.6.6" quote={QUOTE} onOpen={() => {}} />
+        </>,
+      );
+      const film = screen.getByRole("button", { name: "FILM 02:36 “le refus”" });
+      const text = screen.getByRole("button", { name: `§5.6.6 “${QUOTE}”` });
+      const bubble = (chip: HTMLElement) => chip.parentElement?.querySelector('[role="tooltip"]') as HTMLElement;
+      expect(mounted).toBe(0);
+      expect(film).toHaveAccessibleDescription("FILM 02:36 — “le refus”");
+      expect(bubble(text).childNodes).toHaveLength(1);
+      fireEvent.mouseEnter(film.parentElement as HTMLElement);
+      act(() => {
+        vi.advanceTimersByTime(499);
+      });
+      expect(screen.queryByTestId("seen")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(bubble(film)).toContainElement(screen.getByTestId("seen"));
+      expect(bubble(film).firstChild).toBe(screen.getByTestId("seen"));
+      expect(bubble(film)).toHaveTextContent("FILM 02:36 — “le refus”");
+      expect(cls(bubble(film))).not.toBe(cls(bubble(text)));
+      fireEvent.mouseLeave(film.parentElement as HTMLElement);
+      expect(screen.queryByTestId("seen")).toBeNull();
+      fireEvent.mouseEnter(text.parentElement as HTMLElement);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(bubble(text).childNodes).toHaveLength(1);
+      expect(bubble(text)).toHaveTextContent(`§5.6.6 — “${QUOTE}”`);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows a quote without doc.md's bold and italic marks, and keeps a lone star", () => {

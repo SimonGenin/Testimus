@@ -3,6 +3,7 @@ import {
   type CSSProperties,
   cloneElement,
   type ReactElement,
+  type ReactNode,
   useEffect,
   useId,
   useLayoutEffect,
@@ -48,6 +49,7 @@ const styles = stylex.create({
   left: { marginRight: space.s2 },
   right: { marginLeft: space.s2 },
   closed: { display: "none" },
+  rich: { flexDirection: "column", alignItems: "stretch", gap: space.s2, width: size.tooltipMax },
 });
 
 export type TooltipProps = {
@@ -55,6 +57,9 @@ export type TooltipProps = {
   label: string;
   /** a shortcut shown as keys after the words */
   shortcut?: string;
+  /** something to look at above the words — a source's picture and its first line — never a control; mounted only
+   * while the tooltip is shown, so what it reads is read on hover */
+  content?: ReactNode;
   side?: "top" | "bottom" | "left" | "right";
   /** the catalogue only: shown without the pointer */
   debugState?: "open";
@@ -100,7 +105,7 @@ function place(want: Side, a: DOMRect, b: HTMLElement): { side: Side; style: CSS
 
 // ponytail: shown on hover after 500 ms and at once on keyboard focus, hidden on Escape and while the control's own
 // layer (a menu, a popover) is open; never interactive and never the only place for what is needed to act (SYSTEM.md)
-export function Tooltip({ label, shortcut, side = "top", children, debugState }: TooltipProps) {
+export function Tooltip({ label, shortcut, content, side = "top", children, debugState }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -156,8 +161,14 @@ export function Tooltip({ label, shortcut, side = "top", children, debugState }:
         role="tooltip"
         id={id}
         style={shown ? at?.style : undefined}
-        {...stylex.props(styles.bubble, styles[(shown && at?.side) || side], !shown && styles.closed)}
+        {...stylex.props(
+          styles.bubble,
+          !!content && styles.rich,
+          styles[(shown && at?.side) || side],
+          !shown && styles.closed,
+        )}
       >
+        {shown && content}
         {label}
         {shortcut && <Kbd onFill>{shortcut}</Kbd>}
       </span>
