@@ -61,10 +61,10 @@ export function usePackStep(hasProject: boolean, onDone?: () => void) {
       jobToast(
         `${row.label} pack — started`,
         jobId,
-        app.navigate,
+        app.openJob,
         out.plan.download.length
-          ? "It downloads the models, then indexes the documents, in Jobs; you can keep working."
-          : "It indexes the documents in Jobs; you can keep working.",
+          ? "It downloads the models, then indexes the documents; you can keep working."
+          : "It indexes the documents; you can keep working.",
       );
       done();
     },

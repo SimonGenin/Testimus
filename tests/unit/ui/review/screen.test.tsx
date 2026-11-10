@@ -875,7 +875,7 @@ describe("Review screen", () => {
     expect(named("check.run").at(-1)?.input).toEqual({ ids: ["K-1"] });
   });
 
-  it("a check that runs as a job says it started, with « Open in Jobs » to that job", async () => {
+  it("a check that runs as a job says it started, with « Show the job » to that job", async () => {
     reviewRoutes({ queue: [item("K-1", { unchecked: true })] });
     net.routes["check.run"] = () => ({ jobId: "check-0000000c" });
     net.routes["jobs.show"] = () => ({ job: { id: "check-0000000c", kind: "check", status: "running" }, events: [] });
@@ -883,8 +883,8 @@ describe("Review screen", () => {
     await screen.findByRole("heading", { name: "Summary K-1" });
     fireEvent.click(within(queue()).getAllByRole("button", { name: "Check all" })[0]);
     await waitFor(() => expect(toast("Checking 1 test")).toBeInTheDocument());
-    fireEvent.click(within(toast("Checking 1 test")).getByRole("button", { name: "Open in Jobs" }));
-    expect(a.navigate).toHaveBeenCalledWith("jobs", "check-0000000c");
+    fireEvent.click(within(toast("Checking 1 test")).getByRole("button", { name: "Show the job" }));
+    expect(a.openJob).toHaveBeenCalledWith("check-0000000c");
   });
 
   it("a fresh, checked test has no Check button", async () => {

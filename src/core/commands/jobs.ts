@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { command, UserError } from "../command.ts";
-import { cancelJob, clearJobs, listJobs, showJob } from "../jobs.ts";
+import { cancelJob, clearJobs, isAbout, listJobs, showJob } from "../jobs.ts";
 
 const STATUS = z.enum(["running", "done", "failed", "cancelled"]).describe("Where the job is");
 
@@ -66,6 +66,10 @@ const job = z.object({
     })
     .optional()
     .describe("The command and input to run it again"),
+  touched: z
+    .array(z.string())
+    .optional()
+    .describe("The tests and documents whose files it changed, as their folders (tests/<id>, docs/<id>)"),
 });
 
 const base = {
@@ -152,12 +156,20 @@ const JOB_ID = z.string().describe("Job id");
 export const commands = [
   command({
     name: "jobs.list",
-    summary: "List the project's jobs, running and past, newest first.",
-    input: z.object({ running: z.boolean().optional().describe("Only the jobs still running") }),
+    summary: "List the project's jobs, running and past, newest first; finished ones are kept 30 days.",
+    input: z.object({
+      running: z.boolean().optional().describe("Only the jobs still running"),
+      about: z
+        .string()
+        .optional()
+        .describe(
+          "Only the jobs about one test or document, as its folder (tests/<id>, docs/<id>): the ones that changed its files or were given its id",
+        ),
+    }),
     output: z.array(job),
     mutates: false,
     async run(ctx, input) {
-      const all = listJobs(ctx.project);
+      const all = listJobs(ctx.project).filter((j) => !input.about || isAbout(j, input.about));
       return input.running ? all.filter((j) => j.status === "running") : all;
     },
   }),

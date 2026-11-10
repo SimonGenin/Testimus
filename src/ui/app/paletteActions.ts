@@ -7,10 +7,10 @@ import { setThemeEverywhere } from "../lib/theme.ts";
 import type { ToastInput } from "../lib/toast.ts";
 
 // ponytail: what the palette offers besides the registry — the screens, the dock, the theme; without a project only
-// the screens that need none (Jobs, Settings, the system check)
+// the screens that need none (Settings, the system check)
 export function paletteActions(navigate: (s: Screen) => void, toggleDock: () => void, project = true): PaletteAction[] {
   return [
-    ...NAV.filter((n) => project || n.id === "jobs").map(
+    ...(project ? NAV : []).map(
       (n): PaletteAction => ({
         id: `go-${n.id}`,
         label: `Go to ${n.label}`,

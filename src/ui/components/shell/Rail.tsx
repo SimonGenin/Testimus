@@ -17,7 +17,6 @@ export const NAV: { id: Screen; label: string; icon: IconName }[] = [
   { id: "review", label: "Review", icon: "review" },
   { id: "tests", label: "Tests", icon: "tests" },
   { id: "run", label: "Run", icon: "play" },
-  { id: "jobs", label: "Jobs", icon: "jobs" },
 ];
 
 const styles = stylex.create({
@@ -40,7 +39,7 @@ const styles = stylex.create({
 });
 
 // ponytail: the main navigation, icons only (each one's name in its tooltip and its accessible name) — the project on
-// top, the work screens, then Jobs, Settings, the system's state and the version under it, which opens Settings ›
+// top, the work screens, then Settings, the system's state and the version under it, which opens Settings ›
 // Changelog (the theme is chosen in Settings); coming back to a screen from the rail opens what was open there, its own
 // entry clicked again goes to its start
 export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, number>>; kit?: boolean }) {
@@ -67,10 +66,9 @@ export function Rail({ counts, kit = false }: { counts: Partial<Record<Screen, n
       </span>
       <ProjectButton />
       <span {...stylex.props(styles.gap)} />
-      {NAV.filter((n) => n.id !== "jobs").map((n) => item(n.id, n.label, n.icon))}
+      {NAV.map((n) => item(n.id, n.label, n.icon))}
       {kit && item("kit", "Kit", "kit")}
       <span {...stylex.props(styles.spacer)} />
-      {item("jobs", "Jobs", "jobs")}
       {item("settings", "Settings", "settings")}
       <SystemStatus current={at === "doctor"} onOpen={() => go("doctor")} />
       <span {...stylex.props(styles.version)}>

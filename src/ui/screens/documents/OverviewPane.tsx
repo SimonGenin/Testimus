@@ -68,7 +68,7 @@ export function OverviewPane() {
       const r = await execute(client, "docs.overview", { mode }, { invalidates: "none" });
       const jobId = (r as { jobId?: string }).jobId;
       setStarted(jobId);
-      jobToast(mode === "full" ? "Rewriting it from scratch — started" : "Updating it — started", jobId, app.navigate);
+      jobToast(mode === "full" ? "Rewriting it from scratch — started" : "Updating it — started", jobId, app.openJob);
     } catch (e) {
       errorToast(e, "Could not start the update");
     }
@@ -183,7 +183,7 @@ export function OverviewPane() {
           tone="claude"
           compact
           icon="spinner"
-          actions={<Button size="sm" label="Open in Jobs" onClick={() => app.navigate("jobs", running.id)} />}
+          actions={<Button size="sm" label="Show the job" onClick={() => app.openJob(running.id)} />}
         >
           {running.message || "Claude is writing it."}
         </Banner>

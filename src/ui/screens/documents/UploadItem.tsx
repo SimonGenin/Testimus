@@ -83,7 +83,7 @@ export function uploadItem(u: Upload, onCancel?: (jobId: string) => void): ListI
   };
 }
 
-// ponytail: what stopped and what to do, under the list — the row stays as it was, the job stays in Jobs
+// ponytail: what stopped and what to do, under the list — the row stays as it was, its job shows why
 export function UploadFailure({ u, inset = true }: { u: Upload; inset?: boolean }) {
   const app = useApp();
   const { reindex, indexing } = useReindex();
@@ -121,16 +121,14 @@ export function UploadFailure({ u, inset = true }: { u: Upload; inset?: boolean 
                 }}
               />
             )}
-            {u.jobId ? (
+            {u.jobId && (
               <Button
                 size="sm"
                 variant="quiet"
                 icon="jobs"
-                label="Open in Jobs"
-                onClick={() => app.navigate("jobs", u.jobId)}
+                label="Show the job"
+                onClick={() => u.jobId && app.openJob(u.jobId)}
               />
-            ) : (
-              <Button size="sm" variant="quiet" icon="jobs" label="Open Jobs" onClick={() => app.navigate("jobs")} />
             )}
             <Button
               size="sm"

@@ -20,7 +20,7 @@ type Size = keyof typeof SIZES;
 type Theme = "light" | "dark";
 
 // ponytail: the area is the part of the UI a shot belongs to (the redesign works area by area: design/screens/<area>/)
-const AREAS = ["documents", "generate", "tests", "review", "jobs", "settings", "setup", "doctor"];
+const AREAS = ["documents", "generate", "tests", "review", "settings", "setup", "doctor"];
 const CLAUDE = ["dock", "contexts"];
 const SHELL = ["palette", "toast", "project", "command", "open", "activity"];
 

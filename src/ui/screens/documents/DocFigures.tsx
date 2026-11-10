@@ -128,8 +128,8 @@ export function DocFigures({
           jobToast(
             anchors ? "Claude reads the figure again" : `Claude describes ${bare.length} figures`,
             jobId,
-            app.navigate,
-            "It runs in Jobs; the descriptions appear here as they are written.",
+            app.openJob,
+            "It runs in the background; the descriptions appear here as they are written.",
           );
         },
         onError: (e) => errorToast(e, "Could not ask Claude to describe the figures"),

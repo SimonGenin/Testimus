@@ -41,7 +41,7 @@ export function UpdatesSection() {
   const settings = useSettings();
   const setSettings = useSetSettings();
   const updates = useUpdates();
-  const start = useStartUpdate(app.navigate);
+  const start = useStartUpdate(app.openJob);
   const [starting, setStarting] = useState(false);
   const saveKey: Key = [null, "system.settings", { field: "updatesFrom" }];
   const u = updates.data;

@@ -11,7 +11,6 @@ const SCREEN: Record<Screen, React.LazyExoticComponent<() => React.JSX.Element>>
   generate: lazy(() => import("../screens/generate/GenerateScreen.tsx").then((m) => ({ default: m.GenerateScreen }))),
   review: lazy(() => import("../screens/review/ReviewScreen.tsx").then((m) => ({ default: m.ReviewScreen }))),
   run: lazy(() => import("../screens/run/RunScreen.tsx").then((m) => ({ default: m.RunScreen }))),
-  jobs: lazy(() => import("../screens/jobs/JobsScreen.tsx").then((m) => ({ default: m.JobsScreen }))),
   doctor: lazy(() => import("../screens/doctor/DoctorScreen.tsx").then((m) => ({ default: m.DoctorScreen }))),
   kit: lazy(() => import("../screens/kit/KitScreen.tsx").then((m) => ({ default: m.KitScreen }))),
   settings: lazy(() => import("../screens/settings/SettingsScreen.tsx").then((m) => ({ default: m.SettingsScreen }))),

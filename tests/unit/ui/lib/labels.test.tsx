@@ -4,12 +4,12 @@ import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/api.ts";
+import { placeOfPath } from "../../../../src/ui/components/jobs/JobFiles.tsx";
 import { scopeWords } from "../../../../src/ui/lib/actions.ts";
 import { activityOf } from "../../../../src/ui/lib/activity.ts";
 import { DataProvider } from "../../../../src/ui/lib/data/provider.tsx";
 import { subjectLabel } from "../../../../src/ui/lib/jobs.ts";
 import { contextLabel, isLocalId, nameTests, testLabel, testRef, useTestNames } from "../../../../src/ui/lib/labels.ts";
-import { placeOfPath } from "../../../../src/ui/screens/jobs/JobFiles.tsx";
 import { fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 
 const SUMMARY = "Sectionneur avec TK — manœuvre régulière";

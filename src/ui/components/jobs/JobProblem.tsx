@@ -1,13 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Job, JobEvent } from "../../../core/types.ts";
-import { ProblemPlace, problemOf } from "../../components/shell/ProblemPanel.tsx";
-import { Banner } from "../../components/ui/Banner.tsx";
-import { Button } from "../../components/ui/Button.tsx";
-import { Disclosure } from "../../components/ui/Disclosure.tsx";
-import { Raw } from "../../components/ui/Raw.tsx";
-import { type } from "../../components/ui/type.ts";
 import { failedStep, problemText } from "../../lib/jobs.ts";
 import { space } from "../../styles/tokens.stylex.ts";
+import { ProblemPlace, problemOf } from "../shell/ProblemPanel.tsx";
+import { Banner } from "../ui/Banner.tsx";
+import { Button } from "../ui/Button.tsx";
+import { Disclosure } from "../ui/Disclosure.tsx";
+import { Raw } from "../ui/Raw.tsx";
+import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
   section: { display: "flex", flexDirection: "column", gap: space.s3 },

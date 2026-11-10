@@ -9,7 +9,7 @@ import { MOCK_ADVICE } from "../../../src/core/mock/models.ts";
 import type { KitSection } from "../../../src/ui/screens/kit/kit.tsx";
 
 const ESSAI = "/tmp/essai-project";
-const SCREENS = ["documents", "generate", "tests", "review", "run", "jobs", "settings", "doctor", "setup", "kit"];
+const SCREENS = ["documents", "generate", "tests", "review", "run", "settings", "doctor", "setup", "kit"];
 const SIZES = ["lg", "md", "sm", "xs"];
 const ID = /^[a-z0-9][a-z0-9-]*$/;
 

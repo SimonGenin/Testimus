@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { QueryClientContext, useQuery } from "@tanstack/react-query";
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { CommandName } from "../../../core/commands/index.ts";
 import type { Job } from "../../../core/types.ts";
 import { AppContext } from "../../lib/app.ts";
@@ -8,7 +8,7 @@ import { project } from "../../lib/data/client.ts";
 import { onAnyEvent } from "../../lib/data/events.ts";
 import { useCommand, useFetching, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { subjectLabel } from "../../lib/jobs.ts";
+import { problemText, subjectLabel } from "../../lib/jobs.ts";
 import { useNow } from "../../lib/now.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
@@ -56,6 +56,24 @@ export function useRunningJobs({ quiet = false }: { quiet?: boolean } = {}): Job
   );
 }
 
+// ponytail: the jobs that failed while the page was open — they stay in the top bar until opened or dismissed, so a
+// failure nobody was looking at is not lost; a parent's failure stands for its children's, and Claude looking at a
+// failure (actions.triage) is not one more
+export function useFailures(): { failed: Job[]; dismiss: (id?: string) => void } {
+  const [failed, setFailed] = useState<Job[]>([]);
+  useEffect(
+    () =>
+      onAnyEvent((e) => {
+        if (e.type !== "status" || e.job.status !== "failed" || e.job.kind === "actions.triage") return;
+        const job = e.job;
+        setFailed((cur) => [job, ...cur.filter((j) => j.id !== job.id && j.parentId !== job.id)]);
+      }),
+    [],
+  );
+  const dismiss = useCallback((id?: string) => setFailed((cur) => (id ? cur.filter((j) => j.id !== id) : [])), []);
+  return { failed, dismiss };
+}
+
 // ponytail: the last rate-limit notice the event bridge kept (« Jira asks to wait 30 s »)
 function useNotice(): string {
   const q = useQuery<string>({ queryKey: ["notice"], queryFn: () => "", enabled: false, staleTime: Infinity });
@@ -63,8 +81,8 @@ function useNotice(): string {
 }
 
 // ponytail: the activity indicator of the top bar — how many things run, and on click what they are, how far, since
-// when, with Cancel; work the page itself waits on (a Jira tree, a Jira search) shows beside the jobs. Outside the data
-// layer (a screen drawn alone) it shows nothing
+// when, with Cancel; work the page itself waits on (a Jira tree, a Jira search) shows beside the jobs, and the jobs
+// that failed under them, each opening in the job panel. Outside the data layer (a screen drawn alone) it shows nothing
 const WAITED_LABEL: Partial<Record<CommandName, string>> = {
   "xray.folders": "Loading the Jira folders",
   "xray.search": "Searching Jira",
@@ -77,6 +95,7 @@ export function Activity() {
 
 function LiveActivity() {
   const jobs = useRunningJobs();
+  const { failed, dismiss } = useFailures();
   const notice = useNotice();
   const local = useFetching(WAITED);
   const app = useContext(AppContext);
@@ -97,14 +116,17 @@ function LiveActivity() {
         progress: j.progress,
       })),
   ];
+  const shown = failed.filter((j) => !jobs.some((r) => r.id === j.id));
   const count = items.length;
+  const all = count + shown.length;
   const openJob = (id: string) => () => {
     setOpen(false);
-    app?.navigate("jobs", id);
+    dismiss(id);
+    app?.openJob(id);
   };
   useEffect(() => {
-    if (!count) setOpen(false);
-  }, [count]);
+    if (!all) setOpen(false);
+  }, [all]);
   useEffect(() => {
     if (!open) return;
     const shut = () => setOpen(false);
@@ -120,32 +142,32 @@ function LiveActivity() {
           {notice}
         </span>
       )}
-      {count > 0 && (
+      {all > 0 && (
         <Popover
-          title="Running"
-          count={count}
+          title={count ? "Running" : "Failed"}
+          count={count || shown.length}
           width="sm"
           flush
           foot={
             <span {...stylex.props(styles.foot)}>
               Esc or a click outside closes this
               <span {...stylex.props(styles.grow)} />
-              {app && (
-                <Button
-                  variant="quiet"
-                  size="sm"
-                  label="Open Jobs"
-                  onClick={() => {
-                    setOpen(false);
-                    app.navigate("jobs");
-                  }}
-                />
+              {shown.length > 1 && (
+                <Button variant="quiet" size="sm" label="Dismiss the failures" onClick={() => dismiss()} />
               )}
             </span>
           }
           open={open}
           onOpenChange={setOpen}
-          trigger={<Button variant="quiet" icon="spinner" label={`${plural(count, "job")} running`} />}
+          trigger={
+            <Button
+              variant="quiet"
+              icon={count ? "spinner" : "x-circle"}
+              label={[count ? `${plural(count, "job")} running` : "", shown.length ? `${shown.length} failed` : ""]
+                .filter(Boolean)
+                .join(" · ")}
+            />
+          }
         >
           <ul {...stylex.props(styles.list)}>
             {items.map((item) => (
@@ -170,6 +192,32 @@ function LiveActivity() {
                       }
                     />
                   )
+                }
+              />
+            ))}
+            {shown.map((j) => (
+              <ActivityRow
+                key={j.id}
+                item={{
+                  key: j.id,
+                  id: j.id,
+                  kind: j.kind,
+                  label: subjectLabel(j, new Map()) || j.kind,
+                  startedAt: j.startedAt,
+                  endedAt: j.endedAt ?? j.startedAt,
+                  error: `Failed · ${problemText(j).what}`,
+                }}
+                now={now}
+                onOpen={app ? openJob(j.id) : undefined}
+                action={
+                  <Button
+                    variant="quiet"
+                    size="xs"
+                    iconOnly
+                    icon="close"
+                    label="Dismiss"
+                    onClick={() => dismiss(j.id)}
+                  />
                 }
               />
             ))}

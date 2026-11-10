@@ -182,7 +182,7 @@ export function CommandForm({
   const shown = (r: unknown) => {
     const jobId = command.job ? (r as { jobId?: string } | null)?.jobId : undefined;
     if (jobId && app) {
-      jobToast(`${title} — started`, jobId, app.navigate);
+      jobToast(`${title} — started`, jobId, app.openJob);
       onClose();
       return;
     }

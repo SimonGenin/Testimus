@@ -1,18 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Screen } from "../lib/app.ts";
 
-const SCREENS: Screen[] = [
-  "documents",
-  "generate",
-  "tests",
-  "review",
-  "run",
-  "jobs",
-  "settings",
-  "doctor",
-  "setup",
-  "kit",
-];
+const SCREENS: Screen[] = ["documents", "generate", "tests", "review", "run", "settings", "doctor", "setup", "kit"];
 
 export const TITLES: Record<Screen, string> = {
   documents: "Documents",
@@ -20,7 +9,6 @@ export const TITLES: Record<Screen, string> = {
   tests: "Tests",
   review: "Review",
   run: "Run",
-  jobs: "Jobs",
   settings: "Settings",
   doctor: "System check",
   setup: "First launch",

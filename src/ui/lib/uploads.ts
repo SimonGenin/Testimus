@@ -17,7 +17,7 @@ export type Upload = {
   pct: number | null;
   message: string;
   docId?: string;
-  /** the job behind the row, once it has one (Cancel, « Open in Jobs ») */
+  /** the job behind the row, once it has one (Cancel, « Show the job ») */
   jobId?: string;
   error?: unknown;
   /** a conversion that updates the index once done (the one run shared by the conversions asked for together) */
@@ -64,7 +64,7 @@ export function dismissUpload(key: string): void {
   emit();
 }
 
-// ponytail: a finished or failed row is shown once — leaving the screen forgets it; the job stays in Jobs
+// ponytail: a finished or failed row is shown once — leaving the screen forgets it; the job keeps its log
 export function forgetSettled(): void {
   view.since = Date.now();
   view.local = view.local.filter((u) => !settled(u));

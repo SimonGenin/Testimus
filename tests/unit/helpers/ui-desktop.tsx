@@ -112,6 +112,7 @@ export const app = (over: Partial<AppState> = {}): AppState => ({
   runInDock: vi.fn(),
   askAbout: vi.fn(),
   openPalette: vi.fn(),
+  openJob: vi.fn(),
   ...over,
 });
 

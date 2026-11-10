@@ -167,7 +167,7 @@ describe("First launch › Search pack", () => {
       [
         "Light pack — started",
         "models-usePack-1",
-        "It downloads the models, then indexes the documents, in Jobs; you can keep working.",
+        "It downloads the models, then indexes the documents; you can keep working.",
       ],
     ]);
     expect(callsOf("models.usePack").at(-1)?.input).toEqual({ pack: "light", downloadOnly: false });
@@ -185,7 +185,7 @@ describe("First launch › Search pack", () => {
     let plan = await screen.findByRole("dialog", { name: "Use the Light pack" });
     fireEvent.click(within(plan).getByRole("button", { name: "Use Light" }));
     await waitFor(() => expect(started()[0]?.[0]).toBe("Light pack — started"));
-    expect(started()[0][2]).toBe("It indexes the documents in Jobs; you can keep working.");
+    expect(started()[0][2]).toBe("It indexes the documents; you can keep working.");
     expect(state.navigate).toHaveBeenCalledWith("documents");
     delete net.routes["models.usePack"];
     fireEvent.click(screen.getByRole("button", { name: "Use Light" }));

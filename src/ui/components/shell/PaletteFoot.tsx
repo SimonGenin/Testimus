@@ -105,8 +105,8 @@ export function PaletteFoot({
               {},
               {
                 onSuccess: (r) =>
-                  jobToast("Indexing the tests by meaning", (r as { jobId?: string } | null)?.jobId, (s, a) =>
-                    app?.navigate(s, a),
+                  jobToast("Indexing the tests by meaning", (r as { jobId?: string } | null)?.jobId, (id) =>
+                    app?.openJob(id),
                   ),
                 onError: (e) => errorToast(e, "Could not index the tests"),
               },

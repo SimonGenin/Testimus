@@ -68,8 +68,8 @@ src/ui/
   components/ui/      the kit — one component per control, StyleX, tokens only; the only place that renders a bare
                       <button>/<input>/<select>/<textarea>; type.ts (text styles), halo.ts (focus halo), icons.ts,
                       rowWindow.ts (long lists)
-  components/         claude/, shell/, sources/ — composites shared by several screens
-  screens/<screen>/   one folder per screen (documents, generate, tests, review, run, jobs, settings, setup, doctor);
+  components/         claude/, jobs/ (the job panel, a history), shell/, sources/ — composites shared by several screens
+  screens/<screen>/   one folder per screen (documents, generate, tests, review, run, settings, setup, doctor);
                       screens/kit/ is the catalogue (#/kit under --mock)
   lib/data/           the data layer: client (call, the HTTP seam), query (useRead, useCommand, execute, keys),
                       events (one SSE stream → cache), autosave, provider, loading (what a skeleton waits on, in

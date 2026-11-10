@@ -30,6 +30,7 @@ import { EditorBanners } from "./editor/EditorBanners.tsx";
 import { EditorBar } from "./editor/EditorBar.tsx";
 import { EditorColumn } from "./editor/EditorColumn.tsx";
 import { EditorLoading } from "./editor/EditorLoading.tsx";
+import { HistoryCard } from "./editor/HistoryCard.tsx";
 import { JiraChanged } from "./editor/JiraChanged.tsx";
 import { JiraControls, JiraOff } from "./editor/JiraControls.tsx";
 import { PreconditionList } from "./editor/PreconditionList.tsx";
@@ -617,6 +618,7 @@ export function TestEditor({
               onOpenInJira={() => void actions.openInJira(test.key as string)}
             />
           )}
+          <HistoryCard testId={testId} />
         </EditorColumn>
         {pushing && (
           <PushDialog

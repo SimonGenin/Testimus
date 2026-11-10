@@ -93,7 +93,7 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
         ...(model ? { model } : {}),
         ...(effort ? { effort } : {}),
       });
-      jobToast(`Importing ${plural(units, "document")} — started`, r.jobId, app.navigate);
+      jobToast(`Importing ${plural(units, "document")} — started`, r.jobId, app.openJob);
       onClose();
     } catch (e) {
       setStarting(false);

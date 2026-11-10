@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
-import { Raw, type RawLine } from "../../components/ui/Raw.tsx";
-import { Switch } from "../../components/ui/Switch.tsx";
-import { type } from "../../components/ui/type.ts";
 import { clock, logByStep } from "../../lib/jobs.ts";
 import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { space } from "../../styles/tokens.stylex.ts";
+import { Raw, type RawLine } from "../ui/Raw.tsx";
+import { Switch } from "../ui/Switch.tsx";
+import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
   wrap: { display: "flex", flexDirection: "column", gap: space.s3 },

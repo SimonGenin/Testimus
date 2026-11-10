@@ -1,19 +1,16 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Job } from "../../../core/types.ts";
-import { Badge } from "../../components/ui/Badge.tsx";
-import { Button } from "../../components/ui/Button.tsx";
-import { type } from "../../components/ui/type.ts";
-import { clock, duration, kindLabel, resultLine } from "../../lib/jobs.ts";
+import { clock, duration, kindLabel } from "../../lib/jobs.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { KindTile } from "./JobState.tsx";
-import { iconOf, toneOf } from "./kinds.ts";
+import { Button } from "../ui/Button.tsx";
+import { type } from "../ui/type.ts";
+import { JobState } from "./JobState.tsx";
 
 const styles = stylex.create({
-  head: { display: "flex", alignItems: "flex-start", gap: space.s3 },
-  titles: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" },
-  title: { margin: 0, color: color.text },
-  subject: { color: color.textMuted, overflowWrap: "anywhere" },
+  head: { display: "flex", alignItems: "center", gap: space.s3 },
   meta: {
+    flex: 1,
+    minWidth: 0,
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
@@ -31,9 +28,9 @@ const WHY: Record<string, string> = {
   retry: "Run again from",
 };
 
+// ponytail: under the panel's title — where the job is, how long it took, when, what it came from, and its one action
 export function JobHead({
   job,
-  subject,
   byId,
   now,
   onCancel,
@@ -41,7 +38,6 @@ export function JobHead({
   onOpen,
 }: {
   job: Job;
-  subject: string;
   byId: Map<string, Job>;
   now: number;
   onCancel: () => void;
@@ -52,25 +48,9 @@ export function JobHead({
   const parent = job.parentId ? byId.get(job.parentId) : undefined;
   const running = job.status === "running";
   return (
-    <>
-      <div {...stylex.props(styles.head)}>
-        <KindTile kind={job.kind} size="lg" />
-        <div {...stylex.props(styles.titles)}>
-          <h2 {...stylex.props(type.title, styles.title)}>{kindLabel(job.kind)}</h2>
-          {subject && <span {...stylex.props(type.compact, styles.subject)}>{subject}</span>}
-        </div>
-        {running ? (
-          <Button variant="quiet" icon="stop" label="Cancel" onClick={onCancel} />
-        ) : (
-          onAgain && <Button icon="refresh" label="Run again" onClick={onAgain} />
-        )}
-      </div>
+    <div {...stylex.props(styles.head)}>
       <div {...stylex.props(type.small, styles.meta)}>
-        {running ? (
-          <Badge label="Running" tone="info" busy />
-        ) : (
-          <Badge label={resultLine(job).split(" · ")[0]} tone={toneOf(job)} icon={iconOf(job)} />
-        )}
+        <JobState job={job} now={now} timed={false} />
         <span {...stylex.props(type.code, styles.mono)}>{duration(job, now)}</span>
         <span>
           {running ? "started " : ""}
@@ -90,6 +70,11 @@ export function JobHead({
           </span>
         )}
       </div>
-    </>
+      {running ? (
+        <Button variant="quiet" icon="stop" label="Cancel" onClick={onCancel} />
+      ) : (
+        onAgain && <Button icon="refresh" label="Run again" onClick={onAgain} />
+      )}
+    </div>
   );
 }

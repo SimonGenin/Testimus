@@ -19,6 +19,7 @@ const WORDS = {
   "issue.comments": "the comments",
   "issue.people": "the people",
   "jobs.list": "the jobs",
+  "jobs.show": "the job",
   "media.disk": "the room the videos take",
   "media.estimate": "what the video will take",
   "media.glossary": "the glossary of the transcription",

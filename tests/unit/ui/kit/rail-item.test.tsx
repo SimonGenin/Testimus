@@ -112,10 +112,10 @@ describe("options asked by the screens", () => {
   it("a preference change is told outside React", () => {
     const fn = vi.fn();
     const off = onPrefsChange(fn);
-    writePref("jobsGroup", false);
+    writePref("showDetails", false);
     expect(fn).toHaveBeenCalled();
     off();
-    writePref("jobsGroup", true);
+    writePref("showDetails", true);
     expect(fn).toHaveBeenCalledTimes(1);
   });
 });

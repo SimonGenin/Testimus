@@ -935,6 +935,8 @@ export type Job = {
   processes?: JobProcess[];
   interrupted?: true;
   rerun?: { name: string; input: unknown };
+  // the tests and documents whose files it changed, as their folders (tests/<id>, docs/<id>)
+  touched?: string[];
 };
 export type PullStage =
   | {

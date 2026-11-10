@@ -6,6 +6,7 @@ import type { CommandName } from "../../core/commands/index.ts";
 import type { SearchMatch, Source } from "../../core/types.ts";
 import { ClaudeDock } from "../components/claude/ClaudeDock.tsx";
 import { ClaudeHolder } from "../components/claude/ClaudeTab.tsx";
+import { JobDrawer } from "../components/jobs/JobDrawer.tsx";
 import { useRunningJobs } from "../components/shell/Activity.tsx";
 import { CommandForm, lossOf } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
@@ -74,7 +75,7 @@ const styles = stylex.create({
 });
 
 // ponytail: the shell — the rail, the top bar and the screen in their frame, the palette, the layers above (a
-// command's form, a source, the toasts); what the screens share is in AppContext. Claude is a tab of every screen's
+// command's form, a source, a job, the toasts); what the screens share is in AppContext. Claude is a tab of every screen's
 // sections: the shell keeps the one dock (its element is moved into the Claude tab of the screen shown)
 export function App() {
   const client = useQueryClient();
@@ -90,6 +91,8 @@ export function App() {
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
   const [byKey, setByKey] = useState(false);
+  const [job, setJob] = useState<string | null>(null);
+  const openJob = useCallback((id: string) => setJob(id), []);
   const dock = useDock();
   const [holder] = useState(() => {
     const el = document.createElement("div");
@@ -100,9 +103,13 @@ export function App() {
   const running = useRunningJobs({ quiet: true });
   const { claudeRunning, setClaudeRunning } = useClaudeLock(running);
 
-  // ponytail: a source is read beside the work of the screen it was opened from; another screen does not inherit it
+  // ponytail: a source or a job is read beside the work of the screen it was opened from; another screen (a link of the
+  // job's « What to do ») does not inherit it
   // biome-ignore lint/correctness/useExhaustiveDependencies: closed when the screen changes
-  useEffect(() => setSource(null), [route.screen]);
+  useEffect(() => {
+    setSource(null);
+    setJob(null);
+  }, [route.screen]);
 
   const testsChanged = useCallback(() => setTestsNonce((n) => n + 1), []);
   const { refreshInfo, closeProject: close } = p;
@@ -164,6 +171,7 @@ export function App() {
       runInDock: dock.runInDock,
       askAbout: dock.askAbout,
       openPalette,
+      openJob,
     }),
     [
       p.info,
@@ -183,6 +191,7 @@ export function App() {
       dock.runInDock,
       dock.askAbout,
       openPalette,
+      openJob,
     ],
   );
 
@@ -205,13 +214,13 @@ export function App() {
       execute(client, c.name as CommandName, {} as never, { invalidates: c.mutates ? "project" : "none" })
         .then((r) => {
           const jobId = (r as { jobId?: string } | null)?.jobId;
-          if (jobId) jobToast(`${what} — started`, jobId, navigate);
+          if (jobId) jobToast(`${what} — started`, jobId, openJob);
           else toast(commandToast(c, r));
           if (c.mutates) testsChanged();
         })
         .catch((e) => errorToast(e, `${what} — failed`));
     },
-    [client, testsChanged, navigate, openFolder, askDocs, askClaude],
+    [client, testsChanged, navigate, openFolder, askDocs, askClaude, openJob],
   );
 
   const hasProject = !!p.info;
@@ -230,7 +239,7 @@ export function App() {
   );
 
   const awaiting = p.info?.counts?.awaiting;
-  const counts = useMemo(() => ({ review: awaiting, jobs: running.length }), [awaiting, running.length]);
+  const counts = useMemo(() => ({ review: awaiting }), [awaiting]);
 
   return (
     <AppContext.Provider value={app}>
@@ -278,6 +287,7 @@ export function App() {
         />
       )}
       {byKey && <OpenByKey onClose={() => setByKey(false)} />}
+      {job && <JobDrawer key={job} id={job} onClose={() => setJob(null)} onGo={navigate} />}
       <SourceTab
         opened={source}
         onClose={() => setSource(null)}

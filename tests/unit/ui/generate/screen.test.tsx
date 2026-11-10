@@ -166,7 +166,7 @@ describe("Generate screen", () => {
     expect(screen.getByLabelText("What should be tested?")).toHaveValue("new words");
     expect(screen.queryByText("g9")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open the job" }));
-    expect(a.navigate).toHaveBeenCalledWith("jobs", "g9");
+    expect(a.openJob).toHaveBeenCalledWith("g9");
   });
 
   it("documents not converted yet are not in scope: Generate says to convert one first", async () => {
@@ -660,8 +660,8 @@ describe("Generate while an index runs (audit M-G1)", () => {
     const bar = screen.getByRole("progressbar", { name: "Index" });
     expect(bar).toHaveAttribute("aria-valuenow", "41");
     expect(bar).toHaveAttribute("aria-valuetext", "40 of 97 · Generate waits for it to finish.");
-    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
-    expect(a.navigate).toHaveBeenCalledWith("jobs", "ix");
+    fireEvent.click(screen.getByRole("button", { name: "Show the job" }));
+    expect(a.openJob).toHaveBeenCalledWith("ix");
     running = false;
     emit({ jobId: "ix", at, type: "status", job: indexJob("done") });
     await waitFor(() => expect(go()).toBeEnabled());

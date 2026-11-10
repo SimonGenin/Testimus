@@ -51,11 +51,11 @@ describe("Rail, system status, theme and headers", () => {
   it("navigates from the rail and shows counts and the current screen", async () => {
     net.routes["system.doctor"] = () => [{ id: "node", label: "Node", state: "fail", detail: "" }];
     net.routes["project.list"] = () => [];
-    const { state } = withData(<Rail counts={{ review: 3, jobs: 0 }} />, { route: { screen: "doctor" } });
+    const { state } = withData(<Rail counts={{ review: 3 }} />, { route: { screen: "doctor" } });
     expect(screen.getByRole("button", { name: /Review/ })).toHaveTextContent("3");
     expect(screen.getByRole("button", { name: /Generate/ })).not.toHaveTextContent(/\d/);
     expect(screen.getByRole("button", { name: /Tests/ })).not.toHaveTextContent(/\d/);
-    expect(screen.getByRole("button", { name: /Jobs/ })).not.toHaveTextContent(/\d/);
+    expect(screen.queryByRole("button", { name: /Jobs/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Tests/ }));
     expect(state.navigate).toHaveBeenCalledWith("tests", undefined);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));

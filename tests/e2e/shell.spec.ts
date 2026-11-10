@@ -9,7 +9,6 @@ test("the rail shows the project and moves between screens", async ({ page }) =>
     ["Documents", "#/documents"],
     ["Generate", "#/generate"],
     ["Review", "#/review"],
-    ["Jobs", "#/jobs"],
     ["Settings", "#/settings"],
     ["Tests", "#/tests"],
   ] as const) {
@@ -76,9 +75,9 @@ test("the palette navigates and closes with Escape", async ({ page }) => {
   await boot(page);
   await page.keyboard.press("Control+k");
   const palette = page.getByRole("dialog", { name: "Search everything" });
-  await palette.getByRole("combobox", { name: "Search" }).fill("Go to Jobs");
+  await palette.getByRole("combobox", { name: "Search" }).fill("Go to Settings");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/#\/jobs$/);
+  await expect(page).toHaveURL(/#\/settings$/);
   await page.keyboard.press("Control+k");
   await expect(palette).toBeVisible();
   await page.keyboard.press("Escape");
@@ -86,7 +85,7 @@ test("the palette navigates and closes with Escape", async ({ page }) => {
 });
 
 test("Ctrl J shows Claude's tab, and folds its section when it is the tab shown", async ({ page }) => {
-  await boot(page, "#/jobs");
+  await boot(page, "#/settings");
   const strip = page.getByRole("navigation", { name: "Section 3, collapsed" });
   const dock = page.getByRole("complementary", { name: "Claude" });
   await expect(strip.getByRole("button", { name: "Claude" })).toBeVisible();
@@ -103,7 +102,7 @@ test("Ctrl J shows Claude's tab, and folds its section when it is the tab shown"
 
 test("Claude's section starts folded where the screen keeps it so, even on a wide window", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await boot(page, "#/jobs");
+  await boot(page, "#/settings");
   await expect(
     page.getByRole("navigation", { name: "Section 3, collapsed" }).getByRole("button", { name: "Claude" }),
   ).toBeVisible();

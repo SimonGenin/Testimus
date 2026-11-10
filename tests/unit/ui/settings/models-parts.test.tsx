@@ -628,12 +628,12 @@ describe("FolderDialog", () => {
     fireEvent.change(folder(), { target: { value: "\\\\srv\\models" } });
     expect(await screen.findByText(/in 1 file\. Moved in a job/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Use this folder" })).toBeEnabled();
-    expect(screen.getByText("Moving 2.9 GB is followed as a job in Jobs.")).toBeInTheDocument();
+    expect(screen.getByText("Moving 2.9 GB runs as a job, in the background.")).toBeInTheDocument();
     const how = screen.getByRole("radiogroup", { name: "The models already downloaded" });
     fireEvent.click(within(how).getByRole("radio", { name: /^Copy/ }));
     expect(await screen.findByText(/Copied in a job/)).toBeInTheDocument();
     expect(inputs("models.planDir").at(-1)).toEqual({ dir: "\\\\srv\\models", copy: true });
-    expect(screen.getByText("Copying 2.9 GB is followed as a job in Jobs.")).toBeInTheDocument();
+    expect(screen.getByText("Copying 2.9 GB runs as a job, in the background.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use this folder" }));
     await waitFor(() => expect(onApplied).toHaveBeenCalledWith("\\\\srv\\models", "models-dir-0000000f", "copy"));
     fireEvent.click(within(how).getByRole("radio", { name: /^Keep them where they are/ }));

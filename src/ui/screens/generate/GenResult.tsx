@@ -102,7 +102,7 @@ export type RunHeadProps = {
   allFolded?: boolean;
   onCancel: () => void;
   onReview: () => void;
-  /** the run's job in Jobs */
+  /** the run's job, beside the screen */
   onOpenJob?: () => void;
   onResume?: () => void;
   /** run the failed job again with the input it kept (jobs.rerun) */
@@ -275,7 +275,7 @@ export function GenSummary({
 }: {
   result: GenOutput;
   checked: string;
-  /** the run in Jobs, where its changes are reverted */
+  /** the run's job, beside the screen */
   onOpenJob?: () => void;
   /** the not-covered list, folded with the rest by the screen's « Fold all » */
   open?: boolean;
@@ -297,7 +297,7 @@ export function GenSummary({
             tone="danger"
             title="A run's report could not be read"
             actions={
-              onOpenJob && <Button size="sm" variant="quiet" icon="jobs" label="Open in Jobs" onClick={onOpenJob} />
+              onOpenJob && <Button size="sm" variant="quiet" icon="jobs" label="Show the job" onClick={onOpenJob} />
             }
           >
             Claude was asked again and its report still could not be read: what that run left without a test is not
@@ -316,11 +316,11 @@ export function GenSummary({
           tone="warning"
           compact
           actions={
-            onOpenJob && <Button size="sm" variant="quiet" icon="jobs" label="Open in Jobs" onClick={onOpenJob} />
+            onOpenJob && <Button size="sm" variant="quiet" icon="jobs" label="Show the job" onClick={onOpenJob} />
           }
         >
           Claude also changed {plural(result.changed.length, "existing test")}: {result.changed.join(", ")} — revert it
-          from the Claude panel or Jobs.
+          from the Claude panel.
         </Banner>
       )}
     </div>

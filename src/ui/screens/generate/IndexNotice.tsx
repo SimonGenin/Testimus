@@ -37,7 +37,7 @@ export function IndexNotice({
       <Banner
         tone="info"
         title={RUNS[work].title}
-        actions={onShowJob && <Button size="sm" variant="quiet" icon="jobs" label="Open in Jobs" onClick={onShowJob} />}
+        actions={onShowJob && <Button size="sm" variant="quiet" icon="jobs" label="Show the job" onClick={onShowJob} />}
       >
         <Progress
           label={RUNS[work].label}

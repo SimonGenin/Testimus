@@ -22,9 +22,6 @@ vi.mock("../../../../src/ui/screens/generate/GenerateScreen.tsx", async () => ({
 vi.mock("../../../../src/ui/screens/review/ReviewScreen.tsx", async () => ({
   ReviewScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Review screen"),
 }));
-vi.mock("../../../../src/ui/screens/jobs/JobsScreen.tsx", async () => ({
-  JobsScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Jobs screen"),
-}));
 vi.mock("../../../../src/ui/screens/doctor/DoctorScreen.tsx", async () => ({
   DoctorScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Doctor screen"),
 }));
@@ -286,7 +283,6 @@ describe("App routing and layout", () => {
     expect(await screen.findByRole("region", { name: "Documents screen" })).toHaveTextContent("arg D#§1");
     for (const [hash, name] of [
       ["#/generate", "Generate screen"],
-      ["#/jobs", "Jobs screen"],
       ["#/doctor", "Doctor screen"],
       ["#/settings", "Settings screen"],
       ["#/tests", "Tests screen"],
@@ -306,10 +302,10 @@ describe("App routing and layout", () => {
     expect(within(tests).getByRole("complementary", { name: "Dock" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "ask from Tests screen" }));
     act(() => {
-      window.location.hash = "#/jobs";
+      window.location.hash = "#/generate";
     });
-    const jobs = await screen.findByRole("region", { name: "Jobs screen" });
-    expect(within(jobs).getByRole("complementary", { name: "Dock" })).toBeInTheDocument();
+    const generate = await screen.findByRole("region", { name: "Generate screen" });
+    expect(within(generate).getByRole("complementary", { name: "Dock" })).toBeInTheDocument();
     expect(request()).toMatchObject({ mode: "test", scope: "step", prompt: "why" });
   });
 
@@ -419,8 +415,8 @@ describe("App palette", () => {
     const infos = callsOf("project.info").length;
     await pick("rag index");
     expect(await screen.findByText("Index the documents — started")).toBeInTheDocument();
-    expect(screen.getByText("It runs in Jobs; you can keep working.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open in Jobs" })).toBeInTheDocument();
+    expect(screen.getByText("It runs in the background; you can keep working.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show the job" })).toBeInTheDocument();
     await waitFor(() => expect(callsOf("project.info").length).toBe(infos + 1));
     expect(screen.getByText(/nonce 1/)).toBeInTheDocument();
     net.routes["tests.list"] = () => {
@@ -430,8 +426,9 @@ describe("App palette", () => {
     expect(await screen.findByText("List the local tests — failed")).toBeInTheDocument();
   });
 
-  it("opens the form of a command with input; a job it starts is said, with « Open in Jobs » to that job", async () => {
+  it("opens the form of a command with input; a job it starts is said, with « Show the job » opening it beside the screen", async () => {
     net.routes["xray.pull"] = () => ({ jobId: "p1" });
+    net.routes["jobs.show"] = () => ({ job: job({ id: "p1", kind: "pull", subject: "LFRPS12-1" }), events: [] });
     mount();
     await waitFor(() => expect(callsOf("api")).toHaveLength(1));
     await pick("xray pull");
@@ -444,8 +441,15 @@ describe("App palette", () => {
     expect(await screen.findByText("Pull a test — started")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Pull a test" })).toBeNull();
     expect(window.location.hash).toBe("");
-    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
-    await hashIs("#/jobs/p1");
+    fireEvent.click(screen.getByRole("button", { name: "Show the job" }));
+    const panel = await screen.findByRole("dialog", { name: "Pull from Jira" });
+    expect(within(panel).getByText("LFRPS12-1")).toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+    act(() => {
+      window.location.hash = "#/documents";
+    });
+    await screen.findByRole("region", { name: "Documents screen" });
+    expect(screen.queryByRole("dialog", { name: "Pull from Jira" })).toBeNull();
   });
 
   it("takes a command to the app's own way for it: a project as the rail opens it, Claude's question in the dock", async () => {
@@ -491,18 +495,18 @@ describe("App palette", () => {
     expect(screen.queryByRole("option", { name: /tests list/ })).toBeNull();
   });
 
-  it("without a project, goes only to the screens that need none: Jobs, Settings, the system check", async () => {
+  it("without a project, goes only to the screens that need none: Settings, the system check", async () => {
     sessionStorage.setItem("testimus.setupShown", "1");
-    window.location.hash = "#/jobs";
+    window.location.hash = "#/settings";
     net.api = () => ({ project: null, commands: [] });
     mount();
-    await screen.findByRole("region", { name: "Jobs screen" });
+    await screen.findByRole("region", { name: "Settings screen" });
     await open();
     expect(
       within(screen.getByRole("group", { name: "Go to" }))
         .getAllByRole("option")
         .map((o) => o.textContent?.split("#/")[0]),
-    ).toEqual(["Go to Jobs", "Go to Settings", "Open the system check"]);
+    ).toEqual(["Go to Settings", "Open the system check"]);
   });
 });
 
@@ -515,13 +519,13 @@ describe("App jobs", () => {
       FakeES.emit(status(j));
     };
     mount();
-    const jobs = () => screen.getByRole("button", { name: /^Jobs/ });
-    await waitFor(() => expect(jobs()).toHaveTextContent("2"));
+    const jobs = () => screen.getByRole("button", { name: /running/ });
+    await waitFor(() => expect(jobs()).toHaveTextContent("2 jobs running"));
     act(() => {
       emit(job({ id: "c" }));
       FakeES.emit({ jobId: "a", at: "", type: "progress", message: "x" });
     });
-    await waitFor(() => expect(jobs()).toHaveTextContent("3"));
+    await waitFor(() => expect(jobs()).toHaveTextContent("3 jobs running"));
     act(() => {
       emit(job({ id: "a", status: "done" }));
       emit(
@@ -533,7 +537,7 @@ describe("App jobs", () => {
         }),
       );
     });
-    await waitFor(() => expect(jobs()).toHaveTextContent("1"));
+    await waitFor(() => expect(jobs()).toHaveTextContent("1 job running"));
     expect(await screen.findByText("Check finished — 2 tests, 1 with findings")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open Review" }));
     await hashIs("#/review");
@@ -561,7 +565,7 @@ describe("App jobs", () => {
     net.routes["jobs.list"] = () => null;
     mount();
     await waitFor(() => expect(callsOf("jobs.list").length).toBeGreaterThan(1));
-    expect(screen.getByRole("button", { name: /Jobs/ })).not.toHaveTextContent(/\d/);
+    expect(screen.queryByRole("button", { name: /running/ })).toBeNull();
   });
 });
 

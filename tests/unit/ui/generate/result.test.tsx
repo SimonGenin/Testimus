@@ -325,7 +325,7 @@ describe("Generate › result helpers", () => {
     expect(screen.queryByRole("region", { name: /Not written/ })).toBeNull();
   });
 
-  it("GenSummary: the unreadable-report banner opens the run in Jobs and keeps why it could not be read, folded", () => {
+  it("GenSummary: the unreadable-report banner opens the run's job and keeps why it could not be read, folded", () => {
     const onOpenJob = vi.fn();
     const { rerender } = render(
       <GenSummary
@@ -343,7 +343,7 @@ describe("Generate › result helpers", () => {
       "what that run left without a test is not known. Ask the generation again to get it.",
     );
     expect(unread).not.toHaveTextContent("the list below may miss some");
-    fireEvent.click(within(unread).getByRole("button", { name: "Open in Jobs" }));
+    fireEvent.click(within(unread).getByRole("button", { name: "Show the job" }));
     expect(onOpenJob).toHaveBeenCalledTimes(1);
     const why = screen.getByRole("button", { name: "Why it could not be read" });
     expect(why).toHaveAttribute("aria-expanded", "false");
@@ -354,7 +354,7 @@ describe("Generate › result helpers", () => {
     expect(raw).toHaveTextContent("No gen-report block in the reply");
     rerender(<GenSummary result={output({ reportFound: false })} checked="" />);
     expect(screen.getByRole("alert")).toHaveTextContent("A run's report could not be read");
-    expect(screen.queryByRole("button", { name: "Open in Jobs" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show the job" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Why it could not be read" })).toBeNull();
     rerender(<GenSummary result={output({ reportFound: true })} checked="" onOpenJob={onOpenJob} />);
     expect(screen.queryByRole("alert")).toBeNull();

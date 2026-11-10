@@ -59,7 +59,7 @@ export function PackPlanDialog({
       footNote={
         download
           ? thenUse
-            ? "It runs in Jobs: you can keep working meanwhile."
+            ? "It runs in the background: you can keep working meanwhile."
             : "You can choose another pack while it downloads."
           : "The previous vectors are kept: switching back is quick."
       }

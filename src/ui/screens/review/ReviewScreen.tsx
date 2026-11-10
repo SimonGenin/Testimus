@@ -64,7 +64,7 @@ export function ReviewScreen() {
   const d = useReviewData(routeId, filters);
   const { items, data, activeId } = d;
   const open = (id: string | null) => (id ? app.navigate("review", id) : app.navigate("review"));
-  const act = useDecisions(d.input, filters.value, open, app.navigate);
+  const act = useDecisions(d.input, filters.value, open, app.openJob);
   const view = useReviewView(activeId, data, app.lastRun);
   const claudeQ = useRead("claude.before", { testId: activeId }, { enabled: !!activeId });
   // biome-ignore lint/correctness/useExhaustiveDependencies: taken once, when that test shows

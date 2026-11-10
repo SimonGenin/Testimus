@@ -151,7 +151,7 @@ export function ResultPane({
           left={starting ? 0 : (stopped?.remaining ?? 0)}
           onCancel={onCancel}
           onReview={() => app.navigate("review", ids[0])}
-          onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
+          onOpenJob={job ? () => app.openJob(job.id) : undefined}
           onResume={() => stopped?.generation && onResume(stopped.generation)}
           onRetry={onRetry}
           allFolded={[ACTIVITY, ...(result?.skipped?.length ? [SKIPPED] : [])].every((id) => !isOpen(id))}
@@ -161,7 +161,7 @@ export function ResultPane({
           <GenSummary
             result={result}
             checked={checkLine([...result.tests, ...(result.revised ?? [])], result.checks)}
-            onOpenJob={job ? () => app.navigate("jobs", job.id) : undefined}
+            onOpenJob={job ? () => app.openJob(job.id) : undefined}
             open={isOpen(SKIPPED)}
             onOpenChange={(o) => o !== isOpen(SKIPPED) && toggle(SKIPPED)}
           />

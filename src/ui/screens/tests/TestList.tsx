@@ -164,13 +164,13 @@ export function TestList({
     });
   }, [activeId, active?.folder]);
 
-  // ponytail: a pull from the list is a job like any other — said once it starts (« Open in Jobs » follows it, and cancels
+  // ponytail: a pull from the list is a job like any other — said once it starts (« Show the job » follows it, and cancels
   // it there), its outcome said when it ends
   const pull = async (input: { key?: string; folder?: string }, label: string) => {
     setBusy((b) => [...b, label]);
     try {
       const r = await run<PullResult>("xray.pull", input, undefined, (jobId) =>
-        jobToast(`Pulling ${label} — started`, jobId, app.navigate),
+        jobToast(`Pulling ${label} — started`, jobId, app.openJob),
       );
       await onReload();
       const n = r?.pulled?.length ?? 0;

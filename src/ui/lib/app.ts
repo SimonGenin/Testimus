@@ -1,17 +1,7 @@
 import { createContext, useContext } from "react";
 import type { ChatProblem, ColumnLayout, ProjectJson, Review, Source, StepColumn, XrayJson } from "../../core/types.ts";
 
-export type Screen =
-  | "documents"
-  | "generate"
-  | "tests"
-  | "review"
-  | "run"
-  | "jobs"
-  | "settings"
-  | "doctor"
-  | "setup"
-  | "kit";
+export type Screen = "documents" | "generate" | "tests" | "review" | "run" | "settings" | "doctor" | "setup" | "kit";
 
 // ponytail: First launch › Project reached from the app (the project menu's « All projects… », the palette, an empty
 // screen): opening a project there goes back to the app, where the first launch walks on to Search
@@ -70,6 +60,8 @@ export type AppState = {
   /** a problem the app met, asked to Claude in the dock: it explains the cause and may propose an action */
   askAbout: (problem: ChatProblem, label?: string) => void;
   openPalette: () => void;
+  /** one job in the panel beside the screen: what it did, what went wrong, what it made */
+  openJob: (id: string) => void;
 };
 
 export type SourceFrom = { test: string; step?: number; sources?: Source[] };

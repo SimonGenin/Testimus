@@ -146,23 +146,23 @@ describe("CommandForm", () => {
     expect(await screen.findByText("Unknown test")).toBeInTheDocument();
   });
 
-  it("says a started job with « Open in Jobs » to that job and closes, and shows Running meanwhile", async () => {
+  it("says a started job with « Show the job » to that job and closes, and shows Running meanwhile", async () => {
     const gate = deferred();
     net.routes["gen.tests"] = async () => {
       await gate.promise;
       return { jobId: "j5" };
     };
     const close = vi.fn();
-    const navigate = vi.fn();
-    withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} />, { navigate });
+    const openJob = vi.fn();
+    withData(<CommandForm command={cmd("gen.tests", {}, { job: true })} onClose={close} />, { openJob });
     fireEvent.click(screen.getByRole("button", { name: /^Run/ }));
     expect(await screen.findByRole("button", { name: /^Running…/ })).toBeDisabled();
     await act(async () => gate.resolve(null));
     await waitFor(() => expect(close).toHaveBeenCalled());
     expect(screen.getByText("gen.tests summary — started")).toBeInTheDocument();
-    expect(navigate).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
-    expect(navigate).toHaveBeenCalledWith("jobs", "j5");
+    expect(openJob).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Show the job" }));
+    expect(openJob).toHaveBeenCalledWith("j5");
   });
 
   it("shows the result of a job command that did not start a job", async () => {

@@ -116,8 +116,8 @@ describe("Converting a document", () => {
       within(listOf()).getByText(/fresh.docx was converted, but search cannot find it yet: model missing/),
     ).toBeInTheDocument();
     expect(within(listOf()).getByRole("button", { name: "Reindex" })).toBeEnabled();
-    fireEvent.click(within(listOf()).getByRole("button", { name: "Open in Jobs" }));
-    expect(a.navigate).toHaveBeenCalledWith("jobs", "conv-2");
+    fireEvent.click(within(listOf()).getByRole("button", { name: "Show the job" }));
+    expect(a.openJob).toHaveBeenCalledWith("conv-2");
     fireEvent.click(within(listOf()).getByRole("button", { name: "Dismiss the indexing failure of fresh.docx" }));
     expect(within(listOf()).queryByText(/search cannot find it yet/)).toBeNull();
     expect(named("rag.index")).toEqual([]);
@@ -303,8 +303,8 @@ describe("Converting a document", () => {
     );
     expect(screen.queryByRole("alertdialog", { name: "Convert C-D1 again?" })).toBeNull();
     expect(await screen.findByText("Converting C-D1 — started")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open in Jobs" }));
-    expect(a.navigate).toHaveBeenCalledWith("jobs", "conv-4");
+    fireEvent.click(screen.getByRole("button", { name: "Show the job" }));
+    expect(a.openJob).toHaveBeenCalledWith("conv-4");
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     emit({
       jobId: "conv-4",

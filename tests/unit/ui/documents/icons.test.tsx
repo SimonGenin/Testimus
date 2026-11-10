@@ -80,7 +80,7 @@ describe("the Documents icons, as the design draws them", () => {
     expect(iconOf(screen.getByRole("menuitem", { name: "Show in Explorer" }))).toBe("folder-open");
   });
 
-  it("work under way: an index keeps the document's icon; a failure offers Reindex and Open in Jobs", () => {
+  it("work under way: an index keeps the document's icon; a failure offers Reindex and Show the job", () => {
     const u = {
       key: "k",
       name: "Traction",
@@ -101,7 +101,7 @@ describe("the Documents icons, as the design draws them", () => {
         </AppContext.Provider>
       </QueryClientProvider>,
     );
-    expect(iconOf(screen.getByRole("button", { name: "Open in Jobs" }))).toBe("jobs");
+    expect(iconOf(screen.getByRole("button", { name: "Show the job" }))).toBe("jobs");
     expect(iconOf(screen.getByRole("button", { name: "Reindex" }))).toBe("refresh");
   });
 

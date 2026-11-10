@@ -11,6 +11,7 @@ import {
   readFileSync,
   readSync,
   rmSync,
+  statSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { isAlive } from "../shared/run/process.ts";
@@ -85,6 +86,32 @@ function logFile(project: string | null, id: string): string {
 }
 
 const made = new Set<string>();
+
+const KEEP_DAYS = 30;
+const pruned = new Set<string>();
+
+// ponytail: a finished job's log is kept 30 days, then goes — looked at once per folder and process, at its first job;
+// a finished log never moves again, so its last write is when the job ended
+function prune(project: string | null): void {
+  const dir = jobsDir(project);
+  if (pruned.has(dir)) return;
+  pruned.add(dir);
+  const before = env.now().getTime() - KEEP_DAYS * 86_400_000;
+  try {
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith(".jsonl") || live.has(f.slice(0, -6))) continue;
+      const file = join(dir, f);
+      if (statSync(file).mtimeMs < before) rmSync(file, { force: true });
+    }
+  } catch {}
+}
+
+// ponytail: what a job is about, by the folder of a test or a document — files of it the job changed, or its id given
+const folderOf = (path: string) => /^(tests|docs)\/[^/]+(?=\/)/.exec(path.replace(/\\/g, "/"))?.[0];
+
+export function isAbout(job: Job, folder: string): boolean {
+  return !!job.touched?.includes(folder) || folder.slice(folder.indexOf("/") + 1) === job.subject;
+}
 
 function emit(l: Live, e: JobEvent): void {
   e.project = l.project;
@@ -167,6 +194,7 @@ export function startJob(
   outer?: AbortSignal,
   extra: { cause?: JobCause; rerun?: { name: string; input: unknown }; label?: string } = {},
 ): { job: Job; done: Promise<unknown> } {
+  prune(project);
   const id = `${kind.replace(/\W+/g, "-")}-${randomBytes(4).toString("hex")}`;
   const ctrl = new AbortController();
   if (outer?.aborted) ctrl.abort();
@@ -294,7 +322,11 @@ export function startJob(
       // ponytail: a job says which project files it left changed (a Claude run, a pull, a conversion) before it
       // ends, so every view showing one of them reads it again — whoever started the job
       const moved = changes ? await changes() : null;
-      if (moved?.paths.length) emit(l, { jobId: id, at: at(), type: "changed", ...moved });
+      if (moved?.paths.length) {
+        const touched = [...new Set(moved.paths.map(folderOf).filter((f) => f !== undefined))];
+        if (touched.length) job.touched = touched;
+        emit(l, { jobId: id, at: at(), type: "changed", ...moved });
+      }
       emit(l, { jobId: id, at: at(), type: "status", job: { ...job } });
       l.ended = true;
     }

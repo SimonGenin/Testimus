@@ -20,9 +20,6 @@ vi.mock("../../../../src/ui/screens/generate/GenerateScreen.tsx", async () => ({
 vi.mock("../../../../src/ui/screens/review/ReviewScreen.tsx", async () => ({
   ReviewScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Review screen"),
 }));
-vi.mock("../../../../src/ui/screens/jobs/JobsScreen.tsx", async () => ({
-  JobsScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Jobs screen"),
-}));
 vi.mock("../../../../src/ui/screens/doctor/DoctorScreen.tsx", async () => ({
   DoctorScreen: (await import("../../helpers/ui-data.tsx")).fakeScreen("Doctor screen"),
 }));
@@ -61,7 +58,6 @@ const SCREENS: [string, string][] = [
   ["#/documents", "Documents screen"],
   ["#/generate", "Generate screen"],
   ["#/review", "Review screen"],
-  ["#/jobs", "Jobs screen"],
   ["#/doctor", "Doctor screen"],
   ["#/settings", "Settings screen"],
 ];

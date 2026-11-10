@@ -268,6 +268,23 @@
       "url": "http://127.0.0.1:4387"
     },
     {
+      "name": "testimus-mock-jobpanel",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4391", "--no-open"],
+      "port": 4391,
+      "url": "http://127.0.0.1:4391"
+    },
+    {
+      "name": "testimus-mock-jobfail",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4393", "--no-open"],
+      "port": 4393,
+      "url": "http://127.0.0.1:4393",
+      "env": {
+        "TESTIMUS_MOCK_CLAUDE": "logged-out"
+      }
+    },
+    {
       "name": "testimus-mock-review",
       "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
       "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4381", "--no-open"],

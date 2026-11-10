@@ -41,7 +41,7 @@ const BADGE = {
 } as const;
 
 // ponytail: the end of the first launch — what is set up, what was left for later (never in red: a choice), what still
-// runs in Jobs, then the first document; nothing here asks anything new (the reads are the ones the steps made)
+// runs in the background, then the first document; nothing here asks anything new (the reads are the ones the steps made)
 export function ReadyStep() {
   const app = useApp();
   const settings = useSettings();
@@ -105,11 +105,13 @@ export function ReadyStep() {
       what: "Search",
       state: running.length ? "running" : "ready",
       said: running.length
-        ? "Being set up in Jobs; search works meanwhile"
+        ? "Being set up; search works meanwhile"
         : active
           ? `${active.label}, on this PC`
           : "No pack in use: see Settings › Search",
-      fix: running.length ? <Button size="sm" label="Open Jobs" onClick={() => app.navigate("jobs")} /> : undefined,
+      fix: running[0] ? (
+        <Button size="sm" label="Show the job" onClick={() => app.openJob(running[0].id)} />
+      ) : undefined,
     });
   }
 

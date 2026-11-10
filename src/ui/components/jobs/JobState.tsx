@@ -1,7 +1,7 @@
 import type { Job } from "../../../core/types.ts";
-import { Badge } from "../../components/ui/Badge.tsx";
-import { Tile } from "../../components/ui/Tile.tsx";
 import { duration, resultLine } from "../../lib/jobs.ts";
+import { Badge } from "../ui/Badge.tsx";
+import { Tile } from "../ui/Tile.tsx";
 import { CLAUDE_KINDS, iconOf, kindIcon, toneOf } from "./kinds.ts";
 
 // ponytail: the state of a job as one badge — running with its time, else the first words of its result

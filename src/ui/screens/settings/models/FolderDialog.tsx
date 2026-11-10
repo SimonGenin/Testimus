@@ -140,7 +140,7 @@ export function FolderDialog({
       }
       footNote={
         moving
-          ? `${choice === "move" ? "Moving" : "Copying"} ${size(plan?.installedMB ?? 0)} is followed as a job in Jobs.`
+          ? `${choice === "move" ? "Moving" : "Copying"} ${size(plan?.installedMB ?? 0)} runs as a job, in the background.`
           : needMB > 0
             ? `This download needs ${size(needMB)} (${size(needMB * 1.2)} free with the margin).`
             : undefined

@@ -164,7 +164,7 @@ export function GenerateScreen() {
     }
   };
 
-  // ponytail: « Run again » after a failed run is that job again, with the input it kept (jobs.rerun, as in Jobs) —
+  // ponytail: « Run again » after a failed run is that job again, with the input it kept (jobs.rerun, as in the job panel) —
   // the form stays as it is
   const rerun = async () => {
     if (!gen.jobId) return;
@@ -224,7 +224,7 @@ export function GenerateScreen() {
             work,
             docWork,
             progress: indexJob?.progress,
-            onShowJob: indexJob ? () => app.navigate("jobs", indexJob.id) : undefined,
+            onShowJob: indexJob ? () => app.openJob(indexJob.id) : undefined,
             onReindex: reindex.reindex,
             failure: reindex.failure,
           }}

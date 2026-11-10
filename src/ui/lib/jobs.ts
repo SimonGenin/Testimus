@@ -7,6 +7,10 @@ export const KIND: Record<string, string> = {
   generate: "Generate tests",
   fix: "Claude fix",
   check: "Check tests",
+  analyze: "Analyze the test",
+  "docs.overview": "Overview of the documents",
+  "rag-measure": "Measure search settings",
+  update: "Install an update",
   columns: "Define the columns",
   claude: "Claude request",
   "actions.triage": "Claude looks at the problems",
@@ -51,6 +55,18 @@ export const clock = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-GB", { hour12: false });
 };
+
+// ponytail: when a job of a history started — the time today, « yesterday » and the time, else the day and the time
+export function whenLabel(iso: string, now = Date.now()): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+  const diff = Math.round((day(new Date(now)) - day(d)) / 86400000);
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (diff <= 0) return `Today ${time}`;
+  if (diff === 1) return `Yesterday ${time}`;
+  return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
+}
 
 export function resultLine(job: Job): string {
   if (job.status === "running") return "Running";
@@ -123,79 +139,6 @@ export function subjectLabel(job: Job, byId: Map<string, Job>): string {
   }
   if (/^([a-z]:)?[\\/]/i.test(s) || s.includes("\\")) return base(s);
   return s;
-}
-
-export type JobNode = { job: Job; children: JobNode[]; after: JobNode[]; repeats: Job[] };
-
-// ponytail: a job sits under its parent (parentId: part of its work) or under the job it followed (cause: after a
-// failure, a follow-up, a retry); one whose parent or origin is not listed is a root. Roots keep the list's order
-// (newest first), what sits under a job is in the order it ran
-export function jobTree(jobs: Job[]): JobNode[] {
-  const nodes = new Map(jobs.map((j) => [j.id, { job: j, children: [], after: [], repeats: [] } as JobNode]));
-  const roots: JobNode[] = [];
-  for (const j of jobs) {
-    const n = nodes.get(j.id) as JobNode;
-    const parent = j.parentId ? nodes.get(j.parentId) : undefined;
-    const origin = !parent && j.cause ? nodes.get(j.cause.jobId) : undefined;
-    if (parent && parent !== n) parent.children.push(n);
-    else if (origin && origin !== n) origin.after.push(n);
-    else roots.push(n);
-  }
-  const oldest = (a: JobNode, b: JobNode) => a.job.startedAt.localeCompare(b.job.startedAt);
-  for (const n of nodes.values()) {
-    n.children.sort(oldest);
-    n.after.sort(oldest);
-  }
-  return roots;
-}
-
-export const subtree = (n: JobNode): Job[] => [n.job, ...n.children.flatMap(subtree), ...n.after.flatMap(subtree)];
-
-export const isRunning = (n: JobNode) => subtree(n).some((j) => j.status === "running");
-
-// ponytail: the same job run again and again (a check after each edit) is one row: same kind and subject, one
-// after another, none running, nothing under it; the newest stands for the group
-export function groupRepeats(roots: JobNode[]): JobNode[] {
-  const out: JobNode[] = [];
-  for (const n of roots) {
-    const prev = out[out.length - 1];
-    const plain = (x: JobNode) => !x.children.length && !x.after.length && x.job.status !== "running";
-    if (prev && plain(prev) && plain(n) && prev.job.kind === n.job.kind && prev.job.subject === n.job.subject)
-      out[out.length - 1] = { ...prev, repeats: [...prev.repeats, n.job] };
-    else out.push(n);
-  }
-  return out;
-}
-
-export function dayLabel(iso: string, now = Date.now()): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Earlier";
-  const day = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
-  const diff = Math.round((day(new Date(now)) - day(d)) / 86400000);
-  if (diff <= 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-}
-
-export function sections(roots: JobNode[], now = Date.now()): { title: string; nodes: JobNode[] }[] {
-  const out: { title: string; nodes: JobNode[] }[] = [];
-  const add = (title: string, n: JobNode) => {
-    const s = out.find((x) => x.title === title);
-    if (s) s.nodes.push(n);
-    else out.push({ title, nodes: [n] });
-  };
-  for (const n of roots) if (isRunning(n)) add("Running", n);
-  for (const n of roots) if (!isRunning(n)) add(dayLabel(n.job.startedAt, now), n);
-  return out;
-}
-
-// ponytail: what a parent says about the jobs under it — "3 of 5 done · 1 failed"
-export function childSummary(n: JobNode): string {
-  const c = n.children.map((x) => x.job);
-  if (!c.length) return "";
-  const done = c.filter((j) => j.status === "done").length;
-  const failed = c.filter((j) => j.status === "failed").length;
-  return `${done} of ${c.length} done${failed ? ` · ${failed} failed` : ""}`;
 }
 
 export function processLabel(label: string): string {

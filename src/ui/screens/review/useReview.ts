@@ -122,7 +122,7 @@ export function useDecisions(
   input: ReturnType<typeof queueInput>,
   filters: QueueFilters,
   open: (id: string | null) => void,
-  navigate: (screen: Screen, arg?: string) => void,
+  openJob: (id: string) => void,
 ) {
   const client = useQueryClient();
   const check = useJobRun("check.run");
@@ -178,7 +178,7 @@ export function useDecisions(
       void check.start(
         { ids },
         {
-          started: (jobId) => jobToast(`Checking ${plural(ids.length, "test")}`, jobId, navigate),
+          started: (jobId) => jobToast(`Checking ${plural(ids.length, "test")}`, jobId, openJob),
           failed: (e) =>
             errorToast(new Error(e), ids.length === 1 ? "Could not check the test" : "Could not check the tests"),
         },

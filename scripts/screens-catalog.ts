@@ -836,14 +836,15 @@ function fixtureShots(): Shot[] {
       },
     },
     {
-      id: "loading-jobs",
-      note: "Jobs loading",
-      hash: "#/tests",
+      id: "loading-history",
+      note: "A test's history loading",
+      hash: "#/review",
       prep: async (p) => {
         await delay(p, "**/api/jobs/list", 60_000);
-        const origin = new URL(p.url()).origin;
-        await p.goto("about:blank");
-        await p.goto(`${origin}/#/jobs`);
+        await p
+          .getByRole("region", { name: "History of the test" })
+          .getByRole("button", { name: /History/ })
+          .click({ timeout: T });
         await p.waitForTimeout(800);
       },
     },
@@ -1016,17 +1017,30 @@ function fixtureShots(): Shot[] {
         await see(p, /^\d+ picked of/);
       },
     },
-    { id: "jobs", note: "Jobs, first job open", hash: "#/jobs" },
     {
-      id: "jobs-claude",
-      note: "Jobs › a job's Claude processes unfolded",
-      hash: "#/jobs",
+      id: "review-history",
+      note: "A generated test's history unfolded under its steps",
+      hash: "#/review",
       prep: async (p) => {
         await p
-          .getByRole("region", { name: "Job list" })
-          .locator('[role="treeitem"][aria-expanded="false"]')
+          .getByRole("region", { name: "History of the test" })
+          .getByRole("button", { name: /History/ })
+          .click({ timeout: T });
+        await see(p, "Generate tests");
+      },
+    },
+    {
+      id: "activity-job-panel",
+      note: "A job beside the screen, opened from a test's history",
+      hash: "#/review",
+      prep: async (p) => {
+        const card = p.getByRole("region", { name: "History of the test" });
+        await card.getByRole("button", { name: /History/ }).click({ timeout: T });
+        await card
+          .getByRole("option", { name: /Generate tests/ })
           .first()
-          .press("ArrowRight", { timeout: T });
+          .click({ timeout: T });
+        await dialog(p, "Generate tests");
       },
     },
     {
@@ -1050,7 +1064,6 @@ function emptyShots(): Shot[] {
     },
     { id: "review", note: "Nothing to review", hash: "#/review" },
     { id: "run-empty", note: "No run yet", hash: "#/run" },
-    { id: "jobs", note: "No job yet", hash: "#/jobs" },
     ...settingsShots(),
     ...shellShots(),
   ];
@@ -1140,7 +1153,21 @@ function slowShots(): Shot[] {
       hash: "#/documents",
       prep: async (p) => tap(p, /\d+ jobs? running/),
     },
-    { id: "jobs-running", note: "A running job with its live log", hash: "#/jobs", settle: 1500 },
+    {
+      id: "activity-job-running",
+      note: "A running job beside the screen, opened from the top bar",
+      hash: "#/documents",
+      prep: async (p) => {
+        await tap(p, /\d+ jobs? running/);
+        await p
+          .getByRole("dialog", { name: /^Running/ })
+          .getByRole("button", { name: /Generate tests/ })
+          .first()
+          .click({ timeout: T });
+        await dialog(p, "Generate tests");
+      },
+      settle: 1500,
+    },
     {
       id: "dock-running",
       note: "Claude dock while Claude runs",
@@ -1297,7 +1324,6 @@ function essaiShots(): Shot[] {
       hash: "#/tests",
       prep: (p) => palette(p, "queue"),
     },
-    { id: "jobs", note: "Jobs of the real project", hash: "#/jobs" },
     { id: "settings-columns", note: "Smart columns of the real project", hash: "#/settings/columns" },
     {
       id: "dock-docs-answer",

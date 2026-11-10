@@ -92,7 +92,11 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   purpose: `TESTIMUS_MOCK_READ_MS`). Tests and `--mock` swap it.
 - **Long work is a job** (`src/core/jobs.ts`): id, progress, steps, cancel, rerun (`jobs.rerun`, the same input, the new
   job caused by the old), a log in `<project>/.testimus/jobs/<id>.jsonl`. Before it ends a job says which project files
-  it added, modified or removed (`changed`). A job keeps two words for what it works on: `subject`, what the command
+  it added, modified or removed (`changed`), and its last status names the tests and documents among them as their
+  folders (`touched`: `tests/<id>`, `docs/<id>`; 2026-11-10). `jobs.list { about: "tests/<id>" }` is the history of one
+  test or document: the jobs that touched it or were given its id. A finished job's log is kept 30 days: the first job of
+  a process deletes the older ones of its folder (`jobs.ts prune`; `jobs.clear` is still there for the CLI). The
+  watcher gives a job every change made while it ran, so two jobs at once may both claim a file. A job keeps two words for what it works on: `subject`, what the command
   was given (a test id, a document id — the page and the code key on it), and `label` (optional, added 2026-11-08; an
   older job has none), the name a person knows it by when it started — the test's summary, the document's title —
   from the command's `label(input, project)` (`src/core/lib/names.ts`). Messages the core writes for a person (progress,
@@ -1384,7 +1388,7 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   white panes, one ink-blue accent (#3e63dd) for the primary action, selection and focus; **Claude in violet and
   nothing else in violet**; Inter for the interface, Source Serif 4 for text quoted from a specification, JetBrains Mono
   for keys and anchors; a state is always icon + word; every pair at WCAG AA. UI text in English.
-- **Layout**: a left rail of icons only (Documents · Generate · Review · Tests · Run · Jobs, then Settings, the system
+- **Layout**: a left rail of icons only (Documents · Generate · Review · Tests · Run, then Settings, the system
   check and the version; each name in its tooltip and its accessible name, Review's count in a pill), the top bar, and
   each screen's **sections** (decided on 2026-11-09, canvas « Testimus — Sections et onglets »; it replaced the dock
   on the right, the drawers and the breakpoints each screen had of its own). A screen has 2 to 4 sections in columns,
@@ -1424,7 +1428,7 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   through `ScreenHeader`: an arrow before the title, then the trail, where a crumb that is a level is a link to it. The
   arrow alone when it goes up within the screen (its tooltip says where), with its words when it leaves the screen
   (« Back to LFRPS12-1420 »: the trail does not hold the place it goes to). A screen's panes, bars and banners hold no
-  « Back »; a list beside a detail (Review's queue, Tests, Jobs, Settings) is a choice, not a level, and has none:
+  « Back »; a list beside a detail (Review's queue, Tests, Settings) is a choice, not a level, and has none:
   it is a tab of its own section.
   Modals and First launch keep their own steps.
 - **One filter bar** above a list that narrows (New run's tests, Review's queue, the runs —
@@ -1500,8 +1504,16 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
 - **Safety rules of the page**: a Jira write always shows its plan first; from the palette (Ctrl K, every command by
   name, a form from its schema) nothing runs blind — a command with `dryRun` shows its plan, one that loses something
   without a dry run asks first naming what goes; any Claude run on a test or the project **locks the editor**, the lock
-  read from the project's running Claude jobs (so a reload keeps it); a started job says so with « Open in Jobs »,
+  read from the project's running Claude jobs (so a reload keeps it); a started job says so with « Show the job »,
   never by switching screen.
+- **No Jobs screen** (removed 2026-11-10: a list of every job of the machine was plumbing nobody read). What is kept
+  of it: the top bar's activity says what runs (Cancel) and, until each is opened or dismissed, the jobs that failed
+  while the page was open (a parent's failure stands for its children's; Claude's triage is not one); one job opens
+  in the **job panel**, a drawer beside the screen (`components/jobs/JobDrawer.tsx`: where it is, the way to what it
+  made, what went wrong and what to do, its steps, What Claude did, the files it changed, the log folded; no process,
+  pid or job id), from a toast, the activity, a screen that started it, or a **history** — a test's (a folded card
+  under its steps, in the editor and in Review) and a document's (Documents › Details), `jobs.list about`, newest
+  first, a job standing back for its own job inside.
 - **Long lists stay light**: the kit's `List` draws only rows within 1 500 px of the visible frame from 150 rows on
   (`rowWindow.ts`), keyboard reaching every row. The shell redraws a screen only for what the screen reads (`memo`
   boundaries; a quiet running-jobs list).

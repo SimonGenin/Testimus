@@ -16,39 +16,39 @@ async function drag(page: Page, from: string, to: { x: number; y: number }) {
 }
 
 test("a tab dragged to the bottom of another section splits its column, and the layout is kept", async ({ page }) => {
-  await boot(page, "#/jobs");
-  const target = await sectionOf(page, "Section 2 · Job").boundingBox();
-  if (!target) throw new Error("no Job section");
-  await drag(page, "Jobs", { x: target.x + target.width / 2, y: target.y + target.height - 40 });
+  await boot(page, "#/tests");
+  const target = await sectionOf(page, "Section 2 · Test").boundingBox();
+  if (!target) throw new Error("no Test section");
+  await drag(page, "Tests", { x: target.x + target.width / 2, y: target.y + target.height - 40 });
   await expect(page.getByRole("status").filter({ hasText: "Split: below" })).toBeVisible();
   await page.mouse.up();
-  await expect(page.getByRole("tablist", { name: "Section 1 · Job", exact: true })).toBeVisible();
-  await expect(page.getByRole("tablist", { name: "Section 1 · Jobs" })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Section 1 · Test", exact: true })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Section 1 · Tests" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("tablist", { name: "Section 1 · Jobs" })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Sections of Jobs" })).toContainText("3/4");
+  await expect(page.getByRole("tablist", { name: "Section 1 · Tests" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Sections of Tests" })).toContainText("3/4");
 });
 
 test("a tab dropped among another section's tabs joins them, and Escape puts a drag back", async ({ page }) => {
-  await boot(page, "#/jobs");
-  const bar = await page.getByRole("tablist", { name: "Section 2 · Job", exact: true }).boundingBox();
-  if (!bar) throw new Error("no Job tabs");
-  await drag(page, "Jobs", { x: bar.x + bar.width - 10, y: bar.y + bar.height / 2 });
+  await boot(page, "#/tests");
+  const bar = await page.getByRole("tablist", { name: "Section 2 · Test", exact: true }).boundingBox();
+  if (!bar) throw new Error("no Test tabs");
+  await drag(page, "Tests", { x: bar.x + bar.width - 10, y: bar.y + bar.height / 2 });
   await page.keyboard.press("Escape");
   await page.mouse.up();
-  await expect(page.getByRole("tablist", { name: "Section 1 · Jobs" })).toBeVisible();
-  await drag(page, "Jobs", { x: bar.x + bar.width - 10, y: bar.y + bar.height / 2 });
+  await expect(page.getByRole("tablist", { name: "Section 1 · Tests" })).toBeVisible();
+  await drag(page, "Tests", { x: bar.x + bar.width - 10, y: bar.y + bar.height / 2 });
   await page.mouse.up();
-  const tabs = page.getByRole("tablist", { name: /· Jobs$/ }).getByRole("tab");
+  const tabs = page.getByRole("tablist", { name: /· Tests$/ }).getByRole("tab");
   await expect(tabs).toHaveCount(2);
-  await expect(page.getByRole("group", { name: "Sections of Jobs" })).toContainText("2/4");
+  await expect(page.getByRole("group", { name: "Sections of Tests" })).toContainText("2/4");
 });
 
 test("the top bar adds a column that waits for a tab, drops it on Escape, and Reset brings the screen's own back", async ({
   page,
 }) => {
-  await boot(page, "#/jobs");
-  const bar = page.getByRole("group", { name: "Sections of Jobs" });
+  await boot(page, "#/tests");
+  const bar = page.getByRole("group", { name: "Sections of Tests" });
   await expect(bar).toContainText("3/4");
   await bar.getByRole("button", { name: "Add column" }).click();
   await expect(bar).toContainText("4/4");
@@ -63,31 +63,31 @@ test("the top bar adds a column that waits for a tab, drops it on Escape, and Re
   await expect(page.getByRole("complementary", { name: "Claude" })).toBeVisible();
   await expect(page.getByRole("tablist", { name: /· Claude$/ })).toBeVisible();
   await bar.getByRole("button", { name: "Layout menu" }).click();
-  await page.getByRole("menuitem", { name: "Reset the layout of Jobs" }).click();
+  await page.getByRole("menuitem", { name: "Reset the layout of Tests" }).click();
   await expect(page.getByRole("navigation", { name: "Section 3, collapsed" })).toBeVisible();
 });
 
 test("a section folds to its strip of icons, opens from it, and Alt Shift and an arrow send a tab", async ({
   page,
 }) => {
-  await boot(page, "#/jobs");
-  await sectionOf(page, "Section 1 · Jobs").getByRole("button", { name: "Collapse this section" }).click();
+  await boot(page, "#/tests");
+  await sectionOf(page, "Section 1 · Tests").getByRole("button", { name: "Collapse this section" }).click();
   const strip = page.getByRole("navigation", { name: "Section 1, collapsed" });
-  await expect(strip.getByRole("button", { name: /^Jobs/ })).toBeVisible();
-  await strip.getByRole("button", { name: /^Jobs/ }).click();
-  await expect(page.getByRole("tablist", { name: "Section 1 · Jobs" })).toBeVisible();
-  await page.getByRole("tab", { name: /^Job$/ }).focus();
+  await expect(strip.getByRole("button", { name: /^Tests/ })).toBeVisible();
+  await strip.getByRole("button", { name: /^Tests/ }).click();
+  await expect(page.getByRole("tablist", { name: "Section 1 · Tests" })).toBeVisible();
+  await page.getByRole("tab", { name: /^Test$/ }).focus();
   await page.keyboard.press("Alt+Shift+ArrowRight");
-  await expect(page.getByRole("tablist", { name: "Section 2 · Job", exact: true }).getByRole("tab")).toHaveCount(2);
-  await expect(page.getByRole("tab", { name: /^Job$/ })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("tab", { name: /^Job$/ })).toBeFocused();
+  await expect(page.getByRole("tablist", { name: "Section 2 · Test", exact: true }).getByRole("tab")).toHaveCount(2);
+  await expect(page.getByRole("tab", { name: /^Test$/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /^Test$/ })).toBeFocused();
 });
 
 test("a narrow window folds the columns it cannot hold to their strip, never the work", async ({ page }) => {
   await page.setViewportSize({ width: 740, height: 800 });
-  await boot(page, "#/jobs");
+  await boot(page, "#/tests");
   await expect(page.getByRole("navigation", { name: "Section 1, collapsed" })).toBeVisible();
-  await expect(page.getByRole("tablist", { name: "Section 2 · Job", exact: true })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Section 2 · Test", exact: true })).toBeVisible();
   const rail = page.getByRole("navigation", { name: "Main" });
   expect((await rail.boundingBox())?.width).toBeLessThanOrEqual(64);
 });

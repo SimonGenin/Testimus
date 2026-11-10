@@ -67,7 +67,7 @@ export function ChangelogSection() {
   const app = useApp();
   const log = useRead("system.changelog", {});
   const updates = useUpdates();
-  const start = useStartUpdate(app.navigate);
+  const start = useStartUpdate(app.openJob);
   const [starting, setStarting] = useState(false);
   const u = updates.data;
   const current = log.data?.current ?? u?.current ?? "";

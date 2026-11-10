@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import type { CommandOutput } from "../../core/commands/index.ts";
-import type { Screen } from "./app.ts";
 import { execute, useRead } from "./data/query.ts";
 import { desktop } from "./desktop.ts";
 import { errorToast, jobToast } from "./toast.ts";
@@ -31,7 +30,7 @@ export function useUpdates(enabled = true) {
   return q;
 }
 
-export function useStartUpdate(navigate: (screen: Screen, arg?: string) => void) {
+export function useStartUpdate(openJob: (id: string) => void) {
   const client = useQueryClient();
   return async (version?: string): Promise<boolean> => {
     try {
@@ -39,7 +38,7 @@ export function useStartUpdate(navigate: (screen: Screen, arg?: string) => void)
       jobToast(
         `Installing Testimus${version ? ` ${version}` : ""}`,
         r.jobId,
-        navigate,
+        openJob,
         "It installs beside this version; you can keep working.",
       );
       return true;

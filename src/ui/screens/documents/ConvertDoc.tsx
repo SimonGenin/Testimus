@@ -187,7 +187,7 @@ export function ConvertDoc({
         void invalidate(client, [["docs.list"], ["docs.show", { id: doc.id }], ["rag.status"]]);
         app.refreshInfo();
       },
-      (jobId) => jobToast(`Converting ${doc.code} — started`, jobId, app.navigate),
+      (jobId) => jobToast(`Converting ${doc.code} — started`, jobId, app.openJob),
     );
     onClose?.();
   };

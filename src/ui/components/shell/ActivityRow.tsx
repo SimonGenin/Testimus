@@ -3,8 +3,8 @@ import { type ReactNode, useState } from "react";
 import { useJobEvents } from "../../lib/data/events.ts";
 import { kindLabel } from "../../lib/jobs.ts";
 import { nameTests, useTestNames } from "../../lib/labels.ts";
-import { kindIcon } from "../../screens/jobs/kinds.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { kindIcon } from "../jobs/kinds.ts";
 import { Button } from "../ui/Button.tsx";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { Progress } from "../ui/Progress.tsx";
@@ -18,11 +18,14 @@ export type ActivityItem = {
   message?: string;
   startedAt: string;
   progress?: { done: number; total: number };
+  /** a job that failed: when it ended (its time stops there) and why, in its first line */
+  endedAt?: string;
+  error?: string;
 };
 
 type Tone = "doc" | "claude" | "plain";
 
-// ponytail: the icon is the Jobs screen's (one table, kindIcon) — a Claude run is Claude's spark, and work the page
+// ponytail: the icon is the job panel's (one table, kindIcon) — a Claude run is Claude's spark, and work the page
 // waits on, not a job, turns; the tone gives the bar its colour
 const TONE: Record<string, Tone> = {
   "docs.add": "doc",
@@ -89,12 +92,13 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   detail: { color: color.textMuted },
+  error: { color: color.danger },
   bar: { marginInlineStart: `calc(${size.iconMd} + ${space.s3})` },
 });
 
 // ponytail: one piece of running work — its icon, « its kind · its subject », what it does now under it, its time and
 // the action that stops it on the right (a job only: a Jira load the page waits on has none, and says so), then its
-// progress as the job says it across the row; a job's title opens it in Jobs
+// progress as the job says it across the row; a job's title opens it in the job panel
 export function ActivityRow({
   item,
   now,
@@ -121,8 +125,9 @@ export function ActivityRow({
   const message = nameTests(live.message ?? item.message ?? "", names);
   const job = !!item.id;
   const detail =
-    [message, sized ? `${progress.done}/${progress.total}` : ""].filter(Boolean).join(" · ") ||
-    (job ? "" : "Not a job — it cannot be cancelled");
+    item.error ??
+    ([message, sized ? `${progress.done}/${progress.total}` : ""].filter(Boolean).join(" · ") ||
+      (job ? "" : "Not a job — it cannot be cancelled"));
   const kind = job ? kindLabel(item.kind) : "";
   const title = kind && item.label && item.label !== item.kind ? `${kind} · ${item.label}` : kind || item.label;
   return (
@@ -135,14 +140,14 @@ export function ActivityRow({
           <span title={title} {...stylex.props(type.compact, styles.label)}>
             {onOpen ? <Button variant="link" label={title} onClick={onOpen} /> : title}
           </span>
-          {detail && <span {...stylex.props(type.small, styles.detail)}>{detail}</span>}
+          {detail && <span {...stylex.props(type.small, styles.detail, !!item.error && styles.error)}>{detail}</span>}
         </div>
         <span data-testid="elapsed" {...stylex.props(type.code, type.tabular, styles.time)}>
-          {elapsed(item.startedAt, now)}
+          {elapsed(item.startedAt, item.endedAt ? Date.parse(item.endedAt) : now)}
         </span>
         {action}
       </div>
-      {job && (
+      {job && !item.endedAt && (
         <div {...stylex.props(styles.bar)}>
           <Progress
             label={item.label}

@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import type { JobEvent } from "../../../core/types.ts";
-import { Button } from "../../components/ui/Button.tsx";
-import { Icon } from "../../components/ui/Icon.tsx";
-import { type } from "../../components/ui/type.ts";
 import type { Screen } from "../../lib/app.ts";
 import { type TestNames, testNamed, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
+import { Button } from "../ui/Button.tsx";
+import { Icon } from "../ui/Icon.tsx";
+import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
   sect: { display: "flex", flexDirection: "column", gap: space.s3 },

@@ -1,18 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
 import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
-import {
-  childSummary,
-  dayLabel,
-  failedStep,
-  groupRepeats,
-  jobTree,
-  logByStep,
-  problemText,
-  processLabel,
-  sections,
-  subjectLabel,
-} from "../../../../src/ui/lib/jobs.ts";
+import { failedStep, logByStep, problemText, processLabel, subjectLabel } from "../../../../src/ui/lib/jobs.ts";
 
 const job = (o: Partial<Job> & { id: string }): Job => ({
   kind: "check",
@@ -20,62 +9,6 @@ const job = (o: Partial<Job> & { id: string }): Job => ({
   status: "done",
   startedAt: "2026-11-03T10:00:00Z",
   ...o,
-});
-
-describe("the job tree", () => {
-  it("puts children under their parent, follow-ups under their origin, and keeps the rest as roots", () => {
-    const list = [
-      job({ id: "c2", parentId: "p", startedAt: "2026-11-03T10:00:02Z" }),
-      job({ id: "c1", parentId: "p", startedAt: "2026-11-03T10:00:01Z" }),
-      job({ id: "t", kind: "actions.triage", cause: { jobId: "f", why: "after-failure" } }),
-      job({ id: "orphan", parentId: "gone" }),
-      job({ id: "p", kind: "generate" }),
-      job({ id: "f", kind: "rag-index", status: "failed" }),
-    ];
-    const roots = jobTree(list);
-    expect(roots.map((r) => r.job.id)).toEqual(["orphan", "p", "f"]);
-    expect(roots[1].children.map((c) => c.job.id)).toEqual(["c1", "c2"]);
-    expect(roots[2].after.map((c) => c.job.id)).toEqual(["t"]);
-    expect(childSummary(roots[1])).toBe("2 of 2 done");
-    expect(childSummary(roots[0])).toBe("");
-  });
-
-  it("groups the same job run one after another, never a running one or one with jobs under it", () => {
-    const roots = jobTree([
-      job({ id: "a" }),
-      job({ id: "b" }),
-      job({ id: "c" }),
-      job({ id: "r", status: "running" }),
-      job({ id: "d" }),
-      job({ id: "e", subject: "other" }),
-    ]);
-    const g = groupRepeats(roots);
-    expect(g.map((n) => [n.job.id, n.repeats.map((j) => j.id)])).toEqual([
-      ["a", ["b", "c"]],
-      ["r", []],
-      ["d", []],
-      ["e", []],
-    ]);
-    expect(groupRepeats(roots)[0].repeats).toHaveLength(2);
-    expect(roots[0].repeats).toEqual([]);
-  });
-
-  it("cuts the list into running first, then by day", () => {
-    const now = Date.parse("2026-11-03T12:00:00Z");
-    const roots = jobTree([
-      job({ id: "old", startedAt: "2026-10-20T10:00:00Z" }),
-      job({ id: "y", startedAt: "2026-11-02T10:00:00Z" }),
-      job({ id: "run", status: "running" }),
-      job({ id: "today" }),
-    ]);
-    expect(sections(roots, now).map((s) => [s.title, s.nodes.map((n) => n.job.id)])).toEqual([
-      ["Running", ["run"]],
-      [dayLabel("2026-10-20T10:00:00Z", now), ["old"]],
-      ["Yesterday", ["y"]],
-      ["Today", ["today"]],
-    ]);
-    expect(dayLabel("not a date")).toBe("Earlier");
-  });
 });
 
 describe("readable words", () => {

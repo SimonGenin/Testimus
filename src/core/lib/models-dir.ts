@@ -241,7 +241,7 @@ export function planSetDir(
     if (busy.length)
       throw new UserError(
         `A job is using the models (${busy.join(", ")}).`,
-        "Retry once it ends, or cancel it in Jobs.",
+        "Retry once it ends, or cancel it from the running jobs of the top bar.",
       );
   }
   return plan;

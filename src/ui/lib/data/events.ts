@@ -104,10 +104,14 @@ function unseen(have: JobEvent[], mine: JobEvent[]): JobEvent[] {
 
 // ponytail: the jobs reads follow the events of the jobs without a round trip; a status still reads them again, since
 // a list of the running jobs drops one that ended
+// a list about one test or document (its history) takes only the jobs it holds — a new one comes with the read again
 function follow(client: QueryClient, events: JobEvent[], p: string | null): void {
-  client.setQueriesData<Job[]>({ queryKey: key("jobs.list", undefined, p) }, (jobs) =>
-    Array.isArray(jobs) ? events.reduce(applyJobEvent, jobs) : jobs,
-  );
+  for (const [k, jobs] of client.getQueriesData<Job[]>({ queryKey: key("jobs.list", undefined, p) })) {
+    if (!Array.isArray(jobs)) continue;
+    const about = !!(k[2] as { about?: string } | undefined)?.about;
+    const mine = about ? events.filter((e) => e.type !== "status" || jobs.some((j) => j.id === e.job.id)) : events;
+    client.setQueryData(k, mine.reduce(applyJobEvent, jobs));
+  }
   for (const id of new Set(events.map((e) => e.jobId))) {
     const mine = events.filter((e) => e.jobId === id);
     client.setQueriesData<{ job: Job; events: JobEvent[] }>({ queryKey: key("jobs.show", { id }, p) }, (d) =>

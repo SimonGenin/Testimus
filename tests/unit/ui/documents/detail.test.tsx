@@ -261,7 +261,7 @@ describe("DocDetail", () => {
     fireEvent.click(screen.getByRole("button", { name: "Describe 2 figures" }));
     await waitFor(() => expect(named("docs.describeFigures").at(-1)?.input).toEqual({ docId: "D1", force: false }));
     expect(await screen.findByText("Claude describes 2 figures")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Open in Jobs" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Show the job" }).length).toBeGreaterThan(0);
     fireEvent.click(within(grid).getByRole("button", { name: "Plan" }));
     expect(
       within(screen.getByRole("complementary", { name: "Plan" })).getByRole("button", { name: "Describe again" }),

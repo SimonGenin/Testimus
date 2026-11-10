@@ -119,9 +119,9 @@ dist/screens/
 - **La clé d'une capture est `scenario/shot`.** Elle est stable et ne dépend d'aucun libellé. Une comparaison
   avant/après cherche la même clé dans les deux manifest : une clé de l'avant absente de l'après est un écran ou
   un état perdu.
-- **`area`** est la zone de l'interface : `documents`, `generate`, `tests`, `review`, `jobs`, `settings`, `setup`,
+- **`area`** est la zone de l'interface : `documents`, `generate`, `tests`, `review`, `settings`, `setup`,
   `doctor`, `claude` (dock, contextes), `shell` (palette, toasts, menu projet, formulaire de commande, popover des
-  jobs) ou `desktop`. Les maquettes du design sont rangées pareil :
+  jobs et panneau d'un job) ou `desktop`. Les maquettes du design sont rangées pareil :
   `design/screens/<area>/<scénario>/<capture>/`. La zone se calcule depuis l'identifiant (`areaOf` dans
   `scripts/screens.ts`).
 - **`errors`** : les erreurs de console et les exceptions de la page pendant la capture. Une capture avec des

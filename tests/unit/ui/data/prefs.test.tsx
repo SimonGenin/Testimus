@@ -58,13 +58,13 @@ describe("presentation preferences", () => {
   });
 
   it("re-render their readers when set, here or in another tab", () => {
-    const h = renderHook(() => usePref("jobsGroup"));
+    const h = renderHook(() => usePref("showDetails"));
     expect(h.result.current[0]).toBe(true);
     act(() => h.result.current[1](false));
     expect(h.result.current[0]).toBe(false);
-    localStorage.setItem("testimus.jobsGroup", "1");
+    localStorage.setItem("testimus.showDetails", "1");
     act(() => {
-      window.dispatchEvent(new StorageEvent("storage", { key: "testimus.jobsGroup" }));
+      window.dispatchEvent(new StorageEvent("storage", { key: "testimus.showDetails" }));
     });
     expect(h.result.current[0]).toBe(true);
   });
