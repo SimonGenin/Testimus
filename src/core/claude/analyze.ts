@@ -1,10 +1,20 @@
 import { type Ctx, UserError } from "../command.ts";
-import { type ColumnRole, readAnalysis, rolesOf, stampRun } from "../lib/analysis.ts";
+import {
+  type AnalysisFile,
+  type ColumnRole,
+  type Earlier,
+  locate,
+  type Proposal,
+  readAnalysis,
+  rolesOf,
+  settle,
+  stampRun,
+} from "../lib/analysis.ts";
 import { stepColumns } from "../lib/columns.ts";
 import { quoted, testName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
 import { readTest, testExists } from "../lib/store.ts";
-import type { Diagnosis, Effort, StepColumn } from "../types.ts";
+import type { Diagnosis, Effort, StepColumn, Test } from "../types.ts";
 import { GIVEN_SLOT, given } from "./given.ts";
 import { languageName } from "./language.ts";
 import type { PromptTemplate } from "./prompt.ts";
@@ -39,11 +49,65 @@ export function analysisColumns(
   ];
 }
 
-export function analyzePrompt(id: string, columns: string[], language: string, context: string[]): string {
+const short = (s: string) => {
+  const t = s.replace(/\s+/g, " ").trim();
+  return t.length > 160 ? `${t.slice(0, 159)}…` : t;
+};
+
+// ponytail: a proposal as the next run reads it — where it is in the test as it is now, what it said, what it wrote
+function told(test: Test, a: AnalysisFile, p: Earlier & Partial<Proposal>): string {
+  let where = "";
+  if (p.kind === "step" && p.after !== undefined) {
+    const i = p.after ? locate(test, a.steps, p.after) : -1;
+    where = !p.after ? ", before step 1" : i < 0 ? "" : `, after step ${i + 1}`;
+  } else if (p.step) {
+    const i = locate(test, a.steps, p.step);
+    where = i < 0 ? ", a step no longer in the test" : `, step ${i + 1}`;
+  }
+  const what =
+    p.kind === "change" && p.column
+      ? ` — ${p.column}: « ${short(p.value ?? "")} »`
+      : p.kind === "step"
+        ? ` — ${short(p.fields?.Action ?? "")}`
+        : p.kind === "source"
+          ? ` — ${p.sources.map(short).join(" · ")}`
+          : "";
+  return `- ${p.kind}${where}: ${p.title}${what}`;
+}
+
+// ponytail: an analysis again — the next run is told what the team decided on the last one (the test as it is now
+// says what was accepted; an accepted edit undone since is open again), so it never proposes a rejection twice
+export function earlierAnalysis(test: Test, prev: AnalysisFile | null): string[] {
+  if (!prev) return [];
+  const a = settle(test, prev);
+  const by = (s: string) => a.proposals.filter((p) => p.state === s).map((p) => told(test, a, p));
+  const accepted = by("accepted");
+  const rejected = [...(a.earlier ?? []).map((e) => told(test, a, e)), ...by("rejected")];
+  const open = by("open");
+  if (!accepted.length && !rejected.length && !open.length) return [];
+  return [
+    "",
+    `This test was analysed before (${a.at.slice(0, 10)}); what the team decided stands, the step numbers are the test's now:`,
+    ...(accepted.length ? ["Accepted — in the test now, never propose to undo them:", ...accepted] : []),
+    ...(rejected.length ? ["Rejected — never propose them again, in any wording:", ...rejected] : []),
+    ...(open.length
+      ? ["Not decided yet — propose again those that still hold against the documents, the others not:", ...open]
+      : []),
+  ];
+}
+
+export function analyzePrompt(
+  id: string,
+  columns: string[],
+  language: string,
+  context: string[],
+  earlier: string[] = [],
+): string {
   return [
     `${ANALYZE_MARKER} ${id}.`,
     "Read it with tests_show; never modify it or any other file: the team accepts or rejects each proposal.",
     ...columns,
+    ...earlier,
     "",
     `Record everything with analysis_record, once: { id: "${id}", summary, columns, unfound, proposals } — proposals: [] when the test matches the documents. A refused call lists what to fix: fix it and call again.`,
     `Summary, titles and whys in ${languageName(language)}; the column names as listed above.`,
@@ -72,6 +136,7 @@ export const prompts: PromptTemplate[] = [
         ],
         "{language}",
         GIVEN_SLOT,
+        ["", "{when the test was analysed before: the proposals the team accepted, rejected and left open}"],
       ),
   },
 ];
@@ -92,6 +157,7 @@ export async function analyzeTest(
   const g = given(project, "analyze", { kind: "test", testId: id }, o);
   const name = quoted(testName(project, id));
   const runId = newRunId();
+  const { test } = readTest(project, id);
   ctx.progress({ message: `Claude reads ${name} against the documents` });
   const r = await runClaude({
     project,
@@ -100,9 +166,10 @@ export async function analyzeTest(
     title: `analyze ${name}`,
     prompt: analyzePrompt(
       id,
-      analysisColumns(stepColumns(project), rolesOf(project, readTest(project, id).test)),
+      analysisColumns(stepColumns(project), rolesOf(project, test)),
       p.language,
       g.lines,
+      earlierAnalysis(test, readAnalysis(project, id)),
     ),
     model,
     effort,

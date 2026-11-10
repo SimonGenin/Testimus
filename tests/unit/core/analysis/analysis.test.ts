@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { fieldOrder } from "../../../../src/core/lib/columns.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
-import { readTest } from "../../../../src/core/lib/store.ts";
+import { readTest, writeTest } from "../../../../src/core/lib/store.ts";
+import type { Test } from "../../../../src/core/types.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 const ID = "LFRPS12-1420";
@@ -18,6 +20,7 @@ type Proposal = {
   state: string;
   now?: number;
   stale?: string;
+  undone?: { by?: string; at?: string };
   before?: string;
   drops?: { column: string; item: string }[];
 };
@@ -208,6 +211,58 @@ describe("analysis.decide — the team decides each proposal", () => {
   });
 });
 
+describe("an accepted proposal whose edit left the test is to decide again", () => {
+  const file = () => join(P, "tests", ID, "test.md");
+  const save = (t: Test) => writeTest(P, ID, t, fieldOrder(P));
+
+  it("the test reverted (from Jira, by undo): every accepted proposal is open again, and accepted again", async () => {
+    await call("analysis.record", good, P);
+    const before = md();
+    await call("analysis.decide", { id: ID, proposals: ["p1", "p2", "p3", "p4"], decision: "accept" }, P);
+    expect(steps()).toHaveLength(5);
+    writeFileSync(file(), before);
+    const a = await show();
+    expect(a.proposals.map((p) => p.state)).toEqual(["open", "open", "open", "open"]);
+    expect(a.proposals[1]).toMatchObject({ now: 1, undone: { by: expect.any(String) } });
+    expect(a.proposals[1].stale).toBeUndefined();
+    expect(a.proposals[3]).toMatchObject({ now: 5 });
+    await call("analysis.decide", { id: ID, proposals: ["p2", "p4"], decision: "accept" }, P);
+    expect(steps()[0].fields.Exigence).toBe("EXI_MOP_SPF_511_A_1650, EXI_MOP_SPF_511_A_1660");
+    expect(steps()).toHaveLength(4);
+    const raw = JSON.parse(readFileSync(join(P, "tests", ID, "analysis.json"), "utf8"));
+    expect(raw.proposals[1].state).toBe("accepted");
+    expect(raw.proposals[1].undone).toBeUndefined();
+  });
+
+  it("an accepted change edited further by hand stays accepted; a source taken out is open again", async () => {
+    await call("analysis.record", good, P);
+    await call("analysis.decide", { id: ID, proposals: ["p1", "p2"], decision: "accept" }, P);
+    writeFileSync(file(), md().replace("EXI_MOP_SPF_511_A_1660", "EXI_MOP_SPF_511_A_1660, EXI_Y"));
+    expect((await show()).proposals[1].state).toBe("accepted");
+    const t = readTest(P, ID).test;
+    t.steps[1].sources = t.steps[1].sources.filter((s) => s.item !== "EXI_MOP_SPF_511_A_1670");
+    save(t);
+    const a = await show();
+    expect(a.proposals[0]).toMatchObject({ state: "open", now: 2 });
+    expect(a.proposals[0].undone).toBeDefined();
+  });
+
+  it("a step with no Xray id removed then brought back is open again; its twin left in place is not", async () => {
+    writeFileSync(file(), md().replace(/ <!-- 10\d -->/g, ""));
+    const twin = steps()[3];
+    const t = readTest(P, ID).test;
+    t.steps.splice(4, 1, { ...twin, fields: { ...twin.fields }, sources: [...twin.sources] });
+    save(t);
+    const before = md();
+    await call("analysis.record", good, P);
+    await call("analysis.decide", { id: ID, proposals: ["p4"], decision: "accept" }, P);
+    expect(steps()).toHaveLength(4);
+    expect((await show()).proposals[3].state).toBe("accepted");
+    writeFileSync(file(), before);
+    expect((await show()).proposals[3]).toMatchObject({ state: "open", now: 5 });
+  });
+});
+
 describe("analysis.run — Claude reads, records, never edits", () => {
   const runs: ClaudeSpawn[] = [];
   function claude(record: boolean) {
@@ -254,6 +309,29 @@ describe("analysis.run — Claude reads, records, never edits", () => {
     expect(allowed).not.toContain("mcp__testimus__tests_edit");
     expect(allowed).not.toContain("mcp__testimus__analysis_decide");
     expect((await show()).run).toMatchObject({ model: "opus" });
+  });
+
+  it("run again, Claude is told what the team accepted, rejected and left open, and a rejection is kept", async () => {
+    await call("analysis.record", good, P);
+    await call("analysis.decide", { id: ID, proposals: ["p3"], decision: "accept" }, P);
+    await call("analysis.decide", { id: ID, proposals: ["p4"], decision: "reject" }, P);
+    claude(true);
+    expect(await call("analysis.run", { id: ID }, P)).toMatchObject({ ok: true });
+    const sent = runs[0].stdin;
+    expect(sent).toContain("This test was analysed before");
+    expect(sent).toContain(
+      "Accepted — in the test now, never propose to undo them:\n- step, after step 2: Sectionneur avec TK — Clic droit sur un sectionneur avec TK.",
+    );
+    expect(sent).toContain("Rejected — never propose them again, in any wording:\n- remove, step 6: Retirer le step 5");
+    expect(sent).toMatch(
+      /Not decided yet[^\n]*\n- source, step 2: Lier EXI_MOP_SPF_511_A_1670[^\n]*\n- change, step 1:/,
+    );
+    const raw = JSON.parse(readFileSync(join(P, "tests", ID, "analysis.json"), "utf8"));
+    expect(raw.earlier).toEqual([expect.objectContaining({ kind: "remove", title: "Retirer le step 5" })]);
+    claude(true);
+    await call("analysis.run", { id: ID }, P);
+    expect(runs[0].stdin).toMatch(/Rejected[^\n]*\n- remove: Retirer le step 5/);
+    expect(JSON.parse(readFileSync(join(P, "tests", ID, "analysis.json"), "utf8")).earlier).toHaveLength(1);
   });
 
   it("a run that records nothing fails and leaves the last analysis as it was", async () => {

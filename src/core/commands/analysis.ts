@@ -51,6 +51,13 @@ const PROPOSAL = z.object({
   state: z.enum(["open", "accepted", "rejected"]).describe("Not decided yet, accepted (in the test) or rejected"),
   decidedBy: z.string().optional().describe("Who decided"),
   decidedAt: z.string().optional().describe("When"),
+  undone: z
+    .object({
+      by: z.string().optional().describe("Who had accepted it"),
+      at: z.string().optional().describe("When"),
+    })
+    .optional()
+    .describe("Accepted once, then its edit left the test (reverted from Jira, undone): to decide again"),
   now: z.number().optional().describe("Where it lands in the test as it is now: its step, or for a new step its index"),
   stale: z.string().optional().describe("Why it no longer applies to the test as it is now"),
   drops: z
@@ -71,11 +78,29 @@ const ANALYSIS = z.object({
       z.object({
         id: z.string().optional().describe("Xray step id"),
         print: z.string().describe("Its fields when analysed (to find it again)"),
+        was: z.array(z.string()).optional().describe("Its fields before accepted proposals rewrote them"),
         gone: z.boolean().optional().describe("Removed by an accepted proposal"),
+        twins: z.number().optional().describe("Removed with no Xray id: the steps that still read the same"),
       }),
     )
     .describe("The steps as analysed"),
   proposals: z.array(PROPOSAL).describe("Every proposal, decided or not"),
+  earlier: z
+    .array(
+      PROPOSAL.pick({
+        kind: true,
+        title: true,
+        why: true,
+        column: true,
+        value: true,
+        fields: true,
+        sources: true,
+        decidedBy: true,
+        decidedAt: true,
+      }),
+    )
+    .optional()
+    .describe("What the team rejected in the analyses before this one: every later run is told"),
   run: z
     .object({
       runId: z.string().describe("The Claude run"),
@@ -91,7 +116,7 @@ export const commands = [
   command({
     name: "analysis.run",
     summary:
-      "Claude reads a test against the project's documents (skill analyze-test) and records what it proposes: sources for what is right, changes, new steps, steps to remove — each decided one by one with analysis.decide. The test is never changed by the run. Replaces the test's previous analysis once Claude records a new one.",
+      "Claude reads a test against the project's documents (skill analyze-test) and records what it proposes: sources for what is right, changes, new steps, steps to remove — each decided one by one with analysis.decide. The test is never changed by the run. Run again on a test already analysed, Claude is told what the team accepted, rejected and left open, and the new analysis replaces the previous one, keeping its rejections.",
     input: z.object({
       id: TEST_REF,
       note: NOTE.describe("What to look at especially, in plain words"),
@@ -181,7 +206,7 @@ export const commands = [
   command({
     name: "analysis.show",
     summary:
-      "The last analysis of a test: Claude's reading, how each column is treated, the items no document holds, and every proposal with its state — those still to decide say where they land in the test now, or why they no longer apply.",
+      "The last analysis of a test: Claude's reading, how each column is treated, the items no document holds, and every proposal with its state — those still to decide say where they land in the test now, or why they no longer apply; an accepted one whose edit left the test since (reverted from Jira, undone) is to decide again.",
     input: z.object({ id: TEST_REF }),
     output: z.object({
       id: z.string().describe("Test id"),

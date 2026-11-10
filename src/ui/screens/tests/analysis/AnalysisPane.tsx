@@ -135,7 +135,19 @@ export function AnalysisPane({
         title="Analysis against the documents"
         fill
         actions={
-          <Button size="sm" variant="quiet" iconOnly icon="close" label="Close the analysis" onClick={onClose} />
+          <>
+            {analysis && !running && !asking && (
+              <Button
+                size="sm"
+                variant="claude-quiet"
+                icon="claude"
+                label="Analyze again"
+                disabled={locked || undefined}
+                onClick={() => setAsking(true)}
+              />
+            )}
+            <Button size="sm" variant="quiet" iconOnly icon="close" label="Close the analysis" onClick={onClose} />
+          </>
         }
         footer={
           analysis && (open.length || accepted.length || rejected.length) ? (
@@ -185,6 +197,11 @@ export function AnalysisPane({
                   Nothing changes until you accept it.
                 </p>
               )}
+              {analysis && !running && analysis.proposals.length > 0 && (
+                <p {...stylex.props(type.compact, styles.muted)}>
+                  Claude is told what you accepted, rejected and left open: it does not propose a rejection again.
+                </p>
+              )}
               {block}
             </div>
           )}
@@ -196,12 +213,6 @@ export function AnalysisPane({
                 <p {...stylex.props(type.small, styles.meta)}>
                   {analysis.run && <span>{cap(analysis.run.model)} ·</span>}
                   <span>{relTime(Date.parse(analysis.at))}</span>
-                  {!asking && (
-                    <>
-                      <span>·</span>
-                      <Button size="sm" variant="link" label="Analyze again" onClick={() => setAsking(true)} />
-                    </>
-                  )}
                 </p>
               </div>
               {analysis.proposals.length > 0 && (

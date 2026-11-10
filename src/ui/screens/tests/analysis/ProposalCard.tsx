@@ -6,6 +6,7 @@ import { Button } from "../../../components/ui/Button.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
 import { TextDiff } from "../../../components/ui/TextDiff.tsx";
 import { type } from "../../../components/ui/type.ts";
+import { relTime } from "../../../lib/format.ts";
 import { color, radius, size, space } from "../../../styles/tokens.stylex.ts";
 import { StepSource } from "../step/StepSource.tsx";
 import type { Decision, ProposalView } from "./useAnalysis.ts";
@@ -97,6 +98,13 @@ export function ProposalCard({
         )}
         {sources}
         <p {...stylex.props(type.small, styles.why)}>{p.why}</p>
+        {p.undone ? (
+          <Banner tone="info" compact>
+            Accepted{p.undone.by ? ` by ${p.undone.by}` : ""}
+            {p.undone.at ? ` ${relTime(Date.parse(p.undone.at))}` : ""}, then taken out of the test (reverted or
+            undone): to decide again.
+          </Banner>
+        ) : null}
         {p.drops?.length ? (
           <Banner tone="warning" compact>
             Also takes out what the team entered: {p.drops.map((d) => `${d.item} (${d.column})`).join(", ")}.

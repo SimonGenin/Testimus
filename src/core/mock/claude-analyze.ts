@@ -1,7 +1,7 @@
 import { ANALYZE_MARKER } from "../claude/analyze.ts";
 import { invoke } from "../commands/index.ts";
 import type { ProposalIn, RecordIn, Unfound } from "../lib/analysis.ts";
-import { itemsOf } from "../lib/analysis.ts";
+import { itemsOf, readAnalysis } from "../lib/analysis.ts";
 import { loadCorpus } from "../lib/check.ts";
 import { stepColumns } from "../lib/columns.ts";
 import { readTest, testExists } from "../lib/store.ts";
@@ -105,7 +105,13 @@ registerMockScript(
       ],
       edit: () => {
         if (!testExists(spawn.cwd, id)) return;
-        const record = mockAnalysis(spawn.cwd, readTest(spawn.cwd, id).test);
+        const prev = readAnalysis(spawn.cwd, id);
+        const refused = new Set([
+          ...(prev?.earlier ?? []).map((e) => e.title),
+          ...(prev?.proposals ?? []).filter((p) => p.state === "rejected").map((p) => p.title),
+        ]);
+        const all = mockAnalysis(spawn.cwd, readTest(spawn.cwd, id).test);
+        const record = { ...all, proposals: all.proposals.filter((p) => !refused.has(p.title)) };
         n = record.proposals.length;
         invoke("analysis.record", { id, ...record }, { project: spawn.cwd }).catch(() => {});
       },

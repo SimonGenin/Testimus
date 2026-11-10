@@ -35,11 +35,18 @@ export type Proposal = {
   state: ProposalState;
   decidedBy?: string;
   decidedAt?: string;
+  undone?: { by?: string; at?: string };
 };
 
 export type ColumnReading = { name: string; role: ColumnRole; why: string };
 export type Unfound = { step: number; column: string; item: string; why?: string };
-export type BaseStep = { id?: string; print: string; gone?: boolean };
+// ponytail: a step as analysed — was: its fields before accepted proposals rewrote them (a revert brings them back);
+// twins: for a step removed with no Xray id, how many steps still read the same (it is back when there are more)
+export type BaseStep = { id?: string; print: string; was?: string[]; gone?: boolean; twins?: number };
+export type Earlier = Pick<
+  Proposal,
+  "kind" | "title" | "why" | "column" | "value" | "fields" | "sources" | "decidedBy" | "decidedAt"
+>;
 
 export type AnalysisFile = {
   at: string;
@@ -49,6 +56,7 @@ export type AnalysisFile = {
   unfound: Unfound[];
   steps: BaseStep[];
   proposals: Proposal[];
+  earlier?: Earlier[];
   run?: { runId: string; model: string; effort: string; note?: string };
 };
 
@@ -107,10 +115,15 @@ export function locate(test: Test, base: BaseStep[], n: number): number {
   const b = base[n - 1];
   if (!b || b.gone) return -1;
   if (b.id) return test.steps.findIndex((s) => s.id === b.id);
-  const hits = test.steps.flatMap((s, i) => (printOf(s) === b.print ? [i] : []));
+  const hits = matches(test, b);
   if (!hits.length) return -1;
   return hits.reduce((best, i) => (Math.abs(i - (n - 1)) < Math.abs(best - (n - 1)) ? i : best));
 }
+
+const matches = (test: Test, b: BaseStep) => {
+  const prints = [b.print, ...(b.was ?? [])];
+  return test.steps.flatMap((s, i) => (prints.includes(printOf(s)) ? [i] : []));
+};
 
 const cellOf = (s: Step, column: string) =>
   Object.entries(s.fields).find(([k]) => k.toLowerCase() === column.toLowerCase())?.[1] ?? "";
@@ -260,6 +273,7 @@ export function recordAnalysis(project: string, id: string, input: RecordIn): An
       `Nothing was recorded — ${errors.length} problem${errors.length === 1 ? "" : "s"}:\n${errors.map((e) => `- ${e}`).join("\n")}`,
       "Fix each one (copy quotes from doc.md at their anchor, keep a column kept as written word for word) and call analysis_record again with every proposal.",
     );
+  const earlier = earlierOf(test, readAnalysis(project, id));
   const file: AnalysisFile = {
     at: env.now().toISOString(),
     testHash: testMdHash(md),
@@ -268,10 +282,27 @@ export function recordAnalysis(project: string, id: string, input: RecordIn): An
     unfound: input.unfound,
     steps: baseOf(test),
     proposals,
+    ...(earlier.length ? { earlier } : {}),
   };
   writeAnalysis(project, id, file);
   return file;
 }
+
+// ponytail: what the team rejected stays rejected — a new analysis carries the rejections of the ones before it, so
+// every later run is told; what was accepted is in the test, what was left open is proposed again or not
+function earlierOf(test: Test, prev: AnalysisFile | null): Earlier[] {
+  if (!prev) return [];
+  const out = [...(prev.earlier ?? [])];
+  for (const p of settle(test, prev).proposals) {
+    if (p.state !== "rejected" || out.some((e) => e.kind === p.kind && e.title === p.title)) continue;
+    const { kind, title, why, column, value, fields, sources, decidedBy, decidedAt } = p;
+    out.push({ kind, title, why, sources, ...defined({ column, value, fields, decidedBy, decidedAt }) });
+  }
+  return out;
+}
+
+const defined = <T extends Record<string, unknown>>(o: T): Partial<T> =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
 
 export function stampRun(project: string, id: string, run: NonNullable<AnalysisFile["run"]>): void {
   const a = readAnalysis(project, id);
@@ -303,8 +334,57 @@ function placeOf(test: Test, a: AnalysisFile, p: Proposal): { at: number } | { s
   return { at: i };
 }
 
+const citesOf = (p: Proposal) =>
+  p.sources.flatMap((l) => {
+    const s = parseSource(l);
+    return s ? [s] : [];
+  });
+
+// ponytail: an accepted proposal whose edit is no longer in the test — the test reverted from Jira, the step undone, the
+// source taken out — is not decided any more: what it would write is not there
+function isUndone(test: Test, a: AnalysisFile, p: Proposal): boolean {
+  if (p.kind === "remove") {
+    const b = a.steps[(p.step ?? 0) - 1];
+    if (!b?.gone) return false;
+    return b.id ? test.steps.some((s) => s.id === b.id) : matches(test, b).length > (b.twins ?? 0);
+  }
+  if (p.kind === "step") {
+    const there = (k: string) => {
+      const v = flat(p.fields?.[k] ?? "");
+      return !!v && test.steps.some((s) => flat(cellOf(s, k)) === v);
+    };
+    return !there("Action") && !there("Expected Result");
+  }
+  const i = locate(test, a.steps, p.step ?? 0);
+  if (i < 0) return false;
+  const s = test.steps[i];
+  if (p.kind === "change")
+    return (
+      !!p.column && flat(cellOf(s, p.column)) === flat(p.before ?? "") && flat(p.before ?? "") !== flat(p.value ?? "")
+    );
+  return citesOf(p).some((x) => !s.sources.some((y) => same(x, y)));
+}
+
+// ponytail: the analysis as the test is now — every accepted proposal undone since is open again, said on it
+export function settle(test: Test, a: AnalysisFile): AnalysisFile {
+  for (const p of a.proposals) {
+    if (p.state !== "accepted" || !isUndone(test, a, p)) continue;
+    if (p.kind === "remove") {
+      const n = (p.step ?? 0) - 1;
+      const { gone: _, twins: __, ...back } = a.steps[n];
+      a.steps[n] = back;
+    }
+    p.undone = defined({ by: p.decidedBy, at: p.decidedAt });
+    p.state = "open";
+    delete p.decidedBy;
+    delete p.decidedAt;
+  }
+  return a;
+}
+
 export function viewOf(project: string, id: string, a: AnalysisFile): AnalysisView {
   const { test, md } = readTest(project, id);
+  settle(test, a);
   const kept = [...rolesOf(project, test, a.columns)].flatMap(([k, r]) => (r === "keep" ? [k] : []));
   // ponytail: a step taken out takes the team's items with it — said on the proposal, never silently
   const dropsOf = (s: Step): Dropped[] =>
@@ -315,10 +395,7 @@ export function viewOf(project: string, id: string, a: AnalysisFile): AnalysisVi
     ...a,
     changed: testMdHash(md) !== a.testHash,
     proposals: a.proposals.map((p) => {
-      const cites = p.sources.flatMap((l) => {
-        const s = parseSource(l);
-        return s ? [s] : [];
-      });
+      const cites = citesOf(p);
       if (p.state !== "open") return { ...p, cites };
       const at = placeOf(test, a, p);
       if ("stale" in at) return { ...p, cites, stale: at.stale };
@@ -339,14 +416,18 @@ function apply(test: Test, a: AnalysisFile, p: Proposal): void {
   }
   const n = (p.step ?? 0) - 1;
   const s = test.steps[at.at];
+  const b = a.steps[n];
   if (p.kind === "remove") {
     test.steps.splice(at.at, 1);
-    a.steps[n] = { ...a.steps[n], gone: true };
+    a.steps[n] = { ...b, gone: true, ...(b.id ? {} : { twins: matches(test, b).length }) };
     return;
   }
+  const was = printOf(s);
   if (p.kind === "change" && p.column) s.fields[p.column] = p.value ?? "";
   s.sources = withSources(s, sources);
-  a.steps[n] = { ...a.steps[n], print: printOf(s) };
+  const print = printOf(s);
+  const prints = [...new Set([...(b.was ?? []), b.print, was])].filter((x) => x !== print);
+  a.steps[n] = { ...b, print, ...(prints.length ? { was: prints } : {}) };
 }
 
 export type Decision = "accept" | "reject" | "reopen";
@@ -361,6 +442,8 @@ export function decide(
 ): { analysis: AnalysisView; applied: string[] } {
   const a = readAnalysis(project, id);
   if (!a) throw new UserError(`The test ${id} has no analysis.`, "Run analysis.run on it first.", "no-analysis");
+  const { test } = readTest(project, id);
+  settle(test, a);
   const picked = ids.map((pid) => {
     const p = a.proposals.find((x) => x.id === pid);
     if (!p) throw new UserError(`No proposal ${pid} in the analysis of ${id}.`, "analysis.show lists them.");
@@ -370,11 +453,11 @@ export function decide(
   const at = env.now().toISOString();
   const applied: string[] = [];
   if (decision === "accept") {
-    const { test } = readTest(project, id);
     for (const p of picked) {
       if (p.state === "accepted") continue;
       apply(test, a, p);
       Object.assign(p, { state: "accepted", decidedBy: by, decidedAt: at });
+      delete p.undone;
       applied.push(p.id);
     }
     if (applied.length) a.testHash = testMdHash(writeTest(project, id, test, fieldOrder(project)));
@@ -386,8 +469,10 @@ export function decide(
           `${p.id} is already in the test.`,
           "Undo it in the editor: an accepted proposal is an ordinary edit.",
         );
-      if (decision === "reject") Object.assign(p, { state: "rejected", decidedBy: by, decidedAt: at });
-      else {
+      if (decision === "reject") {
+        Object.assign(p, { state: "rejected", decidedBy: by, decidedAt: at });
+        delete p.undone;
+      } else {
         p.state = "open";
         delete p.decidedBy;
         delete p.decidedAt;

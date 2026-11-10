@@ -200,6 +200,19 @@ describe("the analysis pane", () => {
     expect(callsOf("claude.preview")).toHaveLength(1);
   });
 
+  it("an accepted proposal whose edit left the test is to decide again, and says so", async () => {
+    analysis = {
+      ...base,
+      proposals: [{ ...base.proposals[0], undone: { by: "s.genin", at: new Date().toISOString() } }],
+    };
+    withApp(<Harness />);
+    const note = await screen.findByText(/Accepted by s\.genin .*then taken out of the test/);
+    const card = note.closest("[data-proposal]") as HTMLElement;
+    expect(within(card).getByRole("button", { name: "Accept" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Analyze again" }));
+    expect(await screen.findByText(/Claude is told what you accepted, rejected and left open/)).toBeInTheDocument();
+  });
+
   it("groups the proposals to decide by the step they are about, in the test's order", async () => {
     analysis = base;
     withApp(<Harness />);

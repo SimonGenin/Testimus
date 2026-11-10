@@ -261,6 +261,13 @@
       }
     },
     {
+      "name": "testimus-mock-analysis",
+      "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
+      "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4387", "--no-open"],
+      "port": 4387,
+      "url": "http://127.0.0.1:4387"
+    },
+    {
       "name": "testimus-mock-review",
       "runtimeExecutable": "C:/Users/s.genin/AppData/Roaming/fnm/aliases/default/node.exe",
       "runtimeArgs": ["src/faces/cli.ts", "serve", "--mock", "--port", "4381", "--no-open"],

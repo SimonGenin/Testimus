@@ -817,6 +817,10 @@ nothing**: it records proposals and the team decides each one.
 - `analysis.run { id, note?, model?, effort?, contexts? }` is a job (kind `analyze`, `claude/analyze.ts`, skill
   `analyze-test`, run kind `analyze`: the read tools plus `analysis.record`, no Edit/Write; an edit that got through is
   put back). The run calls `analysis_record` once; the job fails when it does not, and the previous analysis stays.
+- **Analysing again** (the user's ask, 2026-11-10: a second reading is often wanted): the prompt carries what the team
+  decided on the last analysis (`earlierAnalysis`), the step numbers the test's now — accepted (never propose to undo
+  them), rejected (never again, in any wording) and not decided yet (propose again only what still holds). The new
+  analysis replaces the last one but keeps its rejections in `earlier`, so a rejection is told to every later run.
 - `analysis.record` (Claude's call) is proven as a whole before anything is written: every source line is checked as
   the mechanical pass checks a step (`docId#anchor "quote"` found at its anchor, at least four words, `@<column>
   "<item>"` naming an item the cell holds), steps and columns exist, a new step has Action, Expected Result and a source
@@ -830,11 +834,19 @@ nothing**: it records proposals and the team decides each one.
   cell's whole new text, with its sources; the core stores the cell as it was), `step` (a new step after a step, 0 =
   first), `remove`. Items no document holds are listed under `unfound` and stay as they are.
 - `tests/<id>/analysis.json` (managed by `lib/analysis.ts` alone, shared with the test): `{ at, testHash, summary,
-  columns: [{ name, role, why }], unfound: [{ step, column, item, why? }], steps: [{ id?, print, gone? }], proposals:
-  [{ id: p1…, kind, title, why, step?, after?, column?, before?, value?, fields?, sources: ["<line>"], state: open |
-  accepted | rejected, decidedBy?, decidedAt? }], run?: { runId, model, effort, note? } }`. A new analysis replaces it.
+  columns: [{ name, role, why }], unfound: [{ step, column, item, why? }], steps: [{ id?, print, was?, gone?, twins?
+  }], proposals: [{ id: p1…, kind, title, why, step?, after?, column?, before?, value?, fields?, sources: ["<line>"],
+  state: open | accepted | rejected, decidedBy?, decidedAt?, undone?: { by?, at? } }], earlier?: [rejected proposals of
+  the analyses before], run?: { runId, model, effort, note? } }`. A new analysis replaces it.
 - **Where a proposal lands now**: a step is found again by its Xray id, else by its fields as analysed (`steps[].print`,
-  the nearest when several match); accepting a change updates that print, a removal marks the step `gone`.
+  or one of the prints it had before accepted proposals rewrote it, `was`; the nearest when several match); accepting
+  a change updates that print, a removal marks the step `gone` (with no Xray id, `twins`: how many steps still read
+  the same).
+- **An accepted proposal undone is open again** (`settle`, on every read and decision): the test reverted from Jira,
+  the step undone, the source taken out — a change whose cell is back to `before`, a source no longer on its step, a
+  new step whose Action and Expected Result are both gone, a removed step back (by id, else more steps reading the same
+  than `twins`). It is to decide again (`undone` says who had accepted it, shown on its card), and the next analysis is
+  not told it was accepted. A change edited further by hand stays accepted.
   `analysis.show` gives each open proposal its place now (`now`) or why it no longer applies (`stale`: the step changed
   or was removed, the cell changed since), and a step to remove the items of `keep` columns it takes out with it
   (`drops`, shown on its card: seen in the first real run, where Claude proposed removing a step that carried a
@@ -845,7 +857,8 @@ nothing**: it records proposals and the team decides each one.
 - The page (`screens/tests/analysis/`): « Analysis » in the editor's bar (the count left to decide) opens a pane beside
   the editor (`size.dock`, it gives way down to `size.sidebar`; the editor keeps `size.sidebar`). Before an analysis:
   the ClaudeBlock that starts one (an optional « look especially at » note, model, effort; while it runs the same box
-  with its timer and Cancel). After: Claude's summary, To decide · Accepted · Rejected, the proposals grouped by the
+  with its timer and Cancel). After: « Analyze again » in the pane's head opens that box again (saying Claude is told
+  what was decided). Claude's summary, To decide · Accepted · Rejected, the proposals grouped by the
   step they are about (the group's name scrolls the editor there), each a Card with its PROPOSAL badge, the change
   (SourceChips, TextDiff, the new step's columns), why, Reject and Accept; « Accept the n sources » in the foot; the
   items in no document (warning banner) and « How Claude read the columns » (COLUMN_ROLE badges). Accepting saves the
