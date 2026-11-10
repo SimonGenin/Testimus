@@ -91,9 +91,11 @@ const styles = stylex.create({
   compact: {
     justifyContent: "center",
     gap: 0,
-    width: size.controlLg,
-    height: size.controlLg,
-    padding: 0,
+    width: size.controlMd,
+    height: size.controlMd,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingInline: 0,
     borderRadius: radius.r2,
   },
   countCompact: { top: `calc(-1 * ${space.s1})`, right: `calc(-1 * ${space.s1})` },
@@ -158,10 +160,10 @@ export function RailItem({
 }: RailItemProps) {
   const look = stylex.props(
     styles.item,
+    !compact && avatar !== undefined && styles.avatarItem,
+    !compact && avatar === undefined && dot !== undefined && styles.dotItem,
     compact && styles.compact,
     current && styles.current,
-    avatar !== undefined && styles.avatarItem,
-    avatar === undefined && dot !== undefined && styles.dotItem,
     debugState === "hover" && styles.hover,
     debugState === "focus" && styles.focus,
   );

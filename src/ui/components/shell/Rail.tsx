@@ -23,7 +23,7 @@ export const NAV: { id: Screen; label: string; icon: IconName }[] = [
 const styles = stylex.create({
   rail: {
     flex: "none",
-    width: `calc(${size.controlLg} + 2 * ${space.s3})`,
+    width: `calc(${size.controlMd} + 2 * ${space.s3})`,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
