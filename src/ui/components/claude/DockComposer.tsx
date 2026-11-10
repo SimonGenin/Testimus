@@ -68,6 +68,7 @@ export function DockComposer({
       allowEmpty={mode === "test"}
       submitLabel={mode === "docs" ? "Ask" : "Send"}
       running={running}
+      sentShown
       onCancel={onCancel}
       unavailable={unavailable}
       onSubmit={(text) => {

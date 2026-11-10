@@ -104,8 +104,11 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
   allowEmpty?: boolean;
   /** « Step 2 », « Whole test », « Whole project » */
   scope?: string;
-  /** seconds since the run started: the box is read-only and offers Cancel */
+  /** seconds since the run started: the box is read-only, holds what was sent (never the placeholder) and offers
+   * Cancel */
   running?: number | null;
+  /** the owner shows what was sent (the dock's thread): the box stays as its owner left it while Claude works */
+  sentShown?: boolean;
   onCancel?: () => void;
   /** Claude is not there: the reason replaces the hint and Send is off */
   unavailable?: string;
@@ -133,6 +136,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
     allowEmpty = false,
     scope,
     running = null,
+    sentShown = false,
     onCancel,
     unavailable,
     plain = false,
@@ -142,17 +146,26 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
   const autosave = submit === "autosave";
   const [draft, setDraft, clearDraft] = useDraft(autosave ? null : (text.draftKey ?? null), text.value);
   const [plainValue, setPlainValue] = useState(text.value);
-  const value = autosave ? text.value : text.draftKey ? draft : text.onChange ? text.value : plainValue;
+  const [sent, setSent] = useState<string | null>(null);
   const busy = running !== null && running !== undefined;
+  const [wasBusy, setWasBusy] = useState(busy);
+  if (wasBusy !== busy) {
+    setWasBusy(busy);
+    if (!busy) setSent(null);
+  }
+  const typed = autosave ? text.value : text.draftKey ? draft : text.onChange ? text.value : plainValue;
+  const value = busy ? (sent ?? typed) : typed;
   const off = unavailable !== undefined;
 
   const change = (v: string) => {
+    setSent(null);
     if (text.draftKey && !autosave) setDraft(v);
     else if (!text.onChange) setPlainValue(v);
     text.onChange?.(v);
   };
   const send = () => {
     if (busy || off || !onSubmit || (!allowEmpty && !value.trim())) return;
+    if (!sentShown) setSent(value);
     onSubmit(value, { model: model?.value, effort: effort?.value });
     if (text.draftKey) clearDraft();
     else if (!text.onChange) setPlainValue("");
@@ -180,6 +193,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
       <Text
         {...text}
         value={value}
+        placeholder={busy ? undefined : text.placeholder}
         onChange={change}
         multiline
         appearance="bare"

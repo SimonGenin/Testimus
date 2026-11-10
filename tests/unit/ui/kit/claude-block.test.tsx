@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClaudeBlock } from "../../../../src/ui/components/ui/ClaudeBlock.tsx";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
@@ -37,6 +37,21 @@ const efforts = {
     { value: "high", label: "High" },
   ],
 };
+
+function Owner({ running }: { running: number | null }) {
+  const [v, setV] = useState("");
+  return (
+    <ClaudeBlock
+      ariaLabel="Prompt"
+      value={v}
+      onChange={setV}
+      placeholder="Look especially at…"
+      allowEmpty
+      running={running}
+      onSubmit={() => setV("")}
+    />
+  );
+}
 
 describe("ClaudeBlock", () => {
   it("is the Text component: the box, sent by Ctrl+Enter with the run's choices, then emptied", () => {
@@ -218,6 +233,22 @@ describe("ClaudeBlock", () => {
     expect(onSubmit).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("while Claude works, holds what was sent though its owner emptied it, never the placeholder", () => {
+    const { rerender } = render(<Owner running={null} />);
+    const box = () => screen.getByRole("textbox", { name: "Prompt" });
+    fireEvent.change(box(), { target: { value: "the brakes" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    rerender(<Owner running={2} />);
+    expect(box()).toHaveValue("the brakes");
+    expect(box()).not.toHaveAttribute("placeholder");
+    rerender(<Owner running={null} />);
+    expect(box()).toHaveValue("");
+    expect(box()).toHaveAttribute("placeholder", "Look especially at…");
+    rerender(<Owner running={1} />);
+    expect(box()).toHaveValue("");
+    expect(box()).not.toHaveAttribute("placeholder");
   });
 
   it("without Claude, says why and cannot send", () => {
