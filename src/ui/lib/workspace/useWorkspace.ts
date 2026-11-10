@@ -44,6 +44,10 @@ export type WorkspaceTab = {
 
 export type AddHow = "column" | { split: string };
 
+export type ColumnSize = { column: number; width: number };
+
+const sized = (l: Layout, sizes: ColumnSize[]) => sizes.reduce((at, s) => resizeColumn(at, s.column, s.width), l);
+
 export type WorkspaceController = {
   /** the screen's name (« Review »): the controls and the reset say it */
   label: string;
@@ -61,11 +65,11 @@ export type WorkspaceController = {
   add: (how: AddHow) => void;
   /** the empty section just added goes */
   dismiss: () => void;
-  /** live while dragging; commit keeps it */
-  resizeColumn: (column: number, px: number, commit: boolean) => void;
+  /** live while dragging; commit keeps it — the columns an edge moves, in one change */
+  resizeColumns: (sizes: ColumnSize[], commit: boolean) => void;
   resizeSplit: (column: number, pct: number, commit: boolean) => void;
-  /** a column dragged past its least width folds; the column the drag resized gets back the width it had */
-  foldColumn: (column: number, keep: { column: number; width: number }) => void;
+  /** a column dragged past its least width folds; the columns the drag resized get back the widths they had */
+  foldColumn: (column: number, keep: ColumnSize[]) => void;
   /** a section of a split column dragged past its least height folds to its tab bar; the share it had stays */
   foldSplit: (column: number, row: number, share: number) => void;
   reveal: (tab: TabId) => void;
@@ -153,9 +157,9 @@ export function useWorkspace({
       addRefusal: (how) => addRefusal(layout, how),
       add: (how) => apply((l) => addSection(l, how), false),
       dismiss: () => apply(dropPending, false),
-      resizeColumn: (column, px, commit) => apply((l) => resizeColumn(l, column, px), commit),
+      resizeColumns: (sizes, commit) => apply((l) => sized(l, sizes), commit),
       resizeSplit: (column, pct, commit) => apply((l) => resizeSplit(l, column, pct), commit),
-      foldColumn: (column, keep) => apply((l) => collapseColumn(resizeColumn(l, keep.column, keep.width), column)),
+      foldColumn: (column, keep) => apply((l) => collapseColumn(sized(l, keep), column)),
       foldSplit: (column, row, share) =>
         apply((l) => {
           const s = l.columns[column]?.sections[row];

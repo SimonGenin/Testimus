@@ -259,12 +259,12 @@ export function TestsScreen() {
     const before = was.current;
     was.current = wide;
     if (before === wide || (before === null && !wide)) return;
-    const { layout, resizeColumn } = latest.current;
+    const { layout, resizeColumns } = latest.current;
     const at = locate(layout, sectionOf(layout, "list")?.id ?? "");
     const width = at ? layout.columns[at.column].width : null;
     if (!at || width === null) return;
-    if (wide && width < LIST.two) resizeColumn(at.column, LIST.two, true);
-    else if (!wide && width > LIST.oneMax) resizeColumn(at.column, LIST.one, true);
+    if (wide && width < LIST.two) resizeColumns([{ column: at.column, width: LIST.two }], true);
+    else if (!wide && width > LIST.oneMax) resizeColumns([{ column: at.column, width: LIST.one }], true);
   }, [wide]);
 
   return (

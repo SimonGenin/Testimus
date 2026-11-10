@@ -19,7 +19,7 @@ const rowAction = async (name: RegExp, action: string) => {
   fireEvent.focus(r);
   return within(r).getByRole("button", { name: action });
 };
-const edge = () => screen.getByRole("separator", { name: "Resize section 1" });
+const edge = () => screen.getByRole("separator", { name: "Resize sections 1 and 2" });
 const keptWidth = () => JSON.parse(localStorage.getItem("testimus.layoutTests") ?? "null")?.columns[0].width;
 // ponytail: a layout kept by an earlier visit, its list column that wide
 const keepLayout = (width: number) =>
@@ -394,7 +394,7 @@ describe("TestsScreen", () => {
     expect(JSON.parse(localStorage.getItem("testimus.layoutTests") ?? "{}").columns[0].sections[0].collapsed).toBe(
       true,
     );
-    expect(screen.queryByRole("separator", { name: "Resize section 1" })).toBeNull();
+    expect(screen.queryByRole("separator", { name: "Resize sections 1 and 2" })).toBeNull();
     fireEvent.click(within(strip).getByRole("button", { name: "Tests, 2" }));
     expect(screen.queryByRole("navigation", { name: "Section 1, collapsed" })).toBeNull();
     expect(edge()).toBeInTheDocument();

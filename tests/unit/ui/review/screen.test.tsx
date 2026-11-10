@@ -871,7 +871,7 @@ describe("Review screen", () => {
     localStorage.removeItem("testimus.layoutReview");
     show();
     await screen.findByRole("heading", { name: "Summary K-1" });
-    const edge = screen.getByRole("separator", { name: "Resize section 1" });
+    const edge = screen.getByRole("separator", { name: "Resize sections 1 and 2" });
     fireEvent.keyDown(edge, { key: "End" });
     await waitFor(() => expect(kept()?.columns[0].width).toBe(4000));
     fireEvent.keyDown(edge, { key: "Home" });

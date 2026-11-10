@@ -33,8 +33,8 @@ const styles = stylex.create({
 const editable = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
-// ponytail: a screen's sections side by side — the columns and the edges between them (dragged, they resize the
-// column that has a width of its own), the column holding the work taking the room left; a narrow window folds the
+// ponytail: a screen's sections side by side — the columns and the edges between two open ones (dragged, they move
+// only the two columns beside them), the column holding the work taking the room left; a narrow window folds the
 // columns it cannot hold to their strip (the rightmost first; the work's and the one in use last, the one in use kept when both cannot fit). The keys that act
 // on the layout as a whole live here: Ctrl Shift B folds the section in use, Ctrl Alt → adds a column, Ctrl Alt ↓
 // splits the one in use, Esc drops a section still empty. The top bar's controls are handed these sections
@@ -49,6 +49,7 @@ export function Workspace({ ws }: WorkspaceProps) {
   const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
   const [widths, setWidths] = useState<Record<number, number>>({});
   const [folding, setFolding] = useState<number | null>(null);
+  const trading = useRef<{ key: string; sum: number } | null>(null);
   const drag = useTabDrag(ws);
   const latest = useRef(ws);
   latest.current = ws;
@@ -118,6 +119,42 @@ export function Workspace({ ws }: WorkspaceProps) {
   const onWidth = useCallback((i: number, px: number) => setWidths((w) => (w[i] === px ? w : { ...w, [i]: px })), []);
   const dragged = drag.drag ? ws.tab(drag.drag.tab) : undefined;
 
+  // ponytail: an edge sits between two open columns (strips may lie between them) and moves only them — it resizes the
+  // one with a width of its own; when the other is the column that fills, it takes the rest, else the two trade what
+  // the edge moves (their sum frozen for the gesture), so no column away from the edge changes
+  const drawnOf = (j: number) => widths[j] ?? layout.columns[j]?.width ?? NEW_COLUMN_WIDTH;
+  const edges = layout.columns.flatMap((_, q) => {
+    const p = q > 0 && open[q] ? open.lastIndexOf(true, q - 1) : -1;
+    if (p < 0) return [];
+    const resized = layout.columns[p]?.width !== null && p !== fill ? p : q;
+    const other = resized === p ? q : p;
+    const trade = other !== fill;
+    const drawn = drawnOf(resized);
+    const sum = drawn + drawnOf(other);
+    const min = floorOf(resized === mainColumn);
+    const room = trade
+      ? sum - floorOf(other === mainColumn)
+      : Math.min(
+          widths[fill] !== undefined ? drawn + widths[fill] - floorOf(fill === mainColumn) : Number.POSITIVE_INFINITY,
+          roomFor(layout, width, resized, (j) => !open[j], mainColumn),
+        );
+    const max = Math.max(min, Math.floor(Math.min(COLUMN_WIDTH.max, room)));
+    return [{ p, q, at: resized === p ? p + 1 : q, resized, other, trade, sum, now: Math.round(drawn), min, max }];
+  });
+  type Edge = (typeof edges)[number];
+  const resize = (e: Edge, px: number, commit: boolean) => {
+    if (!e.trade) return ws.resizeColumns([{ column: e.resized, width: px }], commit);
+    const key = `${e.p} ${e.q}`;
+    if (trading.current?.key !== key) trading.current = { key, sum: e.sum };
+    ws.resizeColumns(
+      [
+        { column: e.resized, width: px },
+        { column: e.other, width: trading.current.sum - px },
+      ],
+      commit,
+    );
+  };
+
   return (
     <div
       ref={root}
@@ -128,42 +165,35 @@ export function Workspace({ ws }: WorkspaceProps) {
       {...stylex.props(styles.root)}
     >
       {layout.columns.map((c, i) => {
-        const edgeOn = i > 0 && open[i - 1] && open[i];
-        const resized = layout.columns[i - 1]?.width !== null && i - 1 !== fill ? i - 1 : i;
-        const side = resized === i ? "left" : "right";
-        const other = resized === i ? i - 1 : i;
-        const drawn = widths[resized] ?? layout.columns[resized]?.width ?? NEW_COLUMN_WIDTH;
-        const now = Math.round(drawn);
-        const min = floorOf(resized === mainColumn);
-        const byFill =
-          fill !== resized && widths[fill] !== undefined
-            ? drawn + widths[fill] - floorOf(fill === mainColumn)
-            : Number.POSITIVE_INFINITY;
-        const room = Math.min(
-          byFill,
-          roomFor(layout, width, resized, (j) => !open[j], mainColumn),
-        );
-        const max = Math.max(min, Math.floor(Math.min(COLUMN_WIDTH.max, room)));
+        const e = edges.find((x) => x.at === i);
         return (
           <Fragment key={c.sections[0]?.id ?? i}>
-            {edgeOn && (
+            {e && (
               <ResizeHandle
-                label={`Resize section ${resized + 1}`}
-                side={side}
+                label={`Resize sections ${e.p + 1} and ${e.q + 1}`}
+                side={e.resized === e.p ? "right" : "left"}
                 quiet
-                value={now}
-                min={min}
-                max={max}
+                value={e.now}
+                min={e.min}
+                max={e.max}
                 defaultValue={NEW_COLUMN_WIDTH}
-                onChange={(px) => ws.resizeColumn(resized, px, false)}
-                onCommit={(px) => ws.resizeColumn(resized, px, true)}
+                onChange={(px) => resize(e, px, false)}
+                onCommit={(px) => {
+                  resize(e, px, true);
+                  trading.current = null;
+                }}
                 fold={{
                   min: true,
-                  max: other === fill,
-                  onPast: (end) => setFolding(end === "min" ? resized : end === "max" ? other : null),
+                  max: true,
+                  onPast: (end) => setFolding(end === "min" ? e.resized : end === "max" ? e.other : null),
                   onFold: (end, from) => {
                     setFolding(null);
-                    ws.foldColumn(end === "min" ? resized : other, { column: resized, width: from });
+                    const sum = trading.current?.sum ?? e.sum;
+                    trading.current = null;
+                    ws.foldColumn(end === "min" ? e.resized : e.other, [
+                      { column: e.resized, width: from },
+                      ...(e.trade ? [{ column: e.other, width: sum - from }] : []),
+                    ]);
                   },
                 }}
               />

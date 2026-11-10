@@ -208,7 +208,7 @@ const rowAction = (row: HTMLElement, name: string) => {
   return within(row).getByRole("button", { name });
 };
 // ponytail: the list is the screen's first section; its width is what the edge after it says
-const listEdge = () => screen.getByRole("separator", { name: "Resize section 1" });
+const listEdge = () => screen.getByRole("separator", { name: "Resize sections 1 and 2" });
 const listWidth = () => listEdge().getAttribute("aria-valuenow");
 const keptLayout = () => JSON.parse(localStorage.getItem("testimus.layoutTests") ?? "null");
 const toJira = () => fireEvent.click(screen.getByRole("tab", { name: /^Jira/ }));
@@ -698,7 +698,7 @@ describe("Tests screen › layout", () => {
     render(<Harness />);
     fireEvent.click(screen.getAllByRole("button", { name: "Collapse this section" })[0]);
     const strip = screen.getByRole("navigation", { name: "Section 1, collapsed" });
-    expect(screen.queryByRole("separator", { name: "Resize section 1" })).toBeNull();
+    expect(screen.queryByRole("separator", { name: "Resize sections 1 and 2" })).toBeNull();
     expect(keptLayout().columns[0].sections[0].collapsed).toBe(true);
     fireEvent.click(within(strip).getByRole("button", { name: "Expand this section" }));
     expect(screen.queryByRole("navigation", { name: "Section 1, collapsed" })).toBeNull();

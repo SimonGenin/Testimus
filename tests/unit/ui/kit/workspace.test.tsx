@@ -180,7 +180,7 @@ describe("Workspace", () => {
 
   it("an edge dragged past a column's least width says it will fold and folds it on release, its width kept", () => {
     render(<Screen />);
-    const edge = screen.getByRole("separator", { name: "Resize section 1" });
+    const edge = screen.getByRole("separator", { name: "Resize sections 1 and 2" });
     expect(edge).toHaveAttribute("aria-valuemin", "200");
     fireEvent.pointerDown(edge, { clientX: 500, pointerId: 1 });
     fireEvent.pointerMove(edge, { clientX: 380 });
@@ -198,7 +198,7 @@ describe("Workspace", () => {
 
   it("an edge dragged past the room the column beside it needs folds that column instead", () => {
     render(<Screen />);
-    const edge = screen.getByRole("separator", { name: "Resize section 3" });
+    const edge = screen.getByRole("separator", { name: "Resize sections 2 and 3" });
     fireEvent.pointerDown(edge, { clientX: 5000, pointerId: 1 });
     fireEvent.pointerMove(edge, { clientX: 5000 - 3580 - 40 });
     expect(edge).toHaveAttribute("aria-valuenow", "4000");
@@ -206,6 +206,54 @@ describe("Workspace", () => {
     fireEvent.pointerUp(edge);
     expect(kept().columns[1].sections[0].collapsed).toBe(true);
     expect(kept().columns[2]).toMatchObject({ width: 420, sections: [{ collapsed: false }] });
+  });
+
+  it("draws an edge between two open columns across a folded one, the fill taking what it gives", () => {
+    localStorage.setItem(
+      "testimus.layoutReview",
+      JSON.stringify(
+        layoutOf(
+          column(300, section(["queue"])),
+          column(null, section(["test"], true)),
+          column(420, section(["source", "claude"])),
+        ),
+      ),
+    );
+    render(<Screen />);
+    const edges = screen.getAllByRole("separator");
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toHaveAccessibleName("Resize sections 1 and 3");
+    fireEvent.pointerDown(edges[0], { clientX: 500, pointerId: 1 });
+    fireEvent.pointerMove(edges[0], { clientX: 560 });
+    fireEvent.pointerUp(edges[0]);
+    expect(kept().columns.map((c: { width: number | null }) => c.width)).toEqual([360, null, 420]);
+  });
+
+  it("an edge between two columns of their own width moves only them: one gains what the other gives", () => {
+    localStorage.setItem(
+      "testimus.layoutReview",
+      JSON.stringify(
+        layoutOf(
+          column(null, section(["queue"])),
+          column(600, section(["test"])),
+          column(380, section(["source", "claude"])),
+        ),
+      ),
+    );
+    render(<Screen />);
+    const edge = screen.getByRole("separator", { name: "Resize sections 2 and 3" });
+    expect(edge).toHaveAttribute("aria-valuemax", String(600 + 380 - 200));
+    fireEvent.pointerDown(edge, { clientX: 500, pointerId: 1 });
+    fireEvent.pointerMove(edge, { clientX: 540 });
+    fireEvent.pointerMove(edge, { clientX: 600 });
+    fireEvent.pointerUp(edge);
+    expect(kept().columns.map((c: { width: number | null }) => c.width)).toEqual([null, 700, 280]);
+    fireEvent.pointerDown(edge, { clientX: 500, pointerId: 2 });
+    fireEvent.pointerMove(edge, { clientX: 500 + 280 - 200 + 40 });
+    expect(screen.getByRole("status")).toHaveTextContent("Release to collapse");
+    fireEvent.pointerUp(edge);
+    expect(kept().columns[2]).toMatchObject({ width: 280, sections: [{ collapsed: true }] });
+    expect(kept().columns[1].width).toBe(700);
   });
 
   it("offers no split over a column that already has 2 sections: its middle takes the tab", () => {
