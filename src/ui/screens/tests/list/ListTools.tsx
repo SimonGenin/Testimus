@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
 import { Segmented, type SegmentedOption } from "../../../components/ui/Segmented.tsx";
@@ -9,7 +10,18 @@ import { type Assignees, assigneesIn, toggleAssignee } from "./assignee.ts";
 import type { PanesLayout } from "./FolderPanes.tsx";
 
 // ponytail: who the local tests are assigned to, as a menu of ticks that write assignee: words in the filter box
-function AssigneeFilter({ filter, who, onFilter }: { filter: string; who: Assignees; onFilter: (v: string) => void }) {
+function AssigneeFilter({
+  filter,
+  who,
+  short,
+  onFilter,
+}: {
+  filter: string;
+  who: Assignees;
+  /** a tight row: « Assignee 2 » instead of the names (the filter box above shows them) */
+  short: boolean;
+  onFilter: (v: string) => void;
+}) {
   const on = assigneesIn(filter).map((x) => x.toLowerCase());
   const tick = (value: string, label: string, hint?: string) => ({
     label,
@@ -35,7 +47,8 @@ function AssigneeFilter({ filter, who, onFilter }: { filter: string; who: Assign
           size="sm"
           variant={on.length ? "secondary" : "quiet"}
           iconAfter="chevron-down"
-          label={on.length ? `Assignee: ${assigneesIn(filter).join(", ")}` : "Assignee"}
+          label={on.length && !short ? `Assignee: ${assigneesIn(filter).join(", ")}` : "Assignee"}
+          count={on.length && short ? on.length : undefined}
           pressed={on.length > 0}
           data-testid="assignee-filter"
         />
@@ -46,6 +59,9 @@ function AssigneeFilter({ filter, who, onFilter }: { filter: string; who: Assign
 }
 
 export type ListLayout = PanesLayout | "tree";
+
+// 1: the assignee count instead of the names · 2: New test as its icon too — past that the row wraps
+const FOLDS = 2;
 
 const LAYOUTS: SegmentedOption<ListLayout>[] = [
   { value: "tree", label: "One tree", icon: "tree", iconOnly: true },
@@ -66,7 +82,8 @@ const styles = stylex.create({
     borderBottomWidth: border.width,
     borderBottomColor: color.border,
   },
-  row: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s1 },
+  row: { display: "flex", flexWrap: "nowrap", alignItems: "center", gap: space.s1, minWidth: "max-content" },
+  wrap: { flexWrap: "wrap", minWidth: 0 },
   end: { display: "flex", alignItems: "center", gap: space.s1, marginInlineStart: "auto" },
 });
 
@@ -130,8 +147,37 @@ export function ListTools({
   onPull: () => void;
   onReveal: () => void;
 }) {
+  // ponytail: the tools row stays one line as long as it can — too narrow, the assignee names give way to their
+  // count, then New test to its icon; only then does the row wrap. The width each step needed is kept, so the words
+  // come back once there is that room again. Unfolded, the row keeps its natural width (a button would rather shrink
+  // than overflow), so it is measured against the room inside the box. Measured before paint: no frame of a crushed row.
+  const box = useRef<HTMLDivElement>(null);
+  const row = useRef<HTMLDivElement>(null);
+  const need = useRef<number[]>([]);
+  const [fold, setFold] = useState(0);
+  const fit = useRef(() => {});
+  fit.current = () => {
+    const outer = box.current;
+    const el = row.current;
+    if (!outer || !el) return;
+    const css = getComputedStyle(outer);
+    const room = outer.clientWidth - Number.parseFloat(css.paddingLeft) - Number.parseFloat(css.paddingRight);
+    if (fold < FOLDS && el.offsetWidth > room + 0.5) {
+      need.current[fold] = el.offsetWidth;
+      setFold(fold + 1);
+    } else if (fold > 0 && room >= need.current[fold - 1]) setFold(fold - 1);
+  };
+  useLayoutEffect(() => fit.current());
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(() => fit.current());
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+
   return (
-    <div {...stylex.props(styles.tools)}>
+    <div ref={box} {...stylex.props(styles.tools)}>
       {jira && (
         <Text
           type="search"
@@ -158,9 +204,18 @@ export function ListTools({
           }
         }}
       />
-      <div {...stylex.props(styles.row)}>
+      <div ref={row} {...stylex.props(styles.row, fold >= FOLDS && styles.wrap)}>
         {noProject ? (
-          <Button size="sm" icon="plus" label="New test" disabled="Open a project first" onClick={onNew} />
+          <Button
+            size="sm"
+            icon="plus"
+            label="New test"
+            iconOnly={fold >= 2}
+            disabled="Open a project first"
+            onClick={onNew}
+          />
+        ) : fold >= 2 ? (
+          <Button size="sm" icon="plus" label={`New test in ${newFolder}`} iconOnly onClick={onNew} />
         ) : (
           <Tooltip label={`New test in ${newFolder}`}>
             <Button size="sm" icon="plus" label="New test" onClick={onNew} />
@@ -186,7 +241,9 @@ export function ListTools({
             onClick={onPull}
           />
         )}
-        {local && assignees && !noProject && <AssigneeFilter filter={filter} who={assignees} onFilter={onFilter} />}
+        {local && assignees && !noProject && (
+          <AssigneeFilter filter={filter} who={assignees} short={fold >= 1} onFilter={onFilter} />
+        )}
         <span {...stylex.props(styles.end)}>
           {layout && onLayout && (
             <Segmented<ListLayout>
