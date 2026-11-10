@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { Zone } from "../../../lib/workspace/zones.ts";
+import { EDGES, type Edge, type Zone } from "../../../lib/workspace/zones.ts";
 import { border, color, radius, size, space, z } from "../../../styles/tokens.stylex.ts";
 import { type } from "../type.ts";
 
@@ -35,9 +35,7 @@ const styles = stylex.create({
   side: { gridRow: "1 / 4", writingMode: "vertical-rl" },
   left: { gridColumn: "1" },
   right: { gridColumn: "3" },
-  above: { gridColumn: "2", gridRow: "1" },
-  center: { gridColumn: "2", gridRow: "2" },
-  below: { gridColumn: "2", gridRow: "3" },
+  place: (gridColumn: string, gridRow: string) => ({ gridColumn, gridRow }),
   lit: {
     opacity: 1,
     borderStyle: "solid",
@@ -91,10 +89,20 @@ const WORDS: Record<Exclude<Zone, "tabs">, string> = {
   below: "Split: below",
 };
 
-// ponytail: what a dragged tab would do where it is now — the five places of a section (its edges open a column or
-// split it, its middle takes the tab), the one under the pointer lit, or crossed out with the reason it cannot go there;
-// over the tab bar, a line where it would sit among the others
-export function DropZones({ zone, marker, refused }: { zone: Zone; marker: number | null; refused: string | null }) {
+// ponytail: what a dragged tab would do where it is now — the places of a section that can take it (its edges open a
+// column or split it, its middle takes the tab and spreads over the edges that cannot), the one under the pointer lit,
+// or crossed out with the reason it cannot go there; over the tab bar, a line where it would sit among the others
+export function DropZones({
+  zone,
+  open = EDGES,
+  marker,
+  refused,
+}: {
+  zone: Zone;
+  open?: readonly Edge[];
+  marker: number | null;
+  refused: string | null;
+}) {
   if (zone === "tabs")
     return (
       <>
@@ -108,24 +116,35 @@ export function DropZones({ zone, marker, refused }: { zone: Zone; marker: numbe
         )}
       </>
     );
+  const has = (e: Edge) => open.includes(e);
+  const cols = `${has("left") ? 2 : 1} / ${has("right") ? 3 : 4}`;
+  const rows = `${has("above") ? 2 : 1} / ${has("below") ? 3 : 4}`;
+  const place = (k: Exclude<Zone, "tabs">) =>
+    k === "left"
+      ? styles.left
+      : k === "right"
+        ? styles.right
+        : styles.place(cols, k === "above" ? "1" : k === "below" ? "3" : rows);
   return (
     <div {...stylex.props(styles.over)}>
-      {(Object.keys(WORDS) as (keyof typeof WORDS)[]).map((k) => (
-        <span
-          key={k}
-          role={k === zone ? "status" : undefined}
-          {...stylex.props(
-            type.small,
-            type.medium,
-            styles.zone,
-            (k === "left" || k === "right") && styles.side,
-            styles[k],
-            k === zone && (refused ? styles.refused : styles.lit),
-          )}
-        >
-          {k === zone && refused ? refused : WORDS[k]}
-        </span>
-      ))}
+      {(Object.keys(WORDS) as (keyof typeof WORDS)[]).map((k) =>
+        k === "center" || has(k) ? (
+          <span
+            key={k}
+            role={k === zone ? "status" : undefined}
+            {...stylex.props(
+              type.small,
+              type.medium,
+              styles.zone,
+              (k === "left" || k === "right") && styles.side,
+              place(k),
+              k === zone && (refused ? styles.refused : styles.lit),
+            )}
+          >
+            {k === zone && refused ? refused : WORDS[k]}
+          </span>
+        ) : null,
+      )}
     </div>
   );
 }

@@ -117,7 +117,7 @@ export function WorkspaceSection({
         )
       )}
       {!section.collapsed && !section.pending && tab?.footer && <div {...stylex.props(styles.foot)}>{tab.footer}</div>}
-      {over && <DropZones zone={over.zone} marker={over.marker} refused={over.refused} />}
+      {over && <DropZones zone={over.zone} open={over.open} marker={over.marker} refused={over.refused} />}
     </div>
   );
 }

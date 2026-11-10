@@ -204,6 +204,13 @@ describe("where a dragged tab lands", () => {
     expect(zoneAt(box, 40, 200, 240)).toBe("center");
   });
 
+  it("gives the middle the place of an edge that cannot take the tab", () => {
+    expect(zoneAt(box, 40, 200, 60, ["left", "right"])).toBe("center");
+    expect(zoneAt(box, 40, 200, 430, ["left", "right"])).toBe("center");
+    expect(zoneAt(box, 40, 20, 60, ["above", "below"])).toBe("above");
+    expect(zoneAt(box, 40, 20, 200, [])).toBe("center");
+  });
+
   it("takes a place among the tabs, and turns a zone into a move", () => {
     const tabs = [
       { left: 0, top: 0, width: 100, height: 30 },

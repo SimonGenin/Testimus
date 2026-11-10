@@ -177,4 +177,38 @@ describe("Workspace", () => {
     fireEvent.click(tab("Source"));
     expect(tab("Source")).toHaveAttribute("aria-selected", "true");
   });
+
+  it("offers no split over a column that already has 2 sections: its middle takes the tab", () => {
+    localStorage.setItem(
+      "testimus.layoutReview",
+      JSON.stringify(
+        layoutOf(
+          column(300, section(["queue"])),
+          column(null, section(["test"]), section(["source"])),
+          column(420, section(["claude"])),
+        ),
+      ),
+    );
+    render(<Screen />);
+    const target = document.querySelectorAll<HTMLElement>("[data-ws-section]")[1];
+    target.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 440,
+      right: 400,
+      bottom: 440,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    document.elementFromPoint = vi.fn(() => target);
+    fireEvent.pointerDown(tab("Claude"), { button: 0, clientX: 900, clientY: 10 });
+    fireEvent.pointerMove(window, { clientX: 200, clientY: 420 });
+    expect(screen.getByRole("status")).toHaveTextContent("Add as a tab here");
+    expect(screen.queryByText(/^Split:/)).toBeNull();
+    expect(screen.getByText("New column on the left")).toBeInTheDocument();
+    fireEvent.pointerUp(window, { clientX: 200, clientY: 420 });
+    expect(tabsKept()).toEqual([[["queue"]], [["test", "claude"], ["source"]]]);
+  });
 });

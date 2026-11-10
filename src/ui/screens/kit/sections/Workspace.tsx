@@ -95,9 +95,14 @@ export const section: KitSection = {
           <DropZones zone="below" marker={null} refused={null} />
         </div>
       </Cell>
+      <Cell label="a full column: no split, the middle takes the tab" column>
+        <div {...stylex.props(styles.zones)}>
+          <DropZones zone="center" open={["left", "right"]} marker={null} refused={null} />
+        </div>
+      </Cell>
       <Cell label="refused: the reason in place of the zone" column>
         <div {...stylex.props(styles.zones)}>
-          <DropZones zone="right" marker={null} refused="4 sections at most" />
+          <DropZones zone="center" open={[]} marker={null} refused="2 sections at least" />
         </div>
       </Cell>
     </States>

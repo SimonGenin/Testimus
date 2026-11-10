@@ -1,13 +1,15 @@
 import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import { findSection, type TabId, type Target } from "../../../lib/workspace/layout.ts";
 import type { WorkspaceController } from "../../../lib/workspace/useWorkspace.ts";
-import { insertIndex, targetOf, type Zone, zoneAt } from "../../../lib/workspace/zones.ts";
+import { EDGES, type Edge, insertIndex, targetOf, type Zone, zoneAt } from "../../../lib/workspace/zones.ts";
 
 const THRESHOLD = 5;
 
 export type DragOver = {
   section: string;
   zone: Zone;
+  /** the edges that can take the tab here — the others are not drawn */
+  open: Edge[];
   /** px from the section's left edge where the tab would go among the others (the tab bar only) */
   marker: number | null;
   target: Target | null;
@@ -37,13 +39,18 @@ export function useTabDrag(ws: WorkspaceController) {
     const tabs = bar
       ? Array.from(bar.querySelectorAll<HTMLElement>("[data-ws-tab]")).map((t) => t.getBoundingClientRect())
       : [];
-    const zone: Zone = el.hasAttribute("data-ws-strip") ? "center" : zoneAt(box, barHeight, x, y);
-    const index = insertIndex(tabs, x);
     const layout = last.current.layout;
-    const target = targetOf(layout, section, zone, index, findSection(layout, section)?.tabs.length ?? 0);
+    const count = findSection(layout, section)?.tabs.length ?? 0;
+    const open = EDGES.filter((edge) => {
+      const t = targetOf(layout, section, edge, 0, count);
+      return t !== null && last.current.refusal(tab, t) === null;
+    });
+    const zone: Zone = el.hasAttribute("data-ws-strip") ? "center" : zoneAt(box, barHeight, x, y, open);
+    const index = insertIndex(tabs, x);
+    const target = targetOf(layout, section, zone, index, count);
     const marker =
       zone === "tabs" ? (index < tabs.length ? tabs[index].left : (tabs.at(-1)?.right ?? box.left)) - box.left : null;
-    return { section, zone, marker, target, refused: target ? last.current.refusal(tab, target) : null };
+    return { section, zone, open, marker, target, refused: target ? last.current.refusal(tab, target) : null };
   }, []);
 
   const stop = useCallback(() => {
