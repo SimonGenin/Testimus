@@ -2,8 +2,6 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { leftOutDocs } from "../../../../src/core/claude/access.ts";
-import { given } from "../../../../src/core/claude/given.ts";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
@@ -12,9 +10,8 @@ import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-media.ts";
 import { setupVideoMock } from "../../../../src/core/mock/video.ts";
 import type { CheckFile, DocJson, FigureEntry, VideoData } from "../../../../src/core/types.ts";
-import { call, FIXTURE, fixtureCopy } from "../registry.ts";
+import { call, fixtureCopy } from "../registry.ts";
 
-const VIDEO = join(FIXTURE, "docs", "Manoeuvre_d_un_sectionneur_au_PCC", "files", "manoeuvre.mp4");
 const V = "Manoeuvre_d_un_sectionneur_au_PCC";
 const T = "LFRPS12-1398";
 const real = env.spawnClaude;
@@ -23,7 +20,6 @@ let P = "";
 let runs: ClaudeSpawn[] = [];
 
 const dir = (id: string) => join(P, "docs", id);
-const doc = (id: string) => JSON.parse(readFileSync(join(dir(id), "doc.json"), "utf8")) as DocJson;
 const video = (id: string, n = 1) => JSON.parse(readFileSync(join(dir(id), "video", `${n}.json`), "utf8")) as VideoData;
 const figures = (id: string) => JSON.parse(readFileSync(join(dir(id), "figures.json"), "utf8")) as FigureEntry[];
 const md = (id: string) => readFileSync(join(dir(id), "doc.md"), "utf8");
@@ -111,47 +107,6 @@ describe("the room the project's videos may take", () => {
     expect(free.disk.over).toBe(false);
     const added = await call<DocJson>("docs.add", { file: big, convert: false, index: false }, P);
     expect(added.source.type).toBe("video");
-  });
-});
-
-describe("a document the team keeps from Claude", () => {
-  it("is converted by this PC alone, and no run nor command of Claude's reads it afterwards", async () => {
-    const film = join(P, "prive.mp4");
-    writeFileSync(film, readFileSync(VIDEO));
-    const added = await call<DocJson>("docs.add", { file: film, private: true, index: false }, P);
-    expect(doc(added.id).private).toBe(true);
-    expect(runs).toEqual([]);
-    const v = video(added.id);
-    expect(v.transcript.length).toBe(11);
-    expect(v.keyFrames.length).toBeGreaterThan(0);
-    expect(v.chapters).toEqual([]);
-    expect(figures(added.id).every((f) => !f.description)).toBe(true);
-    await call("docs.convert", { id: added.id, force: true, index: false }, P);
-    expect(runs).toEqual([]);
-    expect(leftOutDocs(true, P)).toContain(added.id);
-    expect(leftOutDocs(false, P)).toEqual([]);
-    for (const [name, input] of [
-      ["media.show", { doc: added.id }],
-      ["media.transcript", { doc: added.id }],
-      ["media.frame", { doc: added.id, at: "00:20" }],
-      ["docs.show", { id: added.id }],
-      ["rag.passage", { ref: `${added.id}#t:00:02` }],
-    ] as const)
-      await expect(call(name, input, P, { llm: true }), name).rejects.toMatchObject({ code: "doc-private" });
-    expect((await call<{ videos: unknown[] }>("media.show", { doc: added.id }, P)).videos.length).toBe(1);
-    await expect(call("media.propose", { doc: added.id }, P)).rejects.toMatchObject({ code: "doc-private" });
-    const g = given(P, "generate", { kind: "project" });
-    expect(g.pieces.find((p) => p.id === `doc:${added.id}`)).toMatchObject({
-      on: false,
-      locked: true,
-      why: "Never given to Claude: the document's own setting",
-    });
-    expect(g.withoutDocs).toContain(added.id);
-    const back = await call<DocJson>("docs.set", { id: added.id, private: false }, P);
-    expect(back.private).toBeUndefined();
-    expect(leftOutDocs(true, P)).not.toContain(added.id);
-    await call("docs.convert", { id: added.id, index: false }, P);
-    expect(kinds()).toContain("media");
   });
 });
 

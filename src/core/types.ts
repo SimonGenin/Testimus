@@ -229,9 +229,6 @@ export type DocJson = {
   // documents this one is about (an images document made from photos once attached to another): shown, given to
   // Claude with it, never an amendment
   relatesTo?: string[];
-  // never given to Claude: no run reads, searches or describes it (a video shows faces and carries voices and names);
-  // the team still reads, plays and cites it by hand
-  private?: boolean;
 };
 
 // ponytail: what a document is made of — a Word or PDF file (with its twin), a text file, or files of its own: one or

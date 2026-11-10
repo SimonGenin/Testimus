@@ -69,7 +69,7 @@ function serve(d: DocRef, cost: Record<string, unknown> = {}) {
     md: "",
   });
   api.routes["docs.set"] = (i) => {
-    served = { ...served, ...(i.private !== undefined ? { private: i.private as boolean } : {}) };
+    served = { ...served, ...(i.reference !== undefined ? { reference: i.reference as boolean } : {}) };
     return { ...served, contextMtime: null };
   };
   api.routes["media.show"] = () => ({ doc: "FILM", type: served.type, observed: true, images: [], videos: [] });
@@ -120,6 +120,8 @@ describe("a video before its first conversion", () => {
     serve(added());
     mountDocs(<DocumentsScreen />, withProject({ spoken: ["fr"] }));
     const v = await within(await pane()).findByRole("region", { name: "manoeuvre.mp4" });
+    expect(within(v).queryByRole("textbox", { name: "From" })).toBeNull();
+    fireEvent.click(within(v).getByRole("button", { name: "Languages, track and part heard" }));
     const languages = within(v).getByRole("combobox", { name: "Languages spoken in this video" });
     await waitFor(() => expect(languages).toHaveAttribute("placeholder", "The project's: French"));
     fireEvent.focus(languages);
@@ -176,6 +178,7 @@ describe("a video before its first conversion", () => {
     };
     mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
     const v = await within(await pane()).findByRole("region", { name: "manoeuvre.mp4" });
+    fireEvent.click(within(v).getByRole("button", { name: "Languages, track and part heard" }));
     expect(within(v).getByRole("combobox", { name: "Languages spoken in this video" })).toHaveAttribute(
       "placeholder",
       "The project's languages",
@@ -199,31 +202,20 @@ describe("a video before its first conversion", () => {
     expect(named("media.set")).toHaveLength(0);
   });
 
-  it("says what goes to Claude, and « Never give this video to Claude » keeps the document from it before it is converted", async () => {
+  it("says what goes to Claude and what it costs, and « Prepare and read » lets Claude read the pictures", async () => {
     serve(added());
     api.routes["docs.convert"] = () => ({ id: "FILM" });
     mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
     const p = await pane();
     expect(
       within(p).getByText(
-        "Its pictures and what is said go to Claude in its runs, like the documents; the sound never does. A video shows faces and carries voices and names.",
+        "Its pictures and what is said go to Claude in its runs, like the documents; the sound never does.",
       ),
     ).toBeInTheDocument();
     expect(await within(p).findByText("About 4 runs, 8 pictures")).toBeInTheDocument();
-    const reads = () => within(p).getByRole("checkbox", { name: "Claude reads the pictures and surveys the videos" });
-    expect(reads()).toBeChecked();
-    fireEvent.click(within(p).getByRole("checkbox", { name: "Never give this video to Claude" }));
-    await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "FILM", private: true }));
-    await waitFor(() =>
-      expect(within(p).getByRole("checkbox", { name: "Never give this video to Claude" })).toBeChecked(),
-    );
-    expect(reads()).not.toBeChecked();
-    expect(reads()).toBeDisabled();
-    expect(within(p).getByText("None: it is never given to Claude")).toBeInTheDocument();
-    expect(within(p).queryByText("About 4 runs, 8 pictures")).toBeNull();
-    expect(await screen.findByText("Never given to Claude")).toBeInTheDocument();
+    expect(within(p).getByRole("checkbox", { name: "Claude reads the pictures and surveys the videos" })).toBeChecked();
     fireEvent.click(within(p).getByRole("button", { name: "Prepare and read" }));
-    await waitFor(() => expect(named("docs.convert")[0]?.input).toMatchObject({ id: "FILM", describeFigures: false }));
+    await waitFor(() => expect(named("docs.convert")[0]?.input).toMatchObject({ id: "FILM", describeFigures: true }));
   });
 
   it("the cap the team set for the videos is said with what they take, and a warning when it is passed", async () => {
@@ -268,13 +260,11 @@ describe("a recording of sound alone", () => {
     expect(within(v).getByLabelText("What the recording will take")).toBeInTheDocument();
     expect(within(p).queryByText(/pictures$/)).toBeNull();
     expect(within(p).queryByText(/to look through it/)).toBeNull();
+    fireEvent.click(within(v).getByRole("button", { name: "Languages, track and part heard" }));
     expect(within(v).getByRole("combobox", { name: "Languages spoken in this recording" })).toBeInTheDocument();
     expect(
-      within(p).getByText(
-        "What is said goes to Claude in its runs, like the documents; the sound never does. A recording carries voices and names.",
-      ),
+      within(p).getByText("What is said goes to Claude in its runs, like the documents; the sound never does."),
     ).toBeInTheDocument();
-    expect(within(p).getByRole("checkbox", { name: "Never give this recording to Claude" })).toBeInTheDocument();
   });
 
   it("the words of the list: Sound for a recording, Video for a video", () => {
@@ -283,50 +273,6 @@ describe("a recording of sound alone", () => {
     expect(of("video", [film({ name: "memo.flac" })])).toBe("Sound");
     expect(of("video", [film({ duration: 760 })])).toBe("Video · 12:40");
     expect(of("video", [])).toBe("Video");
-  });
-});
-
-describe("a document kept from Claude", () => {
-  const converted = (over: Partial<DocRef> = {}) =>
-    added({ converted: { with: "", at, warnings: [] }, indexed: "fresh", ...over }, [
-      film({ state: "analysed", duration: 160 }),
-    ]);
-
-  it("the head keeps a video from Claude and gives it back, with a mark while it is kept", async () => {
-    serve(converted());
-    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Never to Claude" }));
-    await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "FILM", private: true }));
-    expect(await screen.findByRole("button", { name: "Given to Claude" })).toBeInTheDocument();
-    expect(screen.getByText("Never given to Claude")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Given to Claude" }));
-    await waitFor(() => expect(named("docs.set")[1]?.input).toEqual({ id: "FILM", private: false }));
-    expect(await screen.findByRole("button", { name: "Never to Claude" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByText("Never given to Claude")).toBeNull());
-  });
-
-  it("a document already kept from Claude opens with its mark; a written document has no such button", async () => {
-    serve(converted({ private: true }));
-    const first = mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
-    expect(await screen.findByText("Never given to Claude")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Given to Claude" })).toBeInTheDocument();
-    first.unmount();
-    serve(doc("FILM", { title: "Spec" }));
-    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
-    await screen.findByRole("region", { name: "C-FILM details" });
-    expect(screen.queryByRole("button", { name: "Never to Claude" })).toBeNull();
-  });
-
-  it("a refusal puts the head back and says so", async () => {
-    serve(converted());
-    api.routes["docs.set"] = () => {
-      throw Object.assign(new Error("doc.json is read-only."), { code: "locked" });
-    };
-    mountDocs(<DocumentsScreen />, { route: { screen: "documents", arg: "FILM" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Never to Claude" }));
-    expect(await screen.findByText("Could not save the document")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Never to Claude" })).toBeInTheDocument();
-    expect(screen.queryByText("Never given to Claude")).toBeNull();
   });
 });
 

@@ -353,7 +353,7 @@ export const commands = [
       const d = await inSlot(ctx, project, steps, async () => {
         ctx.step?.("convert");
         const converted = await convertMedia(ctx, project, input.doc, {
-          read: !readDoc(project, input.doc).private && shouldDescribeFigures(project),
+          read: shouldDescribeFigures(project),
           again: true,
           video: f.n,
           run: runOf(input),

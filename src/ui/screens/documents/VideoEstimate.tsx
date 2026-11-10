@@ -19,19 +19,16 @@ const gb = (mb: number) => (mb / 1024).toFixed(1).replace(/\.0$/, "");
 // ponytail: what a video will cost on this PC, said before it is heard — its length and weight, the time to hear it
 // (measured here when a video was heard before, else a guess), Claude's share, the room it takes against the cap the
 // team set for the project's videos, and a word when it is very long. A recording of sound alone has no picture to
-// look through; a video never given to Claude has no share for it
+// look through
 export function VideoEstimate({
   docId,
   video,
   sound = false,
-  leftOut = false,
 }: {
   docId: string;
   video: number;
   /** a recording of sound alone */
   sound?: boolean;
-  /** the document is never given to Claude */
-  leftOut?: boolean;
 }) {
   const read = useRead("media.estimate", { doc: docId, video });
   const e = read.data;
@@ -55,12 +52,10 @@ export function VideoEstimate({
             label: "With the graphics card",
             value: `${minutes(e.withCardSeconds)} to hear it, once the engine's NVIDIA build is installed (Settings › Models › Transcription)`,
           },
-          leftOut
-            ? { label: "Claude's share", value: "None: it is never given to Claude" }
-            : e.claude.runs > 0 && {
-                label: "Claude's share",
-                value: `About ${e.claude.runs} run${e.claude.runs > 1 ? "s" : ""}${e.claude.images > 0 ? `, ${e.claude.images} pictures` : ""}`,
-              },
+          e.claude.runs > 0 && {
+            label: "Claude's share",
+            value: `About ${e.claude.runs} run${e.claude.runs > 1 ? "s" : ""}${e.claude.images > 0 ? `, ${e.claude.images} pictures` : ""}`,
+          },
           e.disk.freeMB !== null && {
             label: "Room",
             value: `About ${size(e.disk.needMB * 1e6)} with what is drawn from it · ${size(e.disk.freeMB * 1e6)} free`,

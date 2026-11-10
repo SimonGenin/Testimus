@@ -224,7 +224,7 @@ export const commands = [
     positional: ["id", "anchor"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      refuseLeftOut(ctx.llm, input.id, project);
+      refuseLeftOut(ctx.llm, input.id);
       const doc = readDoc(project, input.id);
       const shape = docShape(project, input.id);
       const told = {

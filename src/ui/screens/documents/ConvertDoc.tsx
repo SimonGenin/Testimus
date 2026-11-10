@@ -17,7 +17,6 @@ import { type Described, isMedia, isSound } from "../../lib/media.ts";
 import { jobToast } from "../../lib/toast.ts";
 import { convertDoc, importClaude, setImportClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { useDocSet } from "./useDocSet.ts";
 import { VideoBefore } from "./VideoBefore.tsx";
 import { VideoEstimate } from "./VideoEstimate.tsx";
 
@@ -89,7 +88,6 @@ function Options({
   offline,
   onFigures,
   onStudy,
-  onLeftOut,
 }: {
   doc: Described;
   again: boolean;
@@ -98,36 +96,25 @@ function Options({
   offline: string | false;
   onFigures: (on: boolean) => void;
   onStudy: (on: boolean) => void;
-  onLeftOut: (kept: boolean) => void;
 }) {
   const noFigures = again && doc.converted?.stats?.figures === 0;
   if (isMedia(doc.type)) {
     const files = doc.source.files ?? [];
     const videos = files.filter((f) => f.kind === "video");
     const sound = videos.length > 0 && videos.every((f) => isSound(f.name));
-    const what = files.length > 1 ? "document" : sound ? "recording" : "video";
-    const kept = !!doc.private;
     return (
       <div {...stylex.props(styles.group)}>
         <h3 {...stylex.props(type.small, type.strong, styles.caption)}>While preparing</h3>
         {videos.length > 0 && !again && (
-          <>
-            <p {...stylex.props(type.small, styles.caption)}>
-              {sound
-                ? "What is said goes to Claude in its runs, like the documents; the sound never does. A recording carries voices and names."
-                : "Its pictures and what is said go to Claude in its runs, like the documents; the sound never does. A video shows faces and carries voices and names."}
-            </p>
-            <Checkbox
-              checked={kept}
-              onChange={onLeftOut}
-              label={`Never give this ${what} to Claude`}
-              hint="No Claude run reads, searches or describes it; the team still plays it and cites it by hand."
-            />
-          </>
+          <p {...stylex.props(type.small, styles.caption)}>
+            {sound
+              ? "What is said goes to Claude in its runs, like the documents; the sound never does."
+              : "Its pictures and what is said go to Claude in its runs, like the documents; the sound never does."}
+          </p>
         )}
         <Checkbox
-          checked={figures && !offline && !kept}
-          disabled={kept ? "This document is never given to Claude" : offline}
+          checked={figures && !offline}
+          disabled={offline}
           onChange={onFigures}
           label={again ? "Claude reads the pictures not read yet" : "Claude reads the pictures and surveys the videos"}
           hint="Claude opens each picture (20 a run) and writes what it shows and the text it reads in it; a video is planned from what is said (its chapters), then surveyed part by part for its key frames, each described with what is said around it."
@@ -135,9 +122,9 @@ function Options({
         <ClaudeChoice />
         {videos.map((f) =>
           again ? (
-            <VideoEstimate key={f.n} docId={doc.id} video={f.n} sound={isSound(f.name)} leftOut={kept} />
+            <VideoEstimate key={f.n} docId={doc.id} video={f.n} sound={isSound(f.name)} />
           ) : (
-            <VideoBefore key={f.n} docId={doc.id} file={f} leftOut={kept} named={files.length > 1} />
+            <VideoBefore key={f.n} docId={doc.id} file={f} named={files.length > 1} />
           ),
         )}
       </div>
@@ -187,14 +174,13 @@ export function ConvertDoc({
   const [study, setStudy] = useState(false);
   const media = isMedia(doc.type);
   const offline = useClaudeOffline();
-  const decide = useDocSet(doc.id);
   const settled = doc.conversion ? optionsOf(doc.conversion) : "";
   const go = () => {
     void convertDoc(
       doc.id,
       baseName(doc.source.name || doc.source.file),
       {
-        describeFigures: figures && !offline && !doc.private,
+        describeFigures: figures && !offline,
         study: study && !offline && !media,
       },
       () => {
@@ -214,7 +200,6 @@ export function ConvertDoc({
       offline={offline}
       onFigures={setFigures}
       onStudy={setStudy}
-      onLeftOut={decide.leftOut}
     />
   );
   if (again) {

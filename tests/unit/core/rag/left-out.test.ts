@@ -42,17 +42,17 @@ afterEach(() => {
 describe("a document left out of a run", () => {
   it("is named to the run's MCP server; only a call by an LLM is held to it", () => {
     expect(WITHOUT_DOCS).toBe("TESTIMUS_WITHOUT_DOCS");
-    expect(leftOutDocs(true, dir)).toEqual([]);
+    expect(leftOutDocs(true)).toEqual([]);
     leaveOut(D3, D4);
-    expect(leftOutDocs(true, dir)).toEqual([D3, D4]);
-    expect(leftOutDocs(false, dir)).toEqual([]);
-    expect(leftOutDocs(undefined, dir)).toEqual([]);
-    expect(() => refuseLeftOut(true, "RECETTE_TCO_12-10", dir)).not.toThrow();
-    expect(() => refuseLeftOut(false, D3, dir)).not.toThrow();
-    expect(() => refuseLeftOut(undefined, D3, dir)).not.toThrow();
+    expect(leftOutDocs(true)).toEqual([D3, D4]);
+    expect(leftOutDocs(false)).toEqual([]);
+    expect(leftOutDocs()).toEqual([]);
+    expect(() => refuseLeftOut(true, "RECETTE_TCO_12-10")).not.toThrow();
+    expect(() => refuseLeftOut(false, D3)).not.toThrow();
+    expect(() => refuseLeftOut(undefined, D3)).not.toThrow();
     let refused: unknown;
     try {
-      refuseLeftOut(true, D3, dir);
+      refuseLeftOut(true, D3);
     } catch (e) {
       refused = e;
     }

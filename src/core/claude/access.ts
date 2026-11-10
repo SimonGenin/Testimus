@@ -1,7 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { UserError } from "../command.ts";
-import { privateDocs } from "../lib/docs.ts";
 import type { SearchUse } from "../types.ts";
 
 // ponytail: what a Claude run may touch — the built-in tools and the app's own commands (the MCP tools) by kind of
@@ -212,18 +211,11 @@ export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
 // (claude/run.ts), and every command that finds or reads a document for Claude leaves them out or refuses them
 export const WITHOUT_DOCS = "TESTIMUS_WITHOUT_DOCS";
 
-export const leftOutDocs = (llm: boolean | undefined, project: string): string[] =>
-  llm ? [...new Set([...(process.env[WITHOUT_DOCS] ?? "").split(",").filter(Boolean), ...privateDocs(project)])] : [];
+export const leftOutDocs = (llm?: boolean): string[] =>
+  llm ? (process.env[WITHOUT_DOCS] ?? "").split(",").filter(Boolean) : [];
 
-export function refuseLeftOut(llm: boolean | undefined, docId: string, project: string): void {
-  if (!llm) return;
-  if (privateDocs(project).includes(docId))
-    throw new UserError(
-      `${docId} is never given to Claude.`,
-      "The team keeps this document from Claude: do not search, read or cite it.",
-      "doc-private",
-    );
-  if (leftOutDocs(llm, project).includes(docId))
+export function refuseLeftOut(llm: boolean | undefined, docId: string): void {
+  if (leftOutDocs(llm).includes(docId))
     throw new UserError(
       `${docId} is left out of this run.`,
       "The user took this document out of the run: do not search, read or cite it.",

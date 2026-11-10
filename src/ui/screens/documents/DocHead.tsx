@@ -1,6 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DocJson } from "../../../core/types.ts";
-import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../components/ui/Menu.tsx";
 import { Tabs } from "../../components/ui/Tabs.tsx";
@@ -87,7 +86,6 @@ export function DocHead({
   onDelete,
   onAddMedia,
   onReference,
-  onLeftOut,
 }: {
   doc: Described;
   sections: number;
@@ -105,8 +103,6 @@ export function DocHead({
   onAddMedia?: (picked: Picked[]) => void;
   /** an images or video document: mark it as the reference, or back to observed */
   onReference?: (reference: boolean) => void;
-  /** an images or video document: keep it from Claude (no run reads, searches or describes it), or give it back */
-  onLeftOut?: (kept: boolean) => void;
 }) {
   const from = typeLabel(doc);
   const media = isMedia(doc.type);
@@ -157,7 +153,6 @@ export function DocHead({
               </>
             )}
           </span>
-          {media && doc.private && <Badge size="sm" tone="warning" icon="lock" label="Never given to Claude" />}
         </div>
         <span {...stylex.props(type.small, styles.facts)}>
           {media
@@ -205,14 +200,6 @@ export function DocHead({
             icon={doc.reference ? "eye" : "validated"}
             label={doc.reference ? "Observed, not the reference" : "Reference, not observed"}
             onClick={() => onReference(!doc.reference)}
-          />
-        )}
-        {media && onLeftOut && !running && (
-          <Button
-            size="sm"
-            icon={doc.private ? "claude" : "lock"}
-            label={doc.private ? "Given to Claude" : "Never to Claude"}
-            onClick={() => onLeftOut(!doc.private)}
           />
         )}
         {reading && (

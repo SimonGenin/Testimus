@@ -66,12 +66,6 @@ export const commands = [
         .array(z.string())
         .optional()
         .describe("Ids of the documents this one is about; empty list clears it"),
-      private: z
-        .boolean()
-        .optional()
-        .describe(
-          "True: never give this document to Claude — no run reads, searches, describes or cites it (a video shows faces and carries voices and names); the team still reads and cites it by hand. False gives it back",
-        ),
     }),
     output: docJson.extend({ contextMtime: mtime }),
     mutates: true,
@@ -116,8 +110,6 @@ export const commands = [
         );
       if (input.reference) doc.reference = true;
       else if (input.reference === false) delete doc.reference;
-      if (input.private) doc.private = true;
-      else if (input.private === false) delete doc.private;
       writeDoc(project, doc);
       if (isMediaDoc(doc) && input.title !== undefined && doc.converted) writeMediaMd(project, input.id);
       if (flipped)

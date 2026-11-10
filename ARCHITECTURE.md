@@ -482,17 +482,6 @@ docs/<docId>/
   into chapters by one Claude run from what is said, cited `t:mm:ss` and played in a loop by the same player (a band
   « Sound only » where the picture would be). It has no candidate, no key frame, no `v:` source; `media.frame` and
   `media.keep` refuse it (`no-picture`). HEIC photos still wait (`LATER`).
-- **A document the team keeps from Claude** (`doc.json` `private: true`; `docs.add --private`, `docs.set private`,
-  Documents › « Never to Claude »; 2026-11-10 — a video shows faces and carries voices and names, and the add dialog
-  says what goes to Claude: the pictures and what is said, never the sound). Held in four places, so no path forgets
-  it: its conversion runs no Claude (`withoutClaude`: no figure described, no study, no triage, no translation, no
-  survey — its key frames are the strongest candidates); every run leaves it out, whatever it is given
-  (`runClaude`'s `without` ∪ `privateDocs`: `Read(docs/<id>/**)` denied, the run's MCP server told); every command
-  Claude calls refuses it (`refuseLeftOut(llm, id, project)` → `doc-private`: `docs.show`, `rag.*`, `media.show ·
-  transcript · frame · keep`; the searches leave it out), from any Claude session, the project's own `.mcp.json`
-  included; and a run about it is refused before it starts (`docGiven`). The Context dialog shows it off and locked.
-  The team reads, plays, searches and cites it by hand like any document. Not held: what a person's own Claude
-  session opens with its file tools in a terminal — only the app's runs carry the `Read` denial.
 - **The room the videos take** (`lib/video/disk.ts`): before a video is copied in, the drive must hold it and half as
   much again for what is drawn from it, plus 200 MB (`shortOfRoom`) — never a drive found full halfway; and the team
   may cap what the project's videos take (`project.json` `video.diskCapGB`, Settings › Project › Videos; `media.disk`
@@ -1473,9 +1462,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   nothing. A recording of sound alone has the same player with a band « Sound only » in place of the picture.
   **Before a video is first converted** (`VideoBefore`, in `ConvertDoc`): the languages spoken, the sound track
   when the file has several, a part only (From / To — the fields « Hear again… » has, one component:
-  `HeardFields`), each kept by `media.set` and the estimate read again; one sentence on what goes to Claude and
-  « Never give this video to Claude ». The head of an images or video document has « Never to Claude » / « Given to
-  Claude » beside the reference toggle. Settings › Models › Transcription › « Measure… » (`MeasureDialog`,
+  `HeardFields`), folded by default (the engine finds the language itself, the whole video is heard), each kept by
+  `media.set` and the estimate read again; one sentence on what goes to Claude.
+  Settings › Models › Transcription › « Measure… » (`MeasureDialog`,
   `media.measures`) lists the videos that have a reference, measures one with the active model, and shows the
   figures by language. The icons `captions`, `expand`, `pause` and `repeat` were added to `icons.ts` by hand while
   `design/` was not in the checkout (it is the design sessions' own, never written from here): their four `.svg`,

@@ -125,7 +125,7 @@ export const commands = [
         if (!added.length) ctx.log("warn", `No file was added: ${rejected[0]?.why ?? "nothing given"}`);
         ctx.step?.("convert");
         const d = await convertMedia(ctx, project, input.doc, {
-          read: !readDoc(project, input.doc).private && (input.describeFigures ?? true),
+          read: input.describeFigures ?? true,
           run: runOf(input),
         });
         return afterConversion(ctx, project, d, runOf(input), {
@@ -209,7 +209,7 @@ export const commands = [
     positional: ["doc"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      refuseLeftOut(ctx.llm, input.doc, project);
+      refuseLeftOut(ctx.llm, input.doc);
       const d = mediaDoc(project, input.doc);
       const figures = new Map(readFigures(project, d.id).map((f) => [f.anchor, f]));
       return {
@@ -254,7 +254,7 @@ export const commands = [
     positional: ["doc"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      refuseLeftOut(ctx.llm, input.doc, project);
+      refuseLeftOut(ctx.llm, input.doc);
       const f = videoOf(project, input.doc, input.video);
       const v = readVideo(project, input.doc, f.n);
       const at = (s?: string) => (s === undefined ? undefined : (secondsOf(s) ?? undefined));
@@ -291,7 +291,7 @@ export const commands = [
     positional: ["doc", "at"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      refuseLeftOut(ctx.llm, input.doc, project);
+      refuseLeftOut(ctx.llm, input.doc);
       const f = videoOf(project, input.doc, input.video);
       const v = readVideo(project, input.doc, f.n);
       noPicture(v, f.name);
@@ -355,7 +355,7 @@ export const commands = [
           `${f.name} was not read yet.`,
           `Convert the document first: testimus docs convert ${input.doc}.`,
         );
-      refuseLeftOut(ctx.llm, input.doc, project);
+      refuseLeftOut(ctx.llm, input.doc);
       noPicture(v, f.name);
       const at = momentIn(input.at, v.duration, f.name);
       const anchor = frameAnchor(f.n, at);

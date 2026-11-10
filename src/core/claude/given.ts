@@ -1,8 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { UserError } from "../command.ts";
 import { listContexts } from "../lib/contexts.ts";
-import { docIds, findDoc, isConverted, privateDocs, readContext, readDoc } from "../lib/docs.ts";
+import { docIds, findDoc, isConverted, readContext, readDoc } from "../lib/docs.ts";
 import { OVERVIEW_PATH, overviewGiven } from "../lib/overview.ts";
 import { readProject } from "../lib/project.ts";
 import { readLocal, readTest, testExists } from "../lib/store.ts";
@@ -241,12 +240,6 @@ export function docGiven(
   run: { note?: string; contexts?: string[]; without?: string[] } = {},
 ): Given {
   const subject: Subject = { kind: "doc", docId };
-  if (privateDocs(project).includes(docId))
-    throw new UserError(
-      `${docId} is never given to Claude.`,
-      "The team keeps this document from Claude (Documents › the document › Never to Claude).",
-      "doc-private",
-    );
   const own = attachedContexts(project, subject).map((a) => a.id);
   return given(project, kind, subject, {
     note: run.note,
@@ -318,19 +311,15 @@ export function given(project: string, kind: RunKind, subject: Subject, pick: Pi
   const withoutDocs: string[] = [];
   for (const d of order) {
     const isAbout = about.includes(d.id);
-    const docOn = !d.private && (!searches || !off.has(`doc:${d.id}`));
+    const docOn = !searches || !off.has(`doc:${d.id}`);
     if (searches)
       pieces.push({
         id: `doc:${d.id}`,
         kind: "document",
         name: d.title || d.code || d.id,
-        why: d.private
-          ? "Never given to Claude: the document's own setting"
-          : isAbout
-            ? "A document of this run"
-            : "A document of the project: Claude may search it",
+        why: isAbout ? "A document of this run" : "A document of the project: Claude may search it",
         how: "search",
-        locked: !!d.private,
+        locked: false,
         on: docOn,
         chars: d.converted?.stats?.chars ?? 0,
         path: `docs/${d.id}/doc.md`,

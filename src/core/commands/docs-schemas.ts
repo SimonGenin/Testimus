@@ -187,10 +187,6 @@ export const docJson = z.object({
     .array(z.string())
     .optional()
     .describe("Ids of the documents this one is about (photos once attached to a document): shown, never an amendment"),
-  private: z
-    .boolean()
-    .optional()
-    .describe("True when the team keeps this document from Claude: no run reads, searches or describes it"),
 });
 
 export const figure = z.object({

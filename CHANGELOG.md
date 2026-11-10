@@ -8,8 +8,7 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 - Les vidéos deviennent des sources à la seconde : une source cite un moment ou une plage (de 2:36 à 2:52), dite ou vue. Un clic la rejoue aussitôt en boucle, avec quelques secondes de marge (réglables dans Settings › Project › Videos) ; au survol, la source montre l'image clé la plus proche et la phrase citée.
 - Un enregistrement son seul (.mp3, .m4a, .wav…) s'ajoute comme une vidéo sans image : transcrit, découpé en chapitres, cité à la seconde.
-- À l'ajout d'une vidéo, on choisit la ou les langues parlées, la piste son et, si on veut, une partie seulement ; l'application dit ce qui partira chez Claude (les images et ce qui est dit, jamais le son).
-- « Never to Claude » : un document (une vidéo où l'on voit des visages, par exemple) peut être gardé hors de tous les runs Claude ; l'équipe continue de le lire, de le chercher et de le citer à la main.
+- À l'ajout d'une vidéo, on peut choisir (dans un volet replié : par défaut la langue est reconnue et tout est transcrit) la ou les langues parlées, la piste son et une partie seulement ; l'application dit ce qui partira chez Claude (les images et ce qui est dit, jamais le son).
 - Settings › Project › Videos : un plafond pour la place que prennent les vidéos du projet ; une vidéo qui le dépasserait est refusée à l'ajout, et la place libre du disque est vérifiée avant la copie.
 - Settings › Models › Transcription › « Measure… » : comparer les modèles de transcription sur les vidéos de référence du projet (erreurs, jargon, vitesse, mémoire), par langue.
 - Chercher « S12 » trouve aussi ce qu'une vidéo a entendu « S 12 », et l'inverse.

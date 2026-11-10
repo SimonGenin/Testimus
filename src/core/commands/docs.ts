@@ -3,7 +3,7 @@ import { z } from "zod";
 import { shouldDescribeFigures } from "../claude/figures.ts";
 import { NOTE } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { docDir, readDoc, writeDoc } from "../lib/docs.ts";
+import { docDir, readDoc } from "../lib/docs.ts";
 import { attachDocx, attachPdf } from "../lib/docs-convert.ts";
 import {
   addInputOf,
@@ -46,15 +46,6 @@ function chooseVideos(project: string, docs: DocJson[], choices: z.infer<typeof 
       applyChoices(project, d.id, f.n, choices);
 }
 
-// ponytail: a document the team keeps from Claude is converted by this PC alone — no figure described, no study, no
-// look at the warnings
-const withoutClaude = <T extends object>(input: T): T => ({
-  ...input,
-  describeFigures: false,
-  triage: false,
-  study: false,
-});
-
 export const commands = [
   command({
     name: "docs.add",
@@ -80,12 +71,6 @@ export const commands = [
         .optional()
         .describe("A .pdf rendering of the same .docx, used only to recover figures the .docx has no picture for"),
       kind: kind.optional().describe("What the document is (default spec; other for an image or a video)"),
-      private: z
-        .boolean()
-        .optional()
-        .describe(
-          "Never give this document to Claude: its conversion runs no Claude, and no run reads, searches or cites it afterwards (docs.set private gives it back)",
-        ),
       convert: z
         .boolean()
         .default(true)
@@ -104,13 +89,9 @@ export const commands = [
     job: "docs.add",
     positional: ["file"],
     subject: (i) => i.file ?? i.name ?? "upload",
-    run: (ctx, given) =>
+    run: (ctx, input) =>
       withUploads(projectOf(ctx), async (save) => {
         const project = projectOf(ctx);
-        const input = given.private ? withoutClaude(given) : given;
-        const keep = (id: string) => {
-          if (given.private) writeDoc(project, { ...readDoc(project, id), private: true });
-        };
         const named = input.file ?? input.name ?? "";
         if (isImage(named) || isVideo(named)) {
           ctx.steps?.([{ id: "copy", label: "Copy the file" }, ...(input.convert ? MEDIA_STEPS : [])]);
@@ -123,7 +104,6 @@ export const commands = [
               "Give a JPEG, PNG or WebP image, a video or a sound recording.",
             );
           if (input.video) chooseVideos(project, added, input.video);
-          keep(added[0].id);
           if (!input.convert) return { ...readDoc(project, added[0].id), citedBy: [] };
           const steps = convertSteps([{ id: "copy", label: "Copy the file" }, ...MEDIA_STEPS], {
             ...input,
@@ -132,7 +112,7 @@ export const commands = [
           ctx.steps?.(steps);
           return inSlot(ctx, project, steps, async () => {
             ctx.step?.("convert");
-            const read = !given.private && (input.describeFigures ?? shouldDescribeFigures(project));
+            const read = input.describeFigures ?? shouldDescribeFigures(project);
             const d = await convertMedia(ctx, project, added[0].id, { read, run: runOf(input) });
             return afterConversion(ctx, project, d, runOf(input), { ...input, describeFigures: false, study: true });
           });
@@ -142,8 +122,7 @@ export const commands = [
           ctx.steps?.([{ id: "copy", label: "Copy the original" }]);
           ctx.step?.("copy");
           const doc = await copyIn(ctx, project, save, input, false);
-          keep(doc.id);
-          return { ...readDoc(project, doc.id), citedBy: [] };
+          return { ...doc, citedBy: [] };
         }
         const steps = convertSteps(
           [
@@ -156,7 +135,6 @@ export const commands = [
         return inSlot(ctx, project, steps, async () => {
           ctx.step?.(studied ? "copy" : "convert");
           let doc = await copyIn(ctx, project, save, input, !studied);
-          keep(doc.id);
           if (studied)
             try {
               ctx.step?.("convert");
@@ -281,16 +259,14 @@ export const commands = [
     positional: ["id"],
     subject: (i) => i.id,
     label: (i, project) => docName(project, i.id),
-    async run(ctx, given) {
+    async run(ctx, input) {
       const project = projectOf(ctx);
-      const kept = !!readDoc(project, given.id).private;
-      const input = kept ? withoutClaude(given) : given;
       if (isMediaDoc(readDoc(project, input.id))) {
         const steps = convertSteps(MEDIA_STEPS, { ...input, study: true });
         ctx.steps?.(steps);
         return inSlot(ctx, project, steps, async () => {
           ctx.step?.("convert");
-          const read = !kept && (input.describeFigures ?? shouldDescribeFigures(project));
+          const read = input.describeFigures ?? shouldDescribeFigures(project);
           const d = await convertMedia(ctx, project, input.id, { read, force: input.force, run: runOf(input) });
           return afterConversion(ctx, project, d, runOf(input), { ...input, describeFigures: false, study: true });
         });

@@ -59,7 +59,7 @@ export const commands = [
     positional: ["term"],
     run: async (ctx, input) => {
       const project = projectOf(ctx);
-      const out = leftOutDocs(ctx.llm, project);
+      const out = leftOutDocs(ctx.llm);
       if (!out.length) return mentions(project, input);
       // ponytail: no document left to look in is an empty answer — an empty list of documents would mean « all »
       const allowed = (input.docIds ?? docIds(project)).filter((d) => !out.includes(d));
@@ -96,8 +96,8 @@ export const commands = [
     positional: ["ref"],
     run: async (ctx, input) => {
       const project = projectOf(ctx);
-      const out = leftOutDocs(ctx.llm, project);
-      refuseLeftOut(ctx.llm, input.ref.split("#")[0], project);
+      const out = leftOutDocs(ctx.llm);
+      refuseLeftOut(ctx.llm, input.ref.split("#")[0]);
       const r = await related(project, input);
       return out.length ? { ...r, neighbours: r.neighbours.filter((n) => !out.includes(n.ref.split("#")[0])) } : r;
     },

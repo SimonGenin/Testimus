@@ -119,7 +119,7 @@ export const commands = [
     positional: ["query"],
     run: async (ctx, input) => {
       const project = projectOf(ctx);
-      const out = leftOutDocs(ctx.llm, project);
+      const out = leftOutDocs(ctx.llm);
       // ponytail: no document left to search is an empty answer — an empty list of documents would mean « all »
       const allowed = out.length ? (input.docIds ?? docIds(project)).filter((d) => !out.includes(d)) : undefined;
       if (allowed && !allowed.length) return [];
@@ -183,7 +183,7 @@ export const commands = [
     mutates: false,
     positional: ["ref"],
     run: async (ctx, input) => {
-      refuseLeftOut(ctx.llm, input.ref.split("#")[0], projectOf(ctx));
+      refuseLeftOut(ctx.llm, input.ref.split("#")[0]);
       return passage(projectOf(ctx), input.ref, input.around);
     },
   }),
@@ -211,7 +211,7 @@ export const commands = [
     mutates: false,
     positional: ["docId", "n"],
     run: async (ctx, input) => {
-      refuseLeftOut(ctx.llm, input.docId, projectOf(ctx));
+      refuseLeftOut(ctx.llm, input.docId);
       return figure(projectOf(ctx), input.docId, input.n);
     },
   }),
