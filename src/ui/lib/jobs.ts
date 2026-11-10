@@ -20,6 +20,7 @@ export const KIND: Record<string, string> = {
   "describe-figures": "Describe figures",
   "media.keep": "Key frame",
   "media.propose": "Transcript corrections",
+  "media.glossary": "Glossary of the transcription",
   "media.lighten": "Lighter copy of a video",
   "media.measure": "Transcription measure",
   "rag-index": "Index documents",

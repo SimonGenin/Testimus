@@ -62,6 +62,7 @@ const CLI: Record<string, string> = {
   "docs.convert": "testimus docs convert",
   "media.keep": "testimus media keep",
   "media.propose": "testimus media propose",
+  "media.glossary": "testimus media suggestGlossary",
   "media.lighten": "testimus media lighten",
   "media.measure": "testimus media measure",
   "rag-index": "testimus rag index",

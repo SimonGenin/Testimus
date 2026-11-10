@@ -382,7 +382,7 @@ export async function measureSpeech(
             .filter((l) => l.at <= last + 2)
             .map((l) => l.text)
             .join(" ");
-          const jargon = jargonRecall(glossary.kept, said, heard);
+          const jargon = jargonRecall(glossary.terms, said, heard);
           const peak = memory.peakMB();
           rows.push({
             model: m.entry.id,

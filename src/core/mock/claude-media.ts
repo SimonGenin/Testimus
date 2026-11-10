@@ -1,3 +1,4 @@
+import { GLOSSARY_MARKER, GLOSSARY_TAG } from "../claude/glossary.ts";
 import {
   CHAPTERS_TAG,
   FIXES_MARKER,
@@ -148,5 +149,21 @@ registerMockScript(
       : [];
     const reply = ["```" + FIXES_TAG, JSON.stringify(out, null, 2), "```"].join("\n");
     return mockStream(spawn, { tools: [], texts: [reply], result: reply, costUsd: 0.0093, delayMs: 40 });
+  },
+);
+
+// ponytail: the scripted glossary — the candidates the prompt names, the first twelve, with the fixture's sectionneur
+registerMockScript(
+  (prompt) => prompt.startsWith(GLOSSARY_MARKER),
+  (spawn) => {
+    const found = /^Candidates counted in the documents, most used first: (.+)$/m.exec(spawn.stdin)?.[1] ?? "";
+    const terms = [...new Set(["S12", "Sectionneur", ...found.split(", ").filter((t) => t && t !== "(none)")])];
+    const reply = [
+      "Kept the codes and the equipment the videos name.",
+      "```" + GLOSSARY_TAG,
+      JSON.stringify(terms.slice(0, 12)),
+      "```",
+    ].join("\n");
+    return mockStream(spawn, { tools: [], texts: [reply], result: reply, costUsd: 0.0071, delayMs: 40 });
   },
 );

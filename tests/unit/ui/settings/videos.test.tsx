@@ -22,7 +22,6 @@ const terms = (n: number) => Array.from({ length: n }, (_, i) => `T${i + 1}`);
 
 const said = (over: Partial<Glossary> = {}): Glossary => ({
   terms: ["PCC", "S12", "TCO", "Sectionneur"],
-  kept: ["PCC", "S12", "TCO", "Sectionneur"],
   auto: true,
   prompt: "Glossaire : PCC, S12, TCO, Sectionneur.",
   tokens: 17,
@@ -48,7 +47,7 @@ beforeEach(() => {
     const video: Video = { ...before, ...rest, ...(g ? { glossary: g } : {}) };
     if (g === null) delete video.glossary;
     project = { ...project, project: { ...project.project, video } };
-    if (g !== undefined) glossary = said(g ? { auto: false, terms: g, kept: g.slice(0, 3) } : {});
+    if (g !== undefined) glossary = said(g ? { auto: false, terms: g } : {});
     return project.project;
   };
   net.routes["media.glossary"] = () => glossary;
@@ -200,9 +199,8 @@ describe("Settings › Project › Videos", () => {
 });
 
 describe("Settings › Project › Videos: the glossary of the transcription", () => {
-  it("shows where the terms come from, those kept, those left out, the size and what the engine is given", async () => {
-    const all = terms(54);
-    glossary = said({ terms: all, kept: all.slice(0, 45), tokens: 157, budget: 170, prompt: "Glossary: T1, T2." });
+  it("shows where the terms come from, every term sent, the size and what the engine is given", async () => {
+    glossary = said({ terms: terms(45), tokens: 157, budget: 170, prompt: "Glossary: T1, T2." });
     mountSettings(<ProjectSection />);
     const c = await card();
     expect(await within(c).findByText("From the documents")).toBeInTheDocument();
@@ -211,7 +209,7 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
     expect(within(kept).getByText("T40")).toBeInTheDocument();
     expect(within(kept).queryByText("T41")).toBeNull();
     expect(within(kept).getByText("+ 5 more")).toBeInTheDocument();
-    expect(within(c).getByText("9 left out: the engine reads 60 to 80 terms at most")).toBeInTheDocument();
+    expect(within(c).queryByText(/left out/)).toBeNull();
     expect(within(c).getByRole("progressbar", { name: "Size of the glossary" })).toHaveAttribute("aria-valuenow", "92");
     expect(within(c).getByText("157 of 170 tokens")).toBeInTheDocument();
     expect(within(c).queryByText("Glossary: T1, T2.")).toBeNull();
@@ -235,11 +233,65 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
     expect(await within(c).findByText("Written by the team")).toBeInTheDocument();
     expect(calls("media.glossary").length).toBeGreaterThan(before);
     expect(within(c).queryByRole("textbox", { name: "Terms of the glossary" })).toBeNull();
-    expect(within(c).getByText("1 left out: the engine reads 60 to 80 terms at most")).toBeInTheDocument();
+    expect(within(c).getByText("PR2")).toBeInTheDocument();
+  });
+
+  it("while writing, the size is said; a list the engine could not read whole is not saved", async () => {
+    mountSettings(<ProjectSection />);
+    const c = await card();
+    fireEvent.click(await within(c).findByRole("button", { name: "Edit" }));
+    expect(
+      within(c).getByText("Every term is sent to the engine, in this order: about 60 to 80 fit."),
+    ).toBeInTheDocument();
+    const box = within(c).getByRole("textbox", { name: "Terms of the glossary" });
+    for (const term of terms(60).map((x) => `EQUIPEMENT_${x}`)) {
+      fireEvent.change(box, { target: { value: term } });
+      fireEvent.keyDown(box, { key: "Enter" });
+    }
+    expect(
+      within(c).getByText("Too long: the engine could not read every term. Remove the least useful ones."),
+    ).toBeInTheDocument();
+    expect(within(c).getByRole("progressbar", { name: "Size of the glossary" })).toHaveAttribute(
+      "aria-valuenow",
+      "100",
+    );
+    expect(within(c).getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(calls("project.set")).toHaveLength(0);
+  });
+
+  it("« Edit with Claude » asks Claude with what the team wants, then shows the glossary it wrote", async () => {
+    net.routes["media.suggestGlossary"] = (i) => {
+      glossary = said({ auto: false, terms: ["S12", "Sous-station Nord"] });
+      return { ok: true, terms: ["S12", "Sous-station Nord"], summary: `asked: ${String(i.ask)}` };
+    };
+    mountSettings(<ProjectSection />);
+    const c = await card();
+    fireEvent.click(await within(c).findByRole("button", { name: "Edit with Claude" }));
+    fireEvent.change(within(c).getByRole("textbox", { name: "What you want of the glossary (optional)" }), {
+      target: { value: "add the substations" },
+    });
+    fireEvent.click(within(c).getByRole("button", { name: "Ask Claude" }));
+    await waitFor(() => expect(inputs("media.suggestGlossary")).toEqual([{ ask: "add the substations" }]));
+    expect(await within(c).findByText("Sous-station Nord")).toBeInTheDocument();
+    expect(within(c).getByText("Written by the team")).toBeInTheDocument();
+    expect(await screen.findByText("Claude wrote the glossary: 2 terms")).toBeInTheDocument();
+    expect(within(c).queryByRole("textbox", { name: "What you want of the glossary (optional)" })).toBeNull();
+  });
+
+  it("Claude giving no glossary changes nothing and says so; Cancel closes the request", async () => {
+    net.routes["media.suggestGlossary"] = () => ({ ok: false, terms: [], summary: "No block." });
+    mountSettings(<ProjectSection />);
+    const c = await card();
+    fireEvent.click(await within(c).findByRole("button", { name: "Edit with Claude" }));
+    fireEvent.click(within(c).getByRole("button", { name: "Ask Claude" }));
+    expect(await screen.findByText("Claude gave no glossary")).toBeInTheDocument();
+    expect(within(c).getByText("From the documents")).toBeInTheDocument();
+    fireEvent.click(within(c).getByRole("button", { name: "Cancel" }));
+    expect(within(c).getByRole("button", { name: "Edit with Claude" })).toBeInTheDocument();
   });
 
   it("a glossary the team wrote goes back to the documents' terms; Cancel changes nothing", async () => {
-    glossary = said({ auto: false, terms: ["PR2"], kept: ["PR2"] });
+    glossary = said({ auto: false, terms: ["PR2"] });
     project = info({ video: { glossary: ["PR2"], density: "sober" } });
     mountSettings(<ProjectSection />);
     const c = await card();
@@ -270,7 +322,7 @@ describe("Settings › Project › Videos: the glossary of the transcription", (
   });
 
   it("without a term, or when it cannot be read, the card says so", async () => {
-    glossary = said({ terms: [], kept: [], prompt: "", tokens: 0 });
+    glossary = said({ terms: [], prompt: "", tokens: 0 });
     const r = mountSettings(<ProjectSection />);
     const c = await card();
     expect(await within(c).findByText(/^No term yet: the documents gave none\./)).toBeInTheDocument();

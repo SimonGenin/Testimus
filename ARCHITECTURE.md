@@ -409,7 +409,12 @@ docs/<docId>/
     card hears pays for its kernels (~35 s once, then cached): counted as load, never in the speed.
   - **The glossary** (`glossary.ts`): what the engine cannot guess — codes, acronyms, the names the documents write
     with a capital — the team's (`project.json video.glossary`) or taken from the documents, most used first, as one
-    sentence within the engine's limit (170 of its 224 tokens; the rest is the passage before).
+    sentence within the engine's limit (170 of its 224 tokens; the rest is the passage before). Every term listed is
+    sent (2026-11-10): the documents' list is cut to what fits before it is shown, and `project.set` refuses a list
+    that does not fit (`glossary-too-long`; the size is counted the same way on the page, `src/shared/glossary.ts`).
+    `media.suggestGlossary` (Settings › Project › Videos › « Edit with Claude ») has Claude write the list from the
+    documents and the counted candidates, with what the team asks, and saves it as the team's (a `media` run on the
+    project; the prompt is « Write the glossary of the transcription »).
   - **Translation**: what was said in another language than the project's is translated by Claude (never by Whisper),
     a batch a run, kept beside the line (`translation`): shown, searched, never quotable. Each line goes with what
     was said just before and after it, so a misheard word is translated as the word that was meant; a translation

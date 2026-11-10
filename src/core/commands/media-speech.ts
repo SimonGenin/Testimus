@@ -2,6 +2,7 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { shouldDescribeFigures } from "../claude/figures.ts";
+import { draftGlossary } from "../claude/glossary.ts";
 import { proposeFixes } from "../claude/media.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { claudeVersion } from "../claude/status.ts";
@@ -14,7 +15,7 @@ import { filesOf, isMediaDoc } from "../lib/media.ts";
 import { frameAnchor, readFixes, readVideo, transcriptLines, writeFixes, writeMediaMd } from "../lib/media-md.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
-import { readJson, readProject, writeJson } from "../lib/project.ts";
+import { readJson, readProject, writeJson, writeProject } from "../lib/project.ts";
 import { osUser } from "../lib/review.ts";
 import { capMB, videosMB } from "../lib/video/disk.ts";
 import { estimateOf } from "../lib/video/estimate.ts";
@@ -249,7 +250,7 @@ export const commands = [
         ctx,
         { name: f.name },
         lines,
-        speechGlossary(project).kept,
+        speechGlossary(project).terms,
         runOf(input),
       );
       writeJson(proposalsFile(project, input.doc, f.n), r.proposals);
@@ -441,8 +442,7 @@ export const commands = [
       "The terms given to the transcription so it writes the project's own words right (codes, acronyms, names of equipment): the team's when it wrote them (project.json video.glossary), else taken from the documents; with the sentence the engine really gets, its size against the engine's limit, and the languages heard in the project's videos.",
     input: z.object({}),
     output: z.object({
-      terms: z.array(z.string()).describe("The terms, most used first"),
-      kept: z.array(z.string()).describe("Those that fit the engine's limit: the others are left out"),
+      terms: z.array(z.string()).describe("Every term given to the engine, most important first"),
       auto: z.boolean().describe("True when they come from the documents (the team wrote none)"),
       prompt: z.string().describe("The sentence given to the engine with every passage"),
       tokens: z.number().describe("Its size, in tokens (estimated)"),
@@ -478,7 +478,6 @@ export const commands = [
             heard.set(l, (heard.get(l) ?? 0) + s);
       return {
         terms: g.terms,
-        kept: g.kept,
         auto: g.auto,
         prompt: g.prompt,
         tokens: g.tokens,
@@ -488,6 +487,41 @@ export const commands = [
           .sort((a, b) => b.seconds - a.seconds),
         languages: SPOKEN_LANGUAGES,
       };
+    },
+  }),
+  command({
+    name: "media.suggestGlossary",
+    summary:
+      "Have Claude write the glossary of the transcription from the project's documents (the words the engine cannot guess, most important first, as many as the engine reads) and save it as the team's list (project.json video.glossary); project set --video.glossary=null goes back to the terms counted in the documents.",
+    input: z.object({
+      ask: z.string().default("").describe("What the team wants of the glossary, in words; empty = the best one"),
+      model: MODEL.optional().describe("Claude model (default: project.json claude.model)"),
+      effort: EFFORT.optional().describe("Claude effort (default: medium)"),
+      note: NOTE,
+    }),
+    output: z.object({
+      ok: z.boolean().describe("false when the run failed or gave no term: nothing was saved"),
+      terms: z.array(z.string()).describe("The glossary saved, every term sent to the engine"),
+      summary: z.string().describe("Claude's reply"),
+      costUsd: z.number().optional().describe("What the Claude run cost"),
+    }),
+    mutates: true,
+    job: "media.glossary",
+    positional: ["ask"],
+    subject: (i) => i.ask.slice(0, 60) || "The glossary of the transcription",
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      if (!(await claudeVersion()).ok)
+        throw new UserError(
+          "Claude is not available on this PC.",
+          "Sign in to Claude Code (Settings › Claude), then ask again.",
+        );
+      const r = await draftGlossary(project, ctx, input.ask, runOf(input));
+      if (r.ok) {
+        const p = readProject(project);
+        writeProject(project, { ...p, video: { ...p.video, glossary: r.terms } });
+      } else ctx.log("warn", `Claude gave no glossary: ${r.summary.slice(0, 200)}`);
+      return r;
     },
   }),
   command({

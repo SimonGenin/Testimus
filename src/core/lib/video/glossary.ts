@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { cleanTerms, GLOSSARY_TOKENS, leadOf, tokensOf } from "../../../shared/glossary.ts";
 import { glossaryOf } from "../../rag/glossary.ts";
 import { fold, STOP_WORDS } from "../../rag/stem-fr.ts";
 import { docDir, listDocs, readContext, readFigures } from "../docs.ts";
@@ -7,25 +8,18 @@ import { sha256 } from "../hash.ts";
 import { isMediaDoc } from "../media.ts";
 import { readProject } from "../project.ts";
 
-// ponytail: Whisper reads at most 224 tokens of prompt, and the end of the passage before takes its share: the
-// glossary gets 170 of them — some 60 to 80 terms, so they are chosen
-export const GLOSSARY_TOKENS = 170;
 const TAIL_CHARS = 150;
 const MAX_TERMS = 120;
 
 export type SpeechGlossary = {
+  /** every term the engine is given, in order: nothing shown is left out */
   terms: string[];
-  kept: string[];
   auto: boolean;
   prompt: string;
   tokens: number;
   budget: number;
   hash: string;
 };
-
-// ponytail: a careful count without the model's tokenizer — a code or an acronym breaks into about a token every
-// three characters, and each term costs its comma
-export const tokensOf = (term: string): number => Math.ceil(term.length / 3) + 1;
 
 const COMMON = new Set(
   "NOTE NOTA FIGURE TABLE TABLEAU PAGE OK KO NOK OUI NON YES NO ET OU LE LA LES DE DES DU UN UNE THE AND OR OF TO IN ON FOR TBD TBC NA".split(
@@ -73,16 +67,13 @@ export function autoTerms(project: string): string[] {
     .map(([t]) => t);
 }
 
-const LEAD: Record<string, string> = { fr: "Glossaire :", en: "Glossary:", de: "Glossar:", es: "Glosario:" };
-
 // ponytail: the glossary as Whisper is given it — one real sentence (its punctuation and the capitals of its
 // acronyms also set the tone of what is written), the terms in the order given until the budget is spent
 export function promptOf(terms: string[], language: string): { prompt: string; tokens: number; kept: string[] } {
-  const lead = LEAD[language.toLowerCase().slice(0, 2)] ?? "Glossary:";
+  const lead = leadOf(language);
   const kept: string[] = [];
   let tokens = tokensOf(lead);
-  for (const t of terms.map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean)) {
-    if (kept.includes(t)) continue;
+  for (const t of cleanTerms(terms)) {
     if (tokens + tokensOf(t) > GLOSSARY_TOKENS) break;
     kept.push(t);
     tokens += tokensOf(t);
@@ -90,15 +81,14 @@ export function promptOf(terms: string[], language: string): { prompt: string; t
   return { prompt: kept.length ? `${lead} ${kept.join(", ")}.` : "", tokens: kept.length ? tokens : 0, kept };
 }
 
-// ponytail: the terms are the team's when it wrote them (project.json video.glossary), else the documents' own
+// ponytail: the terms are the team's when it wrote them (project.json video.glossary), else the documents' own, as many
+// of the most used as fit — what is listed is what the engine gets (project.set refuses a list that does not fit)
 export function speechGlossary(project: string): SpeechGlossary {
   const p = readProject(project);
   const own = p.video?.glossary;
-  const terms = own ?? autoTerms(project);
-  const made = promptOf(terms, p.language);
+  const made = promptOf(own ?? autoTerms(project), p.language);
   return {
-    terms,
-    kept: made.kept,
+    terms: made.kept,
     auto: !own,
     prompt: made.prompt,
     tokens: made.tokens,

@@ -15,6 +15,7 @@ import { prompts as figures } from "./figures.ts";
 import { prompts as fix } from "./fix.ts";
 import { prompts as generate } from "./generate.ts";
 import { attachedContexts, given, givenTemplate, type Pick, type Piece, type Subject, takesOf } from "./given.ts";
+import { prompts as glossary } from "./glossary.ts";
 import { prompts as headers } from "./headers.ts";
 import { prompts as media } from "./media.ts";
 import { prompts as overview } from "./overview.ts";
@@ -67,6 +68,7 @@ export const BUILT: PromptTemplate[] = [
   ...figures,
   ...headers,
   ...media,
+  ...glossary,
   ...overview,
   ...study,
   ...chat,

@@ -324,14 +324,15 @@ describe("the glossary given to the engine", () => {
   });
 
   it("media.glossary shows it; project.set video writes the team's own, null goes back to the documents'", async () => {
-    type G = { terms: string[]; kept: string[]; auto: boolean; prompt: string; tokens: number; budget: number };
+    type G = { terms: string[]; auto: boolean; prompt: string; tokens: number; budget: number };
     const auto = await call<G & { heard: { language: string; seconds: number }[]; languages: unknown[] }>(
       "media.glossary",
       {},
       P,
     );
     expect(auto).toMatchObject({ auto: true, budget: 170 });
-    expect(auto.prompt.startsWith("Glossaire : ")).toBe(true);
+    expect(auto.prompt).toBe(`Glossaire : ${auto.terms.join(", ")}.`);
+    expect(auto.tokens).toBeLessThanOrEqual(170);
     expect(auto.heard).toEqual([
       { language: "fr", seconds: 120 },
       { language: "de", seconds: 12 },
@@ -359,10 +360,30 @@ describe("the glossary given to the engine", () => {
     expect(own).toMatchObject({
       auto: false,
       prompt: "Glossaire : Sectionneur S12, PCC.",
-      kept: ["Sectionneur S12", "PCC"],
+      terms: ["Sectionneur S12", "PCC"],
     });
     await call("project.set", { video: { glossary: null, spoken: [] } }, P);
     expect(readProject(P).video).toEqual({ density: "detailed", translate: false });
+  });
+
+  it("a list the engine could not read whole is refused: every term written is sent", async () => {
+    const long = Array.from({ length: 60 }, (_, i) => `EQUIPEMENT_${i}`);
+    await expect(call("project.set", { video: { glossary: long } }, P)).rejects.toMatchObject({
+      code: "glossary-too-long",
+    });
+    expect(readProject(P).video?.glossary).toBeUndefined();
+  });
+
+  it("media.suggestGlossary: Claude writes it from the documents, it is saved as the team's and sent whole", async () => {
+    const r = await call<{ ok: boolean; terms: string[] }>("media.suggestGlossary", { ask: "les sous-stations" }, P);
+    expect(r.ok).toBe(true);
+    expect(r.terms.slice(0, 2)).toEqual(["S12", "Sectionneur"]);
+    expect(readProject(P).video?.glossary).toEqual(r.terms);
+    const g = await call<{ terms: string[]; auto: boolean; prompt: string }>("media.glossary", {}, P);
+    expect(g).toMatchObject({ auto: false, terms: r.terms, prompt: `Glossaire : ${r.terms.join(", ")}.` });
+    const sent = runs.find((s) => s.stdin.startsWith("Testimus transcription glossary run"));
+    expect(sent?.stdin).toContain("The team asks: « les sous-stations »");
+    expect(sent?.stdin).toMatch(/Candidates counted in the documents, most used first: .*S12/);
   });
 });
 

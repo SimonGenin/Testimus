@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
+import { cleanTerms, GLOSSARY_TOKENS, glossaryTokens } from "../../shared/glossary.ts";
 import { EFFORT, MODEL } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { runsIn } from "../jobs.ts";
@@ -391,7 +392,17 @@ export const commands = [
         const video = { ...cur.video, ...rest };
         if (spoken) video.spoken = [...new Set(spoken.map((l) => l.trim().toLowerCase()).filter(Boolean))];
         if (glossary === null) delete video.glossary;
-        else if (glossary) video.glossary = glossary.map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean);
+        else if (glossary) {
+          const terms = cleanTerms(glossary);
+          const tokens = glossaryTokens(terms, next.language);
+          if (tokens > GLOSSARY_TOKENS)
+            throw new UserError(
+              `The glossary takes about ${tokens} tokens; the engine reads ${GLOSSARY_TOKENS} at most, and every term written is sent.`,
+              "Remove the least useful terms (the last ones), or ask Claude: testimus media suggestGlossary.",
+              "glossary-too-long",
+            );
+          video.glossary = terms;
+        }
         if (!video.spoken?.length) delete video.spoken;
         if (!video.diskCapGB) delete video.diskCapGB;
         next.video = video;
