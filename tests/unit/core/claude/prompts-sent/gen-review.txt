@@ -1,0 +1,59 @@
+Use the check-test skill on the test below. Read it with tests_show; never modify a test or any other file.
+
+- local-0000aaaa — « Disjoncteur — ouverture à distance », 1 step. The mechanical pass found nothing.
+
+Record it with check_record, exactly once: { id, steps: [{ step, verdict, read }], findings: [] }.
+- steps: one entry per step of the test. verdict "supported" — the passages you opened state its expected result; "unsupported" — they do not, or say otherwise; "unverified" — you could not judge it, with why. read: the docId#anchor you opened to judge that step.
+- findings: only what a passage proves and a reviewer would act on (the bar of the skill); [] is a normal result. Give a finding a fix when the documents settle it — what the step should say instead, in one sentence, from which passage — and none when only the team can decide.
+A refused call says what is missing: correct it and call again.
+Messages and fixes in French.
+
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Then reply with one line: its findings counted by severity.
+
+About the generation these tests come from (its request: « Le sectionneur »):
+It left these behaviors without a test. Take a second look at each: search once more — rag_mentions on its terms, rag_related on the passage that asks for it — and say whether the reason holds.
+1. Manœuvre à distance d'un sectionneur avec TK — No source for the expected result: Aucun passage ne dit ce que l'écran montre pendant la manœuvre. [SOSIE_211_D401-1_3#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"]
+verdict "confirmed": the reason holds. "writable": a passage states what the tester must see — cite it as docId#anchor "quote". "unsure": you could not settle it. why: one sentence, in English.
+Then propose 3 to 5 requests the user could ask next about these tests as a whole — what the generation lacks or could do better, in the documents' terms; never a generic one, never one that asks again for a behavior no passage supports. label: a verb first, at most 32 characters; prompt: one or two sentences telling Claude what to do; scope "add" for new tests, "change" for the tests above. In English.
+End your reply with this block, valid JSON, nothing after it:
+```gen-review
+{"skipped": [{"n": 1, "verdict": "confirmed | writable | unsure", "why": "…", "sources": ["<docId#anchor \"quote\">"]}], "suggestions": [{"label": "…", "prompt": "…", "scope": "change | add"}]}
+```
+
+=====
+Use the check-test skill on the test below. Read it with tests_show; never modify a test or any other file.
+
+- local-0000aaaa — « Disjoncteur — ouverture à distance », 1 step. The mechanical pass found nothing.
+
+Record it with check_record, exactly once: { id, steps: [{ step, verdict, read }], findings: [] }.
+- steps: one entry per step of the test. verdict "supported" — the passages you opened state its expected result; "unsupported" — they do not, or say otherwise; "unverified" — you could not judge it, with why. read: the docId#anchor you opened to judge that step.
+- findings: only what a passage proves and a reviewer would act on (the bar of the skill); [] is a normal result. Give a finding a fix when the documents settle it — what the step should say instead, in one sentence, from which passage — and none when only the team can decide.
+A refused call says what is missing: correct it and call again.
+Messages and fixes in French.
+
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Then reply with one line: its findings counted by severity.
+
+About the generation these tests come from (its request: « Précise les commandes »):
+Propose 3 to 5 requests the user could ask next about the tests changed as a whole — what the generation lacks or could do better, in the documents' terms; never a generic one, never one that asks again for a behavior no passage supports. label: a verb first, at most 32 characters; prompt: one or two sentences telling Claude what to do; scope "add" for new tests, "change" for the tests above. In English.
+End your reply with this block, valid JSON, nothing after it:
+```gen-review
+{"suggestions": [{"label": "…", "prompt": "…", "scope": "change | add"}]}
+```

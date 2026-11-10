@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { exeLine } from "../../../../src/ui/screens/settings/ClaudeProgram.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
@@ -9,16 +9,6 @@ import { iconsIn } from "../../helpers/icons.ts";
 import { choose } from "../../helpers/select.ts";
 import { fakeDesktop } from "../../helpers/ui-desktop.tsx";
 import { calls, Fail, fakeJob, fakeNet, info, inputs, label, mountSettings, net, reset } from "./helpers.tsx";
-
-vi.mock("../../../../src/ui/components/claude/ContextsDialog.tsx", () => ({
-  ContextsDialog: ({ onClose }: { onClose: () => void }) => (
-    <div role="dialog" aria-label="Contexts stub">
-      <button type="button" onClick={onClose}>
-        Close contexts
-      </button>
-    </div>
-  ),
-}));
 
 const base = { claude: { exe: "" }, models: { allowRemote: true }, projects: [], lastProject: "" };
 let settings: Record<string, unknown> = base;
@@ -51,7 +41,6 @@ beforeEach(() => {
     return settings;
   };
   net.routes["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" });
-  net.routes["contexts.list"] = () => [];
 });
 
 afterEach(reset);
@@ -282,7 +271,7 @@ describe("Settings › Claude › agents at once", () => {
   });
 });
 
-describe("Settings › Claude › dock defaults, quick asks, default contexts", () => {
+describe("Settings › Claude › dock defaults, quick asks", () => {
   it("model and effort are saved at once", async () => {
     mountSettings(<ClaudeSection />);
     choose(await screen.findByLabelText("Default model"), "opus");
@@ -395,34 +384,14 @@ describe("Settings › Claude › dock defaults, quick asks, default contexts", 
     expect(screen.getByRole("group", { name: "New quick ask" })).toBeInTheDocument();
   });
 
-  it("default contexts: a Claude chip per saved context, by name, pressed when a default; manage, then read again", async () => {
+  it("holds no default contexts any more: they are set in Settings › Context, and the saved contexts are not read here", async () => {
     project = claude({ contexts: ["house"] });
-    net.routes["contexts.list"] = () => [
-      { id: "house", name: "House style", paths: [], files: [], hasNotes: true },
-      { id: "gloss", name: "", paths: [], files: [], hasNotes: false },
-    ];
     mountSettings(<ClaudeSection />);
-    const group = await screen.findByRole("group", { name: "Default contexts" });
-    const house = await within(group).findByRole("button", { name: "House style" });
-    expect(house).toHaveAttribute("aria-pressed", "true");
-    expect(house.querySelector('[data-icon="context"]')).not.toBeNull();
-    fireEvent.click(house);
-    await waitFor(() => expect(inputs("project.set")[0]).toEqual({ claude: { contexts: [] } }));
-    await waitFor(() =>
-      expect(within(group).getByRole("button", { name: "House style" })).toHaveAttribute("aria-pressed", "false"),
-    );
-    expect(within(group).queryByRole("button", { name: "gloss" })).toBeNull();
-    fireEvent.click(within(group).getByRole("button", { name: "Untitled context" }));
-    await waitFor(() => expect(inputs("project.set")[1]).toEqual({ claude: { contexts: ["gloss"] } }));
-    const before = calls("contexts.list").length;
-    fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close contexts" }));
-    await waitFor(() => expect(calls("contexts.list").length).toBe(before + 1));
-  });
-
-  it("no saved context yet", async () => {
-    mountSettings(<ClaudeSection />);
-    expect(await screen.findByText("No context yet.")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Quick asks" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Contexts" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Default contexts" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Manage contexts…" })).toBeNull();
+    expect(calls("contexts.list")).toHaveLength(0);
   });
 });
 

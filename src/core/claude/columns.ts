@@ -4,8 +4,9 @@ import { isMediaDoc, sourceType } from "../lib/media.ts";
 import { readProject, readXray } from "../lib/project.ts";
 import { listLocalTests, readTest } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, StepColumn, XrayJson } from "../types.ts";
-import { languageName } from "./gen-prompt.ts";
-import { CONTEXT_SLOT, contextLines, type PromptTemplate, readContexts } from "./prompt.ts";
+import { GIVEN_SLOT, given } from "./given.ts";
+import { languageName } from "./language.ts";
+import type { PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const COLUMNS_MARKER = "Testimus smart columns";
@@ -99,7 +100,7 @@ function columnLines(columns: StepColumn[], x: XrayJson, uses: Map<string, Use>)
   return lines;
 }
 
-export function columnsPrompt(project: string, ask: string, contexts: string[], note = ""): string {
+export function columnsPrompt(project: string, ask: string, context: string[]): string {
   const p = readProject(project);
   const x = readXray(project);
   const columns = stepColumns(project, x);
@@ -121,7 +122,7 @@ export function columnsPrompt(project: string, ask: string, contexts: string[], 
     glossary: Object.entries(p.glossary ?? {})
       .slice(0, 40)
       .map(([k, v]) => `- ${k}: ${oneLine(v, 120)}`),
-    context: contextLines(project, readContexts(project, contexts), note),
+    context,
   });
 }
 
@@ -130,7 +131,9 @@ export const prompts: PromptTemplate[] = [
     id: "columns",
     name: "Propose the smart columns",
     group: "Smart columns",
+    kind: "columns",
     usedBy: ["Settings › Smart columns: Ask Claude", "columns.suggest"],
+    answers: "The columns it would change or add, each with its whole description, in the block that ends the reply",
     text: () =>
       columnsText("{request}", {
         project: "{project name}, Jira project {key}",
@@ -144,7 +147,7 @@ export const prompts: PromptTemplate[] = [
         ],
         docs: "{document} « {title} » v{version} {status}; …",
         glossary: ["- {term}: {meaning}"],
-        context: CONTEXT_SLOT,
+        context: GIVEN_SLOT,
       }),
   },
 ];
@@ -236,20 +239,21 @@ export async function suggestColumns(o: {
   project: string;
   ask: string;
   contexts?: string[];
+  without?: string[];
   note?: string;
   model?: string;
   signal?: AbortSignal;
   onEvent?(e: ClaudeEvent): void;
 }): Promise<SuggestResult> {
   const p = readProject(o.project);
-  const contexts = [...new Set([...p.claude.contexts, ...(o.contexts ?? [])])];
+  const g = given(o.project, "columns", { kind: "project" }, o);
   const run = await runClaude({
     kind: "columns",
     project: o.project,
-    prompt: columnsPrompt(o.project, o.ask, contexts, o.note),
+    prompt: columnsPrompt(o.project, o.ask, g.lines),
     model: o.model ?? p.claude.model,
     effort: "medium",
-    contexts,
+    given: g,
     signal: o.signal,
     onEvent: o.onEvent,
   });

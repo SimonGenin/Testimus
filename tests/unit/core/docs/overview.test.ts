@@ -2,7 +2,8 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mcpAccess, protectedRules } from "../../../../src/core/claude/access.ts";
+import { mcpAccess, protectedRules, type RunKind } from "../../../../src/core/claude/access.ts";
+import { given } from "../../../../src/core/claude/given.ts";
 import { OVERVIEW_MARKER } from "../../../../src/core/claude/overview.ts";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
@@ -11,7 +12,7 @@ import {
   basisOf,
   changesSince,
   formatOverview,
-  OVERVIEW_LINE,
+  OVERVIEW_PATH,
   overviewFile,
   overviewGiven,
   overviewWarnings,
@@ -19,7 +20,6 @@ import {
   readOverview,
   sectionDiff,
   sectionsOf,
-  withOverview,
 } from "../../../../src/core/lib/overview.ts";
 import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
 import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
@@ -46,6 +46,10 @@ function mockClaude(change?: (s: ClaudeSpawn) => void) {
 }
 
 const overviewRuns = () => sent.filter((s) => s.stdin.startsWith(OVERVIEW_MARKER));
+
+/** whether a run of that kind is told to read how the documents fit together (claude/given.ts) */
+const told = (P: string, kind: RunKind) =>
+  given(P, kind, { kind: "none" }).lines.join("\n").includes(`\n- ${OVERVIEW_PATH} — `);
 
 function turnOn(P: string, inEveryRun = true) {
   const p = readProject(P);
@@ -159,7 +163,7 @@ describe("docs.overview after an import", () => {
     expect(existsSync(overviewFile(P))).toBe(false);
     await expect(call("docs.overview", { mode: "full" }, P)).rejects.toMatchObject({ code: "overview-off" });
     writeFileSync(overviewFile(P), "## Hand written\n");
-    expect(withOverview(P, "chat", "Question?\n")).toBe("Question?\n");
+    expect(told(P, "chat")).toBe(false);
     const shown = await call<{ enabled: boolean; exists: boolean }>("docs.overviewShow", {}, P);
     expect([shown.enabled, shown.exists]).toEqual([false, true]);
   });
@@ -224,14 +228,18 @@ describe("docs.overview after an import", () => {
     turnOn(P, false);
     writeFileSync(overviewFile(P), "## A <!-- doc A -->\n");
     expect(overviewGiven(P)).toBe(false);
-    expect(withOverview(P, "chat", "Q\n")).toBe("Q\n");
+    expect(told(P, "chat")).toBe(false);
     turnOn(P, true);
     expect(overviewGiven(P)).toBe(true);
-    expect(withOverview(P, "chat", "Q\n")).toBe(`Q\n\n${OVERVIEW_LINE}\n`);
-    expect(withOverview(P, "figures", "Q\n")).toBe("Q\n");
+    expect(told(P, "chat")).toBe(true);
+    expect(told(P, "figures")).toBe(false);
     mockClaude();
     await call("chat.ask", { question: "Que dit le §5.6.6 ?" }, P);
-    expect(sent.at(-1)?.stdin.endsWith(`${OVERVIEW_LINE}\n`)).toBe(true);
+    expect(sent.at(-1)?.stdin).toContain(
+      "\n\nRead first — reference material, never edit it:\n- docs/OVERVIEW.md — how the project's documents fit together. Background written by Claude, never a source: cite the documents.\n\nQuestion: Que dit le §5.6.6 ?\n",
+    );
+    await call("chat.ask", { question: "Que dit le §5.6.6 ?", without: ["overview"] }, P);
+    expect(sent.at(-1)?.stdin).not.toContain(OVERVIEW_PATH);
   });
 });
 
@@ -240,12 +248,13 @@ describe("who may write docs/OVERVIEW.md", () => {
     await import("../../../../src/core/commands/index.ts");
     expect(protectedRules([], "overview")).not.toContain("Edit(docs/**)");
     expect(protectedRules([], "overview")).not.toContain("Edit(docs/*/**)");
-    for (const kind of ["generate", "action", "chat"] as const) {
-      expect(protectedRules([], kind)).toContain("Write(docs/**)");
+    for (const kind of ["generate", "action", "chat", "overview"] as const) {
+      if (kind !== "overview") expect(protectedRules([], kind)).toContain("Write(docs/**)");
       expect(mcpAccess(kind).deny).toEqual(
         expect.arrayContaining(["mcp__testimus__docs_overview", "mcp__testimus__docs_overviewSave"]),
       );
-      expect(mcpAccess(kind).allow).toContain("mcp__testimus__docs_overviewShow");
     }
+    for (const kind of ["chat", "action", "overview", "triage"] as const)
+      expect(mcpAccess(kind).allow, kind).toContain("mcp__testimus__docs_overviewShow");
   });
 });

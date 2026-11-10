@@ -13,7 +13,22 @@ import type { RunKind } from "./access.ts";
 
 // ponytail: .testimus/runs/<runId>/run.json is the whole run — who ran (kind, model, effort, job), and, for a run
 // that may edit tests, the snapshot it can be reverted from (scope, before…)
-export type RunMeta = { kind: RunKind; model: string; effort: Effort; at: string; jobId?: string; label?: string };
+// ponytail: what the run was sent, kept with it — the prompt's size, how many of the app's tools, and each piece that
+// went with it (claude/given.ts): « what was sent, when » is read from the runs themselves
+export type RunSent = {
+  chars: number;
+  tools: number;
+  given: { id: string; kind: string; name: string; how: string; chars: number }[];
+};
+export type RunMeta = {
+  kind: RunKind;
+  model: string;
+  effort: Effort;
+  at: string;
+  jobId?: string;
+  label?: string;
+  sent?: RunSent;
+};
 export type RunRecord = Partial<Omit<RunMeta, "at">> & {
   runId: string;
   at: string;
@@ -34,7 +49,7 @@ export type RunRecord = Partial<Omit<RunMeta, "at">> & {
 const testMd = (project: string, id: string) => join(testDir(project, id), "test.md");
 const runFile = (project: string, runId: string) => join(project, ".testimus", "runs", runId, "run.json");
 
-const META = ["kind", "model", "effort", "jobId", "label"] as const;
+const META = ["kind", "model", "effort", "jobId", "label", "sent"] as const;
 
 // ponytail: the snapshot is taken first, then who ran is added to the same file
 export function writeRunMeta(project: string, runId: string, meta: RunMeta): void {
@@ -54,6 +69,7 @@ export function readRunMeta(project: string, runId: string): RunMeta | null {
         at: m.at ?? "",
         ...(m.jobId ? { jobId: m.jobId } : {}),
         ...(m.label ? { label: m.label } : {}),
+        ...(m.sent ? { sent: m.sent } : {}),
       }
     : null;
 }

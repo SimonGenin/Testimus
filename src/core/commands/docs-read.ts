@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { docContexts } from "../claude/prompt.ts";
+import { refuseLeftOut } from "../claude/access.ts";
+import { attachedContexts } from "../claude/given.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
 import { contextMtime, docDir, docShape, headingAt, partOf, readContext, readDoc, readDocMd } from "../lib/docs.ts";
@@ -223,6 +224,7 @@ export const commands = [
     positional: ["id", "anchor"],
     async run(ctx, input) {
       const project = projectOf(ctx);
+      refuseLeftOut(ctx.llm, input.id);
       const doc = readDoc(project, input.id);
       const shape = docShape(project, input.id);
       const told = {
@@ -230,7 +232,7 @@ export const commands = [
         ...whatOf(doc),
         context: readContext(project, input.id),
         contextMtime: contextMtime(project, input.id),
-        contexts: docContexts(project, input.id),
+        contexts: attachedContexts(project, { kind: "doc", docId: input.id }).map((a) => a.id),
         lines: shape.lines,
         chars: shape.chars,
       };

@@ -8,7 +8,7 @@ import { startJob } from "../../../../src/core/jobs.ts";
 import { readProject, readSettings, writeSettings } from "../../../../src/core/lib/project.ts";
 import { projectOverview } from "../../../../src/core/lib/project-info.ts";
 import { initProject } from "../../../../src/core/lib/project-init.ts";
-import { shipSkills, templateDir } from "../../../../src/core/lib/shipped.ts";
+import { rulesHash, shipSkills, splitRules, templateDir } from "../../../../src/core/lib/shipped.ts";
 import { copyFixture, tempRoot } from "../../helpers/faces.ts";
 
 let project = "";
@@ -68,9 +68,11 @@ describe("initProject", () => {
     const dir = join(tempRoot("project-new"), "fresh");
     const r = initProject(dir, { jiraProject: "ABC" });
     expect(readProject(dir)).toMatchObject({ name: "ABC", jiraProject: "ABC" });
-    expect(r.created).toEqual(expect.arrayContaining(["project.json", "xray.json", "docs/", "tests/"]));
+    expect(r.created).toEqual(expect.arrayContaining(["project.json", "xray.json", "docs/", "tests/", "CLAUDE.md"]));
     const again = initProject(dir, {});
-    expect(again.kept).toEqual(expect.arrayContaining(["project.json", "xray.json", "CLAUDE.md"]));
+    expect(again.kept).toEqual(["project.json", "xray.json"]);
+    expect(again.created).toEqual([]);
+    expect(again.beside).toEqual([]);
   });
 });
 
@@ -86,19 +88,94 @@ describe("shipSkills", () => {
     writeFileSync(join(project, GEN), OLD);
   };
 
-  it("brings a skill an older Testimus shipped up to this version, and touches nothing outside .claude/skills", () => {
+  it("brings a skill an older Testimus shipped up to this version, and touches nothing else of the project", () => {
     olderShipped();
-    writeFileSync(join(project, "CLAUDE.md"), "the team's");
+    const before = readFileSync(join(project, "project.json"), "utf8");
+    const mcp = readFileSync(join(project, ".mcp.json"), "utf8");
     const r = shipSkills(project);
     expect(r).toEqual({ created: [], kept: [], beside: [] });
     expect(readFileSync(join(project, GEN))).toEqual(readFileSync(join(templateDir(), GEN)));
-    expect(readFileSync(join(project, "CLAUDE.md"), "utf8")).toBe("the team's");
+    expect(readFileSync(join(project, "CLAUDE.md"))).toEqual(readFileSync(join(templateDir(), "CLAUDE.md")));
+    expect(readFileSync(join(project, "project.json"), "utf8")).toBe(before);
+    expect(readFileSync(join(project, ".mcp.json"), "utf8")).toBe(mcp);
     expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
   });
 
   const ledger = () => JSON.parse(readFileSync(shippedFile(), "utf8")) as Record<string, string[] | string>;
   const hash = (s: string | Buffer) => createHash("sha256").update(s).digest("hex");
   const DRAFT = ".claude/skills/draft-comment/SKILL.md";
+
+  describe("the rules of CLAUDE.md follow the app, the team's notes are kept", () => {
+    const RULES = "CLAUDE.md";
+    const rulesFile = () => join(project, RULES);
+    const template = () => readFileSync(join(templateDir(), RULES), "utf8");
+    const OLD_RULES = "# Testimus project\n\nAn older rule: cite the page.\n\n";
+    const NOTES = "## Team notes\n\nLe PCC est le poste de commande centralisé.\n";
+    const olderRules = (notes: string) => {
+      initProject(project, {});
+      const known = ledger();
+      known[RULES] = [rulesHash(OLD_RULES), ...(known[RULES] as string[])];
+      writeFileSync(shippedFile(), JSON.stringify(known));
+      writeFileSync(rulesFile(), `${OLD_RULES}${notes}`);
+    };
+
+    it("the part above « Team notes » is the rules, the rest the team's; a file without the heading is all rules", () => {
+      expect(splitRules(`${OLD_RULES}${NOTES}`)).toEqual({ rules: OLD_RULES, notes: NOTES });
+      expect(splitRules("# Rules\r\n\r\n## Team notes\r\nA\r\n")).toEqual({
+        rules: "# Rules\n\n",
+        notes: "## Team notes\nA\n",
+      });
+      expect(splitRules(OLD_RULES)).toEqual({ rules: OLD_RULES, notes: "" });
+      expect(splitRules("# Rules\n\n### Team notes\n").notes).toBe("");
+      expect(splitRules(template()).notes).toMatch(/^## Team notes\n/);
+    });
+
+    it("the rules are known by their own hash: notes the team wrote never make them look edited", () => {
+      expect(rulesHash(`${OLD_RULES}${NOTES}`)).toBe(rulesHash(OLD_RULES));
+      expect(rulesHash(`${OLD_RULES.trimEnd()}\r\n\r\n\r\n${NOTES}`)).toBe(rulesHash(OLD_RULES));
+      expect(rulesHash(`${OLD_RULES}One more rule.\n${NOTES}`)).not.toBe(rulesHash(OLD_RULES));
+      expect(rulesHash(OLD_RULES)).toMatch(/^[0-9a-f]{16}$/);
+
+      initProject(project, {});
+      const mine = `${splitRules(template()).rules}${NOTES}`;
+      writeFileSync(rulesFile(), mine);
+      expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
+      expect(readFileSync(rulesFile(), "utf8")).toBe(mine);
+      expect(existsSync(join(project, "CLAUDE.new.md"))).toBe(false);
+    });
+
+    it("rules an older Testimus shipped are replaced by this version's, the notes below as the team left them", () => {
+      olderRules(NOTES);
+      expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
+      expect(readFileSync(rulesFile(), "utf8")).toBe(`${splitRules(template()).rules}${NOTES}`);
+      expect(ledger()[RULES]).toContain(rulesHash(template()));
+      expect(shipSkills(project)).toEqual({ created: [], kept: [], beside: [] });
+    });
+
+    it("an older file without notes gets this version whole, its empty « Team notes » too", () => {
+      olderRules("");
+      shipSkills(project);
+      expect(readFileSync(rulesFile(), "utf8")).toBe(template().replace(/\r\n/g, "\n"));
+    });
+
+    it("rules the team edited stay as they are, and this version lands beside them", () => {
+      initProject(project, {});
+      const edited = `# Our own rules\n\nAlways cite the DMI.\n\n${NOTES}`;
+      writeFileSync(rulesFile(), edited);
+      expect(shipSkills(project)).toEqual({ created: [], kept: [RULES], beside: ["CLAUDE.new.md"] });
+      expect(readFileSync(rulesFile(), "utf8")).toBe(edited);
+      expect(readFileSync(join(project, "CLAUDE.new.md"), "utf8")).toBe(template());
+    });
+
+    it("a CLAUDE.md the team deleted stays gone for a run; project init writes it again", () => {
+      initProject(project, {});
+      rmSync(rulesFile());
+      expect(shipSkills(project).created).toEqual([]);
+      expect(existsSync(rulesFile())).toBe(false);
+      expect(initProject(project, {}).created).toContain(RULES);
+      expect(readFileSync(rulesFile(), "utf8")).toBe(template());
+    });
+  });
 
   it("keeps a skill the team edited and writes this version beside it; adds a skill never shipped to the project", () => {
     olderShipped();

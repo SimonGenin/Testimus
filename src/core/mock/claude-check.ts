@@ -1,18 +1,23 @@
+import { CHECK_MARKER } from "../claude/check.ts";
+import { REVIEW_TAG } from "../claude/gen-review.ts";
 import { invoke } from "../commands/index.ts";
 import { fieldOrder } from "../lib/columns.ts";
 import { readCheck, readTest, testExists, writeTest } from "../lib/store.ts";
-import type { Finding, Test } from "../types.ts";
+import type { Finding, StepVerdict, Test } from "../types.ts";
 import { mockStream, registerMockScript } from "./claude.ts";
-import { mockPropose, runIdIn } from "./claude-actions.ts";
 
 const DOC = "SOSIE_211_D401-1_3";
 const TK_QUOTE = "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés";
 const TK_RESULT = "Le menu contextuel ne propose que Propriétés.";
+const TK_FIX = `Écrire que le menu ne propose que Propriétés, comme le dit le §5.6.6 (« ${TK_QUOTE} »).`;
 
 type Found = Omit<Finding, "pass">;
 
 const idIn = (prompt: string, skill: string) =>
   new RegExp(`Use the ${skill} skill on the test ([A-Za-z0-9._-]+)\\.`).exec(prompt)?.[1];
+
+// ponytail: the tests a check request names, one per line « - <id> — « summary », n steps. »
+const checkedIn = (prompt: string) => [...prompt.matchAll(/^- ([A-Za-z0-9][\w.-]*) — « /gm)].map((m) => m[1]);
 
 export function mockFindings(test: Test): Found[] {
   const out: Found[] = [];
@@ -34,6 +39,7 @@ export function mockFindings(test: Test): Found[] {
         severity: "warning",
         message: `« ${expected} » ne dit pas ce que le testeur doit voir : le §5.6.6 liste les commandes proposées selon le type de sectionneur.`,
         sources: [`${DOC}#§5.6.6`],
+        fix: "Lister les commandes que le §5.6.6 donne pour ce type de sectionneur.",
       });
   });
   const said = test.steps.map((s) => Object.values(s.fields).join(" ")).join(" ");
@@ -43,6 +49,7 @@ export function mockFindings(test: Test): Found[] {
       severity: "warning",
       message: "Aucun step ne vérifie qu'un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés.",
       sources: [`${DOC}#§5.6.6`],
+      fix: TK_FIX,
     });
   if (!out.length) {
     const first = test.steps.flatMap((s) => s.sources).find((x) => x.anchor);
@@ -56,8 +63,21 @@ export function mockFindings(test: Test): Found[] {
   return out.slice(0, 3);
 }
 
-function record(project: string, id: string, findings: Found[]): void {
-  invoke("check.record", { id, findings }, { project }).catch(() => {});
+// ponytail: a verdict per step, as the real check gives — the passage each step cites was read; a step a finding
+// disproves is unsupported, one without a source could not be judged
+export function mockVerdicts(test: Test, found: Found[]): StepVerdict[] {
+  return test.steps.map((s, i) => {
+    const step = i + 1;
+    const read = [...new Set(s.sources.filter((x) => x.anchor).map((x) => `${x.docId}#${x.anchor}`))];
+    if (found.some((f) => f.step === step && f.severity === "error"))
+      return { step, verdict: "unsupported", read: read.length ? read : [`${DOC}#§5.6.6`] };
+    if (!read.length) return { step, verdict: "unverified", read: [], why: "Le step ne cite aucun passage." };
+    return { step, verdict: "supported", read };
+  });
+}
+
+function record(project: string, id: string, findings: Found[], steps: StepVerdict[]): void {
+  invoke("check.record", { id, findings, steps }, { project }).catch(() => {});
 }
 
 export function mockFix(project: string, id: string): string[] {
@@ -84,39 +104,72 @@ export function mockFix(project: string, id: string): string[] {
   return changes;
 }
 
+// ponytail: what the scripted Claude says about a generation when the check request asks — every reason holds but the
+// faulty TK, which §5.6.6 does speak of, and a few requests that name what these tests hold
+export function mockReview(prompt: string): string {
+  const items = [...prompt.matchAll(/^(\d+)\. (.+?) — /gm)].map((m) => ({ n: Number(m[1]), item: m[2] }));
+  const tests = checkedIn(prompt);
+  const skipped = items.map(({ n, item }) =>
+    /TK pendant/i.test(item)
+      ? {
+          n,
+          verdict: "writable",
+          why: "§5.6.6 says what the menu of a sectionneur with TK offers: the test can check it while the TK is faulty.",
+          sources: [`${DOC}#§5.6.6 "${TK_QUOTE}"`],
+        }
+      : { n, verdict: "confirmed", why: "Searched again for its terms: no passage states what the screen shows." },
+  );
+  const suggestions = [
+    {
+      label: "Add the faulty TK cases",
+      prompt: "Add tests where the sectionneur's TK is faulty: what the menu and the Propriétés window show then.",
+      scope: "add",
+    },
+    {
+      label: "Check each command of the menu",
+      prompt: "In each test that opens the context menu, check every command it lists against §5.6.6.",
+      scope: "change",
+    },
+    ...(tests.length > 1
+      ? [
+          {
+            label: `Merge the ${tests.length} menu tests`,
+            prompt: "Merge the tests that open the same context menu into one test, keeping every check and source.",
+            scope: "change",
+          },
+        ]
+      : []),
+  ];
+  return `\n\n\`\`\`${REVIEW_TAG}\n${JSON.stringify({ ...(items.length ? { skipped } : {}), suggestions }, null, 2)}\n\`\`\``;
+}
+
 registerMockScript(
-  (prompt) => prompt.includes("Use the check-test skill on the test"),
+  (prompt) => prompt.startsWith(CHECK_MARKER),
   (spawn) => {
-    const id = idIn(spawn.stdin, "check-test") ?? "";
-    let found: Found[] = [];
+    const ids = checkedIn(spawn.stdin);
+    const review = spawn.stdin.includes(`\`\`\`${REVIEW_TAG}`) ? mockReview(spawn.stdin) : "";
+    const counts: string[] = [];
     return mockStream(spawn, {
       delayMs: 60,
       tools: [
         { name: "Skill", input: { skill: "check-test" } },
-        { name: "mcp__testimus__tests_show", input: { id } },
+        ...ids.map((id) => ({ name: "mcp__testimus__tests_show", input: { id } })),
         { name: "mcp__testimus__rag_passage", input: { ref: `${DOC}#§5.6.6` } },
-        { name: "mcp__testimus__check_record", input: { id } },
+        ...ids.map((id) => ({ name: "mcp__testimus__check_record", input: { id } })),
       ],
       edit: () => {
-        if (!testExists(spawn.cwd, id)) return;
-        found = mockFindings(readTest(spawn.cwd, id).test);
-        record(spawn.cwd, id, found);
-        const vague = found.find((f) => f.kind === "vague-result" && f.step);
-        const runId = runIdIn(spawn.stdin);
-        if (vague && runId)
-          mockPropose(spawn.cwd, {
-            runId,
-            problem: vague.message,
-            title: `Make step ${vague.step} say what the menu shows`,
-            why: "§5.6.6 lists what the menu of this object proposes.",
-            plan: ["Read §5.6.6", "Rewrite the expected result", "Add the source line"],
-            scope: { kind: "step", testId: id, step: vague.step },
-          });
+        for (const id of ids) {
+          if (!testExists(spawn.cwd, id)) continue;
+          const { test } = readTest(spawn.cwd, id);
+          const found = mockFindings(test);
+          record(spawn.cwd, id, found, mockVerdicts(test, found));
+          const n = (s: string) => found.filter((f) => f.severity === s).length;
+          counts.push(`${id} : ${n("error")} erreur(s), ${n("warning")} avertissement(s), ${n("info")} info(s).`);
+        }
       },
-      texts: ["J'ai relu chaque step avec le passage cité. ", "Les anomalies sont enregistrées."],
+      texts: ["J'ai relu chaque step avec le passage cité. ", "Les verdicts et les anomalies sont enregistrés."],
       get result() {
-        const n = (s: string) => found.filter((f) => f.severity === s).length;
-        return `${found.length} anomalie(s) : ${n("error")} erreur(s), ${n("warning")} avertissement(s), ${n("info")} info(s).`;
+        return `${counts.join("\n")}${review}`;
       },
     });
   },

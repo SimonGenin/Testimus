@@ -69,7 +69,7 @@ const header = (
     onAsk: vi.fn(),
     onOpenKey: vi.fn(),
     onContexts: vi.fn(),
-    onManageContexts: vi.fn(),
+    onContext: vi.fn(),
     onFolder: vi.fn((f: string) => update((t) => ({ ...t, folder: f }))),
     onFolders: vi.fn(),
     onRetry: vi.fn(),
@@ -120,7 +120,7 @@ const header = (
           testContexts={{ effective: ["c1"], own: null }}
           update={update}
           onContexts={h.onContexts}
-          onManageContexts={h.onManageContexts}
+          onContext={h.onContext}
           {...p.details}
         />
       </DetailsCard>
@@ -380,7 +380,7 @@ describe("the editor's head", () => {
   });
 
   it("attaches, detaches and resets Claude contexts", () => {
-    const { onContexts, onManageContexts, again } = header({ open: true });
+    const { onContexts, onContext, again } = header({ open: true });
     expect(screen.getByText("Glossary")).toBeInTheDocument();
     const box = () => screen.getByRole("combobox", { name: "Claude contexts" });
     fireEvent.focus(box());
@@ -400,8 +400,8 @@ describe("the editor's head", () => {
     fireEvent.focus(box());
     expect(screen.queryByRole("option")).toBeNull();
     again({ open: true, details: { contexts: [], testContexts: { effective: [], own: null } } });
-    fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));
-    expect(onManageContexts).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Context…" }));
+    expect(onContext).toHaveBeenCalled();
     again({ open: true, details: { testContexts: null } });
     expect(screen.queryByRole("button", { name: /Remove Glossary/ })).toBeNull();
   });

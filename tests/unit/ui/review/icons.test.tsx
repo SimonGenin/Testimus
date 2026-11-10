@@ -126,7 +126,7 @@ describe("Review › the design's icons", () => {
   });
 
   it("the To fix note says Claude is not connected, with plug, only when it is not (n° 84)", () => {
-    const { rerender } = render(
+    const { rerender } = mountReview(
       <FixNote id="T-9" initial="" claudeReady={false} onCancel={vi.fn()} onSubmit={vi.fn()} />,
     );
     expect(iconOf(screen.getByText("Claude is not connected"))).toBe("plug");

@@ -21,7 +21,9 @@ export type Again = {
   mode: Mode;
   text: string;
   scope?: ClaudeScope;
+  /** what the user ticked for this run: saved contexts in place of the attached ones, pieces left out */
   contexts?: string[];
+  without?: string[];
   note?: string;
   label?: string;
   model: string;

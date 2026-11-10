@@ -40,6 +40,8 @@ const PATHS: Rule[] = [
     (m) => [
       ["contexts.ofTest", { testId: m[1] }],
       ["tests.folds", { id: m[1] }],
+      ["contexts.ofProject"],
+      ["claude.preview"],
     ],
   ],
   [/^tests\/([^/]+)\/\.state\.json$/, (m) => [["tests.show", { id: m[1] }], ["tests.list"]]],
@@ -47,7 +49,7 @@ const PATHS: Rule[] = [
     /^tests\/([^/]+)(\/|$)/,
     (m) => [["tests.show", { id: m[1] }], ["tests.list"], ["review.queue"], ["project.info"], ["gen.preview"]],
   ],
-  [/^docs\/OVERVIEW\.md$/, () => [["docs.overviewShow"], ["claude.prompts"]]],
+  [/^docs\/OVERVIEW\.md$/, () => [["docs.overviewShow"], ["claude.prompts"], ["claude.preview"]]],
   [
     /^docs\/([^/]+)\/doc\.json$/,
     (m) => [
@@ -59,6 +61,7 @@ const PATHS: Rule[] = [
       ["rag.passage"],
       ["gen.preview"],
       ["media.show", { doc: m[1] }],
+      ["claude.preview"],
     ],
   ],
   [
@@ -72,7 +75,7 @@ const PATHS: Rule[] = [
       ["media.show", { doc: m[1] }],
     ],
   ],
-  [/^docs\/([^/]+)\/context\.md$/, (m) => [["docs.show", { id: m[1] }]]],
+  [/^docs\/([^/]+)\/context\.md$/, (m) => [["docs.show", { id: m[1] }], ["claude.preview"]]],
   [
     /^docs\/([^/]+)\/(video|files)\//,
     (m) => [
@@ -83,7 +86,7 @@ const PATHS: Rule[] = [
   ],
   [
     /^docs\/([^/]+)(\/|$)/,
-    () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"], ["docs.overviewShow"]],
+    () => [["docs.list"], ["rag.status"], ["project.info"], ["gen.preview"], ["docs.overviewShow"], ["claude.preview"]],
   ],
   [
     /^project\.json$/,
@@ -97,15 +100,23 @@ const PATHS: Rule[] = [
       ["rag.status"],
       ["system.doctor"],
       ["claude.prompts"],
+      ["claude.preview"],
       ["docs.overviewShow"],
     ],
   ],
   [/^(xray|columns)\.json$/, () => [["project.info"], ["columns.list"]]],
-  [/^CLAUDE\.md$/, () => [["project.notes"], ["claude.prompts"]]],
-  [/^\.claude\/skills\//, () => [["claude.prompts"]]],
+  [/^CLAUDE\.md$/, () => [["project.notes"], ["claude.prompts"], ["claude.preview"]]],
+  [/^\.claude\/skills\//, () => [["claude.prompts"], ["claude.preview"]]],
   [
     /^contexts\//,
-    () => [["contexts.list"], ["contexts.show"], ["contexts.ofTest"], ["contexts.ofProject"], ["claude.prompts"]],
+    () => [
+      ["contexts.list"],
+      ["contexts.show"],
+      ["contexts.ofTest"],
+      ["contexts.ofProject"],
+      ["claude.prompts"],
+      ["claude.preview"],
+    ],
   ],
   [/^\.testimus\/actions\//, () => [["actions.list"], ["actions.show"]]],
   [/^test-runs\/([^/]+)(\/|$)/, (m) => [["runs.list"], ["runs.show", { run: m[1] }], ["runs.history"]]],
@@ -132,7 +143,7 @@ const KINDS: Rule[] = [
     /^docs\.(add|addFiles|convert)$|^docs-|^describe-figures$/,
     () => [["docs.list"], ["docs.show"], ["media.show"], ["media.transcript"], ["rag.status"]],
   ],
-  [/^docs\.overview$/, () => [["docs.overviewShow"], ["claude.prompts"]]],
+  [/^docs\.overview$/, () => [["docs.overviewShow"], ["claude.prompts"], ["claude.preview"]]],
   [/^generate$/, () => [["review.queue"], ["gen.preview"], ["gen.show"], ["actions.list"]]],
   [/^chat$/, () => [["chat.list"], ["chat.show"]]],
   [

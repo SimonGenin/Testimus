@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { UserError } from "../command.ts";
 import type { SearchUse } from "../types.ts";
 
 // ponytail: what a Claude run may touch — the built-in tools and the app's own commands (the MCP tools) by kind of
@@ -62,14 +63,16 @@ export const TOOLS: Record<RunKind, string[]> = {
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
 
+// ponytail: what a run answers with, and what it may change — each a command of the app, so a refused answer says what
+// to fix and Claude corrects it in the same run
 const EXTRA: Record<RunKind, string[]> = {
   chat: [],
   figures: [],
   media: [],
   headers: [],
-  check: ["check.record", "actions.propose"],
+  check: ["check.record"],
   analyze: ["analysis.record"],
-  generate: ["tests.create", ...TEST_WRITES, "check.run", "actions.propose"],
+  generate: ["tests.create", ...TEST_WRITES, "check.run"],
   fix: TEST_WRITES,
   run: [...TEST_WRITES, "check.run"],
   triage: ["actions.propose"],
@@ -77,6 +80,71 @@ const EXTRA: Record<RunKind, string[]> = {
   columns: [],
   study: ["actions.propose"],
   overview: [],
+};
+
+const DOCS = [
+  "rag.search",
+  "rag.mentions",
+  "rag.related",
+  "rag.passage",
+  "rag.figure",
+  "rag.status",
+  "docs.list",
+  "docs.show",
+  "docs.page",
+  "media.show",
+  "media.transcript",
+  "media.frame",
+];
+const TESTS = ["tests.list", "tests.show", "search.all", "columns.list", "check.show"];
+const RUNS = ["runs.list", "runs.show", "runs.history"];
+const FOLDERS = ["xray.folders", "xray.preconditions"];
+
+// ponytail: the read-only commands a kind of run is given — the ones its job uses, not every read of the app: each
+// tool's definition is sent with every turn of the run (62 of them were about 10 000 tokens a turn, for a run that
+// only looks at pictures too). A question may be about anything, and so may a problem the app met: chat keeps a wide
+// set, triage the whole of it
+export const READS: Record<Exclude<RunKind, "action">, readonly string[] | "all"> = {
+  chat: [
+    ...DOCS,
+    ...TESTS,
+    ...RUNS,
+    ...FOLDERS,
+    "xray.search",
+    "xray.status",
+    "xray.plan",
+    "issue.comments",
+    "issue.people",
+    "issue.transitions",
+    "contexts.list",
+    "contexts.show",
+    "actions.list",
+    "analysis.show",
+    "review.queue",
+    "gen.show",
+    "docs.overviewShow",
+  ],
+  figures: [],
+  media: [],
+  headers: [],
+  check: [...DOCS, "tests.list", "tests.show", "search.all", "columns.list"],
+  analyze: [...DOCS, ...TESTS, "analysis.show"],
+  generate: [...DOCS, ...TESTS, ...FOLDERS],
+  fix: [...DOCS, ...TESTS],
+  run: [...DOCS, ...TESTS, ...RUNS, ...FOLDERS],
+  triage: "all",
+  columns: [...DOCS, ...TESTS, "contexts.list", "contexts.show", "xray.fields"],
+  study: ["docs.inspect", "docs.page", "docs.show", "docs.list", "rag.passage", "rag.figure"],
+  overview: [
+    "docs.list",
+    "docs.show",
+    "docs.overviewShow",
+    "rag.search",
+    "rag.mentions",
+    "rag.related",
+    "rag.passage",
+    "rag.figure",
+  ],
 };
 
 export type CommandInfo = { name: string; mutates: boolean; job?: string };
@@ -112,16 +180,40 @@ export function readOnlyCommands(): string[] {
 const NOT_IN_ACTION =
   /^runs\.(?!list$|show$|history$)|^(claude\.run|analysis\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|chat\.ask|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|remove|setDir|use|usePack)$/;
 
-export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
+export function runCommands(kind: RunKind): string[] {
+  const all = commandList().map((c) => c.name);
+  if (kind === "action") return all.filter((n) => !NOT_IN_ACTION.test(n)).sort();
   const ro = readOnlyCommands();
+  const reads = READS[kind];
+  const allowed = new Set([...(reads === "all" ? ro : ro.filter((n) => reads.includes(n))), ...EXTRA[kind]]);
+  return all.filter((n) => allowed.has(n)).sort();
+}
+
+export function mcpAccess(kind: RunKind): { allow: string[]; deny: string[] } {
+  const allowed = new Set(runCommands(kind));
   const all = commandList()
     .map((c) => c.name)
     .sort();
-  const allowed = new Set(kind === "action" ? all.filter((n) => !NOT_IN_ACTION.test(n)) : [...ro, ...EXTRA[kind]]);
   return {
     allow: all.filter((n) => allowed.has(n)).map(mcpName),
     deny: all.filter((n) => !allowed.has(n)).map(mcpName),
   };
+}
+
+// ponytail: the documents the user took out of a run — the run's own MCP server is started with their ids
+// (claude/run.ts), and every command that finds or reads a document for Claude leaves them out or refuses them
+export const WITHOUT_DOCS = "TESTIMUS_WITHOUT_DOCS";
+
+export const leftOutDocs = (llm?: boolean): string[] =>
+  llm ? (process.env[WITHOUT_DOCS] ?? "").split(",").filter(Boolean) : [];
+
+export function refuseLeftOut(llm: boolean | undefined, docId: string): void {
+  if (leftOutDocs(llm).includes(docId))
+    throw new UserError(
+      `${docId} is left out of this run.`,
+      "The user took this document out of the run: do not search, read or cite it.",
+      "doc-left-out",
+    );
 }
 
 const PROTECTED = [

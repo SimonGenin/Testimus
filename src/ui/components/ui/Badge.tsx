@@ -29,6 +29,7 @@ const styles = stylex.create({
   claude: { color: color.claudeText, backgroundColor: color.claudeSubtle },
   accent: { color: color.accentText, backgroundColor: color.accentSubtle },
   outline: { backgroundColor: "transparent", boxShadow: `inset 0 0 0 ${border.width} currentColor` },
+  quiet: { paddingInlineStart: 0, paddingInlineEnd: 0, backgroundColor: "transparent", color: color.textMuted },
   ring: { boxShadow: `inset 0 0 0 ${border.width} currentColor` },
   button: {
     margin: 0,
@@ -138,6 +139,9 @@ export type BadgeProps = {
   icon?: IconName;
   /** a state that is a link or a reference (« Jira version ») */
   outline?: boolean;
+  /** a state that asks for no look (« Supported », « Confirmed », among others that do): the icon and the word alone,
+   * muted, on no ground */
+  quiet?: boolean;
   /** md 22 px (default) · sm 18 px, in dense meta lines and tab counts */
   size?: "sm" | "md";
   /** a number pill */
@@ -162,6 +166,7 @@ export function Badge({
   ink,
   icon,
   outline = false,
+  quiet = false,
   size: s = "md",
   count = false,
   dot = false,
@@ -203,6 +208,7 @@ export function Badge({
         !icon && !busy && styles.noIcon,
         outline && styles.outline,
         s === "sm" && styles.sm,
+        quiet && styles.quiet,
         count && styles.count,
         count && s === "sm" && styles.countSm,
       )}
@@ -309,6 +315,29 @@ export const COLUMN_ROLE = {
   keep: { label: "Kept as written", tone: "neutral", icon: "lock" },
   open: { label: "Open to changes", tone: "claude" },
   leave: { label: "Left empty", tone: "neutral", icon: "minus" },
+} as const satisfies Record<string, Word>;
+
+// ponytail: what the check says of one step, findings or not (Review) — and Testimus' own word when the run never
+// opened the passages it names: the verdict is then no proof
+export const STEP_VERDICT = {
+  supported: { label: "Supported", tone: "success", icon: "check" },
+  unsupported: { label: "Unsupported", tone: "danger", icon: "x-circle" },
+  unverified: { label: "Not verified", tone: "warning", icon: "circle-dashed" },
+  "not-opened": {
+    label: "Not opened during the check",
+    tone: "warning",
+    icon: "alert-triangle",
+    tooltip: "Testimus saw no call of the check that opened the passages it names: this verdict is no proof.",
+  },
+} as const satisfies Record<string, Word>;
+
+// ponytail: a behavior a generation left without a test — the second look Claude took at its reason while checking,
+// and what Testimus itself could not confirm about it
+export const SECOND_LOOK = {
+  confirmed: { label: "Confirmed", tone: "success", icon: "check" },
+  writable: { label: "Can be written", tone: "warning", icon: "generate" },
+  unsure: { label: "Unsure", tone: "neutral", icon: "circle-dashed" },
+  doubt: { label: "Doubt", tone: "warning", icon: "alert-triangle" },
 } as const satisfies Record<string, Word>;
 
 // ponytail: a Jira status is Jira's own word, so it is not a fixed list: its meaning is read from the word — done

@@ -7,35 +7,31 @@ import { readProject } from "../lib/project.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import { readState } from "../rag/indexer.ts";
 import type { Effort } from "../types.ts";
-import { proposeLines } from "./actions.ts";
-import type { PlannedTest, Skipped } from "./gen-reply.ts";
-import { CONTEXT_SLOT, contextLines, type PromptTemplate, readContexts } from "./prompt.ts";
+import {
+  isSection,
+  PLAN_TAG,
+  type PlannedTest,
+  REASON_HELP,
+  REASON_LABEL,
+  REPORT_TAG,
+  type Skipped,
+} from "./gen-reply.ts";
+import { GIVEN_SLOT } from "./given.ts";
+import { languageName } from "./language.ts";
+import type { PromptTemplate } from "./prompt.ts";
 
 // ponytail: what a generation is asked — its input checked, the index gate, the prompt of a run (the whole request or
-// one planned test)
+// one planned test). The prompt holds what is this run's alone: the request, its scope, the columns, the folder, the
+// language and the shape of the report; how to search, design and write is the generate-tests skill's, said once
 
 export const GEN_MARKER = "Use the generate-tests skill";
-export const REPORT_TAG = "gen-report";
-export const PLAN_TAG = "test-plan";
 export const PLAN_MARKER = "use the plan-tests skill";
 // ponytail: the length of a test is a preference, never a limit — said in the prompt too, so it holds over a
 // generate-tests skill the team edited before this rule shipped
 export const STEPS_LINE =
-  "Length: aim for 3 to 15 steps per test, but the request decides — when it asks for a longer test, or a scenario does not cut cleanly, write it as long as it needs. Never refuse a test, nor skip a behavior, because of its number of steps.";
+  "Length: about 3 to 15 steps per test, but the request decides — a test is written as long as it needs. Never refuse a test, nor leave a behavior out, because of its number of steps.";
 // ponytail: every request that takes more than one test is planned, then written one run per test, as many at a time
 // as the agents setting and the PC's load allow (lib/agents.ts) — the same total, a fraction of the wait
-
-const LANGUAGES: Record<string, string> = {
-  fr: "French",
-  en: "English",
-  de: "German",
-  es: "Spanish",
-  it: "Italian",
-  nl: "Dutch",
-  pt: "Portuguese",
-};
-
-export const languageName = (code: string) => LANGUAGES[code.toLowerCase()] ?? code;
 
 export type GenInput = {
   request: string;
@@ -46,29 +42,31 @@ export type GenInput = {
   effort?: Effort;
   check?: boolean;
   contexts?: string[];
+  without?: string[];
   note?: string;
   discard?: boolean;
   resume?: string;
 };
 
 const clean = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim()).filter(Boolean))];
-export const isSection = (s: string) => /^[^#\s]+#\S.*$/.test(s);
 
 function scopeSections(project: string, i: GenInput): number {
   const docs = clean(i.docs).filter((d) => existsSync(join(project, "docs", d, "doc.md")));
   return clean(i.sections).length + docs.reduce((n, d) => n + anchorsOf(readDocMd(project, d)).sections.length, 0);
 }
 
+/** the documents a generation is about: the ones asked whole and those of the sections asked */
+export const scopeDocs = (i: Pick<GenInput, "docs" | "sections">): string[] => [
+  ...new Set([...clean(i.docs), ...clean(i.sections).map((s) => s.split("#")[0])]),
+];
+
 export type PlanPart = { n: number; of: number; request: string };
 
 // ponytail: what a run that adds to an earlier generation is told (gen.revise add) — the generation's first request,
-// the tests it has (never written again) and the items it could not write (written now when the request covers them,
-// and named back under « covered »); categories are those its items not written already use, so a planned run or an
-// added one files the same kind of item under the same words
+// the tests it has (never written again) and the items it left without a test (written now when the request covers
+// them, and named back under « covered »)
 export type AddPart = { request: string; tests: string[]; skipped: Skipped[] };
-export type GenMore = { add?: AddPart; categories?: string[] };
-
-export const categoriesOf = (skipped: Skipped[]) => [...new Set(skipped.map((s) => s.category))];
+export type GenMore = { add?: AddPart };
 
 export function checkGenInput(i: GenInput, project?: string): void {
   if (!i.request.trim() && !clean(i.sections).length && !clean(i.docs).length)
@@ -88,13 +86,15 @@ export function checkGenInput(i: GenInput, project?: string): void {
 }
 
 // ponytail: a document search cannot find gives tests without sources, so the run is refused; one changed since the
-// last index is still found (its old passages), so the run goes on with a warning
+// last index is still found (its old passages), so the run goes on with a warning. A document the user left out of
+// the run is not searched
 export function scopeIndex(
   project: string,
-  i: Pick<GenInput, "docs" | "sections">,
+  i: Pick<GenInput, "docs" | "sections" | "without">,
 ): { searched: string[]; unindexed: string[]; stale: string[] } {
-  const asked = new Set([...clean(i.docs), ...clean(i.sections).map((s) => s.split("#")[0])]);
-  const docs = listDocs(project).filter((d) => isConverted(d) && (!asked.size || asked.has(d.id)));
+  const asked = new Set(scopeDocs(i));
+  const out = new Set((i.without ?? []).flatMap((w) => (w.startsWith("doc:") ? [w.slice(4)] : [])));
+  const docs = listDocs(project).filter((d) => isConverted(d) && !out.has(d.id) && (!asked.size || asked.has(d.id)));
   return {
     searched: docs.map((d) => d.id),
     unindexed: docs.filter((d) => d.indexed === "missing").map((d) => d.id),
@@ -122,8 +122,7 @@ export function indexGate(project: string, i: GenInput): string[] {
 export function genPrompt(
   project: string,
   i: GenInput,
-  contextIds: string[] = [],
-  runId?: string,
+  context: string[] = [],
   part?: PlanPart,
   more: GenMore = {},
 ): string {
@@ -135,32 +134,35 @@ export function genPrompt(
       columns: columnGuidance(project),
       folders: p.folders.join(", ") || "none",
       language: p.language,
-      context: contextLines(project, readContexts(project, contextIds), i.note),
+      context,
     },
-    runId,
     part,
     more,
   );
 }
 
+const REASONS = (Object.keys(REASON_HELP) as (keyof typeof REASON_HELP)[]).join(" | ");
+
+export const reportShape = (covered: boolean): string =>
+  `{"tests": ["local-…"], "skipped": [{"item": "<the behavior>", "reason": "${REASONS}", "why": "<one or two concrete sentences>", "sources": ["<docId#anchor \\"quote\\" that asks for it>"], "searched": ["<what you searched>"], "read": ["<docId#anchor you opened>"], "unblock": "<what would let it be written, and who can bring it>", "test": "<already-tested: the id of the test>"}]${covered ? ', "covered": ["<an item listed above you wrote a test for>"]' : ""}}`;
+
 // ponytail: what a generation run is told, from what the project says — the run and Settings › Context both call it
 export function genText(
   i: Pick<GenInput, "request" | "sections" | "docs" | "folder">,
   facts: { size: number | string; columns: string[]; folders: string; language: string; context: string[] },
-  runId?: string,
   part?: { n: number | string; of: number | string; request: string },
   more: GenMore = {},
 ): string {
   const sections = clean(i.sections);
   const docs = clean(i.docs);
   const lines = [
-    `${GEN_MARKER} to write Xray manual tests for the request below, in this project folder.`,
+    `${GEN_MARKER} to write Xray manual tests for the request below.`,
     "",
-    `Request: ${i.request.trim() || "(none in words — test the documents and sections below)"}`,
+    `Request: ${i.request.trim() || "(none in words — test what the documents and sections below specify)"}`,
   ];
   if (part)
     lines.push(
-      `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test; the other tests of the plan are written by other runs.`,
+      `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test. What the other tests of the plan take is theirs: it is not left out, never report it.`,
     );
   const add = more.add;
   if (add) {
@@ -169,53 +171,44 @@ export function genText(
       lines.push("It already has these tests — never write them again:", ...add.tests.map((t) => `- ${t}`));
     if (add.skipped.length)
       lines.push(
-        'Items it could not write before — write a test for each one the request covers and a source now supports, and name it under "covered" in the report:',
-        ...add.skipped.map((s) => `- ${s.item} (${s.category}${s.why ? `: ${s.why}` : ""})`),
+        'Left without a test before — write each one the request covers and a source now supports, and name it under "covered":',
+        // ponytail: an item of a ledger older than the reasons keeps its own words (its category)
+        ...add.skipped.map((s) => `- ${s.item} (${s.category || REASON_LABEL[s.reason]}${s.why ? `: ${s.why}` : ""})`),
       );
   }
   const size = facts.size;
   if (!part)
     lines.push(
-      `The scope holds ${size} section${size === 1 ? "" : "s"}. When testing it takes more than one test, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block instead of the report block below.`,
+      `The scope holds ${size} section${size === 1 ? "" : "s"}. When it takes more than one test, ${PLAN_MARKER} instead: write no test and end your reply with its ${PLAN_TAG} block.`,
     );
   if (docs.length)
     lines.push(
       `Documents in scope, each in full (${i.request.trim() ? "find in them what the request is about" : "test the behaviors they specify"}): ${docs.join(", ")}`,
     );
-  if (sections.length)
-    lines.push(`Document sections in scope (read each with rag_passage and in doc.md): ${sections.join(", ")}`);
+  if (sections.length) lines.push(`Sections in scope: ${sections.join(", ")}`);
+  // ponytail: the search is the plan's when it gave this test its sections — four planned runs that each search the
+  // scope again cost four times the turns for the same passages (measured: 4.7 M tokens for four tests of one
+  // section); a planned test given whole documents has no section to read and searches like any other
+  lines.push(
+    "",
+    part && sections.length
+      ? "The plan already searched the scope: read the sections above in full, follow what they refer to (rag_related), and search again only for a term they bring that the plan could not have seen."
+      : "Search before you design, as section 1 of the skill says: one rag_mentions per term of the scope, the behavior in other words and its negative side, rag_related on each section you will cite, each section read in full. The reviewer sees every search and every passage opened; a test written from a handful of passages misses the exception, the amendment and the refusal.",
+  );
   lines.push(...facts.columns, "");
   lines.push(
     i.folder?.trim()
-      ? `Target Xray folder: ${i.folder.trim()}`
-      : `Target Xray folder: none given — pick the closest of project.json folders (${facts.folders}), else /`,
-    `Language of the tests: ${languageName(facts.language)} (project.json language "${facts.language}").`,
-    "",
-    "Search the index thoroughly before you design (skill section 1, step 3): list the scope's terms, one rag_mentions per term with every page read, rag_search in several wordings including the negative side, rag_related on every section you cite, then each section in full in doc.md. The reviewer sees every search and every passage of this run; a test written from a handful of passages misses the exceptions, the amendments and the negative paths.",
-    "Write only new tests: one folder tests/local-<8 hex>/test.md per test (tests_create allocates it), with review: draft.",
+      ? `Xray folder of the tests: ${i.folder.trim()}`
+      : `Xray folder of the tests: none given — ${facts.folders === "none" ? "/" : `the closest of ${facts.folders}, else /`}`,
+    `Language of the tests: ${languageName(facts.language)}.`,
     STEPS_LINE,
-    "Pictures matter as much as sources: a step that acts on or looks at a screen, a menu, a symbol or a colour gets the document's picture of it with tests_addImage (skill section 3, Figures) — when the document has one.",
-    "Never modify, rename or delete an existing test. Never call a tool that writes to Jira.",
   );
   lines.push(...facts.context);
-  const categories = more.categories ?? [];
-  if (categories.length)
-    lines.push(
-      "",
-      `Categories already used for the items not written in this generation: ${categories.map((c) => `« ${c} »`).join(", ")} — file an item of the same nature under the same words.`,
-    );
-  if (runId)
-    lines.push(
-      ...proposeLines(
-        runId,
-        'a document section you could not test because its text is a picture or a table the conversion lost — { kind: "doc", docId }, where: "doc:<docId>"',
-      ),
-    );
   lines.push(
     "",
-    `When you finish, end your reply with the report block of the skill (section 4), exactly this shape:`,
+    "End your reply with the report of the skill — every behavior of the request you wrote no step for, each with its reason and what you did before giving up:",
     "```" + REPORT_TAG,
-    `{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]${add?.skipped.length ? ', "covered": ["<an item not written before, as listed above, you wrote a test for>"]' : ""}}`,
+    reportShape(!!add?.skipped.length),
     "```",
     "",
   );
@@ -231,56 +224,54 @@ const FACTS = {
   ]),
   folders: "{project.json folders}",
   language: "{language}",
-  context: CONTEXT_SLOT,
+  context: GIVEN_SLOT,
 };
+
+const REPORTED =
+  "The tests written (snapshotted) and a report block: each behavior left without a test, with a reason from a closed list, what was searched and read, the passage that asks for it and what would let it be written. A report that cannot be read is asked again";
 
 export const prompts: PromptTemplate[] = [
   {
     id: "generate",
     name: "Generation request",
     group: "Generation",
+    kind: "generate",
     usedBy: ["Generate", "gen.tests"],
+    answers: `${REPORTED}; or a plan of tests when the scope takes more than one`,
     text: () =>
-      genText(
-        { request: "{request}", docs: ["{documents}"], sections: ["{sections}"], folder: "{folder}" },
-        FACTS,
-        "{runId}",
-      ),
+      genText({ request: "{request}", docs: ["{documents}"], sections: ["{sections}"], folder: "{folder}" }, FACTS),
   },
   {
     id: "generate-planned",
     name: "One test of a plan",
     group: "Generation",
+    kind: "generate",
     usedBy: ["Generate: one run per planned test", "gen.tests"],
+    answers: REPORTED,
     text: () =>
-      genText(
-        { request: "{planned test} ({technique})", sections: ["{sections}"], folder: "{folder}" },
-        FACTS,
-        "{runId}",
-        {
-          n: "{k}",
-          of: "{n}",
-          request: "{request}",
-        },
-        { categories: ["{category already used}"] },
-      ),
+      genText({ request: "{planned test} ({technique})", sections: ["{sections}"], folder: "{folder}" }, FACTS, {
+        n: "{k}",
+        of: "{n}",
+        request: "{request}",
+      }),
   },
   {
     id: "generate-add",
     name: "More tests for a generation",
     group: "Generation",
+    kind: "generate",
     usedBy: ["Generate › Ask for changes › Add tests", "gen.revise (add)"],
+    answers: REPORTED,
     text: () =>
       genText(
         { request: "{request}", docs: ["{documents}"], sections: ["{sections}"], folder: "{folder}" },
         FACTS,
-        "{runId}",
         undefined,
         {
           add: {
             request: "{first request}",
             tests: ["{test it already has}"],
-            skipped: [{ item: "{item not written}", category: "{category}", why: "{why}" }],
+            skipped: [{ item: "{item left without a test}", reason: "no-source", category: "", why: "{why}" }],
           },
         },
       ),

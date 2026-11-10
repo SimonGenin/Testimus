@@ -275,14 +275,14 @@ describe("runs.remove and Claude's access", () => {
     expect(existsSync(join(project, "tests", "LFRPS12-1398", "test.md"))).toBe(true);
   });
 
-  it("lets every Claude run read the runs and none mark a result", () => {
-    for (const kind of ["chat", "check", "generate", "fix", "run", "action"] as const) {
-      const { allow, deny } = mcpAccess(kind);
-      expect(allow).toEqual(
-        expect.arrayContaining(["mcp__testimus__runs_list", "mcp__testimus__runs_show", "mcp__testimus__runs_history"]),
-      );
+  it("lets the Claude runs that may be asked about a test run read the runs, and none mark a result", () => {
+    const reads = ["mcp__testimus__runs_list", "mcp__testimus__runs_show", "mcp__testimus__runs_history"];
+    for (const kind of ["chat", "run", "action", "triage"] as const)
+      expect(mcpAccess(kind).allow, kind).toEqual(expect.arrayContaining(reads));
+    for (const kind of ["check", "generate", "fix", "analyze", "figures"] as const)
+      for (const r of reads) expect(mcpAccess(kind).allow, `${kind} ${r}`).not.toContain(r);
+    for (const kind of ["chat", "check", "generate", "fix", "run", "action", "triage"] as const)
       for (const w of ["setResult", "comment", "attach", "detach", "create", "remove", "export", "import"])
-        expect(deny, `${kind} ${w}`).toContain(`mcp__testimus__runs_${w}`);
-    }
+        expect(mcpAccess(kind).deny, `${kind} ${w}`).toContain(`mcp__testimus__runs_${w}`);
   });
 });

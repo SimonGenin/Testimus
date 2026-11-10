@@ -2,7 +2,9 @@ import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFi
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import { runCommands } from "../../../../src/core/claude/access.ts";
 import { BUILT } from "../../../../src/core/claude/catalog.ts";
+import { GIVEN_SLOT, givenTemplate } from "../../../../src/core/claude/given.ts";
 import { contextDir } from "../../../../src/core/claude/prompt.ts";
 import { sha256 } from "../../../../src/core/lib/hash.ts";
 import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
@@ -20,7 +22,12 @@ type Given = {
   file?: string;
   usedBy: string[];
   text: string;
+  kind?: string;
+  answers?: string;
+  takes?: { overview: boolean; documents: boolean; contexts: string; tools: string[]; files: string[] };
 };
+
+const SLOT = GIVEN_SLOT[1];
 
 const ROOT = join(import.meta.dirname, "..", "..", "..", "..");
 const CORE = join(ROOT, "src", "core");
@@ -137,14 +144,42 @@ describe("claude.prompts lists everything Claude is given", () => {
     for (const t of BUILT) expect(by(t.id)).toMatchObject({ origin: "built", name: t.name, text: t.text() });
     expect(by("generate").path).toBeUndefined();
     expect(by("generate").text).toContain("Request: {request}");
-    expect(by("generate").text).toContain("{contexts}");
+    expect(by("generate").text).toContain(SLOT);
     expect(by("ask-step").text).toMatch(
       /^Use the edit-test skill for the request below\.\nScope: step \{step\} of test \{test\}\./,
     );
-    expect(by("contexts").text).toContain("Additional context from the user for this run:\n{note}");
+    expect(by("given")).toMatchObject({ name: "What goes with a run", group: "Every run", origin: "built" });
+    expect(by("given").text).toBe(givenTemplate());
+    expect(by("given").text).toContain("From the user, for this run only:\n{note}");
+    expect(by("given").text).toContain("- {document}: {what the team wrote about it}");
     expect(by("triage").text).toContain("[job:{job}] {problem}");
-    expect(by("triage").text).not.toContain("{what the team knows about the document}");
-    expect(by("triage-doc").text).toContain("{what the team knows about the document}");
+    expect(by("triage").text).not.toContain(SLOT);
+    expect(by("triage-doc").text).toContain(SLOT);
+  });
+
+  it("a built prompt says the kind of run that sends it, what goes with that kind and what it gives back", async () => {
+    const out = await call<Given[]>("claude.prompts", {}, project());
+    const by = (id: string) => out.find((p) => p.id === id) as Given;
+    for (const t of BUILT) {
+      expect(by(t.id).kind, t.id).toBe(t.kind);
+      expect(by(t.id).answers, t.id).toBe(t.answers || undefined);
+      expect(!!by(t.id).takes, t.id).toBe(!!t.kind);
+    }
+    expect(BUILT.filter((t) => !t.kind).map((t) => t.id)).toEqual(["sign-in", "doctor-sign-in", "given"]);
+    expect(by("check").answers).toContain("check_record, once per test");
+    expect(by("check").takes).toMatchObject({
+      overview: true,
+      documents: true,
+      files: ["Read", "Glob", "Grep", "Skill"],
+    });
+    expect(by("check").takes?.tools).toEqual(runCommands("check").map((n) => n.replace(".", "_")));
+    expect(by("check").takes?.tools).toContain("check_record");
+    expect(by("check").takes?.tools).not.toContain("tests_edit");
+    expect(by("figures").takes).toMatchObject({ overview: false, documents: false, tools: [], files: ["Read"] });
+    expect(by("study").takes).toMatchObject({ overview: true, documents: false });
+    expect(by("generate").takes?.contexts).toContain("unless the user picks others for the run");
+    expect(by("skill:check-test").kind).toBeUndefined();
+    expect(by("context:glossary").takes).toBeUndefined();
   });
 
   it("is in the groups' order, the skills first in a group", async () => {
@@ -163,18 +198,16 @@ describe("claude.prompts lists everything Claude is given", () => {
       "System check",
       "Every run",
     ]);
-    expect(out.filter((p) => p.group === "Generation").map((p) => p.origin)).toEqual([
-      "skill",
-      "skill",
-      "built",
-      "built",
-      "built",
-      "built",
+    expect(out.filter((p) => p.group === "Generation").map((p) => p.id)).toEqual([
+      "skill:generate-tests",
+      "skill:plan-tests",
+      "generate",
+      "generate-planned",
+      "generate-add",
     ]);
     expect(out.filter((p) => p.group === "Every run").map((p) => p.id)).toEqual([
       "file:CLAUDE.md",
-      "overview-line",
-      "contexts",
+      "given",
       "context:glossary",
     ]);
   });
@@ -188,7 +221,8 @@ describe("claude.prompts lists everything Claude is given", () => {
     const docs = out.filter((g) => g.group === "Documents").map((g) => g.id);
     expect(docs).toEqual(expect.arrayContaining(["skill:overview-documents", "overview-update", "overview-full"]));
     const every = out.filter((g) => g.group === "Every run").map((g) => g.id);
-    expect(every.slice(0, 3)).toEqual(["file:CLAUDE.md", "file:docs/OVERVIEW.md", "overview-line"]);
+    expect(every.slice(0, 3)).toEqual(["file:CLAUDE.md", "file:docs/OVERVIEW.md", "given"]);
+    expect(out.find((g) => g.id === "file:docs/OVERVIEW.md")?.usedBy[0]).toContain("a run may leave it out");
     expect(out.find((g) => g.id === "file:docs/OVERVIEW.md")?.text).toContain("<!-- doc A -->");
     writeProject(P, { ...p, claude: { ...p.claude, overview: { enabled: true, inEveryRun: false } } });
     const off = await call<Given[]>("claude.prompts", {}, P);
@@ -196,9 +230,10 @@ describe("claude.prompts lists everything Claude is given", () => {
   });
 
   it("a project whose team deleted the skills, without CLAUDE.md, still lists what Testimus builds", async () => {
-    const shipped = Object.fromEntries(
-      readdirSync(join(templateDir(), ".claude", "skills")).map((s) => [`.claude/skills/${s}/SKILL.md`, ["0"]]),
-    );
+    const shipped = Object.fromEntries([
+      ...readdirSync(join(templateDir(), ".claude", "skills")).map((s) => [`.claude/skills/${s}/SKILL.md`, ["0"]]),
+      ["CLAUDE.md", ["0"]],
+    ]);
     mkdirSync(join(dir, ".testimus"), { recursive: true });
     writeFileSync(join(dir, ".testimus", "shipped.json"), JSON.stringify(shipped));
     rmSync(join(dir, ".claude"), { recursive: true, force: true });

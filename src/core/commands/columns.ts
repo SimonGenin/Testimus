@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { suggestColumns } from "../claude/columns.ts";
-import { MODEL } from "../claude/schemas.ts";
+import { CONTEXT_IDS, MODEL, NOTE, WITHOUT } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { removeColumn, saveColumn, setModes, setOrder, stepColumns } from "../lib/columns.ts";
 import { COLUMN_SHOW, STEP_COLUMN } from "../schemas.ts";
@@ -75,10 +75,11 @@ export const commands = [
       "Ask Claude what each step column should hold — it reads the columns, Xray's step fields, the tests, the documents and the contexts, and proposes descriptions or new local columns. Nothing is saved: apply a proposal with columns.save.",
     input: z.object({
       ask: z.string().default("").describe("What the team wants from the columns, in words; empty = review them all"),
-      contexts: z
-        .array(z.string().regex(/^[\w-]+$/))
-        .default([])
-        .describe("Saved contexts (contexts.list ids) to read, on top of the project's"),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved context ids for this run, in place of the ones its subject attaches (a test's or a document's own list, else the project's defaults; claude.preview shows them).",
+      ),
+      without: WITHOUT,
+      note: NOTE,
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
     }),
     output: z.object({
@@ -117,6 +118,8 @@ export const commands = [
         project: projectOf(ctx),
         ask: input.ask,
         contexts: input.contexts,
+        without: input.without,
+        note: input.note,
         model: input.model,
         signal: ctx.signal,
         onEvent: (e) => ctx.claude(e),

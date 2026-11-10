@@ -144,7 +144,9 @@ describe("rag.related", () => {
         expect(skill(n), n).toMatch(/rag_related/);
         expect(skill(n), n).toMatch(/^---\nname: /);
       }
-      expect(skill("generate-tests")).toMatch(/"consulted": \[/);
+      expect(skill("generate-tests")).toMatch(/"searched": \[/);
+      expect(skill("generate-tests")).toMatch(/"read": \[/);
+      expect(skill("generate-tests")).not.toMatch(/"consulted"/);
       expect(skill("check-test")).toMatch(/`Read` the image/);
       expect(skill("check-test")).toMatch(/A test with no finding is a normal result/);
       expect(skill("check-test")).toMatch(/## The bar/);

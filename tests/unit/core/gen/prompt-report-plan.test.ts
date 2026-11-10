@@ -7,11 +7,18 @@ import {
   genPrompt,
   indexGate,
   PLAN_MARKER,
-  PLAN_TAG,
   plannedInput,
-  REPORT_TAG,
+  prompts,
+  scopeIndex,
 } from "../../../../src/core/claude/gen-prompt.ts";
-import { parseGenReport, parsePlan, type Skipped, STOPPED } from "../../../../src/core/claude/gen-reply.ts";
+import {
+  PLAN_TAG,
+  parseGenReport,
+  parsePlan,
+  REPORT_TAG,
+  type Skipped,
+  STOPPED,
+} from "../../../../src/core/claude/gen-reply.ts";
 import { toolStep } from "../../../../src/core/claude/generate.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
@@ -21,7 +28,6 @@ import { readTest } from "../../../../src/core/lib/store.ts";
 import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-gen.ts";
 import type { JobEvent } from "../../../../src/core/types.ts";
-import { afterGenOut, isAfterGen } from "../../helpers/after-gen.ts";
 import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -73,7 +79,6 @@ Le menu propose Ouvrir, Fermer et Propriétés.
 
 function fake(lines: (s: ClaudeSpawn) => string[], during?: (s: ClaudeSpawn) => void) {
   env.spawnClaude = async (s): Promise<ClaudeOut> => {
-    if (isAfterGen(s)) return afterGenOut(s);
     seen.push(s);
     during?.(s);
     const ls = lines(s);
@@ -83,6 +88,10 @@ function fake(lines: (s: ClaudeSpawn) => string[], during?: (s: ClaudeSpawn) => 
 }
 
 const norm = (s: string) => s.replace(/\s+/g, " ");
+const report = (o: unknown) => `\`\`\`${REPORT_TAG}\n${typeof o === "string" ? o : JSON.stringify(o)}\n\`\`\``;
+const SEARCH_LINE = "Search before you design, as section 1 of the skill says:";
+const PLANNED_LINE =
+  "The plan already searched the scope: read the sections above in full, follow what they refer to (rag_related), and search again only for a term they bring that the plan could not have seen.";
 
 beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "testimus-gen-")), "LFRPS12");
@@ -106,23 +115,54 @@ describe("generation prompt", () => {
     });
     expect(p).toMatch(/^Use the generate-tests skill/);
     expect(p).toContain("Request: Menu contextuel des sectionneurs");
-    expect(p).toContain("rag_passage and in doc.md): SOSIE_211_D401-1_3#§5.6.6\n");
+    expect(p).toContain("\nSections in scope: SOSIE_211_D401-1_3#§5.6.6\n");
     expect(p).toContain("Smart columns — write each as ### <column> in every step, following its description:");
-    expect(p).toContain("Target Xray folder: /Traction/Sectionneurs");
-    expect(p).toContain('Language of the tests: French (project.json language "fr").');
-    expect(p).toContain("review: draft");
-    expect(p).toContain("Never modify, rename or delete an existing test.");
+    expect(p).toContain("\nXray folder of the tests: /Traction/Sectionneurs\n");
+    expect(p).toContain("\nLanguage of the tests: French.\n");
     expect(p).toContain(`\`\`\`${REPORT_TAG}\n{"tests"`);
     expect(p.startsWith("Scope:")).toBe(false);
+  });
+
+  it("holds what is this run's alone: how a test is written stays in the skill, said once", () => {
+    const p = genPrompt(dir, { request: "Menu contextuel des sectionneurs", sections: ["SOSIE_211_D401-1_3#§5.6.6"] });
+    expect(p).not.toContain("review: draft");
+    expect(p).not.toMatch(/rename or delete/);
+    const skill = readFileSync(
+      join(import.meta.dirname, "..", "..", "..", "..", "templates/project/.claude/skills/generate-tests/SKILL.md"),
+      "utf8",
+    );
+    expect(norm(skill)).toContain("`review: draft`");
+    expect(norm(skill)).toMatch(/Only new tests: never change, rename or delete an existing one/);
   });
 
   it("without a folder offers the project's folders; without words says so", () => {
     const p = genPrompt(dir, { request: " ", docs: ["SOSIE_211_D401-1_3"] });
     expect(p).toContain(
-      "pick the closest of project.json folders (/Traction/Sectionneurs, /Traction/Disjoncteurs, /Signalisation)",
+      "\nXray folder of the tests: none given — the closest of /Traction/Sectionneurs, /Traction/Disjoncteurs, /Signalisation, else /\n",
     );
     expect(p).toContain("Request: (none in words");
-    expect(p).not.toContain("Document sections");
+    expect(p).toContain("\nDocuments in scope, each in full (test the behaviors they specify): SOSIE_211_D401-1_3\n");
+    expect(p).not.toContain("Sections in scope");
+  });
+
+  it("a run of its own searches before it designs; a planned test reads its sections, the plan searched already", () => {
+    const whole = genPrompt(dir, { request: "Le sectionneur", sections: ["SOSIE_211_D401-1_3#§5.6.6"] });
+    expect(whole).toContain(`\n\n${SEARCH_LINE} one rag_mentions per term of the scope`);
+    expect(whole).not.toContain("The plan already searched");
+    const part = genPrompt(dir, { request: "Ouvrir le sectionneur", sections: ["SOSIE_211_D401-1_3#§5.6.6"] }, [], {
+      n: 2,
+      of: 4,
+      request: "Le sectionneur",
+    });
+    expect(part).toContain(
+      `This is test 2 of 4 of a plan for: Le sectionneur. Write exactly this one test. What the other tests of the plan take is theirs: it is not left out, never report it.\nSections in scope: SOSIE_211_D401-1_3#§5.6.6\n\n${PLANNED_LINE}\n`,
+    );
+    expect(part).not.toContain(SEARCH_LINE);
+    const template = (id: string) => prompts.find((t) => t.id === id)?.text() ?? "";
+    expect(template("generate")).toContain(SEARCH_LINE);
+    expect(template("generate-add")).toContain(SEARCH_LINE);
+    expect(template("generate-planned")).toContain(PLANNED_LINE);
+    expect(template("generate-planned")).not.toContain(SEARCH_LINE);
   });
 
   it("refuses an empty request and a malformed section", () => {
@@ -149,6 +189,25 @@ describe("generation prompt", () => {
     expect(indexGate(dir, { request: "x" })).toEqual(["SOSIE_211_D401-1_4"]);
   });
 
+  it("a document left out of the run is not searched: not indexed, it stops nothing", () => {
+    markIndexed(dir, [
+      "SOSIE_211_D401-1_3",
+      "Manoeuvre_d_un_sectionneur_au_PCC",
+      "Notes_de_reunion",
+      "RECETTE_TCO_12-10",
+    ]);
+    const without = ["doc:SOSIE_211_D401-1_4", "context:glossary", "overview"];
+    expect(indexGate(dir, { request: "x", without })).toEqual([]);
+    const scope = scopeIndex(dir, { without });
+    expect(scope.searched).not.toContain("SOSIE_211_D401-1_4");
+    expect(scope.searched).toContain("SOSIE_211_D401-1_3");
+    expect(scope.unindexed).toEqual([]);
+    expect(scopeIndex(dir, {}).unindexed).toEqual(["SOSIE_211_D401-1_4"]);
+    expect(() => indexGate(dir, { request: "x", docs: ["SOSIE_211_D401-1_4"], without })).toThrow(
+      /No converted document to generate from/,
+    );
+  });
+
   it("gen.tests fails before any Claude run when a document in scope is not indexed", async () => {
     markIndexed(dir, ["SOSIE_211_D401-1_3"]);
     fake(() => [result("never")]);
@@ -160,44 +219,82 @@ describe("generation prompt", () => {
 });
 
 describe("gen-report parsing", () => {
-  it("reads the last tagged block", () => {
+  const B = {
+    item: "Menu B",
+    reason: "no-source",
+    why: "No passage states what the menu B shows.",
+    sources: ['D#§1 "Le menu B est décrit plus loin"'],
+    searched: ["menu B"],
+    read: ["D#§1", "D#§2"],
+    unblock: "A passage that lists what the menu B holds.",
+  };
+
+  it("reads the last tagged block: each item with its reason, what was searched and read, what would let it be written", () => {
     const t = [
       "Done.",
-      "```gen-report",
-      '{"tests": ["local-00000001"], "skipped": []}',
-      "```",
+      report({ tests: ["local-00000001"], skipped: [] }),
       "Corrected:",
-      "```gen-report",
-      '{"tests": ["local-1a2b3c4d"], "skipped": [{"item": "Menu B", "why": "no source"}, "Menu C", {"why": "no item"}]}',
-      "```",
+      report({
+        tests: ["local-1a2b3c4d"],
+        skipped: [B, { item: "Menu C", reason: "already-tested", why: "LFRPS12-1398 opens it.", test: "LFRPS12-1398" }],
+        covered: ["Menu A"],
+      }),
     ].join("\n");
     expect(parseGenReport(t)).toEqual({
       found: true,
       tests: ["local-1a2b3c4d"],
       skipped: [
-        { item: "Menu B", category: "Other", why: "no source" },
-        { item: "Menu C", category: "Other", why: "" },
+        { ...B, category: "No source for the expected result" },
+        {
+          item: "Menu C",
+          reason: "already-tested",
+          category: "Already tested",
+          why: "LFRPS12-1398 opens it.",
+          test: "LFRPS12-1398",
+        },
       ],
-      consulted: [],
-      covered: [],
+      covered: ["Menu A"],
+      errors: [],
     });
-    const withConsulted = ["```gen-report", '{"tests": [], "consulted": ["D#§1", 3]}', "```"].join("\n");
-    expect(parseGenReport(withConsulted).consulted).toEqual(["D#§1"]);
+    expect(parseGenReport(report({}))).toEqual({ found: true, tests: [], skipped: [], covered: [], errors: [] });
   });
 
-  it("accepts an untagged json block holding skipped, and says when there is no report", () => {
-    expect(parseGenReport('x\n```json\n{"skipped": [{"item": "A", "why": "w"}]}\n```').skipped).toEqual([
-      { item: "A", category: "Other", why: "w" },
+  it("a reason asks for its proof: what was searched, the passage that asks for it, the test that verifies it", () => {
+    const item = { item: "Menu B", why: "No passage states what the menu B shows." };
+    const errors = (o: Record<string, unknown>) => parseGenReport(report({ skipped: [{ ...item, ...o }] })).errors;
+    expect(errors({ reason: "no-source" })).toEqual([
+      "skipped.0.searched: no-source: say what you searched before giving up",
+      "skipped.0.unblock: no-source: say what would let the test be written",
+      'skipped.0.sources: give the passage that asks for it: docId#anchor "quote"',
     ]);
-    expect(parseGenReport('```json\n{"other": 1}\n```').found).toBe(false);
-    expect(parseGenReport("```gen-report\n{not json\n```")).toEqual({
+    expect(errors({ reason: "missing-material", sources: B.sources, searched: ["x"], unblock: "short" })).toEqual([
+      "skipped.0.unblock: missing-material: say what would let the test be written",
+    ]);
+    expect(errors({ reason: "already-tested" })).toEqual([
+      "skipped.0.test: already-tested: name the test that verifies it",
+    ]);
+    expect(errors({ reason: "documents-disagree", sources: B.sources })).toEqual([
+      "skipped.0.sources: documents-disagree: cite the two passages",
+    ]);
+    expect(errors({ reason: "not-observable" })).toEqual([
+      'skipped.0.sources: give the passage that asks for it: docId#anchor "quote"',
+    ]);
+    expect(errors({ reason: "stopped", sources: B.sources })[0]).toMatch(/^skipped\.0\.reason: Invalid option/);
+    expect(errors({ reason: "out-of-scope", sources: B.sources })).toEqual([]);
+  });
+
+  it("only the tagged block is a report, and a reply without one says so", () => {
+    expect(parseGenReport('x\n```json\n{"skipped": []}\n```')).toEqual({
       found: false,
+      errors: ["no ```gen-report block in the reply"],
       tests: [],
       skipped: [],
-      consulted: [],
       covered: [],
     });
-    expect(parseGenReport("Tests written.").found).toBe(false);
+    const broken = parseGenReport(report("{not json"));
+    expect(broken.found).toBe(false);
+    expect(broken.errors).toEqual([expect.stringMatching(/^the gen-report block is not valid JSON: /)]);
+    expect(parseGenReport("Tests written.").errors).toEqual(["no ```gen-report block in the reply"]);
   });
 
   it("classifies tool events for progress", () => {
@@ -248,20 +345,20 @@ describe("planned generation", () => {
   it("asks for a plan whenever a request takes more than one test, never inside a planned test", () => {
     bigDoc();
     expect(genPrompt(dir, { request: "Tout le document", docs: ["BIG_DOC"] })).toContain(
-      `The scope holds 16 sections. When testing it takes more than one test, ${PLAN_MARKER} instead: write no test, and end your reply with its ${PLAN_TAG} block`,
+      `The scope holds 16 sections. When it takes more than one test, ${PLAN_MARKER} instead: write no test and end your reply with its ${PLAN_TAG} block.`,
     );
     expect(genPrompt(dir, { request: "x", sections: ["BIG_DOC#§1"] })).toContain(
-      `The scope holds 1 section. When testing it takes more than one test, ${PLAN_MARKER}`,
+      `The scope holds 1 section. When it takes more than one test, ${PLAN_MARKER}`,
     );
     const t = { summary: "Boutons 0 à 7", technique: "partition", sections: ["BIG_DOC#§1"] };
-    const part = genPrompt(dir, plannedInput({ request: "Tout le document", docs: ["BIG_DOC"] }, t), [], undefined, {
+    const part = genPrompt(dir, plannedInput({ request: "Tout le document", docs: ["BIG_DOC"] }, t), [], {
       n: 1,
       of: 2,
       request: "Tout le document",
     });
     expect(part).toContain("Request: Boutons 0 à 7 (partition)");
-    expect(part).toContain("This is test 1 of 2 of a plan for: Tout le document. Write exactly this one test;");
-    expect(part).toContain("BIG_DOC#§1");
+    expect(part).toContain("This is test 1 of 2 of a plan for: Tout le document. Write exactly this one test.");
+    expect(part).toContain("\nSections in scope: BIG_DOC#§1\n");
     expect(part).not.toContain(PLAN_MARKER);
     expect(part).not.toContain("Documents in scope");
     expect(plannedInput({ request: "", docs: ["BIG_DOC"] }, { ...t, sections: [] }).docs).toEqual(["BIG_DOC"]);
@@ -269,30 +366,65 @@ describe("planned generation", () => {
 
   it("reads the last test-plan block; a planned test needs a summary, its sections are docId#anchor", () => {
     const block = (o: unknown) => `\`\`\`${PLAN_TAG}\n${JSON.stringify(o)}\n\`\`\``;
+    const server = {
+      item: "Fonction serveur",
+      reason: "not-observable",
+      why: "§4.5 describes a server function: nothing on the screen changes.",
+      sources: ['DOC#§4.5 "Le serveur rafraîchit le cache"'],
+    };
     const t = [
-      block({ tests: [{ summary: "Old" }] }),
+      block({ tests: [{ summary: "Old one" }] }),
       block({
-        tests: [{ summary: " A ", technique: "états", sections: ["DOC#§2", "§3"] }, { summary: "" }, "B"],
-        skipped: [{ item: "Fonction serveur", category: "Not observable", why: "not observable by a manual tester" }],
+        tests: [{ summary: " Test A ", technique: "états", sections: ["DOC#§2", "§3"] }, { summary: "Test B" }],
+        skipped: [server],
       }),
     ].join("\n");
     expect(parsePlan(t)).toEqual({
       found: true,
-      tests: [{ summary: "A", technique: "états", sections: ["DOC#§2"] }],
-      skipped: [{ item: "Fonction serveur", category: "Not observable", why: "not observable by a manual tester" }],
+      tests: [
+        { summary: "Test A", technique: "états", sections: ["DOC#§2"] },
+        { summary: "Test B", technique: "", sections: [] },
+      ],
+      skipped: [{ ...server, category: "Nothing a tester can observe" }],
     });
-    expect(parsePlan(block({ tests: [] })).found).toBe(false);
+    expect(parsePlan(block({ tests: [] }))).toMatchObject({
+      found: false,
+      errors: ["tests: Too small: expected array to have >=1 items"],
+    });
+    expect(parsePlan(block({ tests: [{ summary: "" }, "B"] }))).toMatchObject({
+      found: false,
+      tests: [],
+      errors: [
+        "tests.0.summary: Too small: expected string to have >=3 characters",
+        "tests.1: Invalid input: expected object, received string",
+      ],
+    });
     expect(parsePlan("```test-plan\nnot json\n```").found).toBe(false);
+    expect(parsePlan("Two tests.").errors).toEqual(["no ```test-plan block in the reply"]);
   });
 
   it("writes each planned test in its own run, adds them up, and one revert removes them all", async () => {
     bigDoc();
+    const b15 = {
+      item: "Bouton 15",
+      reason: "not-observable",
+      why: "The lamp of button 15 is inside the cabinet: no tester sees it.",
+      sources: ['BIG_DOC#§16 "Le bouton 15 s\'allume."'],
+    };
+    const b9 = {
+      item: "Bouton 9",
+      reason: "no-source",
+      why: "No passage says what the screen shows once button 9 is lit.",
+      sources: ['BIG_DOC#§10 "Le bouton 9 s\'allume."'],
+      searched: ["bouton 9"],
+      unblock: "A passage that says what the screen shows then.",
+    };
     const plan = {
       tests: [
         { summary: "Boutons 0 à 7", sections: ["BIG_DOC#§1"] },
         { summary: "Boutons 8 à 14", sections: [] },
       ],
-      skipped: [{ item: "Bouton 15", category: "Not observable", why: "not observable by a manual tester" }],
+      skipped: [b15],
     };
     const planReply = `Deux tests.\n\`\`\`${PLAN_TAG}\n${JSON.stringify(plan)}\n\`\`\``;
     const ids = ["local-0000a001", "local-0000b002"];
@@ -302,7 +434,7 @@ describe("planned generation", () => {
         if (s.stdin.includes(PLAN_MARKER))
           return [tool("mcp__testimus__docs_show", { id: "BIG_DOC" }), result(planReply)];
         const id = ids[nth(s) - 1];
-        const skipped = nth(s) === 2 ? [{ item: "Bouton 9", category: "No source", why: "no passage" }] : [];
+        const skipped = nth(s) === 2 ? [b9, b15] : [];
         const reply = `Écrit ${id}.\n\`\`\`gen-report\n${JSON.stringify({ tests: [id], skipped })}\n\`\`\``;
         return [tool("Write", { file_path: join(dir, "tests", id, "test.md"), content: "…" }), result(reply)];
       },
@@ -324,25 +456,35 @@ describe("planned generation", () => {
       planned: number;
       skipped: unknown[];
       reportFound: boolean;
+      reportErrors?: string[];
       costUsd: number;
       summary: string;
     };
     expect(seen).toHaveLength(3);
     expect(seen[1].stdin).toContain("Request: Boutons 0 à 7");
     expect(seen[2].stdin).toContain("This is test 2 of 2 of a plan for: Tout le document.");
-    for (const s of seen.slice(1))
-      expect(s.stdin).toContain(
-        "Categories already used for the items not written in this generation: « Not observable » — file an item of the same nature under the same words.",
-      );
-    expect(seen[0].stdin).not.toContain("Categories already used");
+    expect(seen[0].stdin).toContain(SEARCH_LINE);
+    expect(seen[1].stdin).toContain(PLANNED_LINE);
+    expect(seen[1].stdin).not.toContain(SEARCH_LINE);
+    expect(seen[2].stdin).toContain(SEARCH_LINE);
+    expect(seen[2].stdin).not.toContain(PLANNED_LINE);
+    expect(seen[1].stdin).toContain("\nSections in scope: BIG_DOC#§1\n");
+    expect(seen[2].stdin).toContain(
+      "\nDocuments in scope, each in full (find in them what the request is about): BIG_DOC\n",
+    );
     expect(r.ok).toBe(true);
     expect(r.planned).toBe(2);
     expect([...r.tests].sort()).toEqual(ids);
     expect(r.skipped).toEqual([
-      { item: "Bouton 15", category: "Not observable", why: "not observable by a manual tester" },
-      { item: "Bouton 9", category: "No source", why: "no passage" },
+      { ...b15, category: "Nothing a tester can observe" },
+      {
+        ...b9,
+        category: "No source for the expected result",
+        doubts: ["The run gave up without a single search of the documents."],
+      },
     ]);
     expect(r.reportFound).toBe(true);
+    expect(r.reportErrors).toBeUndefined();
     expect(r.costUsd).toBe(0.75);
     expect(r.summary.startsWith("Plan: 2 test(s).")).toBe(true);
     for (const id of ids) expect(readTest(dir, id).test.review).toBe("draft");
@@ -359,14 +501,18 @@ describe("planned generation", () => {
       "gen.tests",
       { request: "Tout le document", docs: ["BIG_DOC"], check: false },
       { project: dir },
-    )) as { ok: boolean; planned: number; tests: string[]; skipped: unknown[] };
+    )) as { ok: boolean; planned: number; tests: string[]; skipped: Skipped[] };
     expect(r.ok).toBe(true);
     expect(r.planned).toBe(2);
     expect(r.tests).toHaveLength(4);
-    expect(r.skipped.length).toBeGreaterThan(0);
+    expect(r.skipped.map((s) => [s.item, s.reason])).toEqual([
+      ["Manœuvre à distance d'un sectionneur avec TK", "no-source"],
+      ["Défaut de la TK pendant la manœuvre", "no-source"],
+      ["EXI_MOP_SPF_510_A_20", "out-of-scope"],
+    ]);
   });
 
-  it("a plan without tests runs nothing more", async () => {
+  it("a plan without tests is asked again once, in the same session, then runs nothing more", async () => {
     bigDoc();
     const reply = 'Rien à planifier.\n```test-plan\n{"tests": []}\n```';
     fake(() => [result(reply)]);
@@ -374,11 +520,16 @@ describe("planned generation", () => {
       "gen.tests",
       { request: "Tout le document", docs: ["BIG_DOC"], check: false },
       { project: dir },
-    )) as { planned: number; tests: string[]; reportFound: boolean };
-    expect(seen).toHaveLength(1);
+    )) as { planned: number; tests: string[]; reportFound: boolean; reportErrors?: string[] };
+    expect(seen).toHaveLength(2);
+    expect(seen[1].stdin).toBe(
+      "Your reply cannot be read: tests: Too small: expected array to have >=1 items.\nDo no other work: reply with the corrected ```test-plan block only, valid JSON, nothing after it.\n",
+    );
+    expect(seen[1].args[seen[1].args.indexOf("--resume") + 1]).toBe("s");
     expect(r.planned).toBe(0);
     expect(r.tests).toEqual([]);
     expect(r.reportFound).toBe(false);
+    expect(r.reportErrors).toEqual(["no ```gen-report block in the reply"]);
   });
 
   const planOf = (n: number) => ({
@@ -391,7 +542,6 @@ describe("planned generation", () => {
     let active = 0;
     const most = { n: 0 };
     env.spawnClaude = async (s): Promise<ClaudeOut> => {
-      if (isAfterGen(s)) return afterGenOut(s);
       seen.push(s);
       const k = nthOf(s);
       if (!k) {
@@ -452,8 +602,12 @@ describe("planned generation", () => {
     expect([...r.tests].sort()).toEqual([idOf(1), idOf(3)]);
     expect(r.remaining).toBe(3);
     expect(r.skipped.map((s) => s.item)).toEqual(["Bouton 2", "Bouton 4", "Bouton 5"]);
-    expect(r.skipped[0].why).toContain("stopped on a failed run");
-    expect(r.skipped[0].category).toBe(STOPPED);
+    expect(r.skipped[0]).toEqual({
+      item: "Bouton 2",
+      reason: "stopped",
+      category: STOPPED,
+      why: "not written: the generation stopped on a failed run — resume it",
+    });
     const ledger = readJson<{ done: number[]; plan: { tests: unknown[] } }>(
       join(dir, ".testimus", "gen", `${r.generation}.json`),
       { done: [], plan: { tests: [] } },
@@ -490,7 +644,16 @@ describe("gen.tests", () => {
     const id = "local-0badcafe";
     const events: JobEvent[] = [];
     const off = subscribe((e) => events.push(e));
-    const reply = `Écrit ${id}.\n\`\`\`gen-report\n{"tests": ["${id}"], "skipped": [{"item": "Fermeture du disjoncteur", "why": "absent des documents"}]}\n\`\`\``;
+    const closing = {
+      item: "Fermeture du disjoncteur",
+      reason: "no-source",
+      why: "Le §5.6.7 nomme Fermer et ne dit pas ce que l'écran montre ensuite.",
+      sources: ['SOSIE_211_D401-1_3#§5.6.7 "Son menu contextuel propose Ouvrir, Fermer et Propriétés"'],
+      searched: ["fermeture disjoncteur"],
+      read: ["SOSIE_211_D401-1_3#§5.6.7"],
+      unblock: "Un passage qui décrit l'écran après la fermeture, ou une note de l'équipe.",
+    };
+    const reply = `Écrit ${id}.\n${report({ tests: [id], skipped: [closing] })}`;
     fake(
       () => [
         tool("mcp__testimus__rag_search", { query: "disjoncteur" }),
@@ -523,7 +686,7 @@ describe("gen.tests", () => {
     expect(r.tests).toEqual([id]);
     expect(r.consulted).toBe(1);
     expect(r.changed).toEqual([]);
-    expect(r.skipped).toEqual([{ item: "Fermeture du disjoncteur", category: "Other", why: "absent des documents" }]);
+    expect(r.skipped).toEqual([{ ...closing, category: "No source for the expected result" }]);
     expect(r.reportFound).toBe(true);
     expect(r.costUsd).toBe(0.25);
 
@@ -570,7 +733,7 @@ describe("gen.tests", () => {
     });
     let during: boolean[] = [];
     fake(
-      () => [result("Rien à écrire.")],
+      () => [result(`Rien à écrire.\n${report({ tests: [], skipped: [] })}`)],
       (s) => {
         during = ["local-3f9a12c0", "local-0000beef", "LFRPS12-1420", "LFRPS12-1398"].map((id) =>
           existsSync(join(s.cwd, "tests", id)),
@@ -591,14 +754,19 @@ describe("gen.tests", () => {
     expect(kept.discarded).toEqual([]);
   });
 
-  it("reports an existing test the run changed, and works without a report block", async () => {
+  it("reports an existing test the run changed; a reply without its report is asked for it once, then said unreadable", async () => {
     const logs: string[] = [];
     const off = subscribe((e) => {
       if (e.type === "log") logs.push(e.message);
     });
+    const isGen = (s: ClaudeSpawn) => s.stdin.startsWith("Use the generate-tests skill");
     fake(
-      (s) => [tool("Edit", { file_path: join(s.cwd, "tests", "LFRPS12-1398", "test.md") }), result("Rien à écrire.")],
+      (s) =>
+        isGen(s)
+          ? [tool("Edit", { file_path: join(s.cwd, "tests", "LFRPS12-1398", "test.md") }), result("Rien à écrire.")]
+          : [result("Toujours rien.")],
       (s) => {
+        if (!isGen(s)) return;
         const f = join(s.cwd, "tests", "LFRPS12-1398", "test.md");
         writeFileSync(f, `${readFileSync(f, "utf8")}\n`);
       },
@@ -608,15 +776,30 @@ describe("gen.tests", () => {
       changed: string[];
       skipped: unknown[];
       reportFound: boolean;
+      reportErrors?: string[];
     };
     off();
-    expect(r).toMatchObject({ tests: [], changed: ["LFRPS12-1398"], skipped: [], reportFound: false });
+    expect(r).toMatchObject({
+      tests: [],
+      changed: ["LFRPS12-1398"],
+      skipped: [],
+      reportFound: false,
+      reportErrors: ["no ```gen-report block in the reply"],
+    });
+    expect(seen).toHaveLength(2);
+    expect(seen[1].stdin).toBe(
+      "Your reply cannot be read: no ```gen-report block in the reply.\nDo no other work: reply with the corrected ```gen-report block only, valid JSON, nothing after it.\n",
+    );
+    expect(seen[1].args[seen[1].args.indexOf("--resume") + 1]).toBe("s");
     expect(
       logs.some((m) =>
         m.includes("changed the existing test « Disjoncteur — ouverture à distance » — Revert puts it back"),
       ),
     ).toBe(true);
-    expect(logs.some((m) => m.includes("no gen-report block"))).toBe(true);
+    expect(logs).toContain("The reply of generate has no readable gen-report block: Claude is asked for it again.");
+    expect(logs).toContain(
+      "A run's report could not be read (no ```gen-report block in the reply): what it left without a test is not known. Ask the generation again for it.",
+    );
   });
 
   it("end to end against the --mock Claude: two sourced tests, one quote that is not verbatim, a figure embedded", async () => {

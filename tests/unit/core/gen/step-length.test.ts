@@ -58,7 +58,7 @@ describe("no hard limit on the number of steps", () => {
     const sources = [...files(CLAUDE_SRC), ...files(MOCK_SRC)].filter((f) => f.endsWith(".ts"));
     for (const f of sources) expect({ f, hits: hardLimit(readFileSync(f, "utf8")) }).toEqual({ f, hits: [] });
     const whole = genPrompt(project, { request: "Tester le sectionneur", docs: ["SOSIE_211_D401-1_3"] });
-    const part = genPrompt(project, { request: "Sectionneur" }, [], undefined, { n: 1, of: 2, request: "r" });
+    const part = genPrompt(project, { request: "Sectionneur" }, [], { n: 1, of: 2, request: "r" });
     for (const p of [whole, part]) {
       expect(p).toContain(STEPS_LINE);
       expect(hardLimit(p)).toEqual([]);
@@ -68,9 +68,11 @@ describe("no hard limit on the number of steps", () => {
   it("generate-tests and plan-tests let the request decide the length", () => {
     const skill = (name: string) => readFileSync(join(templateDir(), ".claude", "skills", name, "SKILL.md"), "utf8");
     expect(skill("generate-tests").replace(/\s+/g, " ")).toMatch(/the request decides/);
-    expect(skill("generate-tests").replace(/\s+/g, " ")).toMatch(/never refused, and a behavior never skipped/);
+    expect(skill("generate-tests").replace(/\s+/g, " ")).toMatch(
+      /Nothing is refused or left out because of its length/,
+    );
     expect(skill("plan-tests").replace(/\s+/g, " ")).toMatch(/The request decides the length/);
-    expect(skill("check-test").replace(/\s+/g, " ")).toMatch(/the length of a test: .* never a finding/);
+    expect(skill("check-test").replace(/\s+/g, " ")).toMatch(/Not findings: [^.]*the length of a test;/);
   });
 });
 

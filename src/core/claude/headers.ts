@@ -2,8 +2,9 @@ import { resolve } from "node:path";
 import { findDoc } from "../lib/docs.ts";
 import { readProject, readSettings } from "../lib/project.ts";
 import type { Chunk, DocJson } from "../types.ts";
-import { languageName } from "./gen-prompt.ts";
-import { DOC_SLOT, docContexts, docRunLines, type JobRun, type PromptTemplate } from "./prompt.ts";
+import { docGiven, GIVEN_SLOT } from "./given.ts";
+import { languageName } from "./language.ts";
+import type { JobRun, PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const HEADERS_MARKER = "Testimus context-headers run";
@@ -63,13 +64,15 @@ export const prompts: PromptTemplate[] = [
     id: "headers",
     name: "Situate each passage of the index",
     group: "Documents",
+    kind: "headers",
     usedBy: ["The index, when project.json rag.claudeHeaders is true (off by default)", "rag.index"],
+    answers: "One sentence for each passage, in the block that ends the reply",
     text: () =>
       headersPrompt(
         { id: "{docId}", code: "{document}", title: "{title}" },
         [{ id: "{passage id}", path: "{section}", anchor: "", text: `{passage, up to ${EXCERPT} characters}` }],
         "{language}",
-        DOC_SLOT,
+        GIVEN_SLOT,
       ),
   },
 ];
@@ -102,13 +105,14 @@ export async function claudeHeaders(
   if (!dir || !claudeHeadersOn(dir) || !chunks.length) return [];
   const p = readProject(dir);
   const out: string[] = [];
+  const g = docGiven(dir, "headers", doc.id, { note: claude.note });
   for (let i = 0; i < chunks.length; i += HEADERS_BATCH) {
     if (signal.aborted) throw new Error("Cancelled.");
     const batch = chunks.slice(i, i + HEADERS_BATCH);
     const run = await runClaude({
       project: dir,
-      prompt: headersPrompt(doc, batch, p.language, docRunLines(dir, doc.id, { note: claude.note })),
-      contexts: docContexts(dir, doc.id),
+      prompt: headersPrompt(doc, batch, p.language, g.lines),
+      given: g,
       model: claude.model || "haiku",
       effort: claude.effort || "low",
       kind: "headers",

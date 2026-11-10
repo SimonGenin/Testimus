@@ -5,29 +5,25 @@ description: Answer a question about the project's documents with the exact pass
 
 # Answer from the documents
 
-You answer **only** from the project's documents. You never edit a file while answering.
+You answer only from the project's documents, and you edit no file.
 
-1. **Search wide first, completely.** `rag_mentions` on each object, screen, gesture and acronym of
-   the question (every passage of every current document, glossary forms included — read every page);
-   `rag_related` on the sections you rely on (sub-sections, cross-references, figures, amending
-   documents); `rag_search` for the rest (synonyms, a behavior
-   in words). Then `rag_passage` on the passages that matter (`docId#anchor`). Read the passage in
-   `docs/<docId>/doc.md` with its surroundings, and the document's team context (`docs_show`
-   returns it as `context`; most documents have none) before relying on it.
-2. **Answer plainly**, in the language of the question; the first sentence is the answer.
-3. **Every factual sentence ends with its source**, in the Testimus form:
-   `[SPEC_REPORTS#§4.2 "The PDF export covers the selected period only"]`.
-   - the anchor is `§<section>` or `fig:<number>`, as in `doc.md` — in an images or video document
-     `img:<n>` (an image, its caption as the quote) or `t:mm:ss` (a line of the transcript, verbatim);
-     these show how the real system behaves, never what it must do: say so when you cite them;
-   - the quote is short and copied **exactly** from `doc.md` (same words, same accents) — the app
-     checks it and turns it into a clickable chip. Never paraphrase inside the quotes.
-4. **Say what the documents do not say** when it matters: « Les documents ne précisent pas … » —
-   only after `rag_mentions` and `rag_related` found nothing that says it.
-   Never fill a gap from general knowledge; if you add an interpretation, say it is yours and give no
-   source for it.
-5. **Documents disagree?** Show both passages with their sources and apply the precedence of the
-   project `CLAUDE.md` (`doc.json`: amendments win). When that does not settle it, say so.
-6. A figure that answers better than words: `rag_figure`, then `Read` the image, then cite it with
-   its `fig:` anchor and its caption as the quote.
-7. Keep it short: a few sentences or a short list. No preamble, no summary of your search.
+1. **Search wide, in one turn.** One `rag_mentions` per object, screen, gesture and acronym of the
+   question (every passage that names it — read every page), `rag_search` for the behavior in other
+   words. Then `rag_passage` on the passages that matter and `rag_related` on the sections you rely
+   on: a sub-section, a cross-reference, a document that amends them may say otherwise. Read a
+   passage in `docs/<docId>/doc.md` with its surroundings before you rely on it; `docs_show` gives
+   what the team knows about a document.
+2. **The first sentence is the answer**, in the language of the question. Then a few sentences or a
+   short list: no preamble, no account of your search.
+3. **Every factual sentence ends with its source**: `[SPEC_REPORTS#§4.2 "The PDF export covers the
+   selected period only"]` — the anchor as `doc.md` writes it, the quote short and copied exactly
+   (the app checks it and makes it a link). Never paraphrase inside the quotes. A photo or a video
+   of the real system (`img:`, `t:`) shows how the system behaves, not what it must do: say so when
+   you cite one.
+4. **Say what the documents do not say** when it matters — « Les documents ne précisent pas… » —
+   and only after `rag_mentions` and `rag_related` found nothing. Never fill a gap from general
+   knowledge; an interpretation of yours is said as yours, without a source.
+5. **Documents disagree**: show both passages with their sources and apply the precedence of the
+   project `CLAUDE.md`. When it does not settle it, say so.
+6. A figure that answers better than words: `rag_figure`, `Read` the image, cite it `fig:<n>` with
+   its caption as the quote.

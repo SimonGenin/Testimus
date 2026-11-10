@@ -38,7 +38,12 @@ export function useReviewView(activeId: string, data: Loaded | null, lastRun: Cl
   }
   if (data && data.id === activeId && v.folded === null) {
     const fs = data.check?.findings ?? [];
-    const quiet = data.test.steps.map((_, i) => i).filter((i) => !fs.some((f) => f.step === i + 1));
+    // ponytail: a step the check could not vouch for (unsupported, unjudged, passages never opened) stays open like one
+    // with a finding
+    const doubted = (data.check?.verdicts ?? []).filter((x) => x.verdict !== "supported" || x.opened === false);
+    const quiet = data.test.steps
+      .map((_, i) => i)
+      .filter((i) => !fs.some((f) => f.step === i + 1) && !doubted.some((x) => x.step === i + 1));
     const first = firstFinding(data.test, data.check);
     v = {
       ...v,

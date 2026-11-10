@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import type { CommandOutput } from "../../../../core/commands/index.ts";
 import { useClaudeJob } from "../../../components/claude/useClaudeJob.ts";
+import { useRunContext } from "../../../components/claude/useRunContext.tsx";
 import { Avatar } from "../../../components/ui/Avatar.tsx";
 import { Badge } from "../../../components/ui/Badge.tsx";
 import { Banner } from "../../../components/ui/Banner.tsx";
@@ -242,6 +243,13 @@ function Composer({ testKey, first }: { testKey: string; first: boolean }) {
   const [closedAt, setClosedAt] = useState(-1);
   const field = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const job = useClaudeJob();
+  const given = useRunContext({
+    use: "comment",
+    scope: { kind: "test", testId: testKey },
+    note: ask,
+    onSaved: () => setAsk(""),
+    enabled: asking,
+  });
 
   const at = typingMention(text, caret);
   const mentioning = at && at.start !== closedAt ? at : null;
@@ -306,7 +314,7 @@ function Composer({ testKey, first }: { testKey: string; first: boolean }) {
     try {
       const r = await job.start<CommandOutput<"claude.draftComment">>(
         "claude.draftComment",
-        { key: testKey, ask: prompt },
+        { key: testKey, ask: prompt, ...given.run },
         () => {},
       );
       if (!r.ok) {
@@ -418,7 +426,10 @@ function Composer({ testKey, first }: { testKey: string; first: boolean }) {
               flush
               align="start"
               open={asking}
-              onOpenChange={setAsking}
+              onOpenChange={(open) => {
+                // ponytail: the Context dialog opens over the popover and takes the focus: the popover stays under it
+                if (open || !given.open) setAsking(open);
+              }}
               trigger={
                 <Button
                   variant="claude-quiet"
@@ -433,6 +444,7 @@ function Composer({ testKey, first }: { testKey: string; first: boolean }) {
                 ariaLabel="What should the comment say"
                 value={ask}
                 placeholder="What should the comment say? (empty: answer the thread)"
+                context={given.context}
                 quickAsks={QUICK}
                 submit="enter"
                 submitLabel="Draft"
@@ -468,6 +480,7 @@ function Composer({ testKey, first }: { testKey: string; first: boolean }) {
           onClick={() => void send()}
         />
       </div>
+      {given.dialog}
     </div>
   );
 }

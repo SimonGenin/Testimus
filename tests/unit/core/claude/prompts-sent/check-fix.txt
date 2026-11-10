@@ -1,33 +1,31 @@
-Use the check-test skill on the test LFRPS12-1420.
-File: tests/LFRPS12-1420/test.md — read it (tests_show), never modify it or any other file.
-Mechanical findings already recorded by Testimus (do not repeat them):
-- step 5 — source-missing (warning): Step 5 has no source for its expected result: add a ### Sources line docId#anchor "exact quote".
+Use the check-test skill on the test below. Read it with tests_show; never modify a test or any other file.
 
-Report only what the passages prove and a reviewer would act on (the skill's bar): no wording, style or suggestion; a clean test is a normal result.
-Record your findings with check_record exactly once: { id: "LFRPS12-1420", findings: [...] } — findings: [] when there is none.
-Write each message in the project language (fr).
+- LFRPS12-1420 — « Sectionneur sans TK — menu contextuel et propriétés », 5 steps. Already recorded by the mechanical pass, do not repeat:
+  - step 5 — source-missing (warning): Step 5 has no source for its expected result: add a ### Sources line docId#anchor "exact quote".
 
-If you see a problem you could fix yourself in a later run with the app's tools, propose it with actions_propose
-(the user sees it as a card in the Actions tab of Ask Claude): { runId: "<runId>", problem, title, why, plan, scope, model, effort }.
-For example: a finding you can correct from the documents — { kind: "step", testId: "LFRPS12-1420", step } or { kind: "test", testId: "LFRPS12-1420" }, problem: the finding's message.
-title: a verb first, at most 60 characters, in English (« Recover 23 figures from the PDF »); problem: the problem
-as Testimus or you stated it; why: one sentence on why you can fix it; plan: 2 to 5 short steps.
-model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus
-(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).
-Propose only what you are confident about, at most 3, and never for a choice only the team can make.
-Then reply in one line with the count of findings by severity.
+Record it with check_record, exactly once: { id, steps: [{ step, verdict, read }], findings: [] }.
+- steps: one entry per step of the test. verdict "supported" — the passages you opened state its expected result; "unsupported" — they do not, or say otherwise; "unverified" — you could not judge it, with why. read: the docId#anchor you opened to judge that step.
+- findings: only what a passage proves and a reviewer would act on (the bar of the skill); [] is a normal result. Give a finding a fix when the documents settle it — what the step should say instead, in one sentence, from which passage — and none when only the team can decide.
+A refused call says what is missing: correct it and call again.
+Messages and fixes in French.
+
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+Then reply with one line: its findings counted by severity.
 
 =====
 Scope: the whole test LFRPS12-1398.
 Files: tests/LFRPS12-1398/test.md
-Only modify what the scope allows.
-Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
-The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+Change nothing outside the scope.
+The pictures under ### Attachments are files of tests/<id>/images/: Read one when what the screen shows matters.
+
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
 
 Use the fix-test skill on the test LFRPS12-1398.
 Reviewer's note (To fix): "Step 2 must name the commands."
 The last check has no finding.
-Write in the project language (fr).
-Do not change review, review_note, reviewed_by or reviewed_at in the frontmatter: Testimus sets them after its re-check.
+Write in French.
 
-When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.
+Reply in 2 to 4 lines: what changed (which steps) and what you could not do.

@@ -6,7 +6,8 @@ import { env } from "../env.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import type { ChatProblem, ChatSession, ClaudeEvent, Diagnosis, Effort, Source, Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
-import { CONTEXT_SLOT, chatPrompt, contextLines, type PromptTemplate, problemPrompt, readContexts } from "./prompt.ts";
+import { GIVEN_SLOT, given } from "./given.ts";
+import { chatPrompt, type PromptTemplate, problemPrompt } from "./prompt.ts";
 import { newRunId, runClaude } from "./run.ts";
 
 const chatsDir = (project: string) => join(project, ".testimus", "chats");
@@ -53,21 +54,25 @@ export const prompts: PromptTemplate[] = [
     id: "chat",
     name: "Ask about the documents",
     group: "Chat",
-    usedBy: ["Claude dock: Ask", "chat.ask"],
-    text: () => chatPrompt("{question}", "{language}", CONTEXT_SLOT),
+    kind: "chat",
+    usedBy: ["Claude tab: Ask", "chat.ask"],
+    answers: "An answer, each factual sentence with its source",
+    text: () => chatPrompt("{question}", "{language}", GIVEN_SLOT),
   },
   {
     id: "chat-problem",
     name: "Ask about a problem the app met",
     group: "Chat",
+    kind: "triage",
     usedBy: ["Ask Claude about a problem: a failed job, a warning", "chat.ask"],
+    answers: "An explanation and what to do; actions_propose when the app's commands can fix it",
     text: () =>
       problemPrompt(
         "{question}",
         { where: "{where}", text: "{problem}" },
         "{language}",
         proposeLines("{runId}", PROBLEM_EXAMPLES),
-        CONTEXT_SLOT,
+        GIVEN_SLOT,
       ),
   },
 ];
@@ -79,6 +84,7 @@ export type AskOpts = {
   model?: string;
   effort?: Effort;
   contexts?: string[];
+  without?: string[];
   note?: string;
   conversation?: string;
   /** a problem the app met: the conversation is about it, not the documents */
@@ -112,21 +118,22 @@ export async function ask(o: AskOpts): Promise<AskResult> {
       };
   if (o.problem) chat.problem = { where: o.problem.where.trim(), text: o.problem.text.trim() };
   chat.turns.push({ role: "user", text: o.question.trim(), at: now() });
-  const context = contextLines(o.project, readContexts(o.project, o.contexts ?? []), o.note, o.conversation);
   // ponytail: a problem is looked at like a triage — read only, and it may leave an action card behind
   const runId = newRunId();
   const problem = chat.problem;
+  const kind = problem ? "triage" : "chat";
+  const g = given(o.project, kind, { kind: "none" }, o);
   const run = (resume?: string) =>
     runClaude({
       project: o.project,
       prompt: problem
-        ? problemPrompt(o.question, problem, p.language, proposeLines(runId, PROBLEM_EXAMPLES), context)
-        : chatPrompt(o.question, p.language, context),
+        ? problemPrompt(o.question, problem, p.language, proposeLines(runId, PROBLEM_EXAMPLES), g.lines)
+        : chatPrompt(o.question, p.language, g.lines),
       model: o.model || p.claude.model,
       effort: o.effort || p.claude.effort,
-      kind: problem ? "triage" : "chat",
+      kind,
       ...(problem ? { runId, label: "ask" } : {}),
-      contexts: o.contexts,
+      given: g,
       resume,
       signal: o.signal,
       onEvent: o.onEvent,

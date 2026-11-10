@@ -1,87 +1,104 @@
 Use the edit-test skill for the request below.
 Scope: step 2 of test LFRPS12-1420.
 Files: tests/LFRPS12-1420/test.md
-Only modify what the scope allows.
-Only edit "## Step 2" of that file (its fields and its ### Sources); do not touch other steps.
-Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
-The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+Change nothing outside the scope.
+Only "## Step 2" of that file: its columns and its ### Sources.
+The pictures under ### Attachments are files of tests/<id>/images/: Read one when what the screen shows matters.
 
-Context to read before you start (reference material, do not edit it):
-- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
 
-Additional context from the user for this run:
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+From the user, for this run only:
 Use the 2024 wording.
 
-Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Earlier in this conversation (background; the request below is what to do now):
 Q: which test?
 A: LFRPS12-1420.
 
 Rephrase in house style
 
-When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.
+Reply in 2 to 4 lines: what changed (which steps) and what you could not do.
 
 =====
 Use the edit-test skill for the request below.
 Scope: the whole test LFRPS12-1420.
 Files: tests/LFRPS12-1420/test.md
-Only modify what the scope allows.
-Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
-The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+Change nothing outside the scope.
+The pictures under ### Attachments are files of tests/<id>/images/: Read one when what the screen shows matters.
 
-Context to read before you start (reference material, do not edit it):
-- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
 
-Additional context from the user for this run:
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+From the user, for this run only:
 Use the 2024 wording.
 
-Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Earlier in this conversation (background; the request below is what to do now):
 Q: which test?
 A: LFRPS12-1420.
 
 Rephrase in house style
 
-When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.
+Reply in 2 to 4 lines: what changed (which steps) and what you could not do.
 
 =====
 Use the edit-test skill for the request below.
 Scope: the tests LFRPS12-1420, LFRPS12-1398.
 Files: tests/LFRPS12-1420/test.md, tests/LFRPS12-1398/test.md
-Only modify what the scope allows.
-Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
-The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+Change nothing outside the scope.
+The pictures under ### Attachments are files of tests/<id>/images/: Read one when what the screen shows matters.
 
-Context to read before you start (reference material, do not edit it):
-- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
 
-Additional context from the user for this run:
+« Spec notes »:
+Some notes
+
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+From the user, for this run only:
 Use the 2024 wording.
 
-Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Earlier in this conversation (background; the request below is what to do now):
 Q: which test?
 A: LFRPS12-1420.
 
 Rephrase in house style
 
-When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.
+Reply in 2 to 4 lines: what changed (which steps) and what you could not do.
 
 =====
 Scope: the whole project — every test and every document.
 Files: all tests/*/test.md; the documents through rag_search, rag_passage and docs/*/doc.md (read only)
-Only modify what the scope allows.
-When the request is a question, answer it from the documents and the tests and change nothing; put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].
-Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: `<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.
-The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.
+Change nothing outside the scope.
+A question is answered from the documents and the tests, changing nothing, each factual sentence ending with its source: [<docId>#<anchor> "<exact quote from doc.md>"]. A request that changes tests follows the edit-test skill.
+The pictures under ### Attachments are files of tests/<id>/images/: Read one when what the screen shows matters.
 
-Context to read before you start (reference material, do not edit it):
-- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
 
-Additional context from the user for this run:
+« Spec notes »:
+Some notes
+
+From the user, for this run only:
 Use the 2024 wording.
 
-Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):
+Earlier in this conversation (background; the request below is what to do now):
 Q: which test?
 A: LFRPS12-1420.
 
 Rephrase in house style
 
-When finished, give the answer, or reply in 2-4 lines: what you changed (which tests and steps) and anything you could not do.
+Reply with the answer, or in 2 to 4 lines: what changed (which tests and steps) and what you could not do.

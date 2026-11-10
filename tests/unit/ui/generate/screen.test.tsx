@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef, Job, LocalTestRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
+import { piece, previewOf } from "../../helpers/fake-preview.ts";
 import { checkedRun, pickRun, runChoice } from "../../helpers/run-choice.ts";
 import { api, FakeEventSource, named, xray } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
@@ -281,10 +282,29 @@ describe("Generate screen", () => {
 
   it("sends the scope, the contexts, the folder, the model; reports a refused start and ignores an answer without a job", async () => {
     base(project({ model: "sonnet", effort: "medium", contexts: ["g"] }, ["/Traction/Sectionneurs", "/Signalisation"]));
-    api.routes["contexts.list"] = () => [
-      { id: "g", name: "Glossaire", paths: [], files: [], hasNotes: true },
-      { id: "h", name: "Habilitations", paths: [], files: [], hasNotes: true },
-    ];
+    api.routes["claude.preview"] = (i) =>
+      previewOf(
+        [
+          piece("instruction", "Generation request"),
+          piece("context:g", "Glossaire", { why: "A default of the project" }),
+          piece("context:h", "Habilitations", { on: false }),
+          piece("doc:D1", "Traction", { why: "A document of this run" }),
+        ],
+        i,
+      );
+    const context = () => screen.getByRole("button", { name: /^Context/ });
+    const tick = async (name: string, on: boolean) => {
+      fireEvent.click(context());
+      const dialog = await screen.findByRole("dialog", { name: "Context" });
+      const box = await within(dialog).findByRole("checkbox", { name });
+      fireEvent.click(box);
+      await waitFor(() =>
+        on
+          ? expect(within(dialog).getByRole("checkbox", { name })).toBeChecked()
+          : expect(within(dialog).getByRole("checkbox", { name })).not.toBeChecked(),
+      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    };
     mountData(<GenerateScreen />);
     await screen.findByText("Traction");
     await waitFor(() => expect(go()).toBeEnabled());
@@ -297,13 +317,16 @@ describe("Generate screen", () => {
     expect(go()).toBeEnabled();
     expect(go()).toHaveTextContent("Ctrl+Enter");
     fireEvent.change(screen.getByLabelText("What should be tested?"), { target: { value: " PCC " } });
-    expect(await screen.findByRole("button", { name: "Glossaire", pressed: true })).toBeInTheDocument();
-    expect(screen.getByText(/1 saved context/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /Habilitations/ }));
-    expect(await screen.findByText(/2 saved contexts/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Habilitations", pressed: true }));
-    expect(screen.getByRole("button", { name: "Habilitations", pressed: false })).toBeInTheDocument();
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context4$/));
+    expect(named("claude.preview").at(-1)?.input).toEqual({ use: "generate", sections: ["D1#§1"] });
+    expect(screen.queryByText(/context changed for this run/)).toBeNull();
+    expect(screen.queryByText(/saved context/)).toBeNull();
+    await tick("Habilitations", true);
+    expect(await screen.findByText(/context changed for this run/)).toBeInTheDocument();
+    expect(context()).toHaveTextContent(/^Context5 · changed$/);
+    await tick("Habilitations", false);
+    expect(screen.queryByText(/context changed for this run/)).toBeNull();
+    await tick("Habilitations", true);
     pickRun("Opus");
     pickRun("Max");
     fireEvent.click(screen.getByRole("button", { name: "Choose…" }));
@@ -319,7 +342,7 @@ describe("Generate screen", () => {
     expect(named("gen.tests")[0].input).toEqual({
       request: "PCC",
       sections: ["D1#§1"],
-      contexts: ["g"],
+      contexts: ["g", "h"],
       folder: "/Signalisation",
       model: "opus",
       effort: "max",
@@ -331,6 +354,8 @@ describe("Generate screen", () => {
     cleanup();
     mountData(<GenerateScreen />);
     expect(await screen.findByText("Traction")).toBeInTheDocument();
+    expect(screen.getByText(/context changed for this run/)).toBeInTheDocument();
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context5 · changed$/));
     expect(runChoice()).toHaveAccessibleName("Opus · max");
     expect(checkedRun("Model")).toBe("Opus");
     expect(screen.getByLabelText("What should be tested?")).toHaveValue(" PCC ");

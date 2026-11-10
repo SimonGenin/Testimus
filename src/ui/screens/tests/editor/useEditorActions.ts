@@ -240,7 +240,7 @@ export function useEditorActions({
         client,
         "contexts.setTest",
         { testId, contexts: ids },
-        { invalidates: [["contexts.ofTest", { testId }], ["contexts.ofProject"]] },
+        { invalidates: [["contexts.ofTest", { testId }], ["contexts.ofProject"], ["claude.preview"]] },
       );
       client.setQueryData(key("contexts.ofTest", { testId }), r);
     } catch (e) {

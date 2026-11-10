@@ -1,11 +1,14 @@
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { GEN_MARKER, REPORT_TAG } from "../../../../src/core/claude/gen-prompt.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { checkPrompt } from "../../../../src/core/claude/check.ts";
+import { GEN_MARKER } from "../../../../src/core/claude/gen-prompt.ts";
+import { REPORT_TAG } from "../../../../src/core/claude/gen-reply.ts";
+import { reviewPart } from "../../../../src/core/claude/gen-review.ts";
 import type { ClaudeSpawn } from "../../../../src/core/env.ts";
 import { writeJson } from "../../../../src/core/lib/project.ts";
-import { readTest } from "../../../../src/core/lib/store.ts";
+import { readCheck, readTest } from "../../../../src/core/lib/store.ts";
 import { mockSpawnClaude, mockStream } from "../../../../src/core/mock/claude.ts";
 import { mockFindings, mockFix } from "../../../../src/core/mock/claude-check.ts";
 import "../../../../src/core/mock/claude-gen.ts";
@@ -103,27 +106,81 @@ describe("scripted runs", () => {
 
   it("check and fix scripts on a test that does not exist record and change nothing", async () => {
     const dir = copy();
-    const check = await mockSpawnClaude(spawn({ cwd: dir, stdin: "Use the check-test skill on the test LFRPS12-77." }));
-    expect(resultOf(check.stdout).result).toMatch(/^0 anomalie/);
+    const asked = checkPrompt([{ id: "LFRPS12-77", name: "Gone", steps: 2, mechanical: [] }], "fr", []);
+    const check = await mockSpawnClaude(spawn({ cwd: dir, stdin: asked }));
+    expect(resultOf(check.stdout).result).toBe("");
+    expect(existsSync(join(dir, "tests", "LFRPS12-77"))).toBe(false);
     const fix = await mockSpawnClaude(spawn({ cwd: dir, stdin: "Use the fix-test skill on the test LFRPS12-77." }));
     expect(resultOf(fix.stdout).result).toMatch(/^Rien à modifier/);
   }, 10000);
 
+  it("a check request is answered test by test: each one recorded with a verdict per step, a line each, then the review it asks for", async () => {
+    const dir = copy();
+    const tests = ["LFRPS12-1420", "LFRPS12-1398"].map((id) => ({
+      id,
+      name: readTest(dir, id).test.summary,
+      steps: readTest(dir, id).test.steps.length,
+      mechanical: [],
+    }));
+    const review = reviewPart({
+      request: "Le sectionneur",
+      tests: tests.map((t) => t.id),
+      skipped: [
+        {
+          item: "Défaut de la TK pendant la manœuvre",
+          reason: "no-source",
+          category: "No source for the expected result",
+          why: "Aucun passage ne dit ce que l'écran montre.",
+        },
+        { item: "Autre", reason: "not-observable", category: "Nothing a tester can observe", why: "Interne." },
+      ],
+    });
+    const out = await mockSpawnClaude(spawn({ cwd: dir, stdin: checkPrompt(tests, "fr", [], [review.part.ask]) }));
+    const result = resultOf(out.stdout).result;
+    expect(result.split("\n").slice(0, 2)).toEqual([
+      "LFRPS12-1420 : 1 erreur(s), 1 avertissement(s), 0 info(s).",
+      "LFRPS12-1398 : 0 erreur(s), 0 avertissement(s), 1 info(s).",
+    ]);
+    expect(out.stdout.match(/mcp__testimus__check_record/g)).toHaveLength(2);
+    await vi.waitFor(() => expect(readCheck(dir, "LFRPS12-1398")?.verdicts).toHaveLength(1));
+    expect(readCheck(dir, "LFRPS12-1420")?.verdicts?.map((v) => v.verdict)).toEqual([
+      "supported",
+      "supported",
+      "supported",
+      "supported",
+      "unsupported",
+    ]);
+    expect(review.part.answered(result)).toBe(true);
+    expect([...(review.reply()?.verdicts ?? [])].map(([n, v]) => [n, v.verdict])).toEqual([
+      [1, "writable"],
+      [2, "confirmed"],
+    ]);
+    expect(review.reply()?.suggestions.map((s) => s.label)).toEqual([
+      "Add the faulty TK cases",
+      "Check each command of the menu",
+      "Merge the 2 menu tests",
+    ]);
+  }, 10000);
+
+  const genRequest = (request: string) =>
+    `${GEN_MARKER}\nRequest: ${request}\nXray folder of the tests: none given — /\n\nWhat the team knows about the documents of this run:\n- D: les sectionneurs avec TK ne sont pas encore câblés.\n${REPORT_TAG}\n`;
+
   it("a generation without a folder lands in the default folder; a request about « avec TK » reads part of doc.md", async () => {
     const dir = copy();
     const before = readdirSync(join(dir, "tests"));
-    const out = await mockSpawnClaude(
-      spawn({
-        cwd: dir,
-        stdin: `${GEN_MARKER}\nRequest: sectionneur avec TK\nTarget Xray folder: none given\n${REPORT_TAG}\n`,
-      }),
-    );
+    const out = await mockSpawnClaude(spawn({ cwd: dir, stdin: genRequest("sectionneur avec TK") }));
     expect(out.code).toBe(0);
     expect(out.stdout).toContain('"offset":13,"limit":14');
     const made = readdirSync(join(dir, "tests")).filter((d) => !before.includes(d));
     expect(made).toHaveLength(2);
     for (const id of made) expect(readTest(dir, id).test.folder).toBe("/Traction/Sectionneurs");
   }, 10000);
+
+  it("the request decides the partial read, never what goes with the run: a team's note that says « avec TK » changes nothing", async () => {
+    const whole = await mockSpawnClaude(spawn({ cwd: copy(), stdin: genRequest("Menu contextuel des sectionneurs") }));
+    expect(whole.stdout).not.toContain('"offset":13');
+    expect(resultOf(whole.stdout).result).toContain(`\`\`\`${REPORT_TAG}\n{"tests":[`);
+  });
 
   it("headers and figures scripts answer keyed blocks", async () => {
     const figures = await mockSpawnClaude(

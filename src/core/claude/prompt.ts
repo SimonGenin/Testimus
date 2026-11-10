@@ -2,12 +2,15 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { env } from "../env.ts";
 import { writeAtomic } from "../lib/atomic.ts";
-import { findDoc, readContext, readDoc, writeDoc } from "../lib/docs.ts";
-import { readProject } from "../lib/project.ts";
+import { readDoc, writeDoc } from "../lib/docs.ts";
 import { readLocal, testDir, writeLocal } from "../lib/store.ts";
 import type { ChatProblem, ClaudeRun, ClaudeScope, Context } from "../types.ts";
+import type { RunKind } from "./access.ts";
+import { languageName } from "./language.ts";
 
-export type JobRun = ClaudeRun & { note?: string; contexts?: string[] };
+/** what a job on a document passes to its Claude runs: the model and effort, a note, contexts on top of the
+ * document's own, and what is left out of the run */
+export type JobRun = ClaudeRun & { note?: string; contexts?: string[]; without?: string[] };
 
 export const sharedContexts = (): string => join(env.dataDir(), "contexts");
 
@@ -32,39 +35,8 @@ export function writeTestContexts(project: string, testId: string, ids: string[]
   writeLocal(project, testId, { ...readLocal(project, testId), contexts: ids ?? undefined });
 }
 
-// ponytail: the test's own list wins whole (Xray Editor §7), else the project's; ids whose folder is gone drop out
-export function effectiveContexts(project: string, testId?: string): string[] {
-  const own = testId ? readTestContexts(project, testId) : null;
-  const ids = own ?? readProject(project).claude.contexts;
-  return ids.filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
-}
-
-function readDocContexts(project: string, docId: string): string[] | null {
-  const c = findDoc(project, docId)?.contexts;
-  return Array.isArray(c) ? c.filter((x): x is string => typeof x === "string" && /^[\w-]+$/.test(x)) : null;
-}
-
 export function writeDocContexts(project: string, docId: string, ids: string[]): void {
   writeDoc(project, { ...readDoc(project, docId), contexts: [...new Set(ids)] });
-}
-
-// ponytail: like a test, a document's own list wins whole, else the project's; a run may add its own on top
-export function docContexts(project: string, docId: string, run: JobRun = {}): string[] {
-  const ids = [...(readDocContexts(project, docId) ?? readProject(project).claude.contexts), ...(run.contexts ?? [])];
-  return [...new Set(ids)].filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
-}
-
-// ponytail: a request on the whole project reads every context the project or one of its tests attaches, each once
-export function projectContexts(project: string): string[] {
-  const dir = join(project, "tests");
-  const tests = existsSync(dir)
-    ? readdirSync(dir, { withFileTypes: true })
-        .filter((e) => e.isDirectory())
-        .map((e) => e.name)
-        .sort()
-    : [];
-  const ids = [...readProject(project).claude.contexts, ...tests.flatMap((t) => readTestContexts(project, t) ?? [])];
-  return [...new Set(ids)].filter((id) => /^[\w-]+$/.test(id) && existsSync(contextDir(project, id)));
 }
 
 export type ContextFile = { name: string; paths: string[]; notes: string };
@@ -127,8 +99,6 @@ export function readContexts(project: string, ids: string[]): Context[] {
   return out;
 }
 
-const slash = (p: string) => p.replace(/\\/g, "/");
-
 export const EDIT_MARKER = "Use the edit-test skill for the request below.";
 
 // ponytail: a template names its step {step}
@@ -164,33 +134,16 @@ export function scopeLines(scope: ShownScope): string[] {
   return [`Scope: step ${scope.step} of test ${scope.testId}.`, `Files: tests/${scope.testId}/test.md`];
 }
 
-export function buildPrompt(
-  scope: ClaudeScope,
-  request: string,
-  contexts: Context[],
-  project: string,
-  note = "",
-  conversation = "",
-): string {
-  return scopedPrompt(scope, request, contextLines(project, contexts, note, conversation));
-}
-
 export function scopedPrompt(scope: ShownScope, request: string, context: string[]): string {
   if (scope.kind === "run") return runPrompt(scope, request, context);
-  const lines = [...scopeLines(scope), "Only modify what the scope allows."];
-  if (scope.kind === "step")
-    lines.push(
-      `Only edit "## Step ${scope.step}" of that file (its fields and its ### Sources); do not touch other steps.`,
-    );
+  const lines = [...scopeLines(scope), "Change nothing outside the scope."];
+  if (scope.kind === "step") lines.push(`Only "## Step ${scope.step}" of that file: its columns and its ### Sources.`);
   if (scope.kind === "project")
     lines.push(
-      "When the request is a question, answer it from the documents and the tests and change nothing; " +
-        'put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].',
+      'A question is answered from the documents and the tests, changing nothing, each factual sentence ending with its source: [<docId>#<anchor> "<exact quote from doc.md>"]. A request that changes tests follows the edit-test skill.',
     );
   lines.push(
-    "Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: " +
-      '`<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.',
-    "The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.",
+    "The pictures under ### Attachments are files of tests/<id>/images/: Read one when what the screen shows matters.",
   );
   lines.push(...context);
   const req = request.trim();
@@ -198,8 +151,8 @@ export function scopedPrompt(scope: ShownScope, request: string, context: string
   lines.push(
     "",
     scope.kind === "project"
-      ? "When finished, give the answer, or reply in 2-4 lines: what you changed (which tests and steps) and anything you could not do."
-      : "When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.",
+      ? "Reply with the answer, or in 2 to 4 lines: what changed (which tests and steps) and what you could not do."
+      : "Reply in 2 to 4 lines: what changed (which steps) and what you could not do.",
   );
   return `${lines.join("\n")}\n`;
 }
@@ -209,82 +162,31 @@ export function scopedPrompt(scope: ShownScope, request: string, context: string
 function runPrompt(scope: Extract<ClaudeScope, { kind: "run" }>, request: string, context: string[]): string {
   const lines = [
     ...scopeLines(scope),
-    "Change no file: Claude reads a test run, never marks a step or a result.",
-    "When the request asks for a note on what happened, a comment, an answer to a question or a bug report, write it out in the answer in the project's language, the text to paste alone in one fenced block (```text … ```).",
-    'Say whether what the tester saw contradicts the documents or the test itself; put the source of every factual sentence from a document at its end: [<docId>#<anchor> "<exact quote from doc.md>"] — use rag_search and rag_passage to find them.',
+    "Change no file: a test run is the testers' — you read it, you never mark a step or a result.",
+    "A note on what happened, a comment, an answer to a question or a bug report the request asks for is written out in the answer, in the project's language, the text to paste alone in one fenced block (```text … ```).",
+    'Say whether what the tester saw contradicts the documents or the test itself; a factual sentence from a document ends with its source: [<docId>#<anchor> "<exact quote from doc.md>"].',
     ...context,
   ];
   const req = request.trim();
   if (req) lines.push("", req);
-  lines.push("", "When finished, give the answer.");
+  lines.push("", "Reply with the answer.");
   return `${lines.join("\n")}\n`;
 }
 
-export type ContextItem = { name: string; dir: string; notes: boolean; files: string[]; paths: string[] };
-
-// ponytail: the saved contexts are pointed at (Claude reads their files), the note of this run is said in full
-export function contextLines(project: string, contexts: Context[], note = "", conversation = ""): string[] {
-  const items = contexts.map((c) => ({
-    name: c.name,
-    dir: slash(contextDir(project, c.id)),
-    notes: !!c.text.trim(),
-    files: c.files,
-    paths: c.paths,
-  }));
-  return contextText(items, note, conversation);
-}
-
-export function contextText(contexts: ContextItem[], note = "", conversation = ""): string[] {
-  const lines: string[] = [];
-  if (contexts.length) {
-    lines.push("", "Context to read before you start (reference material, do not edit it):");
-    for (const c of contexts) {
-      const parts: string[] = [];
-      if (c.notes) parts.push(`notes: ${c.dir}/context.md`);
-      if (c.files.length) parts.push(`files: ${c.files.map((f) => `${c.dir}/files/${f}`).join(", ")}`);
-      if (c.paths.length) parts.push(`also look at: ${c.paths.join(", ")}`);
-      lines.push(`- ${c.name}${parts.length ? ` — ${parts.join("; ")}` : ""}`);
-    }
-  }
-  if (note.trim()) lines.push("", "Additional context from the user for this run:", note.trim());
-  if (conversation.trim())
-    lines.push(
-      "",
-      "Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):",
-      conversation.trim(),
-    );
-  return lines;
-}
-
-// ponytail: a document's own Claude runs (figures, headers, triage) hear what the team knows about it — its note and
-// its contexts — then what the user added for this run
-export function docRunLines(project: string, docId: string, run: JobRun = {}): string[] {
-  return docLines(
-    readContext(project, docId).trim(),
-    contextLines(project, readContexts(project, docContexts(project, docId, run)), run.note),
-  );
-}
-
-export const docLines = (team: string, context: string[]): string[] => [
-  ...(team ? ["", "What the team knows about this document:", team] : []),
-  ...context,
-];
-
 // ponytail: a prompt Testimus builds, as Settings › Context shows it — the very builder a run calls, given the parts
 // filled per run as {placeholders}; every module that runs claude -p exports its own (tests/unit/core/claude/catalog)
-export type PromptTemplate = { id: string; name: string; group: string; usedBy: string[]; text: () => string };
-
-export const CONTEXT_SLOT = ["", "{contexts}"];
-export const DOC_SLOT = docLines("{what the team knows about the document}", CONTEXT_SLOT);
-
-export const contextsTemplate = (): string =>
-  contextText(
-    [{ name: "{context name}", dir: "{context folder}", notes: true, files: ["{file}"], paths: ["{outside path}"] }],
-    "{note}",
-    "{conversation}",
-  )
-    .join("\n")
-    .trim();
+export type PromptTemplate = {
+  id: string;
+  name: string;
+  group: string;
+  /** the kind of run that sends it: it decides the tools the run has and what goes with it (claude/given.ts); a
+   * sign-in probe has none */
+  kind?: RunKind;
+  usedBy: string[];
+  /** what the run gives back, and through what */
+  answers: string;
+  text: () => string;
+};
 
 // ponytail: a problem the app met is about the app, the machine or the network, not the specification — Claude may
 // use what it knows, looks without changing anything, and leaves a button behind only when the app's commands can fix it
@@ -297,13 +199,13 @@ export function problemPrompt(
 ): string {
   return [
     "Testimus met the problem below. Explain plainly what most likely causes it and what the user can do about it.",
-    "This is about the app, the machine, the network or an account, not the specification: you may use what you know.",
-    "Look first when it helps (read only: the project files and the app's read-only mcp__testimus__ tools); do not change anything now.",
+    "It is about the app, the machine, the network or an account, not the specification: you may use what you know.",
+    "Look first when it helps — the project files and the app's tools, read only; change nothing now.",
     "When only the user can fix it (a setting, a certificate, the network, an account), give the steps, the most likely first.",
     "",
     `Problem (${problem.where}): ${problem.text.trim()}`,
     ...propose,
-    `Answer in the language of the question (project language: ${language}).`,
+    `Answer in the language of the question (the project's is ${languageName(language)}).`,
     ...context,
     "",
     `Question: ${question.trim()}`,
@@ -313,11 +215,8 @@ export function problemPrompt(
 
 export function chatPrompt(question: string, language: string, context: string[] = []): string {
   return [
-    "Use the ask-docs skill to answer this question about the project's documents.",
-    "Answer only from the documents (rag_search, rag_passage, docs/*/doc.md), never from general knowledge.",
-    'Put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].',
-    "Say plainly when the documents do not answer. Do not edit any file.",
-    `Answer in the language of the question (project language: ${language}).`,
+    "Use the ask-docs skill to answer the question below from the project's documents, and only from them.",
+    `Answer in the language of the question (the project's is ${languageName(language)}).`,
     ...context,
     "",
     `Question: ${question.trim()}`,

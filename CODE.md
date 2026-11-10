@@ -38,12 +38,19 @@ src/core/rag/         convert* (docx/pdf/html/png/text → doc.md + figures), pd
                       activation, eval (+ eval-set, eval-score), bench, compare, refdoc, schemas, inspect, pdf
 src/core/search/      search.all (Ctrl K and the tests list): query, match (accents, French stems, prefixes, typos,
                       codes), tests corpus, vectors (index/tests-vectors.json)
-src/core/claude/      run (claude -p), access (tool access per run kind), stream, snapshot/revert, diagnose, status,
-                      chat, generate (+ gen-prompt, gen-reply), check, analyze (a test against the documents: its prompt and run), fix, review, columns, actions, figures, headers,
+src/core/claude/      run (claude -p), access (the tools of each kind of run), given (what goes with a run: the one
+                      rule for contexts, the documents and their notes, the block every prompt carries), parts (a
+                      request in several parts, each answered on its own; a reply's block read against a schema),
+                      stream, snapshot/revert, diagnose, status,
+                      chat, generate (+ gen-prompt, gen-reply: the report and what is left without a test, gen-review:
+                      the second look and the suggestions that ride in the check request), check (several tests per
+                      request, a verdict per step, the fix action), analyze (a test against the documents: its prompt
+                      and run), fix, review, columns, actions, figures, headers,
                       prompt, limits, ledger, schemas, media, study, comment, overview (how the documents fit
                       together: its prompt and run; overview-scope: what its run may write, undone after), scoped
                       (claude.run), catalog (everything
-                      Claude is given: each module that runs claude -p exports its `prompts` templates)
+                      Claude is given: each module that runs claude -p exports its `prompts` templates; previewRun: one
+                      request piece by piece)
 src/core/mock/        --mock: fixture Jira (jira.ts, jira/), scripted Claude (claude*.ts), fake machine, models, updates,
                       video (ffmpeg and Whisper made up)
 src/shared/           Node only, used by the core and the desktop shell: run/work.ts, run/process.ts, loopback, table,
@@ -146,7 +153,19 @@ tests/fixtures/       the LFRPS12 sample project (two Word documents, an images,
 - Port, don't share: code from Xray Editor is copied and adapted (skill `port-from-xray-editor`). Never edit
   `D:\Projects\XrayEditor` from here.
 - The runtime skills in `templates/project/.claude/skills/` are product code: a prompt change is a code change, with
-  the mock Claude (`src/core/mock/claude*.ts`) updated when the reply format moves.
+  the mock Claude (`src/core/mock/claude*.ts`) updated when the reply format moves. A rule lives in one place: the
+  prompt holds what is this run's alone, the skill how the job is done, the project `CLAUDE.md` what holds for every
+  run (ARCHITECTURE.md §11 « Who says what, once »).
+- **A new Claude run** declares itself in four places and nowhere else: its kind's tools (`claude/access.ts` `TOOLS`,
+  `READS`, `EXTRA` — the reads its job uses, not all of them), what goes with it (`given(project, kind, subject,
+  input)` from `claude/given.ts`: pass its `lines` to the prompt builder and the `Given` itself to `runClaude`), its
+  template in the module's `prompts` (with its `kind` and what it `answers`), and `contexts` / `without` in its
+  command's input. It never builds context lines of its own. An answer comes back through a command of the app
+  (validated as Claude calls it) or a tagged block read with `readBlock` — never by loose parsing; several things
+  asked at once are parts (`claude/parts.ts`).
+- **A prompt or a skill that changes is measured** on Sonnet high and Opus high, before and after, on a copy of a
+  project with a real specification (ARCHITECTURE.md §11 « Prompts are measured »): the tooling of 2026-11-10 is in
+  `.sandbox/bench/` (git-ignored: the seed project, `make-check-tests.ts` — tests with planted errors —, `report.mjs`).
 
 ## Mock and fixtures
 

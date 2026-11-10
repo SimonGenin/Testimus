@@ -103,10 +103,14 @@ async function palette(page: Page, query?: string): Promise<void> {
   }
 }
 
+// ponytail: Claude is a tab of every screen — reached by its tab, or by its button on a collapsed section's strip
 async function dock(page: Page): Promise<Locator> {
   const d = page.getByRole("complementary", { name: "Claude" });
-  await tap(d, "Open Claude");
-  await d.getByRole("heading", { name: "Claude", exact: true }).waitFor({ timeout: T });
+  const tab = page.getByRole("tab", { name: /^Claude/ });
+  const strip = page.getByRole("button", { name: /^Claude(, \d+)?$/ });
+  await tab.or(strip).or(d).first().waitFor({ timeout: T });
+  if (!(await d.isVisible())) await ((await tab.isVisible()) ? tab : strip).click();
+  await d.waitFor({ timeout: T });
   return d;
 }
 
@@ -175,7 +179,6 @@ const SETTINGS = [
   "claude",
   "claude-dock",
   "claude-quickasks",
-  "claude-contexts",
   "context",
   "search",
   "models",
@@ -733,22 +736,22 @@ function fixtureShots(): Shot[] {
       },
     },
     {
-      id: "dock-import-contexts",
-      note: "Saved contexts (import into the dock)",
+      id: "dock-context",
+      note: "The Context of the dock's next run: the graph of what Claude is given",
       hash: "#/documents",
       prep: async (p) => {
         const d = await dock(p);
-        await tap(d, "Add context");
-        await p.getByRole("menu").first().waitFor({ timeout: T });
+        await tap(d, /^Context/);
+        await p.getByRole("group", { name: "What Claude is given" }).waitFor({ timeout: T });
       },
     },
     {
-      id: "contexts-dialog",
-      note: "Contexts manager",
-      hash: "#/settings/claude-contexts",
+      id: "settings-context-saved",
+      note: "Settings › Context: a saved context (edited, shared, made a default of the project)",
+      hash: "#/settings/context",
       prep: async (p) => {
-        await tap(p, /^Manage contexts/);
-        await dialog(p, "Contexts");
+        await tap(p, "New context");
+        await p.getByRole("switch", { name: "Default of the project" }).waitFor({ timeout: T });
       },
     },
     ...settingsShots(),

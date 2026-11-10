@@ -1,19 +1,21 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Finding, Step, Test } from "../../../../src/core/types.ts";
+import type { CheckFile, Finding, Step, StepVerdict, Test } from "../../../../src/core/types.ts";
 import { createQueryClient } from "../../../../src/ui/lib/data/query.ts";
 import { FixNote } from "../../../../src/ui/screens/review/FixNote.tsx";
 import { NO_FILTER } from "../../../../src/ui/screens/review/queueFilters.ts";
 import { type QueueItem, ReviewQueue } from "../../../../src/ui/screens/review/ReviewQueue.tsx";
 import { FindingSources, findingSummary, ReviewStep } from "../../../../src/ui/screens/review/ReviewStep.tsx";
 import { ReviewTest } from "../../../../src/ui/screens/review/ReviewTest.tsx";
+import { useReviewView } from "../../../../src/ui/screens/review/useReviewView.ts";
+import { iconOf } from "../../helpers/icons.ts";
 import { layoutOf } from "../../helpers/layout.ts";
 import { choose } from "../../helpers/select.ts";
-import { fakeServer } from "./helpers.tsx";
+import { fakeServer, testOf } from "./helpers.tsx";
 
 beforeEach(() => {
   fakeServer();
@@ -59,7 +61,7 @@ describe("FixNote", () => {
   it("requires a note, marks with Ctrl+Enter or the button, asks Claude, cancels with Escape or Cancel", () => {
     const onSubmit = vi.fn();
     const onCancel = vi.fn();
-    render(<FixNote id="T-1" initial="" claudeReady onCancel={onCancel} onSubmit={onSubmit} />);
+    render(<FixNote id="T-1" initial="" claudeReady onCancel={onCancel} onSubmit={onSubmit} />, { wrapper: Data });
     const dlg = screen.getByRole("dialog", { name: "What needs fixing?" });
     const area = screen.getByLabelText(/Note for the author/);
     expect(area).toHaveFocus();
@@ -73,13 +75,13 @@ describe("FixNote", () => {
     fireEvent.keyDown(area, { key: "Enter" });
     expect(onSubmit).not.toHaveBeenCalled();
     fireEvent.keyDown(area, { key: "Enter", ctrlKey: true });
-    expect(onSubmit).toHaveBeenCalledWith("Fix step 2", false);
+    expect(onSubmit).toHaveBeenCalledWith("Fix step 2", false, {});
     fireEvent.change(area, { target: { value: "Fix step 2" } });
     fireEvent.click(within(dlg).getByRole("button", { name: "Ask Claude to fix it" }));
-    expect(onSubmit).toHaveBeenLastCalledWith("Fix step 2", true);
+    expect(onSubmit).toHaveBeenLastCalledWith("Fix step 2", true, {});
     fireEvent.change(area, { target: { value: "Fix step 2" } });
     fireEvent.click(within(dlg).getByRole("button", { name: /Mark To fix/ }));
-    expect(onSubmit).toHaveBeenLastCalledWith("Fix step 2", false);
+    expect(onSubmit).toHaveBeenLastCalledWith("Fix step 2", false, {});
     fireEvent.keyDown(dlg, { key: "a" });
     fireEvent.keyDown(dlg, { key: "Escape" });
     expect(onCancel).toHaveBeenCalledTimes(1);
@@ -89,25 +91,27 @@ describe("FixNote", () => {
 
   it("without Claude Ask Claude is off and says why; the note is kept for later", () => {
     const onSubmit = vi.fn();
-    render(<FixNote id="T-2" initial="old note" claudeReady={false} onCancel={vi.fn()} onSubmit={onSubmit} />);
+    render(<FixNote id="T-2" initial="old note" claudeReady={false} onCancel={vi.fn()} onSubmit={onSubmit} />, {
+      wrapper: Data,
+    });
     const ask = screen.getByRole("button", { name: "Ask Claude to fix it" });
     expect(ask).toBeDisabled();
     expect(ask).toHaveAccessibleDescription(/the note is kept for later/);
     expect(screen.queryByText("Draft kept")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Mark To fix/ }));
-    expect(onSubmit).toHaveBeenCalledWith("old note", false);
+    expect(onSubmit).toHaveBeenCalledWith("old note", false, {});
   });
 
   it("keeps the note of a test the user left, and forgets it on Cancel", () => {
     const props = { claudeReady: true, onCancel: vi.fn(), onSubmit: vi.fn() };
-    const r = render(<FixNote id="T-3" initial="" {...props} />);
+    const r = render(<FixNote id="T-3" initial="" {...props} />, { wrapper: Data });
     fireEvent.change(screen.getByLabelText(/Note for the author/), { target: { value: "step 2 is wrong" } });
     r.unmount();
-    const again = render(<FixNote id="T-3" initial="" {...props} />);
+    const again = render(<FixNote id="T-3" initial="" {...props} />, { wrapper: Data });
     expect(screen.getByLabelText(/Note for the author/)).toHaveValue("step 2 is wrong");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     again.unmount();
-    render(<FixNote id="T-3" initial="" {...props} />);
+    render(<FixNote id="T-3" initial="" {...props} />, { wrapper: Data });
     expect(screen.getByLabelText(/Note for the author/)).toHaveValue("");
   });
 });
@@ -345,6 +349,162 @@ describe("ReviewStep", () => {
       "Run the check again to confirm.",
     );
   });
+
+  it("a finding the documents settle comes with its suggested fix; one without says none", () => {
+    render(
+      <ReviewStep
+        {...base({
+          findings: [
+            finding({
+              severity: "error",
+              message: "The menu has two entries.",
+              fix: "Write « deux » in place of « trois ».",
+            }),
+            finding({ message: "No fix known." }),
+          ],
+        })}
+      />,
+    );
+    const [settled, open] = screen.getAllByRole("note", { name: /Source missing$/ });
+    expect(settled).toHaveTextContent("The menu has two entries.Suggested fix Write « deux » in place of « trois ».");
+    expect(open).toHaveTextContent("No fix known.");
+    expect(open).not.toHaveTextContent("Suggested fix");
+  });
+});
+
+describe("ReviewStep › the check's verdict on the step", () => {
+  const base = (over: Partial<Parameters<typeof ReviewStep>[0]> = {}) => ({
+    n: 2,
+    step: step({ Action: "Ouvrir" }),
+    xray,
+    findings: [] as Finding[],
+    stale: false,
+    folded: false,
+    active: false,
+    selected: "",
+    url: (f: string) => `/u/${f}`,
+    onFold: vi.fn(),
+    onSelect: vi.fn(),
+    onOpenImage: vi.fn(),
+    ...over,
+  });
+  const verdict = (over: Partial<StepVerdict> = {}): StepVerdict => ({
+    step: 2,
+    verdict: "supported",
+    read: [],
+    ...over,
+  });
+  const NOT_OPENED = "Not opened during the check";
+
+  it("supported: a quiet line with the passages the check read, also on a step without a finding; a chip opens its passage", () => {
+    const p = base({
+      verdict: verdict({ read: ['D#§1 "q"', "D#fig:3", "somewhere in the annex"] }),
+      selected: "s2:D#fig:3|",
+    });
+    render(<ReviewStep {...p} />);
+    const note = screen.getByRole("note", { name: "Check verdict · Supported" });
+    expect(screen.getByRole("article", { name: "Step 2" })).toContainElement(note);
+    expect(iconOf(within(note).getByText("Supported"))).toBe("check");
+    expect(note).toHaveTextContent(/^Supported— read/);
+    expect(note).toHaveTextContent("somewhere in the annex");
+    expect(note).not.toHaveTextContent(NOT_OPENED);
+    expect(screen.queryByRole("note", { name: /Source missing/ })).toBeNull();
+    expect(within(note).getByRole("button", { name: /D §1/ })).toHaveAttribute("aria-pressed", "false");
+    const figure = within(note).getByRole("button", { name: /D Figure 3/ });
+    expect(figure).toHaveAttribute("aria-pressed", "true");
+    expect(iconOf(figure)).toBe("image");
+    fireEvent.click(within(note).getByRole("button", { name: /D §1/ }));
+    expect(p.onSelect).toHaveBeenCalledWith({ docId: "D", anchor: "§1", quote: "q" }, 2);
+  });
+
+  it("unsupported is a danger state with why; not verified says why it could not be judged", () => {
+    const { rerender } = render(
+      <ReviewStep
+        {...base({
+          verdict: verdict({
+            verdict: "unsupported",
+            why: "The passage says two entries, the step says three.",
+            read: ["D#§5.6.6"],
+          }),
+          findings: [finding({ severity: "error", message: "Wrong count" })],
+        })}
+      />,
+    );
+    const no = screen.getByRole("note", { name: "Check verdict · Unsupported" });
+    expect(iconOf(within(no).getByText("Unsupported"))).toBe("x-circle");
+    expect(no).toHaveTextContent("Unsupported— The passage says two entries, the step says three.read");
+    expect(within(no).getByRole("button", { name: /D §5\.6\.6/ })).toBeInTheDocument();
+    expect(screen.getByRole("note", { name: "Error · Source missing" })).toHaveTextContent("Wrong count");
+    const unsupported = within(no).getByText("Unsupported").getAttribute("class");
+    rerender(
+      <ReviewStep
+        {...base({ verdict: verdict({ verdict: "unverified", why: "Figure 12 could not be read in the document." }) })}
+      />,
+    );
+    const unknown = screen.getByRole("note", { name: "Check verdict · Not verified" });
+    expect(iconOf(within(unknown).getByText("Not verified"))).toBe("circle-dashed");
+    expect(unknown).toHaveTextContent(/^Not verified— Figure 12 could not be read in the document\.$/);
+    expect(within(unknown).getByText("Not verified").getAttribute("class")).not.toBe(unsupported);
+    rerender(<ReviewStep {...base({ verdict: verdict({ verdict: "unverified" }) })} />);
+    expect(screen.getByRole("note", { name: "Check verdict · Not verified" })).toHaveTextContent(
+      /^Not verified— no passage named$/,
+    );
+  });
+
+  it("a verdict whose passages the run never opened says « Not opened during the check »: it is no proof", () => {
+    const { rerender } = render(<ReviewStep {...base({ verdict: verdict({ read: ["D#§1"], opened: false }) })} />);
+    const note = screen.getByRole("note", { name: "Check verdict · Supported" });
+    const warn = within(note).getByText(NOT_OPENED);
+    expect(iconOf(warn)).toBe("alert-triangle");
+    expect(warn).toHaveAccessibleDescription(
+      "Testimus saw no call of the check that opened the passages it names: this verdict is no proof.",
+    );
+    rerender(<ReviewStep {...base({ verdict: verdict({ read: ["D#§1"], opened: true }) })} />);
+    expect(screen.queryByText(NOT_OPENED)).toBeNull();
+  });
+
+  it("a stale check still says its verdict, muted, and to run the check again", () => {
+    const { rerender } = render(
+      <ReviewStep {...base({ stale: true, verdict: verdict({ verdict: "unsupported", why: "Wrong count." }) })} />,
+    );
+    const word = within(screen.getByRole("note", { name: "Check verdict · Unsupported" })).getByText("Unsupported");
+    expect(iconOf(word)).toBe("history");
+    expect(word).toHaveAccessibleDescription("The test changed after this check. Run the check again to confirm.");
+    const stale = word.getAttribute("class");
+    rerender(<ReviewStep {...base({ verdict: verdict({ verdict: "unsupported", why: "Wrong count." }) })} />);
+    const fresh = within(screen.getByRole("note", { name: "Check verdict · Unsupported" })).getByText("Unsupported");
+    expect(iconOf(fresh)).toBe("x-circle");
+    expect(fresh.getAttribute("class")).not.toBe(stale);
+  });
+
+  it("folded: the verdict's words alone in the head, « No findings » only without a verdict, the count when there are findings", () => {
+    const { rerender } = render(
+      <ReviewStep {...base({ folded: true, verdict: verdict({ read: ["D#§1"], why: "It matches." }) })} />,
+    );
+    const head = () => screen.getByRole("article", { name: "Step 2" });
+    expect(iconOf(within(head()).getByText("Supported"))).toBe("check");
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(head()).not.toHaveTextContent("read");
+    expect(head()).not.toHaveTextContent("It matches.");
+    expect(screen.queryByText("No findings")).toBeNull();
+    rerender(
+      <ReviewStep
+        {...base({
+          folded: true,
+          verdict: verdict({ verdict: "unsupported", opened: false }),
+          findings: [finding({ severity: "error" })],
+        })}
+      />,
+    );
+    expect(within(head()).getByText("Unsupported")).toBeInTheDocument();
+    expect(within(head()).getByText(NOT_OPENED)).toBeInTheDocument();
+    expect(within(head()).getByText("1 error")).toBeInTheDocument();
+    rerender(<ReviewStep {...base({ folded: true, stale: true, verdict: verdict({ verdict: "unverified" }) })} />);
+    expect(iconOf(within(head()).getByText("Not verified"))).toBe("history");
+    rerender(<ReviewStep {...base({ folded: true })} />);
+    expect(within(head()).getByText("No findings")).toBeInTheDocument();
+    expect(within(head()).queryByText("Supported")).toBeNull();
+  });
 });
 
 describe("ReviewTest", () => {
@@ -477,6 +637,38 @@ describe("ReviewTest", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keep the test as it is" }));
   });
 
+  it("gives each step the verdict the check put on it, by step number", () => {
+    render(
+      <ReviewTest
+        {...props({
+          check: {
+            at: "2026-10-30T10:02:00Z",
+            testHash: "",
+            findings: [],
+            verdicts: [
+              { step: 2, verdict: "unsupported", read: ["D#§2"], why: "The passage says otherwise." },
+              { step: 1, verdict: "supported", read: ["D#§1"] },
+              { step: 7, verdict: "unverified", read: [] },
+            ],
+          },
+        })}
+      />,
+    );
+    const one = screen.getByRole("article", { name: "Step 1" });
+    const two = screen.getByRole("article", { name: "Step 2" });
+    expect(within(one).getByRole("note", { name: "Check verdict · Supported" })).toHaveTextContent("D §1");
+    expect(within(two).getByRole("note", { name: "Check verdict · Unsupported" })).toHaveTextContent(
+      "The passage says otherwise.",
+    );
+    expect(screen.queryByRole("note", { name: "Check verdict · Not verified" })).toBeNull();
+  });
+
+  it("a check older than the verdicts shows none", () => {
+    render(<ReviewTest {...props()} />);
+    expect(screen.getByRole("article", { name: "Step 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("note", { name: /^Check verdict/ })).toBeNull();
+  });
+
   it("the check not run or out of date offers it, never while Claude works on the test", () => {
     const onCheck = vi.fn();
     const { rerender } = render(<ReviewTest {...props({ check: null, onCheck })} />, { wrapper: Data });
@@ -487,5 +679,51 @@ describe("ReviewTest", () => {
     expect(screen.getByRole("button", { name: "Check again" })).toHaveAttribute("aria-busy", "true");
     rerender(<ReviewTest {...props({ stale: true, onCheck, claudeRunning: true })} />);
     expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
+  });
+});
+
+describe("useReviewView › which steps start folded", () => {
+  const four = testOf("K-1", {
+    steps: ["One", "Two", "Three", "Four", "Five"].map((a) => step({ Action: a })),
+  });
+  const loaded = (check: CheckFile | null) => ({
+    id: "K-1",
+    test: four,
+    sync: "synced" as const,
+    edited: false,
+    check,
+    stale: false,
+  });
+  const folded = (check: CheckFile | null) =>
+    [...renderHook(() => useReviewView("K-1", loaded(check), null)).result.current.folded].sort();
+  const at = "2026-10-30T10:02:00Z";
+
+  it("a step the check could not vouch for starts unfolded, like a step with a finding", () => {
+    expect(
+      folded({
+        at,
+        testHash: "",
+        findings: [finding({ step: 1 })],
+        verdicts: [
+          { step: 1, verdict: "supported", read: ["D#§1"] },
+          { step: 2, verdict: "supported", read: ["D#§2"] },
+          { step: 3, verdict: "unsupported", read: ["D#§3"], why: "The passage says otherwise." },
+          { step: 4, verdict: "unverified", read: [] },
+          { step: 5, verdict: "supported", read: ["D#§5"], opened: false },
+        ],
+      }),
+    ).toEqual([1]);
+  });
+
+  it("with every step supported, or a check older than the verdicts, only the steps with a finding stay open", () => {
+    const verdicts = [1, 2, 3, 4, 5].map(
+      (n): StepVerdict => ({ step: n, verdict: "supported", read: [], opened: true }),
+    );
+    expect(folded({ at, testHash: "", findings: [finding({ step: 3 })], verdicts })).toEqual([0, 1, 3, 4]);
+    expect(folded({ at, testHash: "", findings: [finding({ step: 3 })] })).toEqual([0, 1, 3, 4]);
+  });
+
+  it("a test never checked starts with every step open", () => {
+    expect(folded(null)).toEqual([]);
   });
 });

@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mcpAccess } from "../../../../src/core/claude/access.ts";
-import { actionPrompt, proposeLines, triagePrompt } from "../../../../src/core/claude/actions.ts";
-import { checkPrompt } from "../../../../src/core/claude/check.ts";
+import { ACTION_RULE, actionPrompt, proposeLines, triagePrompt } from "../../../../src/core/claude/actions.ts";
+import { checkPrompt, prompts } from "../../../../src/core/claude/check.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import {
@@ -18,6 +18,7 @@ import {
 } from "../../../../src/core/lib/actions.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 import type { ClaudeAction } from "../../../../src/core/types.ts";
+import { checkOut, isCheck } from "../../helpers/fake-check.ts";
 
 const FIXTURE = fileURLToPath(new URL("../../../fixtures/project/", import.meta.url));
 const DOC = "SOSIE_211_D401-1_3";
@@ -124,16 +125,26 @@ describe("prompts", () => {
     const lines = proposeLines("run-1", "a finding").join("\n");
     expect(lines).toContain('runId: "run-1"');
     expect(lines).toContain("actions_propose");
-    expect(checkPrompt(TEST, [], "fr", "run-2")).toContain('runId: "run-2"');
-    expect(checkPrompt(TEST, [], "fr")).not.toContain("actions_propose");
     const t = triagePrompt("run-3", [{ where: `doc:${DOC}`, text: "Figure 41 is lost" }], "the document", "fr");
     expect(t).toMatch(/^Testimus triage/);
     expect(t).toContain(`- [doc:${DOC}] Figure 41 is lost`);
+    expect(t).toContain('runId: "run-3"');
+    for (const rule of ACTION_RULE) {
+      expect(lines).toContain(rule);
+      expect(t).toContain(rule);
+    }
+  });
+
+  it("never ask the check for an action: Testimus builds a test's fix from the check itself", () => {
+    const one = checkPrompt([{ id: TEST, name: "Sectionneur", steps: 2, mechanical: [] }], "fr", []);
+    expect(one).not.toContain("actions_propose");
+    expect(one).not.toContain("runId");
+    expect(prompts.find((t) => t.id === "check")?.text()).not.toContain("actions_propose");
   });
 
   it("gives an action its problem, plan and the rule about Jira", () => {
     const a = proposeAction(dir, proposal());
-    const p = actionPrompt(dir, a, []);
+    const p = actionPrompt(a, []);
     expect(p).toMatch(/^Testimus Claude action act-/);
     expect(p).toContain("Problem (test:LFRPS12-1420): Step 2 has no source");
     expect(p).toContain("- Add the source line");
@@ -299,6 +310,55 @@ describe("actions.propose, actions.run and the revert", () => {
     expect(r.ok).toBe(false);
     expect(r.action.state).toBe("open");
     expect(r.action.last?.ok).toBe(false);
+    expect(r.action.last?.left).toBeUndefined();
+  });
+});
+
+describe("what is left of the problem after an action", () => {
+  type Ran = { ok: boolean; action: ClaudeAction };
+  const SOURCE = `- ${DOC}#§5.6.6 "L'état ouvert ou fermé du sectionneur est visible sans ouvrir de fenêtre"`;
+
+  it("a test is checked again once the run ended, and its findings counted before and after", async () => {
+    const a = proposeAction(dir, proposal({ scope: { kind: "test", testId: TEST }, where: `test:${TEST}` }));
+    const file = join(dir, "tests", TEST, "test.md");
+    env.spawnClaude = async (s) => {
+      if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
+      seen.push(s);
+      if (isCheck(s)) return checkOut(s);
+      writeFileSync(file, `${readFileSync(file, "utf8").trimEnd()}\n\n### Sources\n\n${SOURCE}\n`);
+      const l = result("Step 5 now cites its passage.");
+      s.onLine?.(l);
+      return { code: 0, stdout: `${l}\n`, stderr: "" };
+    };
+    const r = (await invoke("actions.run", { id: a.id }, { project: dir })) as Ran;
+    expect(seen.map(isCheck)).toEqual([false, true]);
+    expect(r.action.state).toBe("done");
+    expect(r.action.last?.left).toEqual({ was: 4, now: 0, of: "findings" });
+    expect(listActions(dir, { all: true }).find((x) => x.id === a.id)?.last?.left).toEqual({
+      was: 4,
+      now: 0,
+      of: "findings",
+    });
+  });
+
+  it("a document's conversion warnings are counted; a problem placed elsewhere is not", async () => {
+    const onDoc = proposeAction(dir, proposal({ scope: { kind: "doc", docId: DOC }, where: `doc:${DOC}` }));
+    const json = join(dir, "docs", DOC, "doc.json");
+    fake("One warning is gone.", () => {
+      const d = JSON.parse(readFileSync(json, "utf8"));
+      writeFileSync(
+        json,
+        JSON.stringify({ ...d, converted: { ...d.converted, warnings: d.converted.warnings.slice(1) } }),
+      );
+    });
+    const r = (await invoke("actions.run", { id: onDoc.id }, { project: dir })) as Ran;
+    expect(r.action.last?.left).toEqual({ was: 2, now: 1, of: "warnings" });
+
+    const onProject = proposeAction(dir, proposal({ scope: { kind: "project" }, where: "project", problem: "x" }));
+    fake("Done.");
+    const p = (await invoke("actions.run", { id: onProject.id }, { project: dir })) as Ran;
+    expect(p.ok).toBe(true);
+    expect(p.action.last?.left).toBeUndefined();
   });
 });
 

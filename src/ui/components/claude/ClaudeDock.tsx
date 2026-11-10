@@ -9,7 +9,7 @@ import { project } from "../../lib/data/client.ts";
 import { key, read, useRead } from "../../lib/data/query.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { DockActions, useActionChoices } from "./DockActions.tsx";
-import { DockComposer, runIds } from "./DockComposer.tsx";
+import { DockComposer } from "./DockComposer.tsx";
 import { DockLog } from "./DockLog.tsx";
 import { DockScope } from "./DockScope.tsx";
 import { setDockState } from "./dockState.ts";
@@ -18,7 +18,7 @@ import { useClaudeStatus } from "./useClaudeStatus.ts";
 import { type DockJob, useDockRuns } from "./useDockRuns.ts";
 import { useDockScope } from "./useDockScope.ts";
 import { useNow } from "./useNow.ts";
-import { useRunContexts } from "./useRunContexts.ts";
+import { useRunContext } from "./useRunContext.tsx";
 
 export { docOfRoute, fixOutcome, metaLine, PROJECT_RUN, toolLabel, transcript } from "./turns.ts";
 export type { DockJob } from "./useDockRuns.ts";
@@ -77,13 +77,25 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
   const [checking, setChecking] = useState(false);
   const choices = useActionChoices({ model: cfg?.model ?? "opus", effort: cfg?.effort ?? "high" });
   const now = useNow(runs.started !== null);
-  const [, setPrompt] = useDraft([project(), "dock.prompt"]);
+  const [prompt, setPrompt] = useDraft([project(), "dock.prompt"]);
   const [focusAsk, setFocusAsk] = useState(0);
 
   const { status } = useClaudeStatus();
   const offline = !!status && (!status.installed || status.signedIn === false);
 
-  const ctx = useRunContexts({ tab, sub, focus, docId, projectDir, defaults: cfg?.contexts });
+  // ponytail: what goes with the dock's next run — a question to the documents is the chat prompt, a request on a
+  // test, a step, a test run or the project is claude.run's for that scope; what the user ticked holds until the dock
+  // is about something else (another tab, another scope, another test or document)
+  const docsMode = tab === "docs";
+  const ctx = useRunContext({
+    use: docsMode ? "chat" : `ask-${where.scope.kind}`,
+    scope: docsMode ? undefined : where.scope,
+    note: prompt,
+    conversation: runs.conversation(docsMode),
+    subject: [tab, sub, focus?.run ? "" : (focus?.testId ?? ""), docId ?? ""].join("|"),
+    onSaved: () => setPrompt(""),
+    enabled: !!projectDir && tab !== "actions",
+  });
 
   const view: ActionTarget | undefined =
     focus && !focus.run ? { kind: "test", id: focus.testId } : docId ? { kind: "document", id: docId } : undefined;
@@ -104,7 +116,7 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
     text: q,
     model,
     effort,
-    contexts: runIds(ctx),
+    ...ctx.run,
     note: onDoc ? `The question is about the document ${docId}: answer from docs/${docId}/doc.md first.` : undefined,
     label: onDoc && docId ? docId : undefined,
   });
@@ -130,7 +142,7 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
           text,
           model,
           effort,
-          contexts: runIds(ctx),
+          ...ctx.run,
           problem: request.problem,
           label: request.label,
         });
@@ -156,8 +168,6 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
     }
   };
 
-  const docsMode = tab === "docs";
-
   const send = (text: string, quickAsk?: string) => {
     const q = text.trim();
     // ponytail: on a test or the project an empty box still runs — the scope and the house rules are the request
@@ -169,7 +179,7 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
           mode: "test",
           text: q,
           scope: where.scope,
-          contexts: ctx.known || Object.keys(ctx.pick).length ? runIds(ctx) : undefined,
+          ...ctx.run,
           label: `${where.word}${quickAsk ? ` · ${quickAsk}` : ""}`,
           model,
           effort,
@@ -232,8 +242,7 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
             placeholder={offline ? "Claude is optional — everything else works without it" : where.placeholder}
             scope={sub === "test" && focus && !focus.run ? "Whole test" : where.word}
             quickAsks={cfg?.presets ?? []}
-            contexts={ctx}
-            all={ctx.saved ?? []}
+            context={ctx.context}
             model={model}
             effort={effort}
             running={runs.busy ? elapsed : null}
@@ -255,6 +264,7 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
           />
         </div>
       )}
+      {ctx.dialog}
     </aside>
   );
 }

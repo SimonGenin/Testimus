@@ -1,8 +1,10 @@
-Use the generate-tests skill to write Xray manual tests for the request below, in this project folder.
+Use the generate-tests skill to write Xray manual tests for the request below.
 
 Request: Le sectionneur
-The scope holds 4 sections. When testing it takes more than one test, use the plan-tests skill instead: write no test, and end your reply with its test-plan block instead of the report block below.
+The scope holds 4 sections. When it takes more than one test, use the plan-tests skill instead: write no test and end your reply with its test-plan block.
 Documents in scope, each in full (find in them what the request is about): SOSIE_211_D401-1_3
+
+Search before you design, as section 1 of the skill says: one rag_mentions per term of the scope, the behavior in other words and its negative side, rag_related on each section you will cite, each section read in full. The reviewer sees every search and every passage opened; a test written from a handful of passages misses the exception, the amendment and the refusal.
 
 Smart columns — write each as ### <column> in every step, following its description:
 - ### Action: One user action per step, in the imperative, on an object named as the product names it.
@@ -10,41 +12,35 @@ Smart columns — write each as ### <column> in every step, following its descri
 - ### Expected Result: Everything the user observes after the action, checkable on the product, in the words of the document.
 Leave these columns empty — never write them: Exigence.
 
-Target Xray folder: /Traction
-Language of the tests: French (project.json language "fr").
+Xray folder of the tests: /Traction
+Language of the tests: French.
+Length: about 3 to 15 steps per test, but the request decides — a test is written as long as it needs. Never refuse a test, nor leave a behavior out, because of its number of steps.
 
-Search the index thoroughly before you design (skill section 1, step 3): list the scope's terms, one rag_mentions per term with every page read, rag_search in several wordings including the negative side, rag_related on every section you cite, then each section in full in doc.md. The reviewer sees every search and every passage of this run; a test written from a handful of passages misses the exceptions, the amendments and the negative paths.
-Write only new tests: one folder tests/local-<8 hex>/test.md per test (tests_create allocates it), with review: draft.
-Length: aim for 3 to 15 steps per test, but the request decides — when it asks for a longer test, or a scenario does not cut cleanly, write it as long as it needs. Never refuse a test, nor skip a behavior, because of its number of steps.
-Pictures matter as much as sources: a step that acts on or looks at a screen, a menu, a symbol or a colour gets the document's picture of it with tests_addImage (skill section 3, Figures) — when the document has one.
-Never modify, rename or delete an existing test. Never call a tool that writes to Jira.
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
 
-Context to read before you start (reference material, do not edit it):
-- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+« Spec notes »:
+Some notes
 
-Additional context from the user for this run:
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+From the user, for this run only:
 Use the 2024 wording.
 
-If you see a problem you could fix yourself in a later run with the app's tools, propose it with actions_propose
-(the user sees it as a card in the Actions tab of Ask Claude): { runId: "<runId>", problem, title, why, plan, scope, model, effort }.
-For example: a document section you could not test because its text is a picture or a table the conversion lost — { kind: "doc", docId }, where: "doc:<docId>".
-title: a verb first, at most 60 characters, in English (« Recover 23 figures from the PDF »); problem: the problem
-as Testimus or you stated it; why: one sentence on why you can fix it; plan: 2 to 5 short steps.
-model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus
-(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).
-Propose only what you are confident about, at most 3, and never for a choice only the team can make.
-
-When you finish, end your reply with the report block of the skill (section 4), exactly this shape:
+End your reply with the report of the skill — every behavior of the request you wrote no step for, each with its reason and what you did before giving up:
 ```gen-report
-{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}
+{"tests": ["local-…"], "skipped": [{"item": "<the behavior>", "reason": "no-source | not-observable | already-tested | out-of-scope | documents-disagree | missing-material", "why": "<one or two concrete sentences>", "sources": ["<docId#anchor \"quote\" that asks for it>"], "searched": ["<what you searched>"], "read": ["<docId#anchor you opened>"], "unblock": "<what would let it be written, and who can bring it>", "test": "<already-tested: the id of the test>"}]}
 ```
 
 =====
-Use the generate-tests skill to write Xray manual tests for the request below, in this project folder.
+Use the generate-tests skill to write Xray manual tests for the request below.
 
 Request: Ouvrir le sectionneur (state)
-This is test 1 of 1 of a plan for: Le sectionneur. Write exactly this one test; the other tests of the plan are written by other runs.
-Document sections in scope (read each with rag_passage and in doc.md): SOSIE_211_D401-1_3#§5.6.6
+This is test 1 of 1 of a plan for: Le sectionneur. Write exactly this one test. What the other tests of the plan take is theirs: it is not left out, never report it.
+Sections in scope: SOSIE_211_D401-1_3#§5.6.6
+
+The plan already searched the scope: read the sections above in full, follow what they refer to (rag_related), and search again only for a term they bring that the plan could not have seen.
 
 Smart columns — write each as ### <column> in every step, following its description:
 - ### Action: One user action per step, in the imperative, on an object named as the product names it.
@@ -52,31 +48,23 @@ Smart columns — write each as ### <column> in every step, following its descri
 - ### Expected Result: Everything the user observes after the action, checkable on the product, in the words of the document.
 Leave these columns empty — never write them: Exigence.
 
-Target Xray folder: /Traction
-Language of the tests: French (project.json language "fr").
+Xray folder of the tests: /Traction
+Language of the tests: French.
+Length: about 3 to 15 steps per test, but the request decides — a test is written as long as it needs. Never refuse a test, nor leave a behavior out, because of its number of steps.
 
-Search the index thoroughly before you design (skill section 1, step 3): list the scope's terms, one rag_mentions per term with every page read, rag_search in several wordings including the negative side, rag_related on every section you cite, then each section in full in doc.md. The reviewer sees every search and every passage of this run; a test written from a handful of passages misses the exceptions, the amendments and the negative paths.
-Write only new tests: one folder tests/local-<8 hex>/test.md per test (tests_create allocates it), with review: draft.
-Length: aim for 3 to 15 steps per test, but the request decides — when it asks for a longer test, or a scenario does not cut cleanly, write it as long as it needs. Never refuse a test, nor skip a behavior, because of its number of steps.
-Pictures matter as much as sources: a step that acts on or looks at a screen, a menu, a symbol or a colour gets the document's picture of it with tests_addImage (skill section 3, Figures) — when the document has one.
-Never modify, rename or delete an existing test. Never call a tool that writes to Jira.
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
 
-Context to read before you start (reference material, do not edit it):
-- Spec notes — notes: <project>/contexts/spec/context.md; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+« Spec notes »:
+Some notes
 
-Additional context from the user for this run:
+What the team knows about the documents of this run:
+- SOSIE_211_D401-1_3: Document de référence pour la traction de la ligne 92. La version 01.01 remplace la 01.00 ; les sectionneurs avec TK ne sont pas encore câblés dans le simulateur.
+
+From the user, for this run only:
 Use the 2024 wording.
 
-If you see a problem you could fix yourself in a later run with the app's tools, propose it with actions_propose
-(the user sees it as a card in the Actions tab of Ask Claude): { runId: "<runId>", problem, title, why, plan, scope, model, effort }.
-For example: a document section you could not test because its text is a picture or a table the conversion lost — { kind: "doc", docId }, where: "doc:<docId>".
-title: a verb first, at most 60 characters, in English (« Recover 23 figures from the PDF »); problem: the problem
-as Testimus or you stated it; why: one sentence on why you can fix it; plan: 2 to 5 short steps.
-model and effort: what the fix needs — model haiku (a mechanical change), sonnet (ordinary test edits) or opus
-(reading documents, judging); effort low (one obvious change), medium, high (a real search) or xhigh (long, delicate).
-Propose only what you are confident about, at most 3, and never for a choice only the team can make.
-
-When you finish, end your reply with the report block of the skill (section 4), exactly this shape:
+End your reply with the report of the skill — every behavior of the request you wrote no step for, each with its reason and what you did before giving up:
 ```gen-report
-{"tests": ["local-…"], "skipped": [{"item": "<behavior>", "category": "<why, in a few words: the same words for items of the same nature>", "why": "<one or two concrete sentences: which source is missing, what the documents or context.md say>", "sources": ["<docId#anchor "quote" that asks for it>"]}], "consulted": ["<docId#anchor you read>"]}
+{"tests": ["local-…"], "skipped": [{"item": "<the behavior>", "reason": "no-source | not-observable | already-tested | out-of-scope | documents-disagree | missing-material", "why": "<one or two concrete sentences>", "sources": ["<docId#anchor \"quote\" that asks for it>"], "searched": ["<what you searched>"], "read": ["<docId#anchor you opened>"], "unblock": "<what would let it be written, and who can bring it>", "test": "<already-tested: the id of the test>"}]}
 ```

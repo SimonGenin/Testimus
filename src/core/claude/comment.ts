@@ -1,7 +1,10 @@
 import { MENTION } from "../lib/adf.ts";
 import { readProject } from "../lib/project.ts";
+import { testExists } from "../lib/store.ts";
 import type { ClaudeEvent, Diagnosis, Effort, Tokens } from "../types.ts";
-import { CONTEXT_SLOT, contextLines, type PromptTemplate, readContexts } from "./prompt.ts";
+import { GIVEN_SLOT, given } from "./given.ts";
+import { languageName } from "./language.ts";
+import type { PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 // ponytail: Claude drafts a comment for a test's Jira issue and gives it back as text — it never posts one (issue.*
@@ -14,6 +17,7 @@ export type DraftOpts = {
   model?: string;
   effort?: Effort;
   contexts?: string[];
+  without?: string[];
   signal?: AbortSignal;
   onEvent?(e: ClaudeEvent): void;
 };
@@ -31,10 +35,8 @@ export type Draft = {
 export function draftPrompt(key: string, ask: string, language: string, context: string[] = []): string {
   return [
     `Use the draft-comment skill to draft a comment for the Jira issue ${key}, the test in tests/${key}/test.md.`,
-    "Read the test, its comments (issue_comments) and, when a claim needs it, the documents it relies on.",
-    "To mention someone, find them with issue_people and write @[Their Name](accountId) — Jira notifies them.",
-    "Reply with the comment's text only: no preamble, no quotes around it, no signature. Do not edit any file.",
-    `Write in the language of the thread (project language: ${language}).`,
+    "Reply with the comment's text only: no preamble, no quotes around it, no signature.",
+    `Write in the language of the thread (the project's is ${languageName(language)}).`,
     ...context,
     "",
     ask.trim() ? `What the comment should say: ${ask.trim()}` : "What the comment should say: answer the thread.",
@@ -47,22 +49,29 @@ export const prompts: PromptTemplate[] = [
     id: "comment",
     name: "Draft a Jira comment",
     group: "Jira",
+    kind: "chat",
     usedBy: ["Tests › Jira comments: Draft with Claude", "claude.draftComment"],
-    text: () => draftPrompt("{issue key}", "{request}", "{language}", CONTEXT_SLOT),
+    answers: "The comment's text only; the person reads it and sends it",
+    text: () => draftPrompt("{issue key}", "{request}", "{language}", GIVEN_SLOT),
   },
 ];
 
 export async function draftComment(o: DraftOpts): Promise<Draft> {
   const p = readProject(o.project);
-  const context = contextLines(o.project, readContexts(o.project, o.contexts ?? []));
+  const g = given(
+    o.project,
+    "chat",
+    testExists(o.project, o.key) ? { kind: "test", testId: o.key } : { kind: "none" },
+    o,
+  );
   const res = await runClaude({
     project: o.project,
-    prompt: draftPrompt(o.key, o.ask ?? "", p.language, context),
+    prompt: draftPrompt(o.key, o.ask ?? "", p.language, g.lines),
     model: o.model || p.claude.model,
     effort: o.effort || p.claude.effort,
     kind: "chat",
     label: "comment draft",
-    contexts: o.contexts,
+    given: g,
     signal: o.signal,
     onEvent: o.onEvent,
   });

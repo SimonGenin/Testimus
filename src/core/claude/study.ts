@@ -2,7 +2,8 @@ import type { Ctx } from "../command.ts";
 import { readProject } from "../lib/project.ts";
 import type { DocConversion, DocJson } from "../types.ts";
 import { proposeLines } from "./actions.ts";
-import { DOC_SLOT, docContexts, docRunLines, type JobRun, type PromptTemplate } from "./prompt.ts";
+import { docGiven, GIVEN_SLOT, type Given } from "./given.ts";
+import type { JobRun, PromptTemplate } from "./prompt.ts";
 import { newRunId, runClaude } from "./run.ts";
 
 export const STUDY_MARKER = "Testimus study";
@@ -72,23 +73,10 @@ function studyPrompt(
 ): string {
   return [
     `${STUDY_MARKER} of the document ${doc.id} (${doc.title || doc.code}) before its conversion.`,
-    "Use the study-document skill, part « Before the conversion ».",
-    "Testimus inspected its original (docs_inspect, below). Then look at the pages yourself — at least three, before",
-    "you answer: docs_page { id, page } draws one as a PNG, Read it. The cover, a table of contents page, two body",
-    "pages with headings, a page with a figure or a table, and a page without text if there is one.",
-    "",
-    "Then choose how it is converted (leave out what Testimus already does well):",
-    '- from: "docx" or "pdf" — only when both copies are in the folder;',
-    '- reader: "tagged" or "layout" — the PDF reader, only to override what Testimus chose;',
-    "- numbers: [{ number, title }] — only when heading numbers are printed on the pages but missing from the PDF",
-    "  text and neither bookmarks nor table of contents give them: every such heading, in reading order, number and",
-    "  title as printed;",
-    `- notes: one to three sentences in English for the check after the conversion: the caption and numbering`,
-    "  conventions you saw, the pages or parts to look at.",
-    "Do not edit any file.",
+    "Use the study-document skill, part « Before the conversion »: look at the pages yourself — at least three — then choose only what Testimus would not do well by itself (from, reader, numbers, notes). Edit no file.",
     ...extra,
     "",
-    "Inspection:",
+    "What Testimus found in its original (docs_inspect):",
     "```json",
     inspection,
     "```",
@@ -123,19 +111,12 @@ function conversionCheckText(
   return [
     `${CONVERSION_CHECK_MARKER} of the document ${doc.id} (${doc.title || doc.code}): compare docs/${doc.id}/doc.md`,
     "with its original.",
-    "Use the study-document skill, part « After the conversion ».",
+    "Use the study-document skill, part « After the conversion »: against the pages, not the counts alone. Edit no file.",
     `Converted with ${f.converted}.`,
     `Options: ${f.options}`,
     ...(f.warnings.length ? ["Conversion warnings:", ...f.warnings.map((w) => `- [doc:${doc.id}] ${w}`)] : []),
     "",
-    "docs_page { id, page } draws a page of the original as a PNG (Read it); docs_show { id, anchor } gives a part",
-    "of doc.md (page:N, §n, fig:n); docs_inspect gives the counts of the original. Do not edit any file.",
-    "Compare against the pages, not against the counts alone: draw and Read at least three pages — a table of contents",
-    "page, a page with a table, a page with a figure — and anything doc.md makes you doubt, before you answer.",
-    "",
-    "If other options would convert it better (another copy, the other reader, heading numbers read on the pages,",
-    "a figure without picture that a page draws: figures [{ key, page, region }], the region checked with docs_page),",
-    "reply with a block holding all the options — it replaces the current ones and Testimus converts once more:",
+    "When other options would convert it better, reply with a block holding all the options — it replaces the current ones and Testimus converts once more:",
     ...block({ reader: "tagged", numbers: [{ number: "5.2.1", title: "…" }], notes: "…" }),
     ...proposeLines(
       runId,
@@ -155,20 +136,25 @@ export const prompts: PromptTemplate[] = [
     id: "study",
     name: "Study a document before its conversion",
     group: "Documents",
+    kind: "study",
     usedBy: ["Documents: import, when Claude studies the document first", "docs.convert"],
-    text: () => studyPrompt(SHOWN, "{what docs_inspect found}", "{current options}", DOC_SLOT),
+    answers: "How to convert the document, in the block that ends the reply",
+    text: () => studyPrompt(SHOWN, "{what docs_inspect found}", "{current options}", GIVEN_SLOT),
   },
   {
     id: "conversion-check",
     name: "Compare a conversion with its original",
     group: "Documents",
+    kind: "study",
     usedBy: ["Documents: import and conversion, the check after it", "docs.convert"],
+    answers:
+      "Better conversion options when there are some (a block in the reply); actions_propose for what it could fix",
     text: () =>
       conversionCheckText(
         SHOWN,
         { converted: "{converter}: {n} sections, {m} figures", options: "{options}", warnings: ["{warning}"] },
         "{runId}",
-        DOC_SLOT,
+        GIVEN_SLOT,
       ),
   },
 ];
@@ -178,17 +164,17 @@ export type StudyResult = { ok: boolean; summary: string; runId: string; convers
 async function run(
   ctx: Ctx,
   project: string,
-  docId: string,
   prompt: string,
   claude: JobRun,
   runId: string,
+  g: Given,
 ): Promise<StudyResult> {
   const p = readProject(project);
   const r = await runClaude({
     kind: "study",
     project,
     prompt,
-    contexts: docContexts(project, docId, claude),
+    given: g,
     model: claude.model || p.claude.model,
     effort: claude.effort || "low",
     runId,
@@ -209,12 +195,14 @@ export function studyDoc(
 ): Promise<StudyResult> {
   ctx.progress({ message: `Claude studies ${doc.id} before converting it` });
   const options = doc.conversion ? JSON.stringify(doc.conversion) : "";
-  const prompt = studyPrompt(doc, JSON.stringify(inspection), options, docRunLines(project, doc.id, claude));
-  return run(ctx, project, doc.id, prompt, claude, newRunId());
+  const g = docGiven(project, "study", doc.id, claude);
+  const prompt = studyPrompt(doc, JSON.stringify(inspection), options, g.lines);
+  return run(ctx, project, prompt, claude, newRunId(), g);
 }
 
 export function checkConversion(ctx: Ctx, project: string, doc: DocJson, claude: JobRun): Promise<StudyResult> {
   ctx.progress({ message: `Claude compares ${doc.id} with its original` });
   const runId = newRunId();
-  return run(ctx, project, doc.id, checkPrompt(doc, runId, docRunLines(project, doc.id, claude)), claude, runId);
+  const g = docGiven(project, "study", doc.id, claude);
+  return run(ctx, project, checkPrompt(doc, runId, g.lines), claude, runId, g);
 }

@@ -5,6 +5,7 @@ import type { Effort, Source, Test } from "../../../../core/types.ts";
 import { cap, effortOptions, useModelChoice } from "../../../components/claude/ModelPicker.tsx";
 import { useClaudeStatus } from "../../../components/claude/useClaudeStatus.ts";
 import { useNow } from "../../../components/claude/useNow.ts";
+import { useRunContext } from "../../../components/claude/useRunContext.tsx";
 import { Banner } from "../../../components/ui/Banner.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../../components/ui/ClaudeBlock.tsx";
@@ -61,6 +62,7 @@ function byPlace(list: ProposalView[]): [string, ProposalView[]][] {
 // runs, the same box with its timer and Cancel; then Claude's reading, the proposals to decide grouped by the step they
 // are about, what was decided, the items no document holds and how each column was treated
 export function AnalysisPane({
+  testId,
   test,
   state,
   defaults,
@@ -70,6 +72,7 @@ export function AnalysisPane({
   onOpenSource,
   onClose,
 }: {
+  testId: string;
   test: Test;
   state: ReturnType<typeof useAnalysis>;
   defaults: { model: string; effort: Effort };
@@ -86,6 +89,7 @@ export function AnalysisPane({
   const [picked, setPicked] = useState<string | null>(null);
   const [model, setModel] = useState(defaults.model);
   const [effort, setEffort] = useState<Effort>(defaults.effort);
+  const [look, setLook] = useState("");
   const choice = useModelChoice(model, setModel);
   const { status } = useClaudeStatus();
   const offline = !!status && (!status.installed || status.signedIn === false);
@@ -99,11 +103,14 @@ export function AnalysisPane({
   const shown = tab === "open" ? open : tab === "accepted" ? accepted : rejected;
 
   const ask = (!analysis && !state.loading) || asking || !!running;
+  const given = useRunContext({ use: "analyze", scope: { kind: "test", testId }, note: look, enabled: ask });
   const block = ask && (
     <ClaudeBlock
       id="analysis-note"
       ariaLabel="Look especially at"
-      value=""
+      value={look}
+      onChange={setLook}
+      context={given.context}
       placeholder="Look especially at… (optional)"
       allowEmpty
       model={{ value: choice.selected, shown: cap(model), options: choice.options, onChange: choice.pick }}
@@ -115,7 +122,8 @@ export function AnalysisPane({
       onSubmit={(note) => {
         setAsking(false);
         setTab("open");
-        void start({ ...(note.trim() ? { note } : {}), model, effort });
+        setLook("");
+        void start({ ...(note.trim() ? { note } : {}), model, effort, ...given.run });
       }}
     />
   );
@@ -158,7 +166,12 @@ export function AnalysisPane({
               tone="warning"
               title="The analysis stopped."
               actions={
-                <Button size="sm" label="Try again" disabled={locked} onClick={() => void start({ model, effort })} />
+                <Button
+                  size="sm"
+                  label="Try again"
+                  disabled={locked}
+                  onClick={() => void start({ model, effort, ...given.run })}
+                />
               }
             >
               {failed}
@@ -280,6 +293,7 @@ export function AnalysisPane({
           )}
         </div>
       </Pane>
+      {given.dialog}
     </div>
   );
 }

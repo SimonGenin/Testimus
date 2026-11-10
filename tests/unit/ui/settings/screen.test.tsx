@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsScreen } from "../../../../src/ui/screens/settings/SettingsScreen.tsx";
 import { iconsIn } from "../../helpers/icons.ts";
@@ -122,11 +122,10 @@ describe("Settings › the list names the sections only", () => {
   });
 });
 
-describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a field (audit M-C3)", () => {
+describe("Settings › anchors: #/settings/claude-dock, -quickasks, context, a field (audit M-C3)", () => {
   for (const [arg, card, entry] of [
     ["claude-dock", "Claude dock", "Claude"],
     ["claude-quickasks", "Quick asks", "Claude"],
-    ["claude-contexts", "Contexts", "Claude"],
   ] as const)
     it(`#/settings/${arg} opens the Claude section, marks « ${entry} » and scrolls to the « ${card} » card`, async () => {
       mountSettings(<SettingsScreen />, { route: { screen: "settings", arg } });
@@ -134,6 +133,21 @@ describe("Settings › anchors: #/settings/claude-dock, -quickasks, -contexts, a
       const region = await screen.findByRole("region", { name: card });
       await waitFor(() => expect(scrolled.some((el) => el.contains(region))).toBe(true));
     });
+
+  it("#/settings/context opens the Context section, where the default contexts are now: Claude has no « Contexts » card", async () => {
+    net.routes["claude.prompts"] = () => [];
+    net.routes["contexts.ofProject"] = () => ({ effective: [] });
+    mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "context" } });
+    expect(option("Context")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { level: 2, name: "Context" })).toBeInTheDocument();
+    expect(await screen.findByRole("listbox", { name: "What Claude is given" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New context" })).toBeInTheDocument();
+    cleanup();
+    mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude-contexts" } });
+    expect(option("Claude")).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("region", { name: "Quick asks" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Contexts" })).toBeNull();
+  });
 
   it("#/settings/claude scrolls to the Connection to Claude card and marks Claude", () => {
     mountSettings(<SettingsScreen />, { route: { screen: "settings", arg: "claude" } });

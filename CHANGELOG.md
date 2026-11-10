@@ -16,7 +16,14 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 - Analyser un test existant contre les documents : Claude relie ce qui est juste à ses passages et propose des changements, que l'équipe accepte ou refuse un par un. L'analyse s'ouvre dans un onglet « Analysis » à droite du test (jamais par-dessus), avec le nombre de propositions à décider ; déplacée ailleurs, elle y revient la fois suivante.
 - Un nouveau projet démarre avec trois demandes rapides : « One action per step », « Checkable results » et « Missing cases ».
 - Dock Claude : plus de note séparée, on écrit dans la seule zone de texte.
-- Le « + » des blocs Claude (dock, Generate, note d'un document, Smart columns) offre partout les mêmes choix : contextes à cocher, « Save the text as a context… », « Manage contexts… ».
+- Le bouton « Context » de chaque bloc Claude ouvre un schéma de tout ce qui part avec la demande — consigne, règles, outils, contextes, documents et ce que l'équipe en sait — et on y coche ou décoche ce qui accompagne ce run ; les contextes enregistrés se créent et se gèrent au même endroit.
+- Un document décoché n'est ni cherché, ni lu, ni cité par Claude pour ce run.
+- Settings › Context dit, run par run, ce que Claude reçoit, ce qu'il peut toucher et ce qu'il rend ; les contextes par défaut s'y règlent.
+- La vérification dit pour chaque étape si le passage cité l'appuie, et lequel elle a lu ; chaque anomalie que les documents tranchent vient avec sa correction, et le test reçoit une seule action « Fix ».
+- Ce qu'une génération laisse sans test est expliqué : une raison parmi six, ce qui a été cherché et lu, ce qui débloquerait ; Claude y jette un second regard et ne propose d'écrire le test que s'il peut vraiment s'écrire.
+- Vérifier plusieurs tests coûte beaucoup moins : une seule demande pour quatre tests, et Claude ne reçoit plus que les outils utiles à son travail.
+- Les règles du projet (CLAUDE.md) se mettent à jour avec l'app sans toucher aux notes de l'équipe.
+- Après le run d'une action, Testimus recompte ce qui reste du problème (« 3 findings → 0 »).
 - Nouvelle page Settings › Changelog : ce qui change à chaque version, la plus récente en haut. Un clic sur le numéro de version l'ouvre, et l'annonce d'une mise à jour y mène.
 
 ## 0.0.7

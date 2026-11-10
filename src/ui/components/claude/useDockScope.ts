@@ -6,11 +6,13 @@ import type { Sub, Tab } from "./DockScope.tsx";
 // ponytail: what the dock talks about follows the screen — the open test (and its step), else the open document, else
 // the whole project — until the user picks another; the Actions tab stays where it is
 export function useDockScope(focus: Focus | null, docId: string | null) {
-  const [tab, setTab] = useState<Tab>("test");
-  const [sub, setSub] = useState<Sub>("project");
   const testId = focus?.testId;
-
   const runOnly = !!focus?.run && !testId;
+  // ponytail: it starts on what the screen shows, not on the project: what a run is given is read for the scope, and a
+  // first draw on the project would read the project's for nothing
+  const [tab, setTab] = useState<Tab>(testId || runOnly || !docId ? "test" : "docs");
+  const [sub, setSub] = useState<Sub>(testId ? "test" : runOnly ? "run" : docId ? "doc" : "project");
+
   useEffect(() => {
     setTab((t) => (t === "actions" ? t : testId || runOnly ? "test" : docId ? "docs" : "test"));
     setSub(testId ? "test" : runOnly ? "run" : docId ? "doc" : "project");

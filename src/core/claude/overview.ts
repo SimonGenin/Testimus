@@ -7,7 +7,6 @@ import {
   changesSince,
   type DocChange,
   keepLastUpdate,
-  OVERVIEW_LINE,
   OVERVIEW_PATH,
   type OverviewKind,
   overviewOption,
@@ -20,6 +19,8 @@ import {
 } from "../lib/overview.ts";
 import { readProject } from "../lib/project.ts";
 import type { DocJson } from "../types.ts";
+import { GIVEN_SLOT, given } from "./given.ts";
+import { languageName } from "./language.ts";
 import { keepForOverview, strayWrites, undoWrites } from "./overview-scope.ts";
 import type { JobRun, PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
@@ -90,28 +91,27 @@ export function overviewPrompt(
   changes: string[],
   documents: string[],
   others: number | string,
+  context: string[] = [],
 ): string {
   const head = [
     `${OVERVIEW_MARKER} to ${mode === "full" ? "write" : "update"} ${OVERVIEW_PATH}: how this project's documents fit together.`,
-    `Write it in the project's language (${language}). Do not touch its frontmatter (between the --- lines): Testimus writes it.`,
+    `Write it in ${languageName(language)}. Do not touch its frontmatter (between the --- lines): Testimus writes it.`,
   ];
   if (mode === "full")
     return [
       ...head,
-      `Write it whole, from scratch, with Write (replace what is there): a section per document, then the sections across them.`,
+      "Write it whole, from scratch (replace what is there).",
       "",
       "The documents:",
       ...documents,
+      ...context,
       "",
-      "When finished, reply in 2-4 lines: the sections you wrote.",
+      "Reply in 2 to 4 lines: the sections you wrote.",
       "",
     ].join("\n");
   return [
     ...head,
-    `It exists: Read it first, then change it in place with Edit — never rewrite it whole. Change only:`,
-    "- the section of each document listed below: add the section of a document added, bring up to date the section of a document converted again, delete the section of a document removed;",
-    "- the sections across the documents (the corpus, the links, the amendments, what contradicts) where these changes touch them.",
-    "Keep every other line word for word: the sections of the documents that did not change, and whatever the team wrote by hand (merge into it, never drop it).",
+    "It exists: update it in place, as the skill says — only the sections of the documents listed below and the sections across the documents these changes touch. Every other line stays word for word, what the team wrote by hand included.",
     "",
     "What changed since the last update:",
     ...changes,
@@ -120,7 +120,9 @@ export function overviewPrompt(
     ...documents,
     "",
     ...othersLine(others),
-    "When finished, reply in 2-4 lines: the sections you changed, added or removed.",
+    ...context,
+    ...(context.length ? [""] : []),
+    "Reply in 2 to 4 lines: the sections you changed, added or removed.",
     "",
   ].join("\n");
 }
@@ -130,7 +132,9 @@ export const prompts: PromptTemplate[] = [
     id: "overview-update",
     name: "Update how the documents fit together",
     group: "Documents",
+    kind: "overview",
     usedBy: ["Documents: after an import or a conversion (when on)", "How the documents fit together: Update now"],
+    answers: "docs/OVERVIEW.md changed in place; a write anywhere else is undone and fails the job",
     text: () =>
       overviewPrompt(
         "auto",
@@ -138,23 +142,17 @@ export const prompts: PromptTemplate[] = [
         ["{what changed: added, converted again, removed}"],
         ["{documents}"],
         "{n}",
+        GIVEN_SLOT,
       ).trim(),
   },
   {
     id: "overview-full",
     name: "Write how the documents fit together, from scratch",
     group: "Documents",
+    kind: "overview",
     usedBy: ["How the documents fit together: Rewrite from scratch", "the first update of a project"],
-    text: () => overviewPrompt("full", "{language}", [], ["{documents}"], 0).trim(),
-  },
-  {
-    id: "overview-line",
-    name: "How the documents fit together, in every run",
-    group: "Every run",
-    usedBy: [
-      "Added at the end of every run's prompt while « Give it to every Claude run » is on (not figure, header or picture reading)",
-    ],
-    text: () => OVERVIEW_LINE,
+    answers: "docs/OVERVIEW.md written whole; a write anywhere else is undone and fails the job",
+    text: () => overviewPrompt("full", "{language}", [], ["{documents}"], 0, GIVEN_SLOT).trim(),
   },
 ];
 
@@ -228,10 +226,12 @@ export async function writeOverviewRun(
   const others = Object.keys(now).length - touched.length;
   ctx.progress({ message: mode === "full" ? "Claude writes the overview" : "Claude updates the overview" });
   const kept = keepForOverview(project);
+  const g = given(project, "overview", { kind: "none" }, { note: input.note, without: input.without });
   const r = await runClaude({
     kind: "overview",
     project,
-    prompt: overviewPrompt(mode, p.language, changeLines(changes), documents, others),
+    prompt: overviewPrompt(mode, p.language, changeLines(changes), documents, others, g.lines),
+    given: g,
     model: input.model || p.claude.model,
     effort: input.effort || "medium",
     label: "overview",

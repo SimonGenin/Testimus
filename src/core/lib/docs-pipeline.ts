@@ -4,8 +4,9 @@ import { basename, extname, join, relative } from "node:path";
 import { scope, throwIfAborted } from "../../shared/run/work.ts";
 import { triage } from "../claude/actions.ts";
 import { describeFigures, shouldDescribeFigures } from "../claude/figures.ts";
+import { docGiven } from "../claude/given.ts";
 import { claudeHeaders } from "../claude/headers.ts";
-import { docRunLines, type JobRun } from "../claude/prompt.ts";
+import type { JobRun } from "../claude/prompt.ts";
 import { claudeVersion } from "../claude/status.ts";
 import { checkConversion, sameConversion, studyDoc } from "../claude/study.ts";
 import { type Ctx, UserError } from "../command.ts";
@@ -76,8 +77,8 @@ async function withTriage(ctx: Ctx, project: string, doc: DocJson, claude: JobRu
   }
   try {
     const problems = warnings.map((text) => ({ where: `doc:${doc.id}`, text }));
-    const lines = docRunLines(project, doc.id, claude);
-    await triage(ctx, project, problems, `the document ${doc.id}`, claude, "import", lines);
+    const g = docGiven(project, "triage", doc.id, claude);
+    await triage(ctx, project, problems, `the document ${doc.id}`, claude, "import", g);
   } catch (e) {
     ctx.log("warn", `Claude did not look at the warnings: ${message(e)}`);
   }

@@ -14,6 +14,7 @@ const styles = stylex.create({
   where: { color: color.textSubtle },
   message: { margin: 0, overflowWrap: "anywhere" },
   stale: { color: color.textMuted },
+  fix: { color: color.textMuted },
   note: { margin: 0, color: color.textSubtle },
   chips: { display: "flex", flexWrap: "wrap", gap: space.s2, alignItems: "center" },
 });
@@ -91,6 +92,11 @@ export function FindingCard({
         actions={<span {...stylex.props(type.small, styles.where)}>{by ? `${where} · ${by}` : where}</span>}
       >
         <p {...stylex.props(type.body, styles.message, stale && styles.stale)}>{finding.message}</p>
+        {finding.fix && (
+          <p {...stylex.props(type.compact, styles.message, stale && styles.stale)}>
+            <span {...stylex.props(type.medium, styles.fix)}>Suggested fix</span> {finding.fix}
+          </p>
+        )}
         {stale && (
           <p {...stylex.props(type.small, styles.note)}>
             The test changed after this check. Run the check again to confirm.

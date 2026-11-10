@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import type { Effort } from "../../../core/types.ts";
 import { cap, effortOptions, useModelChoice } from "../../components/claude/ModelPicker.tsx";
+import { useRunContext } from "../../components/claude/useRunContext.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
@@ -46,6 +47,9 @@ export type AskInput = {
   tests?: string[];
   model?: string;
   effort?: Effort;
+  /** what was ticked in the block's Context for this run */
+  contexts?: string[];
+  without?: string[];
 };
 
 // ponytail: what anyone may ask after a generation — shown until Claude wrote this generation's own (gen.show
@@ -91,6 +95,18 @@ export function AskChanges({
   const request = shown.data?.request?.trim();
   const suggestions = shown.data?.suggestions ?? [];
   const nothing = scope === "pick" && !picked.length ? "Pick the tests to change" : undefined;
+  const [text, setText] = useState("");
+  const targets = scope === "pick" ? picked : scope === "fixes" ? fixes.tests : tests;
+  // ponytail: a change is claude.run's request on the tests it works on, new tests are a generation under the same id;
+  // either way what goes with it starts from what the generation ran with (its contexts, its documents in scope)
+  const ctx = useRunContext({
+    use: scope === "add" ? "generate-add" : "ask-tests",
+    scope: scope === "add" || !targets.length ? undefined : { kind: "tests", testIds: targets },
+    generation,
+    note: text,
+    subject: generation,
+    onSaved: () => setText(""),
+  });
   return (
     <section aria-label="Ask for changes" {...stylex.props(styles.pane)}>
       <div {...stylex.props(styles.stack)}>
@@ -109,7 +125,9 @@ export function AskChanges({
         <ClaudeBlock
           id="gen-revise"
           ariaLabel="What should change?"
-          value=""
+          value={text}
+          onChange={setText}
+          context={ctx.context}
           placeholder={
             scope === "add"
               ? "What tests should be added? e.g. « les cas où la TK est en défaut »"
@@ -140,7 +158,7 @@ export function AskChanges({
           submitLabel="Ask Claude"
           running={running}
           unavailable={unavailable ?? nothing}
-          onSubmit={(prompt) =>
+          onSubmit={(prompt) => {
             onAsk({
               generation,
               request: prompt,
@@ -148,9 +166,12 @@ export function AskChanges({
               ...(scope === "pick" ? { tests: picked } : scope === "fixes" ? { tests: fixes.tests } : {}),
               model,
               effort,
-            })
-          }
-        ></ClaudeBlock>
+              ...ctx.run,
+            });
+            setText("");
+          }}
+        />
+        {ctx.dialog}
         {picking && (
           <PickTests
             tests={tests}

@@ -26,11 +26,7 @@ const effort = {
   ],
   onChange: () => {},
 };
-const contexts = [
-  { id: "glossaire", label: "Glossaire RATP", on: true },
-  { id: "regles", label: "Règles de rédaction", on: true },
-  { id: "old", label: "Ancien lot", on: false },
-];
+const context = { count: 9, onOpen: () => {} };
 const quickAsks = [
   { label: "Shorten", prompt: "Make every step shorter." },
   { label: "Negative path", prompt: "Add the negative path." },
@@ -67,29 +63,30 @@ export const section: KitSection = {
   family: "Claude",
   file: "ClaudeBlock.tsx",
   summary:
-    "Every place where one writes to or for Claude: the Text component inside a frame that adds contexts, quick asks, model and effort, and send or autosave — never a second text box.",
+    "Every place where one writes to or for Claude: the Text component inside a frame that adds what goes with the run (Context), quick asks, model and effort, and send or autosave — never a second text box.",
   note: "Built on Text: a feature added to Text (a shortcut, a mention) works here at once. Attachments are not shown: no Claude run takes a file today.",
   guidelines: [
     {
       head: "Anatomy",
-      text: "Optional *Context* row (toggle chips: the effective contexts of this run, each switchable off for this run only, + Add context) · the text · footer: the scope — a Select when the run may work on one of a few things (« All 3 tests · The 2 with a fix · Pick tests… · New tests »), else its words (« Step 2 », « Whole test », « Whole project ») —, *Suggestions* (a menu in Claude's colour whose items put their prompt in the box; one with a scope also sets it), model, effort, then the submit area. A chip is a value of a set (the contexts), never a choice of the run. No attachment: no Claude run takes a file today.",
+      text: "The text · footer: the scope — a Select when the run may work on one of a few things (« All 3 tests · The 2 with a fix · Pick tests… · New tests »), else its words (« Step 2 », « Whole test », « Whole project ») —, *Suggestions* (a menu in Claude's colour whose items put their prompt in the box; one with a scope also sets it), *Context* (a quiet button with the count of the pieces that go with the run; it opens the owner's dialog, the graph of everything Claude is given — the block itself holds no context), model, effort, then the submit area. No attachment: no Claude run takes a file today.",
     },
     {
       head: "Options and where each combination is used",
-      text: "Where — contexts — quick asks — model · effort — scope — submit.",
+      text: "Where — Context — quick asks — model · effort — scope — submit.",
       items: [
         "Dock, on a test, a step or the project — yes — yes — yes — yes — Ctrl+Enter → Send",
         "Dock, ask the documents — yes — no — yes — no — Ctrl+Enter → Ask",
-        "« Ask Claude » popover on a test or a step — no (inherits) — yes — yes — no — Ctrl+Enter → Send",
-        "« To fix » note (Review) — no — no — no — no — autosave; the dialog's « Mark To fix » / « Ask Claude to fix it »",
-        "Generate, after a generation (« Ask for changes ») — no — yes (Suggestions) — yes — scope Select: All N tests · The n with a fix · Pick tests… · New tests — Ctrl+Enter → Ask Claude",
-        "A context's notes (Contexts dialog) — no — no — no — no — autosave",
+        "Generate, the request — yes — no — yes — no — none: the form's Generate button, Ctrl+Enter presses it",
+        "Generate, after a generation (« Ask for changes ») — yes — yes (Suggestions) — yes — scope Select: All N tests · The n with a fix · Pick tests… · New tests — Ctrl+Enter → Ask Claude",
+        "« To fix » note (Review) — yes (for Claude's fix) — no — no — no — autosave; the dialog's « Mark To fix » / « Ask Claude to fix it »",
+        "A document's note (Documents) — yes: the document's own list of saved contexts — no — no — no — autosave",
+        "A saved context's notes (Edit the context) — no — no — no — no — autosave",
         "A quick ask's prompt (Settings › Claude) — no — no — no — no — autosave",
       ],
     },
     {
       head: "States",
-      text: "empty (placeholder says what Claude can do here) · typing · focus (violet edge) · running (text read-only, footer violet: spinner, « Claude is working », seconds counter, Cancel) · disabled (Claude not connected: the reason in the footer, Send disabled — « Claude is optional — everything else works without it ») · autosave states from Text.",
+      text: "empty (placeholder says what Claude can do here) · typing · focus (violet edge) · running (text read-only, footer violet: spinner, « Claude is working », seconds counter, Cancel) · disabled (Claude not connected: the reason in the footer, Send disabled — « Claude is optional — everything else works without it ») · Context changed for this run (the button in Claude's colour, « 8 · changed ») · autosave states from Text.",
     },
     {
       head: "Rules",
@@ -104,8 +101,7 @@ export const section: KitSection = {
           value=""
           placeholder="Ask Claude to change this test — or press Send to check it"
           scope="Whole test"
-          contexts={contexts}
-          onAddContext={() => {}}
+          context={context}
           quickAsks={quickAsks}
           model={model}
           effort={effort}
@@ -121,6 +117,7 @@ export const section: KitSection = {
               value=""
               placeholder="Ask Claude"
               scope="Whole project"
+              context={context}
               model={model}
               effort={effort}
               allowEmpty
@@ -128,6 +125,19 @@ export const section: KitSection = {
             />
           </div>
         ))}
+      </Cell>
+      <Cell label="context changed for this run" wide column>
+        <ClaudeBlock
+          ariaLabel="Ask Claude, a context left out"
+          value=""
+          placeholder="Ask Claude to change this test"
+          scope="Whole test"
+          context={{ count: 8, changed: true, onOpen: () => {} }}
+          model={model}
+          effort={effort}
+          allowEmpty
+          onSubmit={() => {}}
+        />
       </Cell>
       <Cell label="typing · focus" wide column>
         <ClaudeBlock
@@ -157,7 +167,7 @@ export const section: KitSection = {
           ariaLabel="Ask the documents"
           value=""
           placeholder="Ask the documents"
-          contexts={contexts.slice(0, 1)}
+          context={context}
           model={model}
           effort={effort}
           submitLabel="Ask"
@@ -193,6 +203,15 @@ export const section: KitSection = {
           value="The expected result of step 3 does not match § 5.6.6."
           onChange={() => {}}
           submit="autosave"
+        />
+      </Cell>
+      <Cell label="a document's note (autosave) with its Context" column>
+        <ClaudeBlock
+          label="Note for this document"
+          value="The J5 delivery replaces § 5.6 of the J4 one."
+          onChange={() => {}}
+          submit="autosave"
+          context={{ count: 6, onOpen: () => {} }}
         />
       </Cell>
       <Cell label="Track ids — Enter asks" column>

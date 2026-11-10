@@ -5,7 +5,6 @@ import { useApp } from "../../lib/app.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { AgentsField } from "./AgentsField.tsx";
 import { ClaudeProgram } from "./ClaudeProgram.tsx";
-import { DefaultContexts } from "./DefaultContexts.tsx";
 import { DockDefaults } from "./DockDefaults.tsx";
 import { OverviewSetting } from "./OverviewSetting.tsx";
 import { useInfo } from "./project.ts";
@@ -29,8 +28,8 @@ const styles = stylex.create({
   },
 });
 
-// ponytail: the connection is this PC's and works without a project; the dock defaults, quick asks and default
-// contexts are the project's (project.json)
+// ponytail: the connection is this PC's and works without a project; the dock defaults and quick asks are the
+// project's (project.json). The default contexts are in Settings › Context, with everything Claude is given
 export function ClaudeSection() {
   const app = useApp();
   const info = useInfo();
@@ -61,7 +60,7 @@ export function ClaudeSection() {
         {!app.info && (
           <Column>
             <Card padded={false}>
-              <NoProject text="The Claude dock, the quick asks and the default contexts are a project's: open one to set them." />
+              <NoProject text="The Claude dock and the quick asks are a project's: open one to set them." />
             </Card>
           </Column>
         )}
@@ -69,9 +68,6 @@ export function ClaudeSection() {
           <Column>
             <Anchor id="claude-quickasks">
               <QuickAsks presets={claude.presets ?? []} />
-            </Anchor>
-            <Anchor id="claude-contexts">
-              <DefaultContexts chosen={claude.contexts ?? []} />
             </Anchor>
             <Anchor id="claude-overview">
               <OverviewSetting overview={claude.overview} />

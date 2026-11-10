@@ -1,0 +1,5 @@
+Your reply cannot be read: its block has these problems.
+- skipped.0.item: Too small: expected string to have >=3 characters
+- skipped.0.reason: Invalid option: expected one of "no-source"|"not-observable"|"already-tested"|"out-of-scope"|"documents-disagree"|"missing-material"
+- skipped.0.why: Invalid input: expected string, received undefined
+Do no other work: reply with the corrected ```gen-report block only, valid JSON, nothing after it.

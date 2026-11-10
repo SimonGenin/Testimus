@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { RunPick } from "../../components/claude/pieces.ts";
 import type { AppState } from "../../lib/app.ts";
 import { useCommand } from "../../lib/data/query.ts";
 import { editedAfterRun, revertDone } from "../../lib/revert.ts";
@@ -34,13 +35,13 @@ export function useReviewActions({ app, data, items, act, view, running }: Args)
     }
   };
 
-  const askFix = (note?: string) => {
+  const askFix = (note?: string, run: RunPick = {}) => {
     if (!data) return;
     const text = note ?? data.test.reviewNote ?? "";
     void act.flush(data.id).then(() =>
       app.runInDock({
         name: "review.fix",
-        input: note ? { id: data.id, note } : { id: data.id },
+        input: { id: data.id, ...(note ? { note } : {}), ...run },
         label: text || "Fix the test",
         testId: data.id,
       }),
@@ -73,10 +74,10 @@ export function useReviewActions({ app, data, items, act, view, running }: Args)
       if (!data || view.fixOpen || running) return;
       void decide(() => act.validate(data.id, label, items ?? []));
     },
-    markToFix: (note: string, askClaude: boolean) => {
+    markToFix: (note: string, askClaude: boolean, run?: RunPick) => {
       if (!data) return;
       view.patch({ fixOpen: false });
-      if (askClaude) askFix(note);
+      if (askClaude) askFix(note, run);
       else void decide(() => act.markToFix(data.id, label, items ?? [], note));
     },
     askFix: () => askFix(),

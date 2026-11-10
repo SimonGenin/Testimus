@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { fixTest } from "../claude/fix.ts";
 import { decide, needTest, reviewQueue } from "../claude/review.ts";
-import { CHECK_FILE, DIAGNOSIS, REVIEW, TEST_REF } from "../claude/schemas.ts";
+import { CHECK_FILE, CONTEXT_IDS, DIAGNOSIS, REVIEW, TEST_REF, WITHOUT } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { testName } from "../lib/names.ts";
 
@@ -108,6 +108,10 @@ export const commands = [
           "What to fix, in the reviewer's words: the test is marked To fix with it first (default: the test's review_note)",
         ),
       semantic: z.boolean().default(true).describe("Re-check with the check-test skill too (default true)"),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved context ids for this run, in place of the ones its subject attaches (a test's or a document's own list, else the project's defaults; claude.preview shows them).",
+      ),
+      without: WITHOUT,
     }),
     output: z.object({
       ok: z.boolean().describe("Whether Claude's fix run finished"),
@@ -132,7 +136,7 @@ export const commands = [
       const project = projectOf(ctx);
       needTest(project, input.id);
       if (input.note?.trim()) decide(project, input.id, "to-fix", input.note);
-      return await fixTest(ctx, project, input.id, { note: input.note, semantic: input.semantic });
+      return await fixTest(ctx, project, input.id, input);
     },
   }),
 ];

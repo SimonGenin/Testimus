@@ -65,7 +65,8 @@ test("comments: a mention, a Claude draft sent by the person, an edit and a dele
 
   await card.getByRole("button", { name: "Draft with Claude" }).click();
   const ask = page.getByRole("dialog", { name: "Draft a comment on LFRPS12-1420" });
-  await ask.getByRole("button", { name: "Answer the last comment" }).click();
+  await ask.getByRole("button", { name: "Suggestions" }).click();
+  await page.getByRole("menuitem", { name: /^Answer the last comment/ }).click();
   await ask.getByRole("button", { name: "Draft" }).click();
   await expect(card.getByText("Drafted by Claude")).toBeVisible();
   await expect(box).toHaveValue(/^@Camille Martin d'accord/);

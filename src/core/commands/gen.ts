@@ -1,13 +1,47 @@
 import { z } from "zod";
 import { scopeIndex } from "../claude/gen-prompt.ts";
-import { inCategoryOrder } from "../claude/gen-reply.ts";
+import { inCategoryOrder, SKIP_REASONS } from "../claude/gen-reply.ts";
 import { reviseGeneration } from "../claude/gen-revise.ts";
 import { discardable, generateTests } from "../claude/generate.ts";
 import { readLedger } from "../claude/ledger.ts";
-import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS } from "../claude/schemas.ts";
+import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS, WITHOUT } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { generationName } from "../lib/names.ts";
 import { testExists } from "../lib/store.ts";
+
+const SKIPPED = z.object({
+  item: z.string().describe("The behavior left without a test"),
+  reason: z
+    .enum(SKIP_REASONS)
+    .describe(
+      "Why, from a closed list: no-source (no passage states what the tester must see), not-observable, already-tested, out-of-scope, documents-disagree, missing-material (what would state it is not in the project), stopped (the run was cut short); other for a report older than the list",
+    ),
+  category: z
+    .string()
+    .describe("The words the items are grouped under: the reason's, or Claude's own in an older report"),
+  why: z.string().describe("Why no test for this item, concretely"),
+  sources: z.array(z.string()).optional().describe('The passages that ask for it, docId#anchor "quote"'),
+  searched: z.array(z.string()).optional().describe("What the run searched before giving up, as it said"),
+  read: z.array(z.string()).optional().describe("The passages it opened for the item, docId#anchor"),
+  unblock: z.string().optional().describe("What would let the test be written, and who can bring it"),
+  test: z.string().optional().describe("already-tested: the test that verifies it"),
+  doubts: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "What Testimus could not confirm about it, without a model: a source that does not hold its quote, a passage said read and never opened, no search before giving up, a test that does not exist",
+    ),
+  review: z
+    .object({
+      verdict: z
+        .enum(["confirmed", "writable", "unsure"])
+        .describe("confirmed: the reason holds · writable: a passage states what the tester must see · unsure"),
+      why: z.string().describe("Why, in one sentence"),
+      sources: z.array(z.string()).optional().describe("writable: the passage found, checked by Testimus"),
+    })
+    .optional()
+    .describe("The second look Claude took at the item while checking the tests; absent when none was taken"),
+});
 
 const GEN_RESULT = z.object({
   runId: z.string().describe("Claude run id — claude.revert removes the tests it wrote"),
@@ -27,26 +61,11 @@ const GEN_RESULT = z.object({
     .describe("The check of each new test (empty with check: false)"),
   changed: z.array(z.string()).describe("Existing tests the run changed although it should not have"),
   discarded: z.array(z.string()).describe("Tests deleted before the run (discard: true)"),
-  skipped: z
-    .array(
-      z.object({
-        item: z.string().describe("What was asked"),
-        category: z
-          .string()
-          .describe(
-            "Why no test, in a few words Claude chose for this generation (no fixed list; the same words for items of the same nature; « Other » when the report gave none). The items come grouped by it, the largest category first",
-          ),
-        why: z
-          .string()
-          .describe("Why no test for this item, concretely: which source is missing, what the documents say"),
-        sources: z
-          .array(z.string())
-          .optional()
-          .describe('The passages that ask for it, docId#anchor "quote" as a step source'),
-      }),
-    )
-    .describe("What the request asked for that no test could be written for, and why"),
-  reportFound: z.boolean().describe("Whether Claude's reply carried the gen-report block"),
+  skipped: z.array(SKIPPED).describe("What the request asked for that no test was written for, and why"),
+  reportFound: z
+    .boolean()
+    .describe("Whether every run's report could be read; false: what a run left without a test is not known"),
+  reportErrors: z.array(z.string()).optional().describe("Why a report could not be read, when one could not"),
   consulted: z
     .number()
     .describe(
@@ -94,6 +113,7 @@ export const commands = [
       contexts: CONTEXT_IDS.optional().describe(
         "Saved context ids Claude reads first (default: project.json claude.contexts)",
       ),
+      without: WITHOUT,
       note: NOTE,
       folder: z
         .string()
@@ -138,6 +158,7 @@ export const commands = [
     input: z.object({
       docs: z.array(z.string()).optional().describe("Documents in scope as a whole, by id (as for gen.tests)"),
       sections: z.array(z.string()).optional().describe("Document sections in scope, docId#§x.y (as for gen.tests)"),
+      without: WITHOUT,
     }),
     output: z.object({
       replaces: z
@@ -158,7 +179,7 @@ export const commands = [
   command({
     name: "gen.show",
     summary:
-      "A generation as it stands: what it was asked, when, the tests it wrote that still exist, and what it could not write (with Claude's category and why).",
+      "A generation as it stands: what it was asked, when, the tests it wrote that still exist, and what it left without a test (the reason, what was searched and read, what Testimus could not confirm, the second look).",
     input: z.object({
       generation: z.string().describe("The generation id (gen.tests' generation, generated_by of its tests)"),
     }),
@@ -168,15 +189,7 @@ export const commands = [
       request: z.string().describe("The request in words it was asked (may be empty)"),
       at: z.string().optional().describe("When it started"),
       tests: z.array(z.string()).describe("The tests it wrote (and the ones a revision added) that still exist"),
-      skipped: z
-        .array(
-          z.object({
-            item: z.string().describe("What was asked"),
-            category: z.string().describe("Why no test, in Claude's few words"),
-            why: z.string().describe("Why no test for this item, concretely"),
-          }),
-        )
-        .describe("What it could not write a test for"),
+      skipped: z.array(SKIPPED).describe("What it left without a test"),
       suggestions: z
         .array(
           z.object({
@@ -205,7 +218,7 @@ export const commands = [
         request: l.input.request ?? "",
         ...(l.at ? { at: l.at } : {}),
         tests: (l.tests ?? []).filter((id) => testExists(project, id)),
-        skipped: inCategoryOrder(l.skipped ?? []).map(({ item, category, why }) => ({ item, category, why })),
+        skipped: inCategoryOrder(l.skipped ?? []),
         suggestions: l.suggestions ?? [],
       };
     },
@@ -213,7 +226,7 @@ export const commands = [
   command({
     name: "gen.revise",
     summary:
-      "Ask again after a generation: change its tests (mode change: the edit-test skill on all of them, or the ones given) or add tests to it (mode add: a generation under the same id, told which tests it already has). Snapshotted like any generation; the changed or new tests are checked, and their findings and what could not be written become Claude actions.",
+      "Ask again after a generation: change its tests (mode change: the edit-test skill on all of them, or the ones given) or add tests to it (mode add: a generation under the same id, told which tests it already has). Snapshotted like any generation; the changed or new tests are checked in the same job, and a test with fixable findings gets a Claude action.",
     input: z.object({
       generation: z.string().describe("The generation to ask again (gen.tests' generation)"),
       request: z.string().min(1).max(20000).describe("What should change, or which tests to add, in words"),
@@ -228,6 +241,7 @@ export const commands = [
       contexts: CONTEXT_IDS.optional().describe(
         "Saved context ids Claude reads first (default: those the generation ran with — the project's default contexts for a generation older than that record)",
       ),
+      without: WITHOUT,
       note: NOTE,
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)"),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)"),

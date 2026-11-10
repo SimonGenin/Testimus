@@ -3,7 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CheckFile, Job, JobEvent, LocalTestRef } from "../../../../src/core/types.ts";
-import { AppContext } from "../../../../src/ui/lib/app.ts";
+import { setProject } from "../../../../src/ui/api.ts";
+import { AppContext, type AppState } from "../../../../src/ui/lib/app.ts";
 import { GenCard } from "../../../../src/ui/screens/generate/GenCard.tsx";
 import {
   checkLine,
@@ -13,11 +14,16 @@ import {
   passagesRead,
   RunHead,
 } from "../../../../src/ui/screens/generate/GenResult.tsx";
+import type { SkippedItem } from "../../../../src/ui/screens/generate/SkippedList.tsx";
+import { iconOf } from "../../helpers/icons.ts";
+import { fakeNet, net, renderWithData } from "../../helpers/ui-data.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
 import { at, job, output, ref, test } from "./fixtures.ts";
 
 afterEach(() => {
   cleanup();
+  setProject(null);
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -95,7 +101,26 @@ describe("Generate › result helpers", () => {
     expect(screen.getByRole("region", { name: /^T/ })).toHaveTextContent("Draft");
   });
 
-  it("GenCard: findings from the check, then from the test list (out of date ones say so)", () => {
+  it("GenCard: the test's own last check wins over the generation's count once the list knows the test", () => {
+    render(
+      <GenCard
+        item={{
+          id: "x",
+          test: test("T", []),
+          ref: ref("x", { review: "to-fix", findings: { errors: 1, warnings: 0, infos: 0, stale: false } }),
+        }}
+        check={{ id: "x", ok: false, review: "draft", errors: 2, warnings: 0 }}
+        onOpen={vi.fn()}
+      />,
+    );
+    const card = screen.getByRole("region", { name: /^T/ });
+    expect(within(card).getByText("1 error")).toBeInTheDocument();
+    expect(within(card).queryByText("2 errors")).toBeNull();
+    expect(within(card).getByText("To fix")).toBeInTheDocument();
+    expect(within(card).queryByText("Draft")).toBeNull();
+  });
+
+  it("GenCard: findings from the generation's check until the list knows the test, then from the list (out of date ones say so)", () => {
     const t = test("", []);
     const show = (props: Partial<Parameters<typeof GenCard>[0]>) => {
       cleanup();
@@ -272,7 +297,7 @@ describe("Generate › result helpers", () => {
     expect(screen.getByRole("button", { name: "Fold all" })).toBeInTheDocument();
   });
 
-  it("GenSummary: missing report, skipped items, changed tests", () => {
+  it("GenSummary: an unreadable report, skipped items, changed tests", () => {
     const { rerender } = render(
       <GenSummary
         result={output({
@@ -285,15 +310,54 @@ describe("Generate › result helpers", () => {
       />,
     );
     expect(screen.getByText(/checked line/)).toBeInTheDocument();
-    expect(screen.getByText(/Claude did not say what it could not write a test for/)).toBeInTheDocument();
+    const unread = screen.getByText("A run's report could not be read").closest('[role="alert"]') as HTMLElement;
+    expect(unread).toHaveTextContent(
+      "Claude was asked again and its report still could not be read: what that run left without a test is not known, and the list below may miss some. Ask the generation again to get it.",
+    );
+    expect(unread.querySelector('[data-icon="alert-circle"]')).not.toBeNull();
     const notCovered = screen.getByRole("region", { name: "Not written" });
     expect(within(notCovered).getByText("R2 alarm")).toBeInTheDocument();
     expect(within(notCovered).getByText("no passage")).toBeInTheDocument();
     expect(screen.getByText(/Claude also changed 2 existing tests: T9, T8/)).toBeInTheDocument();
     rerender(<GenSummary result={output({ reportFound: false, ok: false })} checked="" />);
-    expect(screen.queryByText(/did not say/)).toBeNull();
+    expect(screen.queryByText("A run's report could not be read")).toBeNull();
     expect(screen.queryByText(/also changed/)).toBeNull();
     expect(screen.queryByRole("region", { name: /Not written/ })).toBeNull();
+  });
+
+  it("GenSummary: the unreadable-report banner opens the run in Jobs and keeps why it could not be read, folded", () => {
+    const onOpenJob = vi.fn();
+    const { rerender } = render(
+      <GenSummary
+        result={output({
+          reportFound: false,
+          reportErrors: ["skipped.0.reason: Invalid option", "No gen-report block in the reply"],
+        })}
+        checked=""
+        onOpenJob={onOpenJob}
+      />,
+    );
+    const unread = screen.getByRole("alert");
+    expect(unread).toHaveTextContent("A run's report could not be read");
+    expect(unread).toHaveTextContent(
+      "what that run left without a test is not known. Ask the generation again to get it.",
+    );
+    expect(unread).not.toHaveTextContent("the list below may miss some");
+    fireEvent.click(within(unread).getByRole("button", { name: "Open in Jobs" }));
+    expect(onOpenJob).toHaveBeenCalledTimes(1);
+    const why = screen.getByRole("button", { name: "Why it could not be read" });
+    expect(why).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/Invalid option/)).toBeNull();
+    fireEvent.click(why);
+    const raw = screen.getByRole("group", { name: "Why the report could not be read" });
+    expect(raw).toHaveTextContent("skipped.0.reason: Invalid option");
+    expect(raw).toHaveTextContent("No gen-report block in the reply");
+    rerender(<GenSummary result={output({ reportFound: false })} checked="" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("A run's report could not be read");
+    expect(screen.queryByRole("button", { name: "Open in Jobs" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Why it could not be read" })).toBeNull();
+    rerender(<GenSummary result={output({ reportFound: true })} checked="" onOpenJob={onOpenJob} />);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("GenSummary: the tests not written under their category, in the core's order, cut where the category changes", () => {
@@ -352,5 +416,224 @@ describe("Generate › result helpers", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /le menu B/ }));
     expect(openSource).toHaveBeenCalledWith({ docId: "D1", anchor: "§2", quote: "le menu B s'ouvre" });
+  });
+});
+
+describe("Generate › what a generation left without a test", () => {
+  const NO_SOURCE = "No source for the expected result";
+  const cls = (el: Element | null) => el?.getAttribute("class") ?? "";
+  const left = (over: Partial<SkippedItem> & { item: string }): SkippedItem => ({
+    reason: "no-source",
+    category: NO_SOURCE,
+    why: "Aucun passage ne dit ce que l'écran affiche.",
+    ...over,
+  });
+  const entry = (item: string) => screen.getByText(item).closest("li") as HTMLElement;
+  const show = (skipped: SkippedItem[], over: Partial<AppState> | null = null) =>
+    render(
+      over ? (
+        <AppContext.Provider value={app(over)}>
+          <GenSummary result={output({ skipped })} checked="" open />
+        </AppContext.Provider>
+      ) : (
+        <GenSummary result={output({ skipped })} checked="" open />
+      ),
+    );
+
+  it("groups the items by reason: a gap someone can close is a warning, a reason that takes no coverage away is not", () => {
+    show([
+      left({ item: "Alarme R2" }),
+      left({ item: "Menu D" }),
+      left({ item: "Calcul du délai", reason: "not-observable", category: "Nothing a tester can observe" }),
+      left({ item: "Ouverture", reason: "already-tested", category: "Already tested", why: "", test: "K-12" }),
+      left({ item: "Fermeture", reason: "out-of-scope", category: "Outside the request" }),
+      left({ item: "Mode dégradé", reason: "documents-disagree", category: "The documents disagree" }),
+    ]);
+    const groups = within(screen.getByRole("region", { name: "Not written" })).getAllByRole("region");
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual([
+      NO_SOURCE,
+      "Nothing a tester can observe",
+      "Already tested",
+      "Outside the request",
+      "The documents disagree",
+    ]);
+    expect(within(groups[0]).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(groups[0]).getByText("2")).toBeInTheDocument();
+    const head = (g: HTMLElement) => cls(within(g).getByText(g.getAttribute("aria-label") as string));
+    const [gap, quiet, tested, outside, disagree] = groups.map(head);
+    expect(disagree).toBe(gap);
+    expect(tested).toBe(quiet);
+    expect(outside).toBe(quiet);
+    expect(quiet).not.toBe(gap);
+    expect(screen.getByRole("button", { name: "Not written · 6" })).toBeInTheDocument();
+    expect(screen.queryByText(/to look at/)).toBeNull();
+  });
+
+  it("states the second look Claude took at each reason — Confirmed, Can be written with its passage, Unsure", () => {
+    const openSource = vi.fn();
+    show(
+      [
+        left({ item: "Alarme R2", review: { verdict: "confirmed", why: "Cherché de nouveau : rien ne le dit." } }),
+        left({
+          item: "Menu D",
+          review: {
+            verdict: "writable",
+            why: "Le §5.6.6 dit ce que le menu affiche.",
+            sources: ['D1#§5.6.6 "le menu D affiche trois entrées"'],
+          },
+        }),
+        left({ item: "Mode dégradé", review: { verdict: "unsure", why: "Deux passages se contredisent." } }),
+      ],
+      { openSource },
+    );
+    const confirmed = entry("Alarme R2");
+    expect(iconOf(within(confirmed).getByText("Confirmed"))).toBe("check");
+    expect(confirmed).toHaveTextContent("Cherché de nouveau : rien ne le dit.");
+    expect(within(confirmed).getByText("Confirmed")).toHaveAccessibleDescription(
+      "The second look Claude took at this reason while checking the tests",
+    );
+    const writable = entry("Menu D");
+    expect(iconOf(within(writable).getByText("Can be written"))).toBe("generate");
+    expect(writable).toHaveTextContent("Le §5.6.6 dit ce que le menu affiche.");
+    fireEvent.click(within(writable).getByRole("button", { name: /D1 §5\.6\.6/ }));
+    expect(openSource).toHaveBeenCalledWith({
+      docId: "D1",
+      anchor: "§5.6.6",
+      quote: "le menu D affiche trois entrées",
+    });
+    const unsure = entry("Mode dégradé");
+    expect(iconOf(within(unsure).getByText("Unsure"))).toBe("circle-dashed");
+    expect(unsure).toHaveTextContent("Deux passages se contredisent.");
+    const looks = ["Confirmed", "Can be written", "Unsure"].map((w) => cls(screen.getByText(w)));
+    expect(new Set(looks).size).toBe(3);
+    expect(screen.getByRole("button", { name: "Not written · 3" }).parentElement).toHaveTextContent("1 to look at");
+  });
+
+  it("says each doubt of Testimus' own, naming the tests, and what would let the item be written", () => {
+    show([
+      left({
+        item: "Ouverture",
+        reason: "already-tested",
+        category: "Already tested",
+        why: "Déjà vérifié.",
+        test: "local-0000000a",
+        doubts: ["local-0000000a is not a test of the project", "The run opened none of the passages it names"],
+      }),
+      left({ item: "Alarme R2", unblock: "Le document d'interface des alarmes, que le client peut fournir." }),
+    ]);
+    const doubted = entry("Ouverture");
+    const doubts = within(doubted).getAllByText("Doubt");
+    expect(doubts).toHaveLength(2);
+    expect(iconOf(doubts[0])).toBe("alert-triangle");
+    expect(doubted).toHaveTextContent("Doubt“Untitled test” is not a test of the project");
+    expect(doubted).toHaveTextContent("DoubtThe run opened none of the passages it names");
+    expect(doubted).toHaveTextContent("Verified by Untitled test");
+    expect(within(doubted).queryByRole("button", { name: "Untitled test" })).toBeNull();
+    expect(doubted).not.toHaveTextContent("To write it");
+    expect(entry("Alarme R2")).toHaveTextContent(
+      "To write it Le document d'interface des alarmes, que le client peut fournir.",
+    );
+    expect(within(entry("Alarme R2")).queryByText("Doubt")).toBeNull();
+    expect(screen.getByRole("button", { name: "Not written · 2" }).parentElement).toHaveTextContent("1 to look at");
+  });
+
+  it("« N to look at » counts the items with a doubt or that can be written, also while the list is folded", () => {
+    const skipped = [
+      left({ item: "A", doubts: ["x"] }),
+      left({ item: "B", review: { verdict: "writable", why: "y" } }),
+      left({ item: "C", doubts: ["x"], review: { verdict: "writable", why: "y" } }),
+      left({ item: "D", review: { verdict: "confirmed", why: "z" } }),
+      left({ item: "E", review: { verdict: "unsure", why: "z" } }),
+      left({ item: "F" }),
+    ];
+    const { rerender } = render(<GenSummary result={output({ skipped })} checked="" open={false} />);
+    const fold = screen.getByRole("button", { name: "Not written · 6" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(iconOf(screen.getByText("3 to look at"))).toBe("alert-triangle");
+    rerender(<GenSummary result={output({ skipped: skipped.slice(3) })} checked="" open={false} />);
+    expect(screen.queryByText(/to look at/)).toBeNull();
+  });
+
+  it("« Searched and read » is folded under the item: the terms searched and the passages opened", () => {
+    const openSource = vi.fn();
+    show(
+      [
+        left({
+          item: "Alarme R2",
+          searched: ["alarme R2", "acquittement"],
+          read: ["D1#§2", "D1#fig:4", "pas une source"],
+        }),
+        left({ item: "Menu D", searched: ["menu D"] }),
+        left({ item: "Menu E", read: ["D1#§3"] }),
+        left({ item: "Menu F" }),
+      ],
+      { openSource },
+    );
+    const first = entry("Alarme R2");
+    const fold = within(first).getByRole("button", { name: "Searched and read" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(fold.parentElement).toHaveTextContent("2 searches · 3 passages");
+    expect(within(first).queryByText(/« alarme R2 »/)).toBeNull();
+    fireEvent.click(fold);
+    const evidence = within(first).getByRole("region", { name: "Searched and read" });
+    expect(evidence).toHaveTextContent("Searched« alarme R2 » · « acquittement »");
+    expect(within(evidence).getByText("Opened")).toBeInTheDocument();
+    expect(within(evidence).queryByText("pas une source")).toBeNull();
+    fireEvent.click(within(evidence).getByRole("button", { name: /D1 Figure 4/ }));
+    expect(openSource).toHaveBeenCalledWith({ docId: "D1", anchor: "fig:4", quote: "" });
+    expect(within(entry("Menu D")).getByRole("button", { name: "Searched and read" }).parentElement).toHaveTextContent(
+      /Searched and read\s*1 search$/,
+    );
+    expect(within(entry("Menu E")).getByRole("button", { name: "Searched and read" }).parentElement).toHaveTextContent(
+      /Searched and read\s*1 passage$/,
+    );
+    expect(within(entry("Menu F")).queryByRole("button", { name: "Searched and read" })).toBeNull();
+  });
+
+  it("an item of a result older than the reasons still renders, under Claude's own category, as a gap", () => {
+    show([
+      { item: "Menu C", category: "Pas de source", why: "un ancien rapport" },
+      left({ item: "Calcul du délai", reason: "not-observable", category: "Nothing a tester can observe" }),
+    ]);
+    const groups = within(screen.getByRole("region", { name: "Not written" })).getAllByRole("region");
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual(["Pas de source", "Nothing a tester can observe"]);
+    expect(within(groups[0]).getByRole("listitem").textContent).toBe("Menu C — un ancien rapport");
+    expect(cls(within(groups[0]).getByText("Pas de source"))).not.toBe(
+      cls(within(groups[1]).getByText("Nothing a tester can observe")),
+    );
+    expect(screen.queryByText(/to look at/)).toBeNull();
+    expect(screen.queryByText("Confirmed")).toBeNull();
+  });
+
+  it("« Verified by » names the test that already covers the item and opens it", async () => {
+    fakeNet();
+    setProject("C:\\gen-left");
+    net.routes["tests.list"] = () => [{ id: "local-0000000a", summary: "Ouverture du sectionneur" }];
+    const state = app();
+    renderWithData(
+      <AppContext.Provider value={state}>
+        <GenSummary
+          result={output({
+            skipped: [
+              left({
+                item: "Ouverture",
+                reason: "already-tested",
+                category: "Already tested",
+                why: "Déjà vérifié.",
+                test: "local-0000000a",
+                doubts: ["local-0000000a does not verify the alarm"],
+              }),
+            ],
+          })}
+          checked=""
+          open
+        />
+      </AppContext.Provider>,
+    );
+    const link = await screen.findByRole("button", { name: "Ouverture du sectionneur" });
+    expect(net.calls.filter((c) => c.name === "tests.list").map((c) => c.input)).toEqual([{ generating: true }]);
+    expect(entry("Ouverture")).toHaveTextContent("“Ouverture du sectionneur” does not verify the alarm");
+    fireEvent.click(link);
+    expect(state.navigate).toHaveBeenCalledWith("tests", "local-0000000a");
   });
 });

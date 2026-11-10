@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { analyzeTest } from "../claude/analyze.ts";
-import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TEST_REF } from "../claude/schemas.ts";
+import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TEST_REF, WITHOUT } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { COLUMN_ROLES, decide, PROPOSAL_KINDS, readAnalysis, recordAnalysis, viewOf } from "../lib/analysis.ts";
 import { testName } from "../lib/names.ts";
@@ -100,6 +100,7 @@ export const commands = [
       contexts: CONTEXT_IDS.optional().describe(
         "Context ids to attach (default: the test's own list, else the project's)",
       ),
+      without: WITHOUT,
     }),
     output: z.object({
       ok: z.boolean().describe("Whether Claude finished and recorded its analysis"),

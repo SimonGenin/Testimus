@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { checkTests, selectTests, semanticPlan } from "../claude/check.ts";
-import { CHECK_FILE, FINDING_KINDS, REVIEW, SEVERITY, TEST_REF } from "../claude/schemas.ts";
+import { CHECK_FILE, FINDING_KINDS, REVIEW, SEVERITY, TEST_REF, VERDICT } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { isStale, recordSemantic } from "../lib/check.ts";
+import { isStale, recordSemantic, verdictProblems } from "../lib/check.ts";
 import { testsName } from "../lib/names.ts";
-import { readCheck, testExists } from "../lib/store.ts";
+import { readCheck, readTest, testExists } from "../lib/store.ts";
 
 const counts = z.object({
   errors: z.number().describe("Errors"),
@@ -25,7 +25,7 @@ export const commands = [
   command({
     name: "check.run",
     summary:
-      "Check tests: the mechanical pass (sources resolve, quotes found, empty or duplicated steps), then the check-test skill on each (3 in parallel); writes check.json. The check never changes a test's review state.",
+      "Check tests: the mechanical pass (sources resolve, quotes found, empty or duplicated steps), then the check-test skill — one Claude request for up to four tests, each recorded on its own with a verdict per step; a test with fixable findings gets one Claude action. Writes check.json. The check never changes a test's review state.",
     input: z.object({
       ids: z.array(z.string()).optional().describe("Test ids to check"),
       folder: z.string().optional().describe("Check every test of this Xray folder and its subfolders"),
@@ -90,9 +90,23 @@ export const commands = [
   command({
     name: "check.record",
     summary:
-      "Record the semantic findings of one test (what the check-test skill sends): replaces the previous semantic findings, keeps the mechanical ones, stamps the current testHash.",
+      "Record the semantic check of one test (what the check-test skill sends): a verdict for each step with the passages read, and the findings. Replaces the previous semantic check, keeps the mechanical findings, stamps the current testHash. Called by a Claude run, it is refused — saying what is missing — unless every step has its verdict.",
     input: z.object({
       id: TEST_REF,
+      steps: z
+        .array(
+          z.object({
+            step: z.number().int().min(1).describe("Step number (1-based)"),
+            verdict: VERDICT,
+            read: z
+              .array(z.string())
+              .default([])
+              .describe('The passages you opened to judge this step: docId#anchor, e.g. "SOSIE_211_D401-1_3#§5.6.6"'),
+            why: z.string().optional().describe("unverified only: what stopped you"),
+          }),
+        )
+        .default([])
+        .describe("One entry per step of the test: the proof that each one was read against the documents"),
       findings: z
         .array(
           z.object({
@@ -104,6 +118,12 @@ export const commands = [
               .array(z.string())
               .default([])
               .describe('The anchors that prove it: docId#anchor, e.g. "SOSIE_211_D401-1_3#§5.6.6"'),
+            fix: z
+              .string()
+              .optional()
+              .describe(
+                "What the step should say instead, in one sentence, from which passage — only when the documents settle it; leave it out when only the team can decide",
+              ),
           }),
         )
         .describe("Every semantic finding of this check ([] when there is none)"),
@@ -115,7 +135,18 @@ export const commands = [
       const project = projectOf(ctx);
       if (!testExists(project, input.id))
         throw new UserError(`No test ${input.id} in this project.`, "testimus tests list shows the tests.");
-      return recordSemantic(project, input.id, input.findings);
+      // ponytail: a Claude run is held to the proof — a person or a script recording findings by hand is not
+      const problems = ctx.llm
+        ? verdictProblems(readTest(project, input.id).test.steps.length, input.steps, input.findings)
+        : [];
+      if (problems.length)
+        throw new UserError(
+          `The check of ${input.id} is not recorded: ${problems.join("; ")}.`,
+          "Correct the record and call check_record again, once, with every step.",
+          "check-incomplete",
+        );
+      const findings = input.findings.map(({ fix, ...f }) => ({ ...f, ...(fix?.trim() ? { fix: fix.trim() } : {}) }));
+      return recordSemantic(project, input.id, findings, input.steps.length ? input.steps : undefined);
     },
   }),
 

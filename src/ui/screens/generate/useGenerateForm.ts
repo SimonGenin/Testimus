@@ -1,12 +1,12 @@
 import type { CommandInput, CommandOutput } from "../../../core/commands/index.ts";
 import type { DocRef, Effort } from "../../../core/types.ts";
+import { pickOf } from "../../components/claude/pieces.ts";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { project } from "../../lib/data/client.ts";
 import type { Key } from "../../lib/data/query.ts";
 import { type DocScope, type DocWork, scopeOf, unready } from "../../lib/scope.ts";
 
 type Info = CommandOutput<"project.info">;
-export type Chip = { id: string; on: boolean };
 
 const draft = (field: string): Key => [project(), "gen.tests", { draft: field }];
 
@@ -19,21 +19,21 @@ function parse<T>(raw: string, fallback: T): T {
 }
 
 // ponytail: everything the request holds is an unsent draft — it outlives the screen for the page's life (the model and
-// effort picked here hold for the next generation until the app closes; the project defaults change in Settings); a
-// document search cannot read yet (not converted, not indexed, or being converted or indexed) is never in scope
+// effort picked here hold for the next generation until the app closes; the project defaults change in Settings; what
+// was ticked in the request's Context is kept the same way, under contextKey); a document search cannot read yet (not
+// converted, not indexed, or being converted or indexed) is never in scope
 export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefined, work: DocWork) {
   const cfg = info?.project;
   const [request, setRequest] = useDraft(draft("request"));
   const [scopesRaw, setScopesRaw] = useDraft(draft("scopes"), "{}");
-  const [chipsRaw, setChipsRaw] = useDraft(draft("contexts"));
+  const contextKey = draft("context");
+  const [pickRaw] = useDraft(contextKey);
   const [model, setModel] = useDraft(draft("model"));
   const [effort, setEffort] = useDraft(draft("effort"));
   const [folder, setFolder] = useDraft(draft("folder"));
 
   const scopes = parse<Record<string, DocScope>>(scopesRaw, {});
-  const defaults = cfg?.claude?.contexts ?? [];
-  const chips = parse<Chip[] | null>(chipsRaw, null) ?? defaults.map((id) => ({ id, on: true }));
-  const ctxIds = chips.filter((c) => c.on).map((c) => c.id);
+  const pick = pickOf(pickRaw);
   const scope = scopeOf(
     scopes,
     (docs ?? []).filter((d) => !unready(d, work)).map((d) => d.id),
@@ -49,7 +49,7 @@ export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefin
       request: request.trim(),
       ...(scope.docs.length ? { docs: scope.docs } : {}),
       ...(scope.sections.length ? { sections: scope.sections } : {}),
-      contexts: ctxIds,
+      ...pick,
       ...(folder.trim() ? { folder: folder.trim() } : {}),
       model: runModel,
       effort: runEffort,
@@ -60,9 +60,8 @@ export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefin
     setRequest,
     scopes,
     setScopes: (next: Record<string, DocScope>) => setScopesRaw(JSON.stringify(next)),
-    chips,
-    setChips: (next: Chip[]) => setChipsRaw(JSON.stringify(next)),
-    ctxIds,
+    contextKey,
+    pick,
     scope,
     model,
     setModel,

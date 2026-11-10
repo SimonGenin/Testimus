@@ -100,6 +100,7 @@ export const prompts: PromptTemplate[] = [
     name: "System check: Claude signed in",
     group: "System check",
     usedBy: ["System check", "system.doctor"],
+    answers: "",
     text: () => LOGIN_PROBE,
   },
 ];

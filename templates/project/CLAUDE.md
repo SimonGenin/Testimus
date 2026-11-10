@@ -2,134 +2,62 @@
 
 This folder is a Testimus project: the specification documents of a product, the Xray manual tests
 written from them, and what the team knows about both. Testimus (the app) and you work on the same
-files. The work goes:
+files.
 
-1. **Documents** are added and converted to markdown with stable anchors, then indexed (locally).
-2. **Generation** writes new tests from the documents, every claim with its source (`review: draft`).
-3. **Check**: a mechanical pass (sources resolve, quotes are verbatim) then a semantic one (does the
-   passage say what the step claims?). The check writes findings; it never changes the review state.
-4. **Review**: a person validates the test (`validated`) or sends it back with a note (`to-fix`);
-   a fix run corrects it from the note and the findings.
-5. **Xray sync**: tests are pulled from and pushed to Jira; the review state travels as a label.
+You are here for one job at a time. Testimus starts you with a prompt that names the job, what it
+is about and what goes with it (what to read first, what the team knows about the documents, what
+is left out of the run), and gives you only the tools that job needs. Each job has a skill in
+`.claude/skills/`: the prompt names it, and the skill says how the job is done. A person may also
+work with you in a terminal in this folder, with the same rules.
 
-You may be the one doing step 2, 3 or 4 (Testimus starts you with `claude -p`), answering a question
-about the documents, or a person working in a terminal in this folder. This file is read every time.
-The rules below hold for any product, any domain and any language; what is particular to this
-project is in **Team notes** at the end.
+Everything above **Team notes** is Testimus' and follows the app. What is particular to this
+project is in Team notes, at the end: it wins over the generic rules.
 
 ## What is here
 
-- `docs/<docId>/` — one document: `doc.md` (the converted text), `figures/` (its pictures, in reading
-  order) and `figures.json` (what each one shows and the text visible in it), `doc.json` (title,
-  version, `kind`, `status` draft · submitted · validated, `amends`: the documents it amends, the
-  `contexts` read with it; `converted`: what the last conversion found, its `warnings` included),
-  `context.md` when the team wrote one — what it says about the document; read it before using the
-  document (`docs_show` returns it as `context`). A document is a Word or PDF file, a text file, or
-  **images and videos** filmed or photographed on the real system (`doc.json` `source.type` images ·
-  video · mixed, its files under `files/`): its `doc.md` holds each image's caption (`<!-- img 3 -->`,
-  cited `img:3`), each line Whisper heard in a video (`[04:30] … <!-- t 04:30 -->`, cited `t:04:30`)
-  and its key frames (`frame:04:30`); what Claude saw in a picture is in `figures.json`, a video's
-  chapters in `video/<n>.json` (`media_show`, `media_transcript`, `media_frame`). Such a document is
-  **observed** — it says how the system behaves and how to do a step, never what is required —
-  unless the team marked it as the reference (`doc.json` `reference: true`).
-- `docs/OVERVIEW.md` — how the documents fit together: a section per document and the links,
-  amendments and contradictions across them, written by Claude after each import (when the team
-  turned it on) and edited by the team. Background to find your way, never a source: cite the
-  documents themselves. A run told to read it reads it before it starts.
+- `docs/<docId>/` — one document: `doc.md` (its text, with anchors), `figures/` and `figures.json`
+  (its pictures and what each one shows), `doc.json` (title, version, `status` draft · submitted ·
+  validated, `amends`: the documents it amends), `context.md` when the team wrote one — what it
+  knows about the document (`docs_show` returns it as `context`). Photos and videos of the real
+  system are documents too (anchors `img:<n>`, `t:mm:ss`, `frame:mm:ss`): they are **observed** —
+  how the system behaves and how a step is done, never what is required — unless the team marked
+  the document as the reference (`doc.json` `reference: true`).
+- `docs/OVERVIEW.md` — how the documents fit together. Background to find your way, never a
+  source: cite the documents themselves.
 - `tests/<id>/test.md` — one test (format below); `images/` its pictures; `check.json` its last
-  check's findings; `local.json` the test's own settings (its contexts, how its columns fold), never
-  part of the test. `<id>` is the Jira key once pushed (`PROJ-123`), `local-<hex>` before.
-- `contexts/<id>/` — reference material the team attaches to runs: `context.md` (a frontmatter with its
-  `name` and the `paths` outside the project it points at, then its notes), and `files/`. A shared library of contexts lives outside the project, for every project.
-- `project.json` — Jira project, the language of the tests, Xray folders, review label prefix, the
-  default Claude model and effort, the contexts every run reads.
-- `columns.json` — the step columns in their order: Xray's step fields and the project's local
-  columns, each with the description you follow to fill it and how it shows (see **Smart columns**).
-- `xray.json` — Xray's step fields as Xray last gave them (read again from Xray, never edited).
-- `test-runs/<run>/` — a test run the testers play: `run.json` (its name, the version under test, and a
-  frozen copy of each test as it was when the run was made), `results/<testId>.json` (passed, problem,
-  blocked or not run; OK / NOK per step with notes; comments and questions) and the screenshots in
-  `results/<testId>/`. Read them with `runs_list`, `runs_show` and `runs_history` (what failed, what testers
-  asked, how a test did in other runs); a result is a tester's finding: never write one.
+  check; `local.json` its own settings, never part of the test. `<id>` is the Jira key once pushed
+  (`PROJ-123`), `local-<hex>` before.
+- `contexts/<id>/` — reference material the team attaches to runs (`context.md`, `files/`).
+- `test-runs/<run>/` — what the testers found when they ran the tests (`runs_list`, `runs_show`,
+  `runs_history`). A result is a tester's finding: never write one.
+- `project.json` (Jira project, language of the tests, Xray folders), `columns.json` (the step
+  columns and what goes in each), `xray.json` (Xray's step fields).
 
-Derived files, never edited by hand: `index/`, `.testimus/`, `tests/*/.remote.md`,
-`tests/*/check.json`, `tests/*/analysis.json` (written through `analysis_record` and the team's decisions).
+Only `tests/` is edited by hand, and only by a run whose job is to write tests. Everything else —
+`docs/`, `index/`, `.testimus/`, `contexts/`, `test-runs/`, `.claude/`, the `.json` files, this
+file — is refused to Edit and Write: what the app lets a run change there goes through its command,
+like a button would.
 
-## What a run may do
+## Finding and proving
 
-Testimus starts you for one job, with only the tools that job needs. The prompt says the job, its
-`Scope:` and `Files:`; stay inside them.
-
-| Run | Skill | May change |
-|---|---|---|
-| Ask the documents (chat) | `ask-docs` | nothing |
-| Draft a comment on a test's Jira issue | `draft-comment` | nothing; the person sends it |
-| Generate tests | `plan-tests` for a large scope, then `generate-tests` | new tests |
-| Check a test | `check-test` | nothing; findings go through `check_record` |
-| Analyze a test against the documents | `analyze-test` | nothing; proposals go through `analysis_record`, the team decides each one |
-| Fix a test (To fix note) | `fix-test` | that test |
-| A request on a step, a test or a set of tests | `edit-test` | the tests in scope |
-| Study a document / check its conversion | `study-document` | nothing; may propose actions |
-| Look at a document's warnings or a failed job | — | nothing; may propose actions |
-| Propose the step columns | `define-columns` | nothing (the team saves the proposal) |
-| Write how the documents fit together | `overview-documents` | `docs/OVERVIEW.md` only (not its frontmatter) |
-| A Claude action (see below) | — | what the action's plan says, through the app's commands |
-
-Files outside `tests/` are never edited directly in a run: `docs/` (but `docs/OVERVIEW.md` in its own
-run), `test-runs/`, `index/`, `.testimus/`, `contexts/`, `.claude/`, `project.json`, `xray.json`,
-`columns.json`, `.mcp.json` and this file are refused. What the
-app lets a run change there (a document's status, a column's description, a context) goes through
-its command, like a button would.
-
-## Tools
-
-The `testimus` MCP server gives you the app's commands as `<group>_<verb>` (`mcp__testimus__rag_search`
-in permission lists; `testimus help` lists them all). Prefer them to guessing:
-
-- **Find in the documents**: `rag_search` (passages for a question or a feature), `rag_mentions`
-  (every passage naming a term, code or acronym — exhaustive, no model), `rag_related` (what a
-  requirement or a section is linked to: where it is defined, traced, amended), `rag_passage` (the
-  exact text and figures of `docId#anchor`), `rag_figure`, `docs_list`, `docs_show`, `docs_page`
-  (a page of the original PDF as an image). Read `doc.md` directly to confirm: the index finds, the
-  file proves. The index is local and may lag behind a newly added document: `rag_status` says which
-  documents are indexed; fall back to `Grep` and `Read` on `docs/*/doc.md`.
-- **Tests**: `tests_list`, `tests_show`, `search_all` (find existing tests before writing one that
-  may already exist), `columns_list` (the smart columns and their descriptions), `check_show`,
-  `review_queue`.
-- **Writing tests** (generation, fix, edit runs only): `tests_create`, `tests_edit`, `tests_save`,
-  `tests_addImage`; `check_run` (from a Claude run it does the mechanical pass only — you are the
-  semantic check).
-- **Test runs** (read): `runs_list`, `runs_show`, `runs_history` — what the testers found when they ran the tests.
-- **Context**: `contexts_list`, `contexts_show`, `contexts_ofTest`; `actions_list`.
-- **Xray** (read): `xray_search`, `xray_status`, `xray_folders`, `xray_preconditions`, `xray_plan`.
-- **The test's Jira issue** (read): `issue_comments` (the thread; a mention reads `@[Name](accountId)`),
-  `issue_people` (who can be assigned, and their account id), `issue_transitions` (where its status can go).
-
-**Never call a tool that writes to Jira** (`xray_push`) unless the
-user asked for it in this conversation. Moving, assigning and commenting an issue (`issue_transition`,
-`issue_assign`, `issue_comment`…) are the person's own: no run may call them. To push: call `xray_plan` first, show the user the plan, then
-call `xray_push` with the `planHash` that `xray_plan` returned (a push without it, or after the test or
-Jira changed, is refused — plan again). Pass `overwriteRemote: true` for a test changed in Jira only
-when the user asked to replace that Jira change with the local version.
-
-## Smart columns
-
-Every step is made of columns, and every column is a **smart column**: its description in
-`columns.json` (`columns_list` shows them) says what goes in it, and that description is the whole
-rule. No column is special and none is known by its name: `Action`, `Data`, `Expected Result`,
-custom Xray step fields (a requirement code, a priority, test data…) and **local columns** (kept in
-`test.md`, never pushed to Xray) are all filled the same way — by doing what the description asks.
-
-- A column with an empty description stays empty: never write it.
-- A column marked **Reference source** needs one `### Sources` line per item it holds (below), so the
-  tester can click the item and see its passage.
-- Leave a field out of a step when it has nothing to say.
-- When a run's prompt lists the column descriptions, they are the current ones: the prompt wins.
+- **The index finds, the file proves.** `rag_search` gives passages for a question or a behavior;
+  `rag_mentions` every passage that names a term, a code or an acronym — exhaustive, no ranking;
+  `rag_related` what a section is linked to: its sub-sections, the references both ways, its
+  figures, the documents that amend it; `rag_passage` the text and figures of `docId#anchor`. A
+  quote is copied from `docs/<docId>/doc.md` itself.
+- **Independent calls go in the same turn.** Three terms to look up are three `rag_mentions` calls
+  sent together, not one after the other: every turn costs the whole conversation again.
+- **A fact only a picture shows** is read on the picture: `rag_figure`, then `Read` the image. A
+  figure's description in the index is a summary: it tells you what to look for.
+- **Only the documents are sources.** Never fill a gap from what you know of the field, nor from
+  memory of a passage you did not open in this run. What no passage states is said as a gap.
+- The index is local and may lag behind a newly added document (`rag_status`); fall back to `Grep`
+  and `Read` on `docs/*/doc.md`.
 
 ## test.md
 
-The example is neutral; real tests are written in the language of `project.json` (`language`), in the
-words of the documents.
+The example is neutral; real tests are written in the language of `project.json` (`language`), in
+the words of the documents.
 
 ```markdown
 ---
@@ -141,8 +69,8 @@ review: draft
 
 ## Description
 
-What this test verifies and the technique used (equivalence classes, boundary values, state
-transitions, a nominal path and its error paths…).
+What this test verifies, the technique used (equivalence classes, boundary values, state
+transitions, a nominal path and its error paths…) and what the tester starts from.
 
 ## Step 1
 
@@ -171,88 +99,64 @@ REQ-EXP-012
 - images/img-3f9a2c1d.png (SPEC_REPORTS#fig:7)
 ```
 
-- Frontmatter: `summary`, `folder` (an Xray repository folder: `xray_folders`), `labels` (the team's
-  own; the review label is never written here — the app adds it on push from `review`); once in
-  Jira also `key`, `project`, `status`, `assignee`, `assignee_id` (copies of Jira's, never edited). `covers` and `preconditions` list Jira issue keys — only keys
-  that exist (`xray_preconditions` lists the project's preconditions).
+- Frontmatter: `summary`, `folder` (an Xray folder: `xray_folders`), `labels` (the team's own);
+  once in Jira also `key`, `project`, `status`, `assignee` (copies of Jira's). `covers` and
+  `preconditions` list Jira keys that exist.
 - `review`, `review_note`, `reviewed_by`, `reviewed_at`, `generated_by` belong to the app and the
   reviewers: never change them. A test is validated by a person, never by a run.
-- Field headings (`### <Column>`) are the smart columns, in the order of `columns.json`. In the example
-  `Requirement` is a custom column with Reference source on; a project without it has no such
-  heading.
-- No reference inside a column's text (no « see §4.2 » in Action or Expected Result): references go
-  in `### Sources`, and in a column whose description asks for them (a requirement code column).
-- Keep `<!-- id -->` on step headings and `### Attachments` lists as they are; renumber `## Step N`
-  in order. A line of text starting with `#` or equal to `---` is escaped with `\`.
+- `### <Column>` headings are the step columns, in the order of `columns.json`; a column with
+  nothing to say is left out of the step. `Requirement` above is an example of a custom column.
+- No reference inside a column's text (no « see §4.2 »): references go in `### Sources`, and in a
+  column whose description asks for them.
+- Keep `<!-- id -->` on step headings and the `### Attachments` lists as they are; renumber
+  `## Step N` in order. A line of text starting with `#` or equal to `---` is escaped with `\`.
 
 ### Sources
 
 One line per claim: `- <docId>#<anchor> "<short quote copied exactly from doc.md>"`.
 
-- Anchors: `§<number>` for a section (`§4.2`, or the title's slug for an unnumbered one), `req:<id>`
-  for a requirement id the project tracks, `fig:<n>` for a figure (the quote is its caption),
-  `page:<n>` for a page of a PDF document.
-- The quote must be verbatim in `doc.md` **inside the cited passage** (the section with its
-  subsections, the requirement's statement, the figure's caption). Long enough to be unique there —
-  at least four words. The mechanical check rejects anything else.
+- Anchors, as `doc.md` writes them: `§<number>` a section (the title's slug for an unnumbered
+  one), `req:<id>` a requirement, `fig:<n>` a figure (the quote is its caption), `page:<n>` a page
+  of a PDF, `img:<n>` · `t:mm:ss` · `frame:mm:ss` an image, a transcript line, a frame of an
+  observed document.
+- The quote is verbatim — same words, accents, apostrophes and punctuation, no ellipsis — and it
+  is **inside the cited passage** (the section with its sub-sections, the requirement's statement,
+  the figure's caption). Long enough to point at one place: at least four words. The mechanical
+  check rejects anything else.
 - A line that backs one item of a column ends with that column and the item as the cell writes it:
   `@<Column> "<item>"`.
-- Every expected result has a source. No source, no expected result: report the gap instead of
-  inventing behavior. A behavior the product does not implement (« not simulated », « out of scope »)
-  is written only when a document says so.
-- What only a figure shows is cited as `fig:<n>` after reading the image (`rag_figure` or `Read`).
-- A source in an observed images or video document (`img:`, `t:`, `frame:`) backs how a step is
-  done, never an expected result on its own: the check reports `observed-only` unless the document is
-  marked as the reference. Only its verbatim text is quotable: an image's caption, a transcript line.
+- **Every expected result has a source. No source, no expected result**: say the gap instead of
+  inventing behavior. « Not implemented », « not simulated », « out of scope » are written only
+  when a passage or a document's `context.md` says so.
+- A source in an observed document backs how a step is done, never an expected result on its own.
 
 ### Pictures
 
 A document figure goes into a step with `tests_addImage` (`figure: "<docId>#fig:<n>"`) — in the
 Action when it shows where to act, in the Expected Result when it shows what to see. It writes the
-`![](images/…)` line and the `### Attachments` entry naming the figure it came from.
+`![](images/…)` line and the `### Attachments` entry; never copy an image or write them by hand.
 
-## Contexts
+## Step columns
 
-A run may come with contexts: the prompt names each one (its `context.md`, its files, outside paths).
-Read them before you start; they are reference material, never edited. Which ones apply is chosen by
-the team: the project's defaults, a test's or a document's own list, and per run. A document's
-`context.md` is what the team knows about that document.
+Every step is made of columns, and each column is filled by doing what its description says
+(`columns_list`, or the list in the prompt, which wins). No column is special and none is known by
+its name: `Action`, `Data`, `Expected Result`, a custom Xray field, a column kept in `test.md` only.
 
-## Claude actions
+- A column with an empty description stays empty: never write it.
+- A column marked **Reference source** needs one `### Sources` line per item it holds, ending
+  `@<Column> "<item>"`, so the tester clicks the item and sees its passage.
 
-A problem you notice and could fix in a later run (a figure lost in conversion, a finding you can
-correct, a weak source) can be left as a **Claude action**: `actions_propose` with a title (a verb
-first), the problem, why you can fix it, a short plan, its scope, and the model and effort the fix
-needs. The user sees it in the Actions tab of Ask Claude and runs it when they choose (`actions_list`
-shows the open ones; a problem the user dismissed stays dismissed). Propose only what you could
-really fix; one action per problem.
+## When documents disagree
 
-## Models and effort
+An amendment (`doc.json` `amends`) wins over what it amends, a `validated` document over a draft.
+When that does not settle it, say so — in the test's description, in the finding, in the answer —
+and never pick silently.
 
-Each run uses the model and effort the user chose for it (the project default, a preset, or a choice
-for that run). When you propose an action, ask for the least it needs: **haiku** for a mechanical
-change, **sonnet** for ordinary test edits, **opus** for reading documents and judging; effort
-**low** for one obvious change, **medium** for a few, **high** for a real search, **xhigh** for a long
-or delicate one.
+## Jira
 
-The search models (embedding, reranker) are local: documents never leave the machine except inside
-your runs.
-
-## Documents disagree
-
-Use `doc.json`: an amendment (`amends`) wins over what it amends, and a `validated` document over a
-draft. When that does not settle it, say so in the test description and flag it in your report —
-never pick silently.
+No run writes to Jira. A person working in a terminal may ask for a push: `xray_plan` first, show
+the plan, then `xray_push` with the `planHash` it returned. Moving, assigning and commenting an
+issue are the person's own.
 
 ## Team notes
 
-<!--
-What is particular to this project — Claude reads it in every run. For example:
-- The product and its users: what the software does, who uses it, on which screens.
-- Vocabulary: the names the screens use, acronyms, words not to confuse.
-- Documents: which ones are the reference, which are drafts or minutes, known errors in them.
-- Test style: one gesture per step or a short flow, how much detail an Expected Result needs,
-  data to use, what a tester can and cannot observe.
-- Scope: features not to test, environments, what is not implemented yet.
-- Columns: anything the column descriptions cannot say on their own.
--->

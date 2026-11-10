@@ -13,6 +13,7 @@ import { readCheck, readTest } from "../../../../src/core/lib/store.ts";
 import { mockSpawnClaude } from "../../../../src/core/mock/claude.ts";
 import "../../../../src/core/mock/claude-check.ts";
 import "../../../../src/core/commands/index.ts";
+import { checkOut, isCheck } from "../../helpers/fake-check.ts";
 
 const FIXTURE = new URL("../../../fixtures/project/", import.meta.url);
 const DOC = "SOSIE_211_D401-1_3";
@@ -40,15 +41,11 @@ const result = (text: string) =>
 function fake(during: (s: ClaudeSpawn) => void) {
   env.spawnClaude = async (s) => {
     seen.push(s);
+    if (isCheck(s)) return checkOut(s);
     during(s);
-    const id = /check-test skill on the test ([\w.-]+)\./.exec(s.stdin)?.[1];
-    const record = JSON.stringify({
-      type: "assistant",
-      message: { content: [{ type: "tool_use", id: "t1", name: "mcp__testimus__check_record", input: { id } }] },
-    });
-    const ls = [...(id ? [record] : []), result("done")];
-    for (const l of ls) s.onLine?.(l);
-    return { code: 0, stdout: `${ls.join("\n")}\n`, stderr: "" };
+    const l = result("done");
+    s.onLine?.(l);
+    return { code: 0, stdout: `${l}\n`, stderr: "" };
   };
 }
 
@@ -217,17 +214,12 @@ describe("review.fix", () => {
       },
     ]);
     fake((s) => {
-      const id = /skill on the test ([\w.-]+)\./.exec(s.stdin)?.[1] ?? "";
-      if (s.stdin.includes("fix-test")) {
-        const f = join(s.cwd, "tests", id, "test.md");
-        writeFileSync(
-          f,
-          readFileSync(f, "utf8").replace(
-            "Le menu contextuel s'ouvre.",
-            "Le menu contextuel ne propose que Propriétés.",
-          ),
-        );
-      } else recordSemantic(s.cwd, id, []);
+      const id = /fix-test skill on the test ([\w.-]+)\./.exec(s.stdin)?.[1] ?? "";
+      const f = join(s.cwd, "tests", id, "test.md");
+      writeFileSync(
+        f,
+        readFileSync(f, "utf8").replace("Le menu contextuel s'ouvre.", "Le menu contextuel ne propose que Propriétés."),
+      );
     });
     const out = await run("review.fix", { id: "local-3f9a12c0" });
     expect(seen).toHaveLength(2);
@@ -237,9 +229,14 @@ describe("review.fix", () => {
     expect(fix.stdin).toContain(`Reviewer's note (To fix): "Le step 2 doit vérifier que seul Propriétés est proposé."`);
     expect(fix.stdin).toContain("step 2 — vague-result (warning)");
     expect(fix.args[fix.args.indexOf("--tools") + 1]).toContain("Edit");
-    expect(seen[1].stdin).toContain("Use the check-test skill on the test local-3f9a12c0.");
+    expect(seen[1].stdin.split("\n").slice(0, 3)).toEqual([
+      "Use the check-test skill on the test below. Read it with tests_show; never modify a test or any other file.",
+      "",
+      "- local-3f9a12c0 — « Sectionneur avec TK — manœuvre régulière », 2 steps. The mechanical pass found nothing.",
+    ]);
     expect(out).toMatchObject({ ok: true, changedSteps: [2], review: "draft" });
     expect(out.check.findings).toEqual([]);
+    expect(out.check.verdicts.map((v: { verdict: string }) => v.verdict)).toEqual(["supported", "supported"]);
     const t = readTest(project, "local-3f9a12c0").test;
     expect(t.review).toBe("draft");
     expect(t.steps[1].fields["Expected Result"]).toBe("Le menu contextuel ne propose que Propriétés.");

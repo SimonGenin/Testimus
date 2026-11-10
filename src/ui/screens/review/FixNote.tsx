@@ -1,5 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useId, useState } from "react";
+import type { RunPick } from "../../components/claude/pieces.ts";
+import { useRunContext } from "../../components/claude/useRunContext.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { ClaudeBlock } from "../../components/ui/ClaudeBlock.tsx";
 import { Field } from "../../components/ui/Field.tsx";
@@ -28,7 +30,8 @@ export type FixNoteProps = {
   /** « Open the system check » under the dialog when Claude is not connected (the note stays a draft) */
   onDoctor?: () => void;
   onCancel: () => void;
-  onSubmit: (note: string, askClaude: boolean) => void;
+  /** run: what was ticked in the note's Context, for Claude's fix */
+  onSubmit: (note: string, askClaude: boolean, run: RunPick) => void;
 };
 
 // ponytail: the To fix note is a draft of the page until the test is marked — nothing is written before (the note lands
@@ -37,6 +40,7 @@ export function FixNote({ id, initial, summary, testKey, claudeReady, onDoctor, 
   const [note, setNote, drop] = useDraft([project(), "review.fixNote", { id }], initial);
   const [tried, setTried] = useState(false);
   const field = useId();
+  const ctx = useRunContext({ use: "fix", scope: { kind: "test", testId: id }, note });
   const empty = !note.trim();
   const cancel = () => {
     drop();
@@ -48,88 +52,94 @@ export function FixNote({ id, initial, summary, testKey, claudeReady, onDoctor, 
       return;
     }
     drop();
-    onSubmit(note.trim(), ask && claudeReady);
+    onSubmit(note.trim(), ask && claudeReady, ctx.run);
   };
   return (
-    <Modal
-      title="What needs fixing?"
-      subtitle={
-        summary || testKey ? (
+    <>
+      <Modal
+        title="What needs fixing?"
+        subtitle={
+          summary || testKey ? (
+            <>
+              {summary}
+              {summary && testKey && " · "}
+              {testKey && <span {...stylex.props(type.mono)}>{testKey}</span>}
+            </>
+          ) : undefined
+        }
+        icon="to-fix"
+        onClose={cancel}
+        footNote={
+          claudeReady ? undefined : (
+            <>
+              <Icon name="plug" size="sm" />
+              Claude is not connected
+              {onDoctor && (
+                <>
+                  {" · "}
+                  <Button variant="link" label="Open the system check" onClick={onDoctor} />
+                </>
+              )}
+            </>
+          )
+        }
+        actions={
           <>
-            {summary}
-            {summary && testKey && " · "}
-            {testKey && <span {...stylex.props(type.mono)}>{testKey}</span>}
+            <Button label="Cancel" onClick={cancel} />
+            <Button
+              variant="claude-quiet"
+              icon="claude"
+              label="Ask Claude to fix it"
+              disabled={
+                !claudeReady
+                  ? "Claude is not available on this PC right now — the note is kept for later"
+                  : empty && "Write the note first: Claude fixes the test from it"
+              }
+              onClick={() => submit(true)}
+            />
+            <Button
+              variant="primary"
+              icon="to-fix"
+              label="Mark To fix"
+              disabled={tried && empty}
+              onClick={() => submit(false)}
+            />
           </>
-        ) : undefined
-      }
-      icon="to-fix"
-      onClose={cancel}
-      footNote={
-        claudeReady ? undefined : (
-          <>
-            <Icon name="plug" size="sm" />
-            Claude is not connected
-            {onDoctor && (
-              <>
-                {" · "}
-                <Button variant="link" label="Open the system check" onClick={onDoctor} />
-              </>
-            )}
-          </>
-        )
-      }
-      actions={
-        <>
-          <Button label="Cancel" onClick={cancel} />
-          <Button
-            variant="claude-quiet"
-            icon="claude"
-            label="Ask Claude to fix it"
-            disabled={
-              !claudeReady
-                ? "Claude is not available on this PC right now — the note is kept for later"
-                : empty && "Write the note first: Claude fixes the test from it"
-            }
-            onClick={() => submit(true)}
-          />
-          <Button
-            variant="primary"
-            icon="to-fix"
-            label="Mark To fix"
-            disabled={tried && empty}
-            onClick={() => submit(false)}
-          />
-        </>
-      }
-    >
-      <div
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            submit(false);
-          }
-        }}
+        }
       >
-        <Field
-          label="Note for the author — Claude reads it too"
-          htmlFor={field}
-          hint={tried && empty ? undefined : HINT}
-        >
-          <ClaudeBlock
-            id={field}
-            submit="autosave"
-            plain
-            value={note}
-            onChange={setNote}
-            autoFocus
-            placeholder="Say what is wrong, and what the test should check instead…"
-            error={tried && empty ? "Say what is wrong: the note is required." : undefined}
-            trailing={
-              note && note !== initial ? <span {...stylex.props(type.small, styles.kept)}>Draft kept</span> : undefined
+        <div
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              submit(false);
             }
-          />
-        </Field>
-      </div>
-    </Modal>
+          }}
+        >
+          <Field
+            label="Note for the author — Claude reads it too"
+            htmlFor={field}
+            hint={tried && empty ? undefined : HINT}
+          >
+            <ClaudeBlock
+              id={field}
+              submit="autosave"
+              plain
+              value={note}
+              onChange={setNote}
+              context={ctx.context}
+              autoFocus
+              placeholder="Say what is wrong, and what the test should check instead…"
+              error={tried && empty ? "Say what is wrong: the note is required." : undefined}
+              trailing={
+                note && note !== initial ? (
+                  <span {...stylex.props(type.small, styles.kept)}>Draft kept</span>
+                ) : undefined
+              }
+            />
+          </Field>
+        </div>
+      </Modal>
+      {ctx.dialog}
+    </>
   );
 }

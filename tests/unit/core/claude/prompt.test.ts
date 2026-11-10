@@ -2,17 +2,16 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { given } from "../../../../src/core/claude/given.ts";
 import {
-  buildPrompt,
   contextDir,
-  effectiveContexts,
-  projectContexts,
   readContexts,
   readTestContexts,
+  scopedPrompt,
   scopeLines,
   writeTestContexts,
 } from "../../../../src/core/claude/prompt.ts";
-import { readProject, writeJson, writeProject } from "../../../../src/core/lib/project.ts";
+import { writeJson } from "../../../../src/core/lib/project.ts";
 import { writeContextMd } from "../../helpers/context.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -37,6 +36,8 @@ afterEach(() => {
   rmSync(join(dir, ".."), { recursive: true, force: true });
 });
 
+const withContexts = (ids: string[]) => given(dir, "run", { kind: "none" }, { contexts: ids }).lines;
+
 describe("readContexts", () => {
   it("skips bad and missing ids, defaults the name, the paths, the notes and the files", () => {
     const cs = readContexts(dir, ["full", "bare", "../x", "gone", "blank"]);
@@ -46,83 +47,76 @@ describe("readContexts", () => {
   });
 });
 
-describe("buildPrompt", () => {
-  it("lists each context with what it holds, and leaves out an empty request", () => {
-    const p = buildPrompt(
-      { kind: "tests", testIds: ["A", "B"] },
-      "   ",
-      readContexts(dir, ["full", "bare", "blank"]),
-      dir,
-    );
+describe("scopedPrompt", () => {
+  it("carries what goes with the run as it is given, and leaves out an empty request", () => {
+    const p = scopedPrompt({ kind: "tests", testIds: ["A", "B"] }, "   ", withContexts(["full", "bare", "blank"]));
     expect(p).toContain("Scope: the tests A, B.");
     expect(p).toContain("Files: tests/A/test.md, tests/B/test.md");
     expect(p).toMatch(
-      /- Full — notes: .*\/contexts\/full\/context\.md; files: .*\/contexts\/full\/files\/a\.pdf; also look at: D:\/specs/,
+      /^- « Full » — its notes are below; files: .*\/contexts\/full\/files\/a\.pdf; also look at: D:\/specs$/m,
     );
-    expect(p).toMatch(/^- bare$/m);
-    expect(p).toMatch(/^- blank$/m);
+    expect(p).toMatch(/^- « bare »$/m);
+    expect(p).toMatch(/^- « blank »$/m);
+    expect(p).toContain("\n\n« Full »:\nSome notes\n");
     expect(p).not.toContain("\\");
     expect(p).not.toMatch(/\n\n\n/);
   });
 
-  it("without contexts names no context section; a step scope limits the edit", () => {
-    const p = buildPrompt({ kind: "step", testId: "A", step: 2 }, "Do it.", [], dir);
-    expect(p).not.toContain("Context to read");
-    expect(p).toContain('Only edit "## Step 2"');
+  it("without contexts names no reading; a step scope limits the edit", () => {
+    const p = scopedPrompt({ kind: "step", testId: "A", step: 2 }, "Do it.", []);
+    expect(p).not.toContain("Read first");
+    expect(p).toContain('Only "## Step 2" of that file: its columns and its ### Sources.');
     expect(p).toContain("\nDo it.\n");
     expect(scopeLines({ kind: "project" })[0]).toBe("Scope: the whole project — every test and every document.");
   });
 
   it("reads a test run and changes nothing: the files of the run, its test and step, the answer written out", () => {
-    const p = buildPrompt({ kind: "run", run: "recette-j5", testId: "A", step: 2 }, "Rédige la note.", [], dir);
+    const p = scopedPrompt({ kind: "run", run: "recette-j5", testId: "A", step: 2 }, "Rédige la note.", []);
     expect(p.split("\n")[0]).toBe("Scope: step 2 of the test A of the test run recette-j5 — read only.");
     expect(p).toContain("test-runs/recette-j5/run.json");
     expect(p).toContain("test-runs/recette-j5/results/A.json");
-    expect(p).toContain("Change no file: Claude reads a test run, never marks a step or a result.");
+    expect(p).toContain("Change no file: a test run is the testers' — you read it, you never mark a step or a result.");
     expect(p).toContain("the text to paste alone in one fenced block");
-    expect(p).not.toContain("Only modify what the scope allows.");
-    expect(p).not.toContain("test.md format");
+    expect(p).not.toContain("Change nothing outside the scope.");
+    expect(p).not.toContain("### Attachments");
     expect(p).toContain("\nRédige la note.\n");
-    expect(p.trimEnd().endsWith("When finished, give the answer.")).toBe(true);
+    expect(p.trimEnd().endsWith("Reply with the answer.")).toBe(true);
     expect(scopeLines({ kind: "run", run: "recette-j5" })[0]).toBe("Scope: the test run recette-j5 — read only.");
   });
 
-  it("states the scope, the step-only rule, the contexts and the 2-4 line reply, word for word", () => {
-    const format =
-      "Follow the test.md format of CLAUDE.md exactly. Every claim keeps or gets its source line: " +
-      '`<docId>#<anchor> "<exact quote from doc.md>"` — use rag_search and rag_passage to find them.';
+  it("states the scope, the step-only rule, what goes with the run and the 2 to 4 line reply, word for word", () => {
     const shots =
-      "The screenshots listed under ### Attachments are files in tests/<id>/images/ — open them with Read when what the screen shows matters.";
-    const reply = "When finished, reply in 2-4 lines: what you changed (which steps) and anything you could not do.";
+      "The pictures under ### Attachments are files of tests/<id>/images/: Read one when what the screen shows matters.";
+    const reply = "Reply in 2 to 4 lines: what changed (which steps) and what you could not do.";
     const full = `${dir.replace(/\\/g, "/")}/contexts/full`;
-    const step = buildPrompt(
+    const step = scopedPrompt(
       { kind: "step", testId: "LFRPS12-7", step: 3 },
       "  Ajoute la source.  ",
-      readContexts(dir, ["full"]),
-      dir,
+      withContexts(["full"]),
     );
     expect(step.split("\n")).toEqual([
       "Scope: step 3 of test LFRPS12-7.",
       "Files: tests/LFRPS12-7/test.md",
-      "Only modify what the scope allows.",
-      'Only edit "## Step 3" of that file (its fields and its ### Sources); do not touch other steps.',
-      format,
+      "Change nothing outside the scope.",
+      'Only "## Step 3" of that file: its columns and its ### Sources.',
       shots,
       "",
-      "Context to read before you start (reference material, do not edit it):",
-      `- Full — notes: ${full}/context.md; files: ${full}/files/a.pdf; also look at: D:/specs`,
+      "Read first — reference material, never edit it:",
+      `- « Full » — its notes are below; files: ${full}/files/a.pdf; also look at: D:/specs`,
+      "",
+      "« Full »:",
+      "Some notes",
       "",
       "Ajoute la source.",
       "",
       reply,
       "",
     ]);
-    const test = buildPrompt({ kind: "test", testId: "LFRPS12-7" }, "Relis.", [], dir);
+    const test = scopedPrompt({ kind: "test", testId: "LFRPS12-7" }, "Relis.", []);
     expect(test.split("\n")).toEqual([
       "Scope: the whole test LFRPS12-7.",
       "Files: tests/LFRPS12-7/test.md",
-      "Only modify what the scope allows.",
-      format,
+      "Change nothing outside the scope.",
       shots,
       "",
       "Relis.",
@@ -130,49 +124,31 @@ describe("buildPrompt", () => {
       reply,
       "",
     ]);
-    const project = buildPrompt({ kind: "project" }, "", [], dir);
+    const project = scopedPrompt({ kind: "project" }, "", []);
     expect(project.split("\n")).toEqual([
       "Scope: the whole project — every test and every document.",
       "Files: all tests/*/test.md; the documents through rag_search, rag_passage and docs/*/doc.md (read only)",
-      "Only modify what the scope allows.",
-      "When the request is a question, answer it from the documents and the tests and change nothing; " +
-        'put the source of every factual sentence at its end: [<docId>#<anchor> "<exact quote from doc.md>"].',
-      format,
+      "Change nothing outside the scope.",
+      'A question is answered from the documents and the tests, changing nothing, each factual sentence ending with its source: [<docId>#<anchor> "<exact quote from doc.md>"]. A request that changes tests follows the edit-test skill.',
       shots,
       "",
-      "When finished, give the answer, or reply in 2-4 lines: what you changed (which tests and steps) and anything you could not do.",
+      "Reply with the answer, or in 2 to 4 lines: what changed (which tests and steps) and what you could not do.",
       "",
     ]);
-    expect(test).not.toContain("Only edit");
-    expect(project).not.toContain("Only edit");
+    expect(test).not.toContain('Only "## Step');
+    expect(project).not.toContain('Only "## Step');
   });
 });
 
-describe("per-test contexts", () => {
-  it("the project's list applies until the test has its own; ids whose folder is gone drop out", () => {
-    const p = readProject(dir);
-    writeProject(dir, { ...p, claude: { ...p.claude, contexts: ["full", "gone"] } });
+describe("a test's own contexts", () => {
+  it("are written once each, read back as they are, and taken away with null", () => {
     expect(readTestContexts(dir, "LFRPS12-1420")).toBeNull();
-    expect(effectiveContexts(dir)).toEqual(["full"]);
-    expect(effectiveContexts(dir, "LFRPS12-1420")).toEqual(["full"]);
     writeTestContexts(dir, "LFRPS12-1420", ["bare", "bare", "gone"]);
     expect(readTestContexts(dir, "LFRPS12-1420")).toEqual(["bare", "gone"]);
-    expect(effectiveContexts(dir, "LFRPS12-1420")).toEqual(["bare"]);
     writeTestContexts(dir, "LFRPS12-1420", []);
-    expect(effectiveContexts(dir, "LFRPS12-1420")).toEqual([]);
+    expect(readTestContexts(dir, "LFRPS12-1420")).toEqual([]);
     writeTestContexts(dir, "LFRPS12-1420", null);
     expect(readTestContexts(dir, "LFRPS12-1420")).toBeNull();
-  });
-
-  it("the whole project attaches the project's list and every test's own, each once", () => {
-    const p = readProject(dir);
-    writeProject(dir, { ...p, claude: { ...p.claude, contexts: ["full", "gone"] } });
-    expect(projectContexts(dir)).toEqual(["full"]);
-    writeTestContexts(dir, "LFRPS12-1420", ["bare", "full"]);
-    writeTestContexts(dir, "LFRPS12-1398", ["bare", "blank"]);
-    expect(projectContexts(dir)).toEqual(["full", "bare", "blank"]);
-    rmSync(join(dir, "tests"), { recursive: true, force: true });
-    expect(projectContexts(dir)).toEqual(["full"]);
   });
 
   it("a local.json without a list, or with junk in it, reads as no list or as its valid ids", () => {

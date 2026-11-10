@@ -29,6 +29,8 @@ export type GenOutput = {
   discarded?: string[];
   skipped: SkippedItem[];
   reportFound: boolean;
+  /** why a run's report could not be read, when one could not */
+  reportErrors?: string[];
   durationMs: number;
   diagnosis?: { kind: string; title: string; detail: string };
   generation?: string;
@@ -290,9 +292,23 @@ export function GenSummary({
         </p>
       )}
       {!result.reportFound && result.ok && (
-        <p {...stylex.props(type.compact, styles.muted)}>
-          Claude did not say what it could not write a test for: read its reply in the log.
-        </p>
+        <div {...stylex.props(styles.body)}>
+          <Banner
+            tone="danger"
+            title="A run's report could not be read"
+            actions={
+              onOpenJob && <Button size="sm" variant="quiet" icon="jobs" label="Open in Jobs" onClick={onOpenJob} />
+            }
+          >
+            Claude was asked again and its report still could not be read: what that run left without a test is not
+            known{skipped.length > 0 ? ", and the list below may miss some" : ""}. Ask the generation again to get it.
+          </Banner>
+          {!!result.reportErrors?.length && (
+            <Disclosure summary="Why it could not be read" quiet>
+              <Raw text={result.reportErrors.join("\n")} label="Why the report could not be read" />
+            </Disclosure>
+          )}
+        </div>
       )}
       {skipped.length > 0 && <SkippedList skipped={skipped} open={open} onOpenChange={onOpenChange} />}
       {result.changed.length > 0 && (

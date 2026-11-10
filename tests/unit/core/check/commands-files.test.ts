@@ -9,6 +9,14 @@ import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.
 import { recordSemantic } from "../../../../src/core/lib/check.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 import { readCheck, readTest } from "../../../../src/core/lib/store.ts";
+import {
+  answerCheck,
+  type CheckAnswer,
+  checkedIn,
+  resultLine,
+  toolLine,
+  verdictsOf,
+} from "../../helpers/fake-check.ts";
 import "../../../../src/core/commands/index.ts";
 
 const FIXTURE = new URL("../../../fixtures/project/", import.meta.url);
@@ -24,29 +32,19 @@ const run = async (name: string, raw: unknown = {}, ctx?: Ctx): Promise<any> => 
   return c.run(ctx ?? quietCtx(project), c.input.parse(raw) as never);
 };
 
-const line = (m: unknown) => JSON.stringify(m);
-const resultLine = (text: string, isError = false) =>
-  line({ type: "result", subtype: "success", is_error: isError, result: text, session_id: "s-1", duration_ms: 5 });
-const testIdOf = (s: ClaudeSpawn) => /skill on the test ([\w.-]+)\./.exec(s.stdin)?.[1] ?? "";
-
-const toolLine = (name: string, input: unknown) =>
-  line({ type: "assistant", message: { content: [{ type: "tool_use", id: `t-${name}`, name, input }] } });
-
+// ponytail: a check request names its tests; the fake records each one as the skill does, unless the run fails
 function fakeSkill(
-  during: (s: ClaudeSpawn, id: string) => void | Promise<void>,
+  during: (s: ClaudeSpawn, ids: string[]) => void | Promise<void>,
   out: Partial<ClaudeOut> = {},
-  o: { record?: boolean; tools?: (id: string) => string[] } = {},
+  o: CheckAnswer & { tools?: (ids: string[]) => string[] } = {},
 ) {
   env.spawnClaude = async (s) => {
     if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
     seen.push(s);
-    const id = testIdOf(s);
-    await during(s, id);
-    const lines = [
-      ...(o.tools?.(id) ?? []),
-      ...(o.record === false ? [] : [toolLine("mcp__testimus__check_record", { findings: [], id })]),
-      resultLine("1 error", out.code !== undefined && out.code !== 0),
-    ];
+    const ids = checkedIn(s.stdin);
+    await during(s, ids);
+    const failed = out.code !== undefined && out.code !== 0;
+    const lines = failed ? [resultLine("1 error", true)] : [...(o.tools?.(ids) ?? []), ...(await answerCheck(s, o))];
     for (const l of lines) s.onLine?.(l);
     return { code: 0, stdout: `${lines.join("\n")}\n`, stderr: "", ...out };
   };
@@ -98,28 +96,56 @@ describe("check commands", () => {
     expect(seen).toEqual([]);
   });
 
-  it("semantic pass: one read-only check-test run per test; the skill's findings land in check.json; the review state is left as it is", async () => {
+  it("semantic pass: one read-only check-test request for the tests, each recorded on its own; the skill's findings land in check.json; the review state is left as it is", async () => {
     setReviewLine("local-3f9a12c0", "draft");
-    fakeSkill((s, id) => {
-      if (id === "LFRPS12-1420") recordSemantic(s.cwd, id, [wrongObject]);
-      else recordSemantic(s.cwd, id, []);
-    });
+    fakeSkill(
+      () => {},
+      {},
+      {
+        findings: (id) => (id === "LFRPS12-1420" ? [wrongObject] : []),
+        steps: (id) =>
+          verdictsOf(project, id).map((v) =>
+            id === "LFRPS12-1420" && v.step === 2 ? { ...v, verdict: "unsupported" as const } : v,
+          ),
+      },
+    );
     const progress: Progress[] = [];
     const ctx = { ...quietCtx(project), progress: (p: Progress) => progress.push(p) };
     const out = await run("check.run", { ids: ["LFRPS12-1420", "local-3f9a12c0"] }, ctx);
-    expect(seen).toHaveLength(2);
+    expect(seen).toHaveLength(1);
     const args = seen[0].args;
     expect(args[args.indexOf("--tools") + 1]).toBe("Read,Glob,Grep,Skill");
-    expect(seen[0].stdin).toContain("Use the check-test skill on the test");
-    expect(seen[0].stdin).toContain("a clean test is a normal result");
-    expect(seen.find((s) => testIdOf(s) === "LFRPS12-1420")?.stdin).toContain("step 5 — source-missing (warning)");
+    expect(seen[0].stdin.split("\n")[0]).toBe(
+      "Use the check-test skill on the 2 tests below. Read each one with tests_show; never modify a test or any other file.",
+    );
+    expect(seen[0].stdin).toContain(
+      "- findings: only what a passage proves and a reviewer would act on (the bar of the skill); [] is a normal result.",
+    );
+    expect(seen[0].stdin).toContain(
+      "- LFRPS12-1420 — « Sectionneur sans TK — menu contextuel et propriétés », 5 steps. Already recorded by the mechanical pass, do not repeat:\n  - step 5 — source-missing (warning)",
+    );
+    expect(seen[0].stdin).toContain(
+      "- local-3f9a12c0 — « Sectionneur avec TK — manœuvre régulière », 2 steps. The mechanical pass found nothing.",
+    );
     expect(out.totals).toEqual({ errors: 1, warnings: 1, infos: 0 });
     expect(out.failed).toEqual([]);
+    expect(out.tests.map((t: any) => [t.id, t.ok, t.summary])).toEqual([
+      ["LFRPS12-1420", true, "LFRPS12-1420: 1 error(s), 0 warning(s), 0 info(s)."],
+      ["local-3f9a12c0", true, "local-3f9a12c0: 0 error(s), 0 warning(s), 0 info(s)."],
+    ]);
     const c = readCheck(project, "LFRPS12-1420")!;
     expect(c.findings.map((f) => `${f.step}:${f.kind}:${f.pass}`)).toEqual([
       "2:wrong-object:semantic",
       "5:source-missing:mechanical",
     ]);
+    expect(c.verdicts?.map((v) => `${v.step}:${v.verdict}`)).toEqual([
+      "1:supported",
+      "2:unsupported",
+      "3:supported",
+      "4:supported",
+      "5:unverified",
+    ]);
+    expect(readCheck(project, "local-3f9a12c0")?.verdicts).toHaveLength(2);
     expect(readTest(project, "local-3f9a12c0").test.review).toBe("draft");
     expect(readTest(project, "LFRPS12-1420").test.review).toBe("draft");
     expect(progress.at(-1)).toMatchObject({ done: 2, total: 2 });
@@ -150,6 +176,7 @@ describe("check commands", () => {
     setReviewLine("local-3f9a12c0", "draft");
     fakeSkill(() => {}, { code: 1 });
     const out = await run("check.run", { ids: ["local-3f9a12c0"] });
+    expect(seen).toHaveLength(1);
     expect(out.failed).toEqual(["local-3f9a12c0"]);
     expect(out.tests[0]).toMatchObject({ ok: false, review: "draft", warnings: 1 });
     expect(readCheck(project, "local-3f9a12c0")?.findings[0]).toMatchObject({ kind: "other", pass: "semantic" });
@@ -161,16 +188,20 @@ describe("check commands", () => {
     fakeSkill(
       () => writeFileSync(file, `${before}\nedited\n`),
       {},
-      { tools: (id) => [toolLine("Edit", { file_path: `tests/${id}/test.md` })] },
+      { tools: (ids) => ids.map((id) => toolLine("Edit", { file_path: `tests/${id}/test.md` })) },
     );
-    await run("check.run", { ids: ["LFRPS12-1398"] });
+    const logs: string[] = [];
+    await run("check.run", { ids: ["LFRPS12-1398"] }, { ...quietCtx(project), log: (_l, m) => logs.push(m) });
     expect(readFileSync(file, "utf8")).toBe(before);
+    expect(logs).toContain("The check run edited « Disjoncteur — ouverture à distance »; the edit was put back.");
   });
 
-  it("at most agents.max check-test runs at a time when not adapting, 2 to start with when adapting", async () => {
+  it("at most agents.max check-test requests at a time when not adapting, 2 to start with when adapting", async () => {
     writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" }, agents: { max: 3, adaptive: false } });
-    for (const n of [1, 2, 3, 4])
-      cpSync(join(project, "tests", "LFRPS12-1398"), join(project, "tests", `local-0000000${n}`), { recursive: true });
+    for (let n = 1; n <= 13; n++)
+      cpSync(join(project, "tests", "LFRPS12-1398"), join(project, "tests", `local-${String(n).padStart(8, "0")}`), {
+        recursive: true,
+      });
     let active = 0;
     let peak = 0;
     fakeSkill(async () => {
@@ -180,8 +211,9 @@ describe("check commands", () => {
       active--;
     });
     const out = await run("check.run", { all: true });
-    expect(out.tests).toHaveLength(7);
-    expect(seen).toHaveLength(7);
+    expect(out.tests).toHaveLength(16);
+    expect(out.failed).toEqual([]);
+    expect(seen.map((s) => checkedIn(s.stdin).length)).toEqual([4, 4, 4, 4]);
     expect(peak).toBe(3);
 
     writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });

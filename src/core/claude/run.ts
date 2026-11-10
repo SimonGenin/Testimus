@@ -7,12 +7,12 @@ import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { withProcess } from "../jobs.ts";
 import { perfScope, recordPerf } from "../lib/models-perf.ts";
-import { withOverview } from "../lib/overview.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { shipSkills } from "../lib/shipped.ts";
 import type { ClaudeEvent, ClaudeResult, ClaudeScope, Effort } from "../types.ts";
-import { mcpAccess, protectedRules, type RunKind, TOOLS } from "./access.ts";
+import { mcpAccess, protectedRules, type RunKind, TOOLS, WITHOUT_DOCS } from "./access.ts";
 import { diagnose } from "./diagnose.ts";
+import type { Given } from "./given.ts";
 import { contextDir, readContexts } from "./prompt.ts";
 import { EFFORTS, MODEL_RE } from "./schemas.ts";
 import { finishSnapshot, takeSnapshot, writeRunMeta } from "./snapshot.ts";
@@ -67,6 +67,20 @@ export function ensureMcpJson(project: string): string {
   const env = { ...have?.env, ...want.env };
   if (have?.command !== want.command || !same(have?.args, want.args) || !same(have?.env, env))
     writeJson(file, { ...cur, mcpServers: { ...cur.mcpServers, testimus: { ...have, ...want, env } } });
+  return file;
+}
+
+// ponytail: a run with documents left out starts its own MCP server, told which — the project's .mcp.json is shared by
+// every run under way and by a terminal session, a run's own file is not
+function runMcpJson(project: string, runId: string, without: string[]): string {
+  const shared = ensureMcpJson(project);
+  if (!without.length) return shared;
+  const cur = readJson<McpJson>(shared, {});
+  const server = cur.mcpServers?.testimus;
+  const file = join(project, ".testimus", "runs", runId, "mcp.json");
+  writeJson(file, {
+    mcpServers: { testimus: { ...server, env: { ...server?.env, [WITHOUT_DOCS]: without.join(",") } } },
+  });
   return file;
 }
 
@@ -142,7 +156,8 @@ export type RunOpts = {
   model: string;
   effort: Effort;
   scope?: ClaudeScope;
-  contexts?: string[];
+  /** what goes with the run (claude/given.ts): its contexts' folders are opened, its documents left out are closed */
+  given?: Given;
   resume?: string;
   signal?: AbortSignal;
   jobId?: string;
@@ -169,7 +184,8 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
   const project = resolve(o.project);
   const model = checkModel(o.model);
   const effort = checkEffort(o.effort);
-  const addDirs = contextDirs(project, o.contexts ?? []);
+  const addDirs = contextDirs(project, o.given?.contexts ?? []);
+  const without = o.given?.withoutDocs ?? [];
   const inside = (d: string) => `${d.toLowerCase()}${sep}`.startsWith(`${project.toLowerCase()}${sep}`);
   const external = addDirs.filter((d) => !inside(d));
   const mcp = mcpAccess(o.kind);
@@ -177,18 +193,22 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
   try {
     shipSkills(project);
   } catch {}
+  const runId = o.runId ?? newRunId();
   const args = claudeArgs({
     model,
     effort,
-    mcpConfig: ensureMcpJson(project),
+    mcpConfig: runMcpJson(project, runId, without),
     tools: TOOLS[o.kind],
     mcpTools: mcp.allow,
-    disallowedTools: [...mcp.deny, ...protectedRules(external, o.kind, project)],
+    disallowedTools: [
+      ...mcp.deny,
+      ...protectedRules(external, o.kind, project),
+      ...without.map((d) => `Read(docs/${d}/**)`),
+    ],
     addDirs,
     resume: o.resume,
   });
   const shell = forShell(resolveExe(claudeExe()), args);
-  const runId = o.runId ?? newRunId();
   if (o.scope) takeSnapshot(project, runId, o.scope, o.files === true);
   writeRunMeta(project, runId, {
     kind: o.kind,
@@ -197,6 +217,13 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     at: env.now().toISOString(),
     ...(o.jobId ? { jobId: o.jobId } : {}),
     ...(o.label ? { label: o.label } : {}),
+    sent: {
+      chars: o.prompt.length,
+      tools: mcp.allow.length,
+      given: (o.given?.pieces ?? [])
+        .filter((p) => p.on)
+        .map((p) => ({ id: p.id, kind: p.kind, name: p.name, how: p.how, chars: p.chars })),
+    },
   });
   let result: Extract<ClaudeEvent, { type: "result" }> | undefined;
   const live = streamParser((e) => o.onEvent?.(e));
@@ -210,7 +237,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
           exe: shell.exe,
           args: shell.args,
           cwd: project,
-          stdin: withOverview(project, o.kind, o.prompt),
+          stdin: o.prompt,
           signal: o.signal,
           onLine: (l) => live.push(`${l}\n`),
           onSpawn: pid,

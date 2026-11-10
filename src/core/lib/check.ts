@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { env } from "../env.ts";
 import { normalizeAnchor } from "../rag/anchors.ts";
 import { FIGURE_IMAGE, parseSections } from "../rag/chunk.ts";
-import type { CheckFile, CitingTest, DocJson, Finding, Step, Test } from "../types.ts";
+import type { CheckFile, CitingTest, DocJson, Finding, Source, Step, StepVerdict, Test } from "../types.ts";
 import { stepColumns } from "./columns.ts";
 import { findDoc } from "./docs.ts";
 import { isObserved } from "./media.ts";
@@ -370,11 +370,29 @@ const bySteps = (fs: Finding[]) =>
     .sort((a, b) => (a.f.step ?? 0) - (b.f.step ?? 0) || a.i - b.i)
     .map((x) => x.f);
 
-export function writeCheck(project: string, id: string, findings: Finding[]): CheckFile {
+export function writeCheck(project: string, id: string, findings: Finding[], verdicts?: StepVerdict[]): CheckFile {
   const md = readTest(project, id).md;
-  const file: CheckFile = { at: env.now().toISOString(), testHash: testMdHash(md), findings: bySteps(findings) };
+  const file: CheckFile = {
+    at: env.now().toISOString(),
+    testHash: testMdHash(md),
+    findings: bySteps(findings),
+    ...(verdicts?.length ? { verdicts: [...verdicts].sort((a, b) => a.step - b.step) } : {}),
+  };
   writeJson(join(testDir(project, id), "check.json"), file);
   return file;
+}
+
+// ponytail: what is wrong with a source written docId#anchor "quote", as the mechanical pass judges a step's — used
+// for the passages a run gives as proof outside a test (an item it did not write, a second look)
+export function sourceProblem(corpus: Corpus, src: Source): string | null {
+  const d = corpus.docs.get(src.docId);
+  if (!d) return `${src.docId} is not a document of this project`;
+  const anchor = normalizeAnchor(src.anchor ?? "");
+  if (!anchor || !d.anchors.has(anchor)) return `${src.docId} has no anchor ${anchor || "(none)"}`;
+  if (!src.quote.trim()) return null;
+  if (!(scoped(d, anchor) ?? d.text).includes(plainText(src.quote)))
+    return `the quote "${short(flat(src.quote))}" is not under ${src.docId}#${anchor}`;
+  return null;
 }
 
 export function runMechanical(project: string, id: string, corpus?: Corpus): CheckFile {
@@ -410,8 +428,14 @@ export function recheckMechanical(project: string, ids: string[]): CheckFile[] {
   const corpus = loadCorpus(project);
   return ids.map((id) => {
     const old = readCheck(project, id);
-    const semantic = old && !isStale(project, id, old) ? semanticOf(old) : [];
-    return writeCheck(project, id, [...mechanicalCheck(project, id, corpus), ...semantic]);
+    const fresh = old && !isStale(project, id, old);
+    const semantic = fresh ? semanticOf(old) : [];
+    return writeCheck(
+      project,
+      id,
+      [...mechanicalCheck(project, id, corpus), ...semantic],
+      fresh ? old.verdicts : undefined,
+    );
   });
 }
 
@@ -420,9 +444,47 @@ export const semanticOf = (check: CheckFile | null): Finding[] =>
 
 // ponytail: the mechanical pass is recomputed on every record — it costs nothing and is what keeps
 // the whole file honest about the testHash it is stamped with
-export function recordSemantic(project: string, id: string, findings: Omit<Finding, "pass">[]): CheckFile {
+export function recordSemantic(
+  project: string,
+  id: string,
+  findings: Omit<Finding, "pass">[],
+  verdicts?: StepVerdict[],
+): CheckFile {
   const semantic = findings.map((f) => ({ ...f, sources: f.sources ?? [], pass: "semantic" as const }));
-  return writeCheck(project, id, [...mechanicalCheck(project, id), ...semantic]);
+  return writeCheck(project, id, [...mechanicalCheck(project, id), ...semantic], verdicts);
+}
+
+// ponytail: the kinds that say a step claims what no passage says, or the contrary — a step that has one cannot be
+// « supported »
+const DISPROVES: Finding["kind"][] = ["unsupported", "contradicted", "wrong-object", "not-simulated-unsourced"];
+
+// ponytail: what a record of verdicts must hold to be the proof of a check — one verdict per step of the test, the
+// passages read for each one judged, a reason for each one left unverified, and no step called supported that a
+// finding of the same record disproves
+export function verdictProblems(
+  steps: number,
+  verdicts: StepVerdict[],
+  findings: Pick<Finding, "step" | "kind" | "severity">[],
+): string[] {
+  const out: string[] = [];
+  const seen = new Map<number, StepVerdict>();
+  for (const v of verdicts) {
+    if (v.step > steps) out.push(`steps: step ${v.step} does not exist (the test has ${steps})`);
+    else if (seen.has(v.step)) out.push(`steps: step ${v.step} is there twice`);
+    else seen.set(v.step, v);
+  }
+  const missing = Array.from({ length: steps }, (_, i) => i + 1).filter((n) => !seen.has(n));
+  if (missing.length) out.push(`steps: no verdict for step ${missing.join(", ")} — give one per step of the test`);
+  for (const v of seen.values()) {
+    if (v.verdict !== "unverified" && !v.read.length)
+      out.push(`steps: step ${v.step} is ${v.verdict} without a passage read — name the docId#anchor you opened`);
+    if (v.verdict === "unverified" && !v.why?.trim())
+      out.push(`steps: step ${v.step} is unverified without a why — say what stopped you`);
+    const disproved = findings.some((f) => f.step === v.step && f.severity === "error" && DISPROVES.includes(f.kind));
+    if (v.verdict === "supported" && disproved)
+      out.push(`steps: step ${v.step} is called supported, and a finding of this record says its result is not`);
+  }
+  return out;
 }
 
 export function isStale(project: string, id: string, check: CheckFile | null = readCheck(project, id)): boolean {

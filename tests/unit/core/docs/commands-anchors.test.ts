@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { docRunLines } from "../../../../src/core/claude/prompt.ts";
+import { docGiven } from "../../../../src/core/claude/given.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { registry as commands } from "../../../../src/core/commands/index.ts";
 import { isStale, recheckMechanical, recordSemantic, testsCiting } from "../../../../src/core/lib/check.ts";
@@ -92,12 +92,12 @@ describe("docs commands", () => {
     expect((await run<DocRef[]>(project, "docs.list", {}))[0].indexed).toBe("missing");
     expect(await run(project, "docs.show", { id: doc.id })).toMatchObject({ toc: [], md: "" });
     await run(project, "docs.set", { id: doc.id, status: "submitted", context: "Edition for the 2024 tender" });
-    expect(docRunLines(project, doc.id, { note: "Only chapter 5 matters" })).toEqual([
+    expect(docGiven(project, "study", doc.id, { note: "Only chapter 5 matters" }).lines).toEqual([
       "",
-      "What the team knows about this document:",
-      "Edition for the 2024 tender",
+      "What the team knows about the documents of this run:",
+      `- ${doc.id}: Edition for the 2024 tender`,
       "",
-      "Additional context from the user for this run:",
+      "From the user, for this run only:",
       "Only chapter 5 matters",
     ]);
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);
@@ -106,9 +106,19 @@ describe("docs commands", () => {
     await run(project, "docs.set", { id: doc.id, contexts: ["glossary", "glossary", "gone"] });
     expect(JSON.parse(readFileSync(join(dir, "doc.json"), "utf8")).contexts).toEqual(["glossary", "gone"]);
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual(["glossary"]);
-    expect(docRunLines(project, doc.id, { contexts: ["glossary"] }).join("\n")).toMatch(
-      /What the team knows about this document:\nEdition for the 2024 tender\n\nContext to read before you start[^\n]*\n- Glossary — notes: .*\/contexts\/glossary\/context\.md$/,
-    );
+    const own = docGiven(project, "study", doc.id);
+    expect(own.contexts).toEqual(["glossary"]);
+    expect(own.lines).toEqual([
+      "",
+      "Read first — reference material, never edit it:",
+      "- « Glossary » — its notes are below",
+      "",
+      "« Glossary »:",
+      "TK = traction",
+      "",
+      "What the team knows about the documents of this run:",
+      `- ${doc.id}: Edition for the 2024 tender`,
+    ]);
     await run(project, "docs.set", { id: doc.id, contexts: [] });
     expect((await run<{ contexts: string[] }>(project, "docs.show", { id: doc.id })).contexts).toEqual([]);
     const converted = await run<DocJson>(project, "docs.convert", { id: doc.id, note: "Only chapter 5 matters" });

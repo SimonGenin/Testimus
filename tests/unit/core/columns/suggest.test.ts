@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { columnsPrompt, columnUse, parseColumns, toProposals } from "../../../../src/core/claude/columns.ts";
+import { given } from "../../../../src/core/claude/given.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { setModes, stepColumns } from "../../../../src/core/lib/columns.ts";
@@ -46,7 +47,8 @@ describe("columns.suggest", () => {
   it("tells Claude the columns, Xray's fields, the defaults, how the tests fill them, the documents and the contexts", () => {
     const dir = copyFixture();
     writeProject(dir, { ...readProject(dir), glossary: { TCO: "Tableau de contrôle optique" } });
-    const prompt = columnsPrompt(dir, "  le poste de chaque step  ", [], "Les tests de la ligne 12");
+    const g = given(dir, "columns", { kind: "none" }, { note: "Les tests de la ligne 12" });
+    const prompt = columnsPrompt(dir, "  le poste de chaque step  ", g.lines);
     expect(prompt.startsWith("Testimus smart columns: use the define-columns skill")).toBe(true);
     expect(prompt).toContain("The user asks: « le poste de chaque step »");
     expect(prompt).toContain("- Action (Xray standard)");
@@ -60,7 +62,7 @@ describe("columns.suggest", () => {
     expect(prompt).toContain("Testimus' defaults for Xray's standard columns");
     expect(prompt).toContain("SOSIE_211_D401-1_3 «");
     expect(prompt).toContain("- TCO: Tableau de contrôle optique");
-    expect(prompt).toContain("Additional context from the user for this run:\nLes tests de la ligne 12");
+    expect(prompt).toContain("\n\nFrom the user, for this run only:\nLes tests de la ligne 12\n\nReply in 2-4 lines");
     expect(prompt).toContain("```columns");
     expect(columnsPrompt(dir, "", [])).toContain("No request: review every column");
   });

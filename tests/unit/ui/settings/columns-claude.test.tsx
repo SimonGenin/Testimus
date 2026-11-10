@@ -4,6 +4,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { StepColumn } from "../../../../src/core/types.ts";
 import { ColumnsClaude } from "../../../../src/ui/screens/settings/ColumnsClaude.tsx";
+import { piece, previewOf } from "../../helpers/fake-preview.ts";
 import { iconsIn } from "../../helpers/icons.ts";
 import { calls, DIR, emit, Fail, fakeJob, fakeNet, info, inputs, mountSettings, net, reset } from "./helpers.tsx";
 
@@ -68,7 +69,7 @@ describe("Settings › Smart columns › Ask Claude", () => {
     fireEvent.click(ask());
     expect(await screen.findByText(/Claude is reading the columns/)).toBeInTheDocument();
     await waitFor(() => expect(calls("jobs.show")).toHaveLength(1));
-    expect(inputs("columns.suggest")[0]).toEqual({ ask: "le poste", contexts: [] });
+    expect(inputs("columns.suggest")[0]).toEqual({ ask: "le poste" });
     await emit({
       jobId: j.id,
       at: "",
@@ -94,6 +95,35 @@ describe("Settings › Smart columns › Ask Claude", () => {
     expect(within(list).getByText("empty — Claude stops filling it")).toBeInTheDocument();
     expect(within(list).getByText("LFRPS12-1420 le fait.")).toBeInTheDocument();
     expect(ask()).toHaveTextContent("Ask again");
+  });
+
+  it("its Context is what the columns question is given; what is ticked goes with the question and is kept with it", async () => {
+    net.routes["claude.preview"] = (i) =>
+      previewOf(
+        [
+          piece("instruction", "Columns: propose"),
+          piece("context:glossaire", "Glossaire", { why: "A default of the project" }),
+          piece("doc:D401", "Spécifications J5"),
+        ],
+        i,
+      );
+    answers({ ok: true, summary: "Voilà.", proposals: [] });
+    const context = () => screen.getByRole("button", { name: /^Context/ });
+    const first = mount();
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context3$/));
+    expect(inputs("claude.preview")[0]).toEqual({ use: "columns", scope: { kind: "project" } });
+    fireEvent.click(context());
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    fireEvent.click(await within(dialog).findByRole("checkbox", { name: "Spécifications J5" }));
+    await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: "Spécifications J5" })).not.toBeChecked());
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(context()).toHaveTextContent(/^Context2 · changed$/);
+    first.unmount();
+    mount();
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context2 · changed$/));
+    fireEvent.click(ask());
+    await waitFor(() => expect(inputs("columns.suggest")).toHaveLength(1));
+    expect(inputs("columns.suggest")[0]).toEqual({ ask: "", without: ["doc:D401"] });
   });
 
   it("applies one proposal, then all the others, through columns.save", async () => {

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { runAction, triageFailed, triageRun } from "../claude/actions.ts";
 import { readLedger } from "../claude/ledger.ts";
-import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE } from "../claude/schemas.ts";
+import { CONTEXT_IDS, CONVERSATION, EFFORT, MODEL, NOTE, RESULT, SCOPE, WITHOUT } from "../claude/schemas.ts";
 import { readRunMeta } from "../claude/snapshot.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -72,6 +72,16 @@ const ACTION = z.object({
       at: z.string().describe("When it ended"),
       model: z.string().describe("The model it ran with"),
       effort: EFFORT.describe("The effort it ran with"),
+      left: z
+        .object({
+          was: z.number().describe("How many there were where the problem is, before the run"),
+          now: z.number().describe("How many are left after it (a test is checked again first)"),
+          of: z.enum(["findings", "warnings"]).describe("What is counted: a test's findings, a document's warnings"),
+        })
+        .optional()
+        .describe(
+          "What Testimus counted where the problem is, before and after the run — absent for a problem it cannot count (a job, a generation, the project)",
+        ),
     })
     .optional()
     .describe("The last run of the action"),
@@ -216,7 +226,10 @@ export const commands = [
       id,
       model: MODEL.optional().describe("Model alias or name (default: the action's suggested model)"),
       effort: EFFORT.optional().describe("Effort level (default: the action's suggested effort)"),
-      contexts: CONTEXT_IDS.optional().describe("Context ids to attach (default: the effective ones)"),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved context ids for this run, in place of the ones its subject attaches (a test's or a document's own list, else the project's defaults; claude.preview shows them).",
+      ),
+      without: WITHOUT,
       note: NOTE,
       conversation: CONVERSATION,
     }),
@@ -251,7 +264,10 @@ export const commands = [
       model: MODEL.optional().describe("Model (default: project.json claude.model)"),
       effort: EFFORT.optional().describe("Effort (default: low)"),
       note: NOTE,
-      contexts: CONTEXT_IDS.optional().describe("Saved contexts to read for this run (with docId)"),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved contexts to read for this run, on top of the document's own (with docId)",
+      ),
+      without: WITHOUT,
     }),
     output: z.object({
       ok: z.boolean().describe("Whether the Claude run finished"),

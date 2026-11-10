@@ -5,9 +5,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { absRule, mcpAccess, protectedRules } from "../../../../src/core/claude/access.ts";
-import { buildPrompt, EDIT_MARKER } from "../../../../src/core/claude/prompt.ts";
+import { given } from "../../../../src/core/claude/given.ts";
+import { EDIT_MARKER } from "../../../../src/core/claude/prompt.ts";
 import { claudeArgs, ensureMcpJson, mcpServer, runClaude } from "../../../../src/core/claude/run.ts";
-import { changedStepNumbers, revert, stepBlocks } from "../../../../src/core/claude/snapshot.ts";
+import { changedStepNumbers, readRunMeta, revert, stepBlocks } from "../../../../src/core/claude/snapshot.ts";
 import { forShell } from "../../../../src/core/claude/status.ts";
 import { eventsOf, streamParser } from "../../../../src/core/claude/stream.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
@@ -307,7 +308,7 @@ describe("runClaude", () => {
       prompt: "p",
       model: "m",
       effort: "low",
-      contexts: ["ctx-a1b2c3d4", "ctx-gone", "../escape"],
+      given: given(dir, "run", { kind: "none" }, { contexts: ["ctx-a1b2c3d4", "ctx-gone", "../escape"] }),
     });
     const args = seen[0].args;
     expect(args.slice(args.indexOf("--add-dir"))).toEqual(["--add-dir", ctx, ext, specs]);
@@ -315,6 +316,81 @@ describe("runClaude", () => {
     expect(denied).toContain(`Edit(${absRule(ext)}/**)`);
     expect(denied).toContain(`Write(${absRule(specs)}/**)`);
     expect(denied).not.toContain(`Edit(${absRule(ctx)}/**)`);
+  });
+
+  it("a run without what goes with it opens no folder and uses the project's .mcp.json", async () => {
+    const dir = copyFixture();
+    fake([result("ok")]);
+    await runClaude({ kind: "run", project: dir, prompt: "p", model: "m", effort: "low" });
+    const args = seen[0].args;
+    expect(args).not.toContain("--add-dir");
+    expect(args[args.indexOf("--mcp-config") + 1]).toBe(join(dir, ".mcp.json"));
+    expect(args[args.indexOf("--disallowedTools") + 1]).not.toContain("Read(");
+  });
+
+  it("a document left out: the run starts its own MCP server, told which, and may not read its folder", async () => {
+    const dir = copyFixture();
+    const DOC = "SOSIE_211_D401-1_3";
+    const OTHER = "RECETTE_TCO_12-10";
+    fake([result("ok")]);
+    const g = given(dir, "chat", { kind: "none" }, { without: [`doc:${DOC}`, `doc:${OTHER}`, "doc:NOPE"] });
+    const r = await runClaude({ kind: "chat", project: dir, prompt: "p", model: "m", effort: "low", given: g });
+    const args = seen[0].args;
+    const own = join(dir, ".testimus", "runs", r.runId, "mcp.json");
+    expect(args[args.indexOf("--mcp-config") + 1]).toBe(own);
+    const shared = readJson<{ mcpServers: { testimus: { command: string; args: string[]; env: object } } }>(
+      join(dir, ".mcp.json"),
+      { mcpServers: { testimus: { command: "", args: [], env: {} } } },
+    ).mcpServers.testimus;
+    expect(shared.env).toEqual({ TESTIMUS_IN_CLAUDE: "1" });
+    expect(readJson(own, {})).toEqual({
+      mcpServers: {
+        testimus: { ...shared, env: { TESTIMUS_IN_CLAUDE: "1", TESTIMUS_WITHOUT_DOCS: `${OTHER},${DOC}` } },
+      },
+    });
+    const denied = args[args.indexOf("--disallowedTools") + 1].split(",");
+    expect(denied).toContain(`Read(docs/${DOC}/**)`);
+    expect(denied).toContain(`Read(docs/${OTHER}/**)`);
+    expect(denied.filter((d) => d.startsWith("Read("))).toHaveLength(2);
+  });
+
+  it("keeps what was sent with the run: the prompt's size, the tools, each piece that went with it", async () => {
+    const dir = copyFixture();
+    writeContextMd(join(dir, "contexts", "glossary"), { name: "Glossary", notes: "TCO: poste." });
+    writeContextMd(join(dir, "contexts", "unused"), { name: "Unused", notes: "x" });
+    fake([result("ok")]);
+    const g = given(
+      dir,
+      "check",
+      { kind: "test", testId: "LFRPS12-1420" },
+      { contexts: ["glossary"], without: ["doc:RECETTE_TCO_12-10"], note: "Court." },
+    );
+    const r = await runClaude({
+      kind: "check",
+      project: dir,
+      prompt: "0123456789",
+      model: "m",
+      effort: "low",
+      given: g,
+    });
+    const sent = readRunMeta(dir, r.runId)?.sent;
+    expect(sent?.chars).toBe(10);
+    expect(sent?.tools).toBe(mcpAccess("check").allow.length);
+    const ids = sent?.given.map((p) => p.id) ?? [];
+    expect(ids).toEqual(
+      expect.arrayContaining(["context:glossary", "doc:SOSIE_211_D401-1_3", "docnote:SOSIE_211_D401-1_3", "note"]),
+    );
+    expect(ids).not.toContain("context:unused");
+    expect(ids).not.toContain("doc:RECETTE_TCO_12-10");
+    expect(sent?.given.find((p) => p.id === "context:glossary")).toEqual({
+      id: "context:glossary",
+      kind: "context",
+      name: "Glossary",
+      how: "inline",
+      chars: "TCO: poste.".length,
+    });
+    const bare = await runClaude({ kind: "figures", project: dir, prompt: "p", model: "m", effort: "low" });
+    expect(readRunMeta(dir, bare.runId)?.sent).toEqual({ chars: 1, tools: 0, given: [] });
   });
 });
 
@@ -353,8 +429,8 @@ describe("claude.run", () => {
       "Use the edit-test skill for the request below.",
       "Scope: step 2 of test LFRPS12-1420.",
       "Files: tests/LFRPS12-1420/test.md",
-      "Only modify what the scope allows.",
-      'Only edit "## Step 2" of that file (its fields and its ### Sources); do not touch other steps.',
+      "Change nothing outside the scope.",
+      'Only "## Step 2" of that file: its columns and its ### Sources.',
     ]);
     expect(seen[0].args.slice(4, 8)).toEqual(["--model", "sonnet", "--effort", "medium"]);
   });
@@ -369,23 +445,39 @@ describe("claude.run", () => {
     expect((await mcpAccess("run")).allow).toContain("mcp__testimus__check_run");
   });
 
-  it("states the scope, contexts and reply format in the prompt", () => {
-    const whole = buildPrompt({ kind: "tests", testIds: ["A-1", "A-2"] }, "  ", [], "D:/p");
-    expect(whole.split("\n").slice(0, 2)).toEqual([
-      "Scope: the tests A-1, A-2.",
-      "Files: tests/A-1/test.md, tests/A-2/test.md",
+  it("states the scope, what goes with the run and the reply format in the prompt", async () => {
+    const dir = copyFixture();
+    const c1 = join(dir, "contexts", "c1");
+    mkdirSync(join(c1, "files"), { recursive: true });
+    writeContextMd(c1, { name: "Manuel", paths: ["D:/x"], notes: "n" });
+    writeFileSync(join(c1, "files", "a.png"), "x");
+    fake([result("ok"), result("ok")]);
+    await invoke(
+      "claude.run",
+      { scope: { kind: "tests", testIds: ["LFRPS12-1420", "LFRPS12-1398"] }, prompt: "  " },
+      { project: dir },
+    );
+    const whole = seen[0].stdin;
+    expect(whole.split("\n").slice(1, 3)).toEqual([
+      "Scope: the tests LFRPS12-1420, LFRPS12-1398.",
+      "Files: tests/LFRPS12-1420/test.md, tests/LFRPS12-1398/test.md",
     ]);
-    expect(whole.trimEnd().endsWith("anything you could not do.")).toBe(true);
-    const withCtx = buildPrompt(
-      { kind: "project" },
-      "Do it.",
-      [{ id: "c1", name: "Manuel", text: "n", paths: ["D:/x"], files: ["a.png"] }],
-      "D:\\p",
+    expect(whole.trimEnd().endsWith("what you could not do.")).toBe(true);
+    await invoke(
+      "claude.run",
+      { scope: { kind: "project" }, prompt: "Do it.", contexts: ["c1"], without: ["doc:SOSIE_211_D401-1_4"] },
+      { project: dir },
     );
+    const withCtx = seen[1].stdin;
+    const at = dir.replace(/\\/g, "/");
     expect(withCtx).toContain(
-      "- Manuel — notes: D:/p/contexts/c1/context.md; files: D:/p/contexts/c1/files/a.png; also look at: D:/x",
+      `- « Manuel » — its notes are below; files: ${at}/contexts/c1/files/a.png; also look at: D:/x`,
     );
+    expect(withCtx).toContain("\n« Manuel »:\nn\n");
+    expect(withCtx).toContain("\nLeft out of this run — never search, read or cite: SOSIE_211_D401-1_4.\n");
     expect(withCtx).toContain("\nDo it.\n");
+    expect(seen[1].args[seen[1].args.indexOf("--add-dir") + 1]).toBe(c1);
+    expect(seen[1].args[seen[1].args.indexOf("--disallowedTools") + 1]).toContain("Read(docs/SOSIE_211_D401-1_4/**)");
   });
 });
 

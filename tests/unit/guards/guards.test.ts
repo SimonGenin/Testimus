@@ -24,7 +24,7 @@ const LIMITS: Record<GuardName, number> = {
   // ponytail: picture frames (DocText, DocReading, ImageBlock's figure and picture, StepOrphans), the dock, the drop veil,
   // and three panels still to move to the kit (ConnectClaude, PackStep's machine, WasView): never more
   "G2 framed boxes (edge and rounded corners) drawn outside the kit": 10,
-  "G3 a Claude block's context menu built by hand instead of ContextMenu": 0,
+  "G3 a Claude block's Context built by hand instead of useRunContext": 0,
 };
 
 describe("architecture guards", () => {

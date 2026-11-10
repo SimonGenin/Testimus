@@ -41,7 +41,7 @@ export function TestDetails({
   testContexts,
   update,
   onContexts,
-  onManageContexts,
+  onContext,
 }: {
   test: Test;
   readOnly?: boolean;
@@ -51,7 +51,8 @@ export function TestDetails({
   testContexts: TestContexts | null;
   update: (fn: (t: Test) => Test) => void;
   onContexts: (ids: string[] | null) => void;
-  onManageContexts: () => void;
+  /** opens what a run on this test is given: its saved contexts are ticked, made and edited there */
+  onContext: () => void;
 }) {
   const eff = testContexts?.effective ?? [];
   const known = new Map(contexts.map((c) => [c.id, c.name]));
@@ -116,7 +117,7 @@ export function TestDetails({
           {testContexts?.own != null && !readOnly && (
             <Button variant="quiet" size="xs" label="Use the project defaults" onClick={() => onContexts(null)} />
           )}
-          <Button variant="quiet" size="xs" icon="context" label="Manage contexts…" onClick={onManageContexts} />
+          <Button variant="quiet" size="xs" icon="context" label="Context…" onClick={onContext} />
         </span>
       </div>
       <div {...stylex.props(styles.wide)}>

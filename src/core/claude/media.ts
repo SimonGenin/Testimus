@@ -5,8 +5,9 @@ import { readProject } from "../lib/project.ts";
 import { clock, momentOf } from "../rag/anchors.ts";
 import type { DocJson, FigureEntry } from "../types.ts";
 import { type Described, described, FIGURES_BATCH, parseEntries } from "./figures.ts";
-import { languageName } from "./gen-prompt.ts";
-import { DOC_SLOT, docContexts, docRunLines, type JobRun, type PromptTemplate } from "./prompt.ts";
+import { docGiven, GIVEN_SLOT } from "./given.ts";
+import { languageName } from "./language.ts";
+import type { JobRun, PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const MEDIA_MARKER = "Testimus media run";
@@ -107,20 +108,24 @@ export const prompts: PromptTemplate[] = [
     id: "media",
     name: "Read the pictures of an images or video document",
     group: "Documents",
+    kind: "media",
     usedBy: ["Documents: add images or a video", "Documents › Images: Add images…", "docs.convert", "media.add"],
+    answers: "A description, the visible labels and a kind for each picture, in the block that ends the reply",
     text: () =>
       picturesPrompt(
         DOC,
         [{ anchor: "{anchor}", file: "{picture file}", name: "{file name}", takenAt: "{date}" }],
         "{language}",
-        DOC_SLOT,
+        GIVEN_SLOT,
       ),
   },
   {
     id: "video-survey",
     name: "Survey a video: chapters and moments to see",
     group: "Documents",
+    kind: "media",
     usedBy: ["Documents: add a video", "docs.convert", "media.add"],
+    answers: "The chapters of the video and the moments worth seeing, in the block that ends the reply",
     text: () =>
       surveyPrompt(
         DOC,
@@ -128,7 +133,7 @@ export const prompts: PromptTemplate[] = [
         [{ file: "{mosaic}", tiles: [{ n: 1, at: 0 }] }],
         "{transcript}",
         "{language}",
-        DOC_SLOT,
+        GIVEN_SLOT,
       ),
   },
 ];
@@ -206,14 +211,15 @@ export async function readPictures(
   if (!todo.length) return res;
   const p = readProject(project);
   const got = new Set<string>();
+  const g = docGiven(project, "media", docId, opts);
   for (let i = 0; i < todo.length; i += FIGURES_BATCH) {
     if (ctx.signal.aborted) break;
     const batch = todo.slice(i, i + FIGURES_BATCH);
     ctx.progress({ message: `Claude reads the pictures of ${doc.title || doc.id}`, done: i, total: todo.length });
     const run = await runClaude({
       project,
-      prompt: picturesPrompt(doc, batch, p.language, docRunLines(project, docId, opts)),
-      contexts: docContexts(project, docId, opts),
+      prompt: picturesPrompt(doc, batch, p.language, g.lines),
+      given: g,
       model: opts.model || p.claude.model,
       effort: opts.effort || "low",
       kind: "media",
@@ -268,10 +274,11 @@ export async function surveyVideo(
   const p = readProject(project);
   ctx.progress({ message: `Claude surveys ${video.name}` });
   const text = transcript.length > TRANSCRIPT_CHARS ? `${transcript.slice(0, TRANSCRIPT_CHARS)}\n…` : transcript;
+  const g = docGiven(project, "media", docId, opts);
   const run = await runClaude({
     project,
-    prompt: surveyPrompt(doc, video, mosaics, text, p.language, docRunLines(project, docId, opts)),
-    contexts: docContexts(project, docId, opts),
+    prompt: surveyPrompt(doc, video, mosaics, text, p.language, g.lines),
+    given: g,
     model: opts.model || p.claude.model,
     effort: opts.effort || "low",
     kind: "media",

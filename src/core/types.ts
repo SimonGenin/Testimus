@@ -190,8 +190,16 @@ export type Finding = {
   message: string;
   sources: string[];
   pass?: "mechanical" | "semantic";
+  /** what to write instead, from which passage — only when the documents settle it */
+  fix?: string;
 };
-export type CheckFile = { at: string; testHash: string; findings: Finding[] };
+// ponytail: what the semantic pass says of each step, findings or not — a test without finding still shows that every
+// step was read against a passage, and which one. `opened` is the core's own word: the passages of `read` the run
+// really opened (its tool calls); a verdict whose passages were never opened is no proof
+export const VERDICTS = ["supported", "unsupported", "unverified"] as const;
+export type Verdict = (typeof VERDICTS)[number];
+export type StepVerdict = { step: number; verdict: Verdict; read: string[]; why?: string; opened?: boolean };
+export type CheckFile = { at: string; testHash: string; findings: Finding[]; verdicts?: StepVerdict[] };
 
 // Documents
 
@@ -689,6 +697,7 @@ export type ClaudeScope =
   | { kind: "run"; run: string; testId?: string; step?: number }
   | { kind: "project" };
 export type ActionState = "open" | "running" | "done" | "dismissed";
+export type ActionLeft = { was: number; now: number; of: "findings" | "warnings" };
 // ponytail: what an action works on, the way a person groups them — a step's action is its test's, a generation's
 // category its generation's; the name is worked out when the actions are listed (a summary changes), never stored
 export const TARGET_KINDS = ["project", "document", "test", "generation", "job"] as const;
@@ -712,7 +721,16 @@ export type ClaudeAction = {
   suggest?: { model: ActionModel; effort: ActionEffort };
   state: ActionState;
   at: string;
-  last?: { runId: string; ok: boolean; summary: string; at: string; model: string; effort: Effort };
+  last?: {
+    runId: string;
+    ok: boolean;
+    summary: string;
+    at: string;
+    model: string;
+    effort: Effort;
+    /** what Testimus counted where the problem is, before the run and after it: the proof the action worked, or did not */
+    left?: ActionLeft;
+  };
   /** absent in an action written before 2026-11-08: read from where and scope */
   target?: ActionTarget;
 };

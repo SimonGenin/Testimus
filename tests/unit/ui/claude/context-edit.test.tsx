@@ -3,11 +3,12 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
-import { ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
+import { ContextEdit } from "../../../../src/ui/components/claude/ContextEdit.tsx";
+import { contextLine } from "../../../../src/ui/components/claude/contexts.ts";
 import { Toaster } from "../../../../src/ui/components/ui/Toast.tsx";
 import { useRead } from "../../../../src/ui/lib/data/query.ts";
 import { closeToast, useToasts } from "../../../../src/ui/lib/toast.ts";
-import { callsOf, dataWrapper, Fail, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { callsOf, dataWrapper, deferred, Fail, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { fakeDesktop, noDesktop } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
@@ -17,15 +18,22 @@ let ids: number[] = [];
 function Probe() {
   ids = useToasts().map((t) => t.id);
   useRead("contexts.ofProject", {});
+  useRead("claude.preview", { use: "ask-test" });
   return <Toaster />;
 }
 
-type Ctx = { id: string; name: string; notes: string; paths: string[]; files: string[] };
+type Ctx = { id: string; name: string; notes: string; paths: string[]; files: string[]; shared?: boolean };
 let store: Ctx[] = [];
 let fail: Set<string> = new Set();
-let n = 0;
 
-const summary = (c: Ctx) => ({ id: c.id, name: c.name, paths: c.paths, files: c.files, hasNotes: !!c.notes });
+const summary = (c: Ctx) => ({
+  id: c.id,
+  name: c.name,
+  paths: c.paths,
+  files: c.files,
+  hasNotes: !!c.notes,
+  shared: !!c.shared,
+});
 const find = (id: unknown) => {
   const c = store.find((x) => x.id === id);
   if (!c) throw new Fail(`No context ${id}`);
@@ -38,12 +46,8 @@ const guard = (name: string) => {
 function backend(initial: Ctx[]) {
   store = initial.map((c) => ({ ...c }));
   fail = new Set();
-  n = 0;
   net.routes["contexts.ofProject"] = () => ({ effective: [] });
-  net.routes["contexts.list"] = () => {
-    guard("contexts.list");
-    return store.map(summary);
-  };
+  net.routes["claude.preview"] = () => ({ use: "ask-test", kind: "run", name: "", answers: "", pieces: [] });
   net.routes["contexts.show"] = (i) => {
     guard("contexts.show");
     return { ...summary(find(i.id)), notes: find(i.id).notes };
@@ -56,11 +60,11 @@ function backend(initial: Ctx[]) {
     if (Array.isArray(i.paths)) c.paths = i.paths as string[];
     return { ...summary(c), notes: c.notes };
   };
-  net.routes["contexts.create"] = () => {
-    guard("contexts.create");
-    const c = { id: `new-${++n}`, name: "", notes: "", paths: [], files: [] };
-    store.push(c);
-    return { ...summary(c), notes: "" };
+  net.routes["contexts.share"] = (i) => {
+    guard("contexts.share");
+    const c = find(i.id);
+    c.shared = i.shared === true;
+    return { ...summary(c), notes: c.notes };
   };
   net.routes["contexts.addFile"] = (i) => {
     guard("contexts.addFile");
@@ -82,11 +86,12 @@ function backend(initial: Ctx[]) {
 }
 
 const glossary: Ctx = { id: "glossary", name: "Glossaire", notes: "SOSIE = ...", paths: ["D:\\Specs"], files: [] };
-const empty: Ctx = { id: "bare", name: "", notes: "", paths: [], files: ["plan.pdf"] };
+const bare: Ctx = { id: "bare", name: "", notes: "", paths: [], files: ["plan.pdf"] };
 
-// ponytail: a reader of the contexts outside the dialog (the dock, Settings › Claude, a test header) reads again after
-// each change
+// ponytail: the readers of the contexts outside the editor (a test's or the project's list, the graph of a request)
+// read again after each change
 const changes = () => callsOf("contexts.ofProject").length - 1;
+const graphs = () => callsOf("claude.preview").length - 1;
 
 beforeEach(() => {
   fakeNet();
@@ -102,18 +107,18 @@ afterEach(() => {
   setProject(null);
 });
 
-function mount(initialId?: string) {
+function mount(id = "glossary") {
   const close = vi.fn();
   const r = render(
     <>
-      <ContextsDialog initialId={initialId} onClose={close} />
+      <ContextEdit id={id} onClose={close} />
       <Probe />
     </>,
   );
   return { ...r, close };
 }
 
-const option = (name: RegExp) => screen.getByRole("option", { name });
+const editor = () => screen.getByRole("dialog", { name: "Edit the context" });
 const nameBox = () => screen.getByLabelText(/^Name/);
 const notesBox = () => screen.getByLabelText(/^Notes/);
 
@@ -124,65 +129,40 @@ describe("contextLine", () => {
   });
 });
 
-describe("ContextsDialog", () => {
-  it("says when there is no context yet and creates one", async () => {
-    backend([]);
-    const { close } = mount();
-    expect(await screen.findByText("No context yet")).toBeInTheDocument();
-    expect(screen.getByText("No context yet.")).toBeInTheDocument();
-    const copies = screen.getAllByRole("button", { name: "Copy from another project…" });
-    expect(copies).toHaveLength(2);
-    fireEvent.click(copies[1]);
-    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
-    const news = screen.getAllByRole("button", { name: /New context/ });
-    expect(news).toHaveLength(2);
-    fireEvent.click(news[1]);
-    expect(await screen.findByText("In this project")).toBeInTheDocument();
-    expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true");
-    expect(option(/Untitled context/)).toHaveTextContent("empty");
-    await waitFor(() => expect(changes()).toBe(1));
-    const closes = screen.getAllByRole("button", { name: "Close" });
-    expect(closes).toHaveLength(2);
-    fireEvent.click(closes[1]);
-    expect(close).toHaveBeenCalled();
-  });
-
-  it("opens the asked context, or the first one when it is not there", async () => {
-    backend([glossary, empty]);
-    const a = mount("bare");
-    await waitFor(() => expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true"));
-    expect(screen.getByText("plan.pdf")).toBeInTheDocument();
+describe("ContextEdit: one saved context, edited where it is ticked", () => {
+  it("opens the asked context — its name, notes, paths and files — and says where it is kept", async () => {
+    backend([glossary, bare]);
+    const a = mount();
+    await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
+    expect(callsOf("contexts.show")[0].input).toEqual({ id: "glossary" });
+    expect(editor()).toHaveAccessibleDescription("Notes, files and folders Claude reads before it works.");
+    expect(notesBox()).toHaveValue("SOSIE = ...");
+    expect(within(editor()).getByText("D:\\Specs")).toBeInTheDocument();
+    expect(within(editor()).getByText("In this project")).toBeInTheDocument();
+    expect(within(editor()).queryByText("· deleted for every project")).toBeNull();
+    fireEvent.click(within(editor()).getByRole("button", { name: "Done" }));
+    expect(a.close).toHaveBeenCalledTimes(1);
     a.unmount();
-    mount("missing");
-    await waitFor(() => expect(option(/Glossaire/)).toHaveAttribute("aria-selected", "true"));
-    expect(option(/Glossaire/)).toHaveTextContent("1 path · notes");
-    expect(option(/Untitled context/)).toHaveTextContent("1 file");
+    mount("bare");
+    await waitFor(() => expect(within(editor()).getByText("plan.pdf")).toBeInTheDocument());
+    expect(nameBox()).toHaveValue("");
   });
 
-  it("saves the name and notes after a pause, on blur and before switching", async () => {
-    backend([glossary, empty]);
+  it("saves the name and the notes together, after a pause and on blur; what lists the contexts reads again", async () => {
+    backend([glossary]);
     mount();
     await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
-    fireEvent.change(nameBox(), { target: { value: "" } });
-    expect(screen.getAllByRole("option", { name: /Untitled context/ })).toHaveLength(2);
     fireEvent.change(nameBox(), { target: { value: "Lexique" } });
-    expect(option(/Lexique/)).toBeInTheDocument();
-    await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(1));
+    expect(callsOf("contexts.set")).toHaveLength(0);
+    await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(1), { timeout: 1500 });
     expect(callsOf("contexts.set")[0].input).toEqual({ id: "glossary", name: "Lexique", notes: "SOSIE = ..." });
     await waitFor(() => expect(changes()).toBe(1));
+    await waitFor(() => expect(graphs()).toBe(1));
     fireEvent.change(notesBox(), { target: { value: "Nouvelles notes" } });
     fireEvent.blur(notesBox());
     await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(2));
-    fireEvent.blur(nameBox());
-    fireEvent.change(nameBox(), { target: { value: "Lexique 2" } });
-    fireEvent.click(option(/Untitled context/));
-    await waitFor(() => expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true"));
-    expect(callsOf("contexts.set")).toHaveLength(3);
-    expect(store[0].name).toBe("Lexique 2");
-    const shows = callsOf("contexts.show").length;
-    fireEvent.click(option(/Untitled context/));
-    await act(async () => {});
-    expect(callsOf("contexts.show")).toHaveLength(shows);
+    expect(callsOf("contexts.set")[1].input).toEqual({ id: "glossary", name: "Lexique", notes: "Nouvelles notes" });
+    expect(store[0]).toMatchObject({ name: "Lexique", notes: "Nouvelles notes" });
   });
 
   it("saves pending text when it closes", async () => {
@@ -227,6 +207,7 @@ describe("ContextsDialog", () => {
     fireEvent.change(box, { target: { value: "D:\\J5" } });
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(screen.getByText("D:\\J5")).toBeInTheDocument());
+    expect(callsOf("contexts.set")[0].input).toEqual({ id: "glossary", paths: ["D:\\Specs", "D:\\J5"] });
     expect(box).toHaveValue("");
     fireEvent.change(nameBox(), { target: { value: "Typed" } });
     fireEvent.change(box, { target: { value: "D:\\K" } });
@@ -280,44 +261,60 @@ describe("ContextsDialog", () => {
     expect(await screen.findByText("Could not remove b.pdf")).toBeInTheDocument();
   });
 
-  it("deletes after a danger confirm naming what goes, then shows the next context or none", async () => {
-    backend([glossary, empty]);
+  it("moves a context into the shared library, and says so before deleting it", async () => {
+    backend([glossary]);
     mount();
-    const confirm = async () => {
-      const dlg = await screen.findByRole("alertdialog", { name: "Delete the context?" });
-      expect(dlg).toHaveTextContent("stop taking it");
-      fireEvent.click(within(dlg).getByRole("button", { name: "Delete the context" }));
-      return dlg;
-    };
-    await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
-    fireEvent.change(nameBox(), { target: { value: "unsaved" } });
+    const share = await screen.findByRole("switch", { name: /Shared with every project/ });
+    expect(share).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(share);
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: /Shared with every project/ })).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(callsOf("contexts.share")[0].input).toEqual({ id: "glossary", shared: true });
+    expect(within(editor()).getByText(/In the shared library/)).toBeVisible();
+    expect(within(editor()).getByText("· deleted for every project")).toBeVisible();
+    expect(screen.queryByText(/glossary/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
-    expect(callsOf("contexts.remove")).toHaveLength(0);
-    await confirm();
-    await waitFor(() => expect(option(/Untitled context/)).toHaveAttribute("aria-selected", "true"));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(callsOf("contexts.set")).toHaveLength(0);
-    fail.add("contexts.remove");
-    fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
-    const dlg = await confirm();
-    expect(await within(dlg).findByText(/Could not delete the context/)).toBeInTheDocument();
-    fail.delete("contexts.remove");
-    fireEvent.click(within(dlg).getByRole("button", { name: "Delete the context" }));
-    expect(await screen.findByText("No context yet")).toBeInTheDocument();
+    expect(await screen.findByRole("alertdialog", { name: "Delete the context?" })).toHaveTextContent(
+      "It is shared: it is deleted for every project, not only this one.",
+    );
   });
 
-  it("says when the contexts cannot be listed, opened, saved or created", async () => {
+  it("deletes after a danger confirm naming what goes — the name as typed — then closes; a refused delete says why", async () => {
     backend([glossary]);
-    fail.add("contexts.list");
-    const a = mount();
-    expect(await screen.findByText("Could not list the contexts")).toBeInTheDocument();
-    expect(screen.getByText("No context yet")).toBeInTheDocument();
-    a.unmount();
-    fail.delete("contexts.list");
+    const { close } = mount();
+    await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
+    fireEvent.change(nameBox(), { target: { value: "unsaved" } });
+    fail.add("contexts.remove");
+    fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
+    expect(callsOf("contexts.remove")).toHaveLength(0);
+    const confirm = await screen.findByRole("alertdialog", { name: "Delete the context?" });
+    expect(confirm).toHaveTextContent("« unsaved » — its notes, files and paths.");
+    expect(confirm).toHaveTextContent("It is deleted from this project.");
+    expect(confirm).toHaveTextContent(
+      "The tests, documents and project defaults that named it stop taking it. This cannot be undone.",
+    );
+    fireEvent.click(within(confirm).getByRole("button", { name: "Delete the context" }));
+    expect(await within(confirm).findByText(/Could not delete the context: contexts.remove broke/)).toBeInTheDocument();
+    expect(close).not.toHaveBeenCalled();
+    fail.delete("contexts.remove");
+    fireEvent.click(within(confirm).getByRole("button", { name: "Delete the context" }));
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+    expect(store).toEqual([]);
+    expect(callsOf("contexts.set"), "what was typed in a deleted context is not written").toHaveLength(0);
+    await waitFor(() => expect(changes()).toBe(1));
+  });
+
+  it("says when the context cannot be opened or saved", async () => {
+    backend([glossary]);
     fail.add("contexts.show");
-    const b = mount();
+    const a = mount();
     expect(await screen.findByText("Could not open the context")).toBeInTheDocument();
-    b.unmount();
+    expect(screen.queryByLabelText(/^Name/)).toBeNull();
+    expect(within(editor()).queryByRole("button", { name: "Delete context…" })).toBeNull();
+    fireEvent.click(within(editor()).getByRole("button", { name: "Done" }));
+    expect(a.close).toHaveBeenCalled();
+    a.unmount();
     fail.delete("contexts.show");
     mount();
     await waitFor(() => expect(nameBox()).toHaveValue("Glossaire"));
@@ -325,15 +322,30 @@ describe("ContextsDialog", () => {
     fireEvent.change(nameBox(), { target: { value: "x" } });
     fireEvent.blur(nameBox());
     expect(await screen.findByText("Could not save the context")).toBeInTheDocument();
-    fail.add("contexts.create");
-    fireEvent.click(screen.getByRole("button", { name: /New context/ }));
-    expect(await screen.findByText("Could not create the context")).toBeInTheDocument();
   });
 
-  it("reads an empty list answer as no context", async () => {
-    backend([]);
-    net.routes["contexts.list"] = () => null;
-    mount();
-    expect(await screen.findByText("No context yet")).toBeInTheDocument();
+  it("an answer for a context left meanwhile leaves the one now open as it is", async () => {
+    const gate = deferred();
+    backend([
+      { ...glossary, id: "a", name: "A", files: ["x.png"] },
+      { ...bare, id: "b", name: "B", files: [] },
+    ]);
+    net.routes["contexts.removeFile"] = async (i) => {
+      await gate.promise;
+      return { ...summary(find(i.id)), files: [], notes: "" };
+    };
+    const Wrapper = dataWrapper();
+    const at = (id: string) => (
+      <Wrapper>
+        <ContextEdit key={id} id={id} onClose={() => {}} />
+      </Wrapper>
+    );
+    const r = rtlRender(at("a"));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove file x.png" }));
+    r.rerender(at("b"));
+    await waitFor(() => expect(nameBox()).toHaveValue("B"));
+    await act(async () => gate.resolve(null));
+    expect(nameBox()).toHaveValue("B");
+    expect(callsOf("contexts.removeFile")[0].input).toEqual({ id: "a", name: "x.png" });
   });
 });

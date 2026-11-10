@@ -1,7 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { CopyContext } from "../../components/claude/CopyContext.tsx";
+import { contextLine, useContextWrite } from "../../components/claude/contexts.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { List } from "../../components/ui/List.tsx";
@@ -9,9 +12,15 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { Text } from "../../components/ui/Text.tsx";
 import { type } from "../../components/ui/type.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { fold } from "../../lib/format.ts";
+import { errorToast } from "../../lib/toast.ts";
 import { breakpoint, color, size, space } from "../../styles/tokens.stylex.ts";
-import { type Given, PromptCard } from "./PromptCard.tsx";
-import { Section } from "./Section.tsx";
+import { ContextCard } from "./ContextCard.tsx";
+import { type Entry, entriesOf, entryName, type Given, matches, ORIGIN, where } from "./given.ts";
+import { PromptCard } from "./PromptCard.tsx";
+import { useInfo } from "./project.ts";
+import { RunCard } from "./RunCard.tsx";
+import { Hint, Section } from "./Section.tsx";
 
 const styles = stylex.create({
   split: {
@@ -21,46 +30,95 @@ const styles = stylex.create({
     alignItems: "start",
   },
   side: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
-  shown: { position: { default: "sticky", [breakpoint.sm]: "static" }, top: space.s5, minWidth: 0 },
+  shown: { minWidth: 0 },
   meta: { display: "inline-flex", alignItems: "center", gap: space.s2, minWidth: 0 },
   where: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: color.textMuted },
 });
 
-const ORIGIN: Record<Given["origin"], string> = {
-  skill: "Skill",
-  built: "Built by Testimus",
-  file: "File",
-  context: "Context",
-};
-
-const where = (p: Given) =>
+const place = (p: Given) =>
   p.origin === "built" ? "per run" : p.origin === "skill" ? (p.path?.split("/").at(-2) ?? "") : (p.path ?? "");
 
-const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function row(e: Entry) {
+  if (e.kind === "context")
+    return {
+      title: entryName(e),
+      badges: e.isDefault && <Badge size="sm" tone="success" icon="check" label="Default" />,
+      meta: (
+        <span {...stylex.props(styles.meta)}>
+          <Badge size="sm" label={ORIGIN.context} />
+          <span {...stylex.props(styles.where)}>
+            {where(e.context)} · {contextLine(e.context)}
+          </span>
+        </span>
+      ),
+    };
+  if (e.kind === "run")
+    return {
+      title: e.given.name,
+      meta: (
+        <span {...stylex.props(styles.meta)}>
+          <Badge size="sm" tone="claude" label="Run" />
+          <span {...stylex.props(type.code, styles.where)}>{e.given.kind}</span>
+        </span>
+      ),
+    };
+  return {
+    title: e.given.name,
+    meta: (
+      <span {...stylex.props(styles.meta)}>
+        <Badge size="sm" label={ORIGIN[e.given.origin]} />
+        <span {...stylex.props(type.code, styles.where)}>{place(e.given)}</span>
+      </span>
+    ),
+  };
+}
 
-const matches = (p: Given, words: string[]) => {
-  const hay = fold([p.name, p.group, ORIGIN[p.origin], p.path ?? "", p.usedBy.join(" "), p.text].join("\n"));
-  return words.every((w) => hay.includes(w));
-};
-
-// ponytail: everything Claude is given in this project, read only — the skills, the prompts Testimus builds, CLAUDE.md
-// and the contexts attached by default (claude.prompts); a filter, the list by use, and the picked one in full
+// ponytail: what Claude is given in this project, run by run — each run Testimus sends (what it is asked, what goes
+// with it and why, what it may touch, what it gives back), the pieces runs share (skills, CLAUDE.md, how the documents
+// fit together) and the saved contexts, the team's own pieces: the one place they are created, edited, shared, deleted
+// and made a default of the project. One list with a filter, the picked one in full beside it
 export function ContextSection() {
   const q = useRead("claude.prompts", {});
+  const saved = useRead("contexts.list", {});
+  const attached = useRead("contexts.ofProject", {});
+  const info = useInfo();
+  const write = useContextWrite();
   const [filter, setFilter] = useState("");
   const [picked, setPicked] = useState<string | null>(null);
+  const defaults = info.data?.project.claude.contexts ?? [];
+  const entries = entriesOf(q.data ?? [], saved.data ?? [], defaults);
   const words = fold(filter).split(/\s+/).filter(Boolean);
-  const shown = (q.data ?? []).filter((p) => matches(p, words));
-  const current = shown.find((p) => p.id === picked) ?? shown[0];
-  const groups = [...new Set(shown.map((p) => p.group))].map((label) => {
-    const keys = shown.filter((p) => p.group === label).map((p) => p.id);
+  const shown = entries.filter((e) => matches(e, words));
+  const current = shown.find((e) => e.key === picked) ?? shown.find((e) => e.kind === "run") ?? shown[0];
+  const groups = [...new Set(shown.map((e) => e.group))].map((label) => {
+    const keys = shown.filter((e) => e.group === label).map((e) => e.key);
     return { label, meta: String(keys.length), keys };
   });
+  const open = (key: string) => {
+    setFilter("");
+    setPicked(key);
+  };
+
+  useEffect(() => {
+    if (saved.error) errorToast(saved.error, "Could not list the saved contexts");
+  }, [saved.error]);
+
+  const create = async () => {
+    try {
+      // ponytail: like Xray Editor, a new context is seen by every project; « Shared with every project » unticks it
+      const c = await write("contexts.create", { shared: true });
+      if (c) open(`context:${c.id}`);
+    } catch (e) {
+      errorToast(e, "Could not create the context");
+    }
+  };
+
   return (
     <Section
       id="context"
       title="Context"
-      intro="Everything Claude is given, run by run: the skills, the prompts Testimus writes, the project rules and the attached contexts. Read only here — the skills and CLAUDE.md are files of the project folder."
+      intro="What Claude is given, run by run: what it is asked, what goes with it and why, what it may touch and what it gives back. The saved contexts are the team's own pieces — created, edited, shared and made a default of the project here. The skills and CLAUDE.md are files of the project folder."
+      actions={<Button icon="plus" label="New context" onClick={() => void create()} />}
     >
       {q.isError ? (
         <Banner tone="danger" title="What Claude is given could not be read">
@@ -72,8 +130,8 @@ export function ContextSection() {
             <Text
               type="search"
               icon="filter"
-              ariaLabel="Filter prompts"
-              placeholder="Filter prompts"
+              ariaLabel="Filter what Claude is given"
+              placeholder="Filter runs, skills, contexts…"
               value={filter}
               onChange={setFilter}
             />
@@ -81,29 +139,43 @@ export function ContextSection() {
               <List
                 label="What Claude is given"
                 items={shown}
-                getKey={(p) => p.id}
+                getKey={(e) => e.key}
                 groups={groups}
                 density="two-line"
-                selected={current?.id ?? null}
+                selected={current?.key ?? null}
                 onSelect={setPicked}
                 loading={!q.data}
                 reading="claude.prompts"
                 empty={<EmptyState icon="filter" compact title={`Nothing matches “${filter.trim()}”.`} />}
-                renderItem={(p) => ({
-                  title: p.name,
-                  meta: (
-                    <span {...stylex.props(styles.meta)}>
-                      <Badge size="sm" label={ORIGIN[p.origin]} />
-                      <span {...stylex.props(type.code, styles.where)}>{where(p)}</span>
-                    </span>
-                  ),
-                })}
+                renderItem={row}
               />
             </Card>
+            {saved.data?.length === 0 && (
+              <Hint>
+                No saved context yet. A context is notes, copied files and outside paths Claude reads before it works —
+                a glossary, house rules, the screens of the system under test.
+              </Hint>
+            )}
+            <CopyContext onCopied={(id) => open(`context:${id}`)} />
           </div>
           <div {...stylex.props(styles.shown)}>
-            {current ? (
-              <PromptCard key={current.id} prompt={current} />
+            {current?.kind === "run" ? (
+              <RunCard
+                key={current.key}
+                run={current.given}
+                listed={(key) => entries.some((e) => e.key === key)}
+                onOpen={open}
+              />
+            ) : current?.kind === "piece" ? (
+              <PromptCard key={current.key} prompt={current.given} />
+            ) : current?.kind === "context" ? (
+              <ContextCard
+                key={current.key}
+                context={current.context}
+                defaults={defaults}
+                onTests={!current.isDefault && !!attached.data?.effective.includes(current.context.id)}
+                onDeleted={() => setPicked(null)}
+              />
             ) : (
               !q.data && (
                 <Card>

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mcpAccess, readOnlyCommands } from "../../../../src/core/claude/access.ts";
@@ -126,13 +126,19 @@ describe("what a Claude run may do with the issue", () => {
     expect(mcpAccess("chat").allow).toContain("mcp__testimus__issue_comments");
   });
 
-  it("the draft prompt names the skill, the key, the mention form and the ask", () => {
+  it("the draft prompt names the skill, the key and the ask; how to read the thread and mention someone is the skill's", () => {
     const p = draftPrompt("LFRPS12-7", "Réponds à Léa", "fr", ["", "Context: x"]);
     expect(p).toMatch(/^Use the draft-comment skill to draft a comment for the Jira issue LFRPS12-7/);
-    expect(p).toContain("@[Their Name](accountId)");
-    expect(p).toContain("project language: fr");
-    expect(p).toContain("Context: x");
-    expect(p).toContain("What the comment should say: Réponds à Léa");
+    expect(p).toContain("Write in the language of the thread (the project's is French).");
+    expect(p).toContain("\n\nContext: x\n\nWhat the comment should say: Réponds à Léa\n");
     expect(draftPrompt("LFRPS12-7", "  ", "fr")).toContain("What the comment should say: answer the thread.");
+    expect(p).not.toContain("accountId");
+    const skill = readFileSync(
+      join(import.meta.dirname, "../../../../templates/project/.claude/skills/draft-comment/SKILL.md"),
+      "utf8",
+    );
+    expect(skill).toContain("`@[Their Name](accountId)`, exactly that form");
+    expect(skill).toContain("`issue_people`");
+    expect(skill).toContain("`issue_comments`");
   });
 });

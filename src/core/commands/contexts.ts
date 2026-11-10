@@ -1,7 +1,8 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { effectiveContexts, projectContexts, readTestContexts, writeTestContexts } from "../claude/prompt.ts";
+import { attachedContexts } from "../claude/given.ts";
+import { readTestContexts, writeTestContexts } from "../claude/prompt.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { unchangedSince } from "../lib/atomic.ts";
 import {
@@ -38,6 +39,9 @@ const detail = summary.extend({
 });
 const PATHS =
   "Folders or files Claude may read in place, absolute or relative to the project folder (replaces the list)";
+
+const ofTest = (project: string, testId: string) =>
+  attachedContexts(project, { kind: "test", testId }).map((a) => a.id);
 
 function mustHaveTest(project: string, test: string): void {
   if (!testExists(project, test))
@@ -203,7 +207,7 @@ export const commands = [
       const project = projectOf(ctx);
       mustHaveTest(project, input.testId);
       return {
-        effective: effectiveContexts(project, input.testId),
+        effective: ofTest(project, input.testId),
         own: readTestContexts(project, input.testId),
         project: readProject(project).claude.contexts,
       };
@@ -219,7 +223,7 @@ export const commands = [
     }),
     mutates: false,
     async run(ctx) {
-      return { effective: projectContexts(projectOf(ctx)) };
+      return { effective: attachedContexts(projectOf(ctx), { kind: "project" }).map((a) => a.id) };
     },
   }),
   command({
@@ -240,7 +244,7 @@ export const commands = [
       const project = projectOf(ctx);
       mustHaveTest(project, input.testId);
       writeTestContexts(project, input.testId, input.contexts);
-      return { effective: effectiveContexts(project, input.testId), own: readTestContexts(project, input.testId) };
+      return { effective: ofTest(project, input.testId), own: readTestContexts(project, input.testId) };
     },
   }),
 ];

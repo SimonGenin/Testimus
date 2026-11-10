@@ -217,22 +217,26 @@ describe("check edges", () => {
     ]);
   });
 
-  it("a semantic run during which the test changes by other hands warns and keeps it; a finished run without check_record fails", async () => {
+  it("a semantic run during which the test changes by other hands warns and keeps it; a finished run without check_record is asked again once, then fails", async () => {
     answer(async (s) => {
       const f = join(s.cwd, "tests", "LFRPS12-1420", "test.md");
-      writeFileSync(f, `${readFileSync(f, "utf8")}\n`);
+      if (seen.length === 1) writeFileSync(f, `${readFileSync(f, "utf8")}\n`);
       return { code: 0, stdout: `${resultLine("done")}\n`, stderr: "" };
     });
     const r = await checkOne(ctxOf(), dir, "LFRPS12-1420", true);
     expect(r.ok).toBe(false);
-    expect(r.summary).toMatch(/check_record was not called/);
-    expect(
-      logs.some((m) =>
-        m.includes(
-          "« Sectionneur sans TK — menu contextuel et propriétés » changed while « Sectionneur sans TK — menu contextuel et propriétés »",
-        ),
-      ),
-    ).toBe(true);
+    expect(r.summary).toBe(
+      "Claude did not record the check of LFRPS12-1420 (check_record was not called with a verdict per step).",
+    );
+    expect(seen).toHaveLength(2);
+    expect(seen[1].stdin).toBe(seen[0].stdin);
+    expect(logs).toEqual([
+      "« Sectionneur sans TK — menu contextuel et propriétés » changed while being checked (not by the check): check again.",
+      "Asked again: « Sectionneur sans TK — menu contextuel et propriétés ».",
+    ]);
+    expect(r.check.findings.filter((f) => f.pass === "semantic").map((f) => f.message)).toEqual([
+      "The semantic check did not finish (Claude did not record the check of LFRPS12-1420 (check_record was not called with a verdict per step).): run the check again.",
+    ]);
   });
 
   it("a failed run carries its diagnosis", async () => {

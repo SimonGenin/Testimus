@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProject } from "../../../../src/ui/api.ts";
 import { ClaudeDock, type DockRequest, metaLine } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
-import { ContextsDialog } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { dockState } from "../../../../src/ui/components/claude/dockState.ts";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
-import { callsOf, dataWrapper, deferred, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
+import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
+import { piece, previewOf } from "../../helpers/fake-preview.ts";
+import { callsOf, dataWrapper, fakeEvents, fakeNet, net } from "../../helpers/ui-data.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
 
 const render = ((ui: Parameters<typeof rtlRender>[0], o?: Parameters<typeof rtlRender>[1]) =>
@@ -21,6 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  clearDrafts();
   vi.unstubAllGlobals();
   setProject(null);
 });
@@ -160,75 +162,118 @@ describe("dock run details", () => {
 });
 
 describe("dock contexts", () => {
-  it("lets a run leave a context out and import it back, with no separate note", async () => {
-    net.routes["contexts.list"] = () => [{ id: "g", name: "Glossaire", paths: [], files: [], hasNotes: true }];
-    net.routes["contexts.ofTest"] = () => ({ effective: ["g", "orphan"] });
+  const pieces = () => [
+    piece("instruction", "Ask Claude on a test"),
+    piece("context:g", "Glossaire", { why: "A default of the project" }),
+  ];
+  const context = () => screen.getByRole("button", { name: /^Context/ });
+  const graph = async () => {
+    fireEvent.click(context());
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    await within(dialog).findByRole("group", { name: "What Claude is given" });
+    return dialog;
+  };
+  const done = (dialog: HTMLElement) => fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+  it("lets a run leave a context out and take it back, with no separate note", async () => {
+    let given = pieces();
+    net.routes["claude.preview"] = (i) => previewOf(given, i);
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
     mount({}, { focus: focus() });
-    const chip = await screen.findByRole("button", { name: "Glossaire" });
-    fireEvent.change(box(), { target: { value: "" } });
-    expect(chip).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(chip);
-    expect(chip).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    const pick = screen.getByRole("menuitemcheckbox", { name: /Glossaire/ });
-    expect(pick).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(pick);
-    expect(chip).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("menuitemcheckbox", { name: /Glossaire/ })).toHaveAttribute("aria-checked", "true");
-    expect(screen.queryByRole("menuitem", { name: /note/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Save the text as a context…" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context2$/));
+    expect(callsOf("claude.preview")[0].input).toEqual({ use: "ask-test", scope: { kind: "test", testId: "local-1" } });
+    expect(screen.queryByRole("button", { name: "Add context" })).toBeNull();
+    const first = await graph();
+    const glossaire = () => within(first).getByRole("checkbox", { name: "Glossaire" });
+    expect(glossaire()).toBeChecked();
+    fireEvent.click(glossaire());
+    await waitFor(() => expect(glossaire()).not.toBeChecked());
+    expect(within(first).queryByRole("checkbox", { name: /note/i })).toBeNull();
+    expect(within(first).getByRole("button", { name: "Save the text as a context…" })).toBeDisabled();
+    done(first);
+    expect(context()).toHaveTextContent(/^Context1 · changed$/);
     ask("Go");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
-    expect(callsOf("claude.run")[0].input).toMatchObject({ contexts: ["g"] });
-    expect(callsOf("claude.run")[0].input).not.toHaveProperty("note");
+    expect(callsOf("claude.run")[0].input).toEqual({
+      scope: { kind: "test", testId: "local-1" },
+      prompt: "Go",
+      model: "sonnet",
+      effort: "medium",
+      without: ["context:g"],
+    });
+    await screen.findByText("ok");
+    given = pieces();
+    const again = await graph();
+    fireEvent.click(within(again).getByRole("checkbox", { name: "Glossaire" }));
+    await waitFor(() => expect(within(again).getByRole("checkbox", { name: "Glossaire" })).toBeChecked());
+    done(again);
+    ask("Again");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(2));
+    expect(callsOf("claude.run")[1].input).not.toHaveProperty("without");
+    expect(callsOf("claude.run")[1].input).not.toHaveProperty("contexts");
+    expect(callsOf("claude.run")[1].input).not.toHaveProperty("note");
   });
 
   it("saves what is written in the box as a context and takes it for the run", async () => {
-    net.routes["contexts.list"] = () => [];
-    net.routes["contexts.ofTest"] = () => ({ effective: [] });
-    net.routes["contexts.create"] = (i) => ({ id: "pcc", name: i.name, paths: [], files: [], hasNotes: true });
+    const given = [piece("instruction", "Ask Claude on a test")];
+    net.routes["claude.preview"] = (i) => previewOf(given, i);
+    net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
+    net.routes["contexts.create"] = (i) => {
+      given.push(piece("context:pcc", String(i.name), { on: false }));
+      return { id: "pcc", name: i.name, notes: i.notes, paths: [], files: [], hasNotes: true };
+    };
     mount({}, { focus: focus() });
     fireEvent.change(await screen.findByRole("textbox", { name: /^Ask/ }), { target: { value: "PCC means Poste" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Save the text as a context…" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    const dialog = await graph();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save the text as a context…" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Save as context" })).getByRole("button", { name: "Save" }),
+    );
     await waitFor(() => expect(callsOf("contexts.create")).toHaveLength(1));
     expect(callsOf("contexts.create")[0].input).toMatchObject({ name: "PCC means Poste", notes: "PCC means Poste" });
     await waitFor(() => expect(box()).toHaveValue(""));
+    await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: "PCC means Poste" })).toBeChecked());
+    done(dialog);
+    fireEvent.keyDown(box(), { key: "Enter", ctrlKey: true });
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
+    expect(callsOf("claude.run")[0].input).toMatchObject({ prompt: "", contexts: ["pcc"] });
   });
 
-  it("reads empty answers as no contexts", async () => {
-    net.routes["contexts.list"] = () => null;
-    net.routes["contexts.ofTest"] = () => null;
+  it("a question to the documents is the chat's request; the panel's exchanges are part of what the next one is given", async () => {
+    net.routes["claude.preview"] = (i) => previewOf([piece("instruction", "Ask the documents")], i);
+    net.routes["claude.run"] = () => ({ ok: true, summary: "Fait" });
+    mount({}, { focus: null });
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context1$/));
+    expect(callsOf("claude.preview")[0].input).toEqual({ use: "ask-project", scope: { kind: "project" } });
+    ask("Uniformise");
+    await screen.findByText("Fait");
+    expect(context()).toHaveTextContent(/^Context3$/);
+    fireEvent.click(screen.getByRole("tab", { name: /Documents/ }));
+    await waitFor(() => expect(callsOf("claude.preview").at(-1)?.input).toEqual({ use: "chat" }));
+    const dialog = await graph();
+    await within(dialog).findByRole("group", { name: "Your words" });
+    expect(callsOf("claude.preview").at(-1)?.input).toEqual({
+      use: "chat",
+      note: "Uniformise",
+      conversation: "User (Whole project): Uniformise\n\nClaude: Fait",
+    });
+    expect(within(dialog).getByRole("group", { name: "Your words" })).toHaveTextContent("The conversation so far");
+  });
+
+  it("when what the run is given cannot be read, the run goes as it is: nothing of its own is sent", async () => {
     net.routes["claude.run"] = () => ({ ok: true, summary: "ok" });
     mount({}, { focus: focus() });
-    await waitFor(() => expect(callsOf("contexts.ofTest")).toHaveLength(1));
+    await waitFor(() => expect(callsOf("claude.preview")).toHaveLength(1));
+    expect(context()).toHaveTextContent(/^Context$/);
     ask("Go");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).not.toHaveProperty("contexts");
+    expect(callsOf("claude.run")[0].input).not.toHaveProperty("without");
   });
-});
 
-describe("ContextsDialog: an answer for a context left meanwhile", () => {
-  it("keeps the context now open", async () => {
-    const gate = deferred();
-    const a = { id: "a", name: "A", paths: [], files: [], hasNotes: false };
-    const b = { id: "b", name: "B", paths: [], files: [], hasNotes: false };
-    net.routes["contexts.list"] = () => [a, b];
-    net.routes["contexts.removeFile"] = async () => {
-      await gate.promise;
-      return { ...a, files: [], notes: "" };
-    };
-    net.routes["contexts.show"] = (i) => ({ ...(i.id === "a" ? { ...a, files: ["x.png"] } : b), notes: "" });
-    render(<ContextsDialog onClose={() => {}} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Remove file x.png" }));
-    fireEvent.click(screen.getByRole("option", { name: /B/ }));
-    await waitFor(() => expect(screen.getByRole("option", { name: /B/ })).toHaveAttribute("aria-selected", "true"));
-    await act(async () => gate.resolve(null));
-    expect(screen.getByLabelText(/^Name/)).toHaveValue("B");
+  it("asks nothing about a run while no project is open", async () => {
+    mount({}, { info: null, focus: focus() });
+    await act(async () => {});
+    expect(callsOf("claude.preview")).toHaveLength(0);
   });
 });

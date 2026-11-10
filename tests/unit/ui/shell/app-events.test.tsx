@@ -90,6 +90,6 @@ describe("App, when a job changed project files", () => {
       "contexts.ofProject",
     ]);
     expect(contexts(["project.json"])).toEqual(["contexts.ofProject", "contexts.ofTest"]);
-    expect(contexts(["tests/local-1/local.json"])).toEqual(["contexts.ofTest"]);
+    expect(contexts(["tests/local-1/local.json"])).toEqual(["contexts.ofTest", "contexts.ofProject"]);
   });
 });

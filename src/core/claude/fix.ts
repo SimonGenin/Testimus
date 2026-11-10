@@ -6,14 +6,9 @@ import { setReview } from "../lib/review.ts";
 import { readCheck, readTest } from "../lib/store.ts";
 import type { CheckFile, Diagnosis, Review } from "../types.ts";
 import { checkOne, FINDING_SLOT, findingLine } from "./check.ts";
-import {
-  buildPrompt,
-  CONTEXT_SLOT,
-  effectiveContexts,
-  type PromptTemplate,
-  readContexts,
-  scopedPrompt,
-} from "./prompt.ts";
+import { GIVEN_SLOT, given } from "./given.ts";
+import { languageName } from "./language.ts";
+import { type PromptTemplate, scopedPrompt } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 import { markLeft } from "./snapshot.ts";
 
@@ -34,8 +29,7 @@ function fixRequest(id: string, note: string, findings: string[], language: stri
     note ? `Reviewer's note (To fix): ${JSON.stringify(note)}` : "No reviewer's note: fix what the findings ask.",
     findings.length ? "Findings of the last check:" : "The last check has no finding.",
     ...findings,
-    `Write in the project language (${language}).`,
-    "Do not change review, review_note, reviewed_by or reviewed_at in the frontmatter: Testimus sets them after its re-check.",
+    `Write in ${languageName(language)}.`,
   ].join("\n");
 }
 
@@ -44,12 +38,14 @@ export const prompts: PromptTemplate[] = [
     id: "fix",
     name: "Fix a test from its To fix note",
     group: "Check and fix",
+    kind: "fix",
     usedBy: ["Review: To fix, Ask Claude to fix it", "review.fix"],
+    answers: "The test corrected (snapshotted), then checked again by Testimus; a few lines saying what changed",
     text: () =>
       scopedPrompt(
         { kind: "test", testId: "{test}" },
         fixRequest("{test}", "{reviewer's note}", [FINDING_SLOT], "{language}"),
-        CONTEXT_SLOT,
+        GIVEN_SLOT,
       ),
   },
 ];
@@ -58,7 +54,7 @@ export async function fixTest(
   ctx: Ctx,
   project: string,
   id: string,
-  opts: { note?: string; semantic: boolean },
+  opts: { note?: string; semantic: boolean; contexts?: string[]; without?: string[] },
 ): Promise<FixResult> {
   const { test } = readTest(project, id);
   const note = (opts.note ?? test.reviewNote ?? "").trim();
@@ -67,18 +63,14 @@ export async function fixTest(
   const scope = { kind: "test" as const, testId: id };
   const name = quoted(testName(project, id));
   ctx.progress({ message: `Claude fixes ${name}`, done: 0, total: 2 });
+  const g = given(project, "fix", { kind: "test", testId: id }, { contexts: opts.contexts, without: opts.without });
   const r = await runClaude({
     project,
-    prompt: buildPrompt(
-      scope,
-      fixRequest(id, note, findings.map(findingLine), p.language),
-      readContexts(project, effectiveContexts(project, id)),
-      project,
-    ),
+    prompt: scopedPrompt(scope, fixRequest(id, note, findings.map(findingLine), p.language), g.lines),
     model: p.claude.model,
     effort: p.claude.effort,
     scope,
-    contexts: effectiveContexts(project, id),
+    given: g,
     kind: "fix",
     signal: ctx.signal,
     onEvent: (e) => ctx.claude(e),

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocRef } from "../../../../src/core/types.ts";
 import { GenerateScreen } from "../../../../src/ui/screens/generate/GenerateScreen.tsx";
+import { piece, previewOf } from "../../helpers/fake-preview.ts";
 import { choose } from "../../helpers/select.ts";
 import { api, named, xray } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
@@ -200,6 +201,50 @@ describe("Generate › Ask for changes", () => {
     fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
     await waitFor(() => expect(named("gen.revise")).toHaveLength(2));
     expect(named("gen.revise")[1].input).toMatchObject({ mode: "change", tests: [B], request: "Raccourcis" });
+  });
+
+  it("the block's Context is asked for this generation — what it ran with — and what is ticked there goes with the request", async () => {
+    done();
+    api.routes["claude.preview"] = (i) =>
+      previewOf(
+        [
+          piece("instruction", "Ask Claude on several tests"),
+          piece("context:glossary", "Glossary", { why: "The generation ran with it" }),
+        ],
+        i,
+      );
+    mountData(<GenerateScreen />);
+    const ask = await screen.findByRole("region", { name: "Ask for changes" });
+    const previews = () => named("claude.preview").map((c) => c.input);
+    await waitFor(() =>
+      expect(previews()).toContainEqual({
+        use: "ask-tests",
+        scope: { kind: "tests", testIds: [A, B] },
+        generation: "g1",
+      }),
+    );
+    choose(within(ask).getByRole("combobox", { name: "Scope" }), /^New tests/);
+    await waitFor(() => expect(previews().at(-1)).toEqual({ use: "generate-add", generation: "g1" }));
+    expect(previews().every((i) => i.generation === "g1")).toBe(true);
+    fireEvent.click(within(ask).getByRole("button", { name: /^Context/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    fireEvent.click(await within(dialog).findByRole("checkbox", { name: "Glossary" }));
+    await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: "Glossary" })).not.toBeChecked());
+    expect(previews().at(-1)).toEqual({ use: "generate-add", generation: "g1", without: ["context:glossary"] });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    fireEvent.change(within(ask).getByRole("textbox", { name: "What should change?" }), {
+      target: { value: "Le défaut de la TK" },
+    });
+    fireEvent.click(within(ask).getByRole("button", { name: /^Ask Claude/ }));
+    await waitFor(() => expect(named("gen.revise")).toHaveLength(1));
+    expect(named("gen.revise")[0].input).toEqual({
+      generation: "g1",
+      request: "Le défaut de la TK",
+      mode: "add",
+      model: "sonnet",
+      effort: "medium",
+      without: ["context:glossary"],
+    });
   });
 
   it("while the last generation is not known yet, neither column is shown: the form never flips to Ask for changes", async () => {

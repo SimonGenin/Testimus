@@ -5,7 +5,6 @@ import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor, within }
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeDock, metaLine } from "../../../../src/ui/components/claude/ClaudeDock.tsx";
-import { ContextsDialog, contextLine } from "../../../../src/ui/components/claude/ContextsDialog.tsx";
 import { dockState } from "../../../../src/ui/components/claude/dockState.ts";
 import { TopBar, useTopBarSlots } from "../../../../src/ui/components/shell/TopBar.tsx";
 import { AppContext, type AppState, type Focus } from "../../../../src/ui/lib/app.ts";
@@ -13,7 +12,7 @@ import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { restoreAlwaysOnTop } from "../../../../src/ui/lib/desktop.ts";
 import { AppearanceSection } from "../../../../src/ui/screens/settings/AppearanceSection.tsx";
 import { ClaudeSection } from "../../../../src/ui/screens/settings/ClaudeSection.tsx";
-import { choose, openList } from "../../helpers/select.ts";
+import { piece, previewOf } from "../../helpers/fake-preview.ts";
 import { dataWrapper } from "../../helpers/ui-data.tsx";
 import { app } from "../../helpers/ui-desktop.tsx";
 
@@ -87,6 +86,24 @@ const ctxList = [
   { id: "ctx-a", name: "House style", paths: [], files: ["g.pdf"], hasNotes: true },
   { id: "ctx-b", name: "Glossary", paths: ["D:\\Specs"], files: [], hasNotes: false },
 ];
+// ponytail: what claude.preview says a request is given — its instruction and the two saved contexts, on or not
+const given = (on: string[]) => [
+  piece("instruction", "Ask Claude"),
+  ...ctxList.map((c) => piece(`context:${c.id}`, c.name, { on: on.includes(c.id), why: "Attached" })),
+];
+const context = () => screen.getByRole("button", { name: /^Context/ });
+const graph = async () => {
+  fireEvent.click(context());
+  const dialog = await screen.findByRole("dialog", { name: "Context" });
+  await within(dialog).findByRole("group", { name: "What Claude is given" });
+  return dialog;
+};
+const leaveOut = async (name: string) => {
+  const dialog = await graph();
+  fireEvent.click(within(dialog).getByRole("checkbox", { name }));
+  await waitFor(() => expect(within(dialog).getByRole("checkbox", { name })).not.toBeChecked());
+  fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+};
 const desktop = (more: Record<string, unknown> = {}) => {
   const d = {
     openExternal: vi.fn(async () => true),
@@ -101,16 +118,20 @@ const desktop = (more: Record<string, unknown> = {}) => {
 };
 
 describe("dock: scope, presets, contexts, models", () => {
-  it("without a test the scope is the whole project, with every context the project or a test attaches", async () => {
-    routes["contexts.list"] = () => ctxList;
-    routes["contexts.ofProject"] = () => ({ effective: ["ctx-b"] });
+  it("without a test the scope is the whole project, with what a request on the project is given — the run attaches it itself", async () => {
+    routes["claude.preview"] = (i) => previewOf(given(["ctx-b"]), i);
     routes["claude.run"] = () => ({ ok: true, summary: "Done", durationMs: 1200, changedTests: [], raw: "" });
     const state = withClaude({ contexts: [] });
     render(wrap(state, <ClaudeDock />));
     expect(screen.getByRole("tab", { name: /On the project/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("button", { name: "Change every test" })).toBeNull();
     expect(screen.getByText("Whole project · its tests, documents and contexts")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context2$/));
+    expect(callsOf("claude.preview")[0].input).toEqual({ use: "ask-project", scope: { kind: "project" } });
+    const dialog = await graph();
+    expect(within(dialog).getByRole("checkbox", { name: "Glossary" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "House style" })).not.toBeChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
     send("Uniformise les verbes");
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
     expect(callsOf("claude.run")[0].input).toEqual({
@@ -118,7 +139,6 @@ describe("dock: scope, presets, contexts, models", () => {
       prompt: "Uniformise les verbes",
       model: "sonnet",
       effort: "medium",
-      contexts: ["ctx-b"],
     });
     expect(await screen.findByText("1.2 s · no tokens reported · sonnet / medium")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Request · Whole project" })).toHaveTextContent("Uniformise les verbes");
@@ -126,8 +146,7 @@ describe("dock: scope, presets, contexts, models", () => {
   });
 
   it("a preset of the Suggestions menu fills the box, even two of one label", async () => {
-    routes["contexts.list"] = () => ctxList;
-    routes["contexts.ofTest"] = () => ({ effective: ["ctx-a", "ctx-b"], own: null, project: [] });
+    routes["claude.preview"] = (i) => previewOf(given(["ctx-a", "ctx-b"]), i);
     routes["claude.run"] = () => ({
       ok: true,
       summary: "ok",
@@ -155,15 +174,14 @@ describe("dock: scope, presets, contexts, models", () => {
     fireEvent.click(screen.getAllByRole("menuitem", { name: /^Rephrase/ })[0]);
     expect(box()).toHaveValue("Rephrase in house style");
     expect(callsOf("claude.run")).toHaveLength(0);
-    const glossary = await screen.findByRole("button", { name: "Glossary" });
-    fireEvent.click(glossary);
-    expect(glossary).toHaveAttribute("aria-pressed", "false");
+    await leaveOut("Glossary");
+    expect(context()).toHaveTextContent(/^Context3 · changed$/);
     send();
     await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
-    expect(callsOf("claude.run")[0].input).toMatchObject({
+    expect(callsOf("claude.run")[0].input).toEqual({
       scope: { kind: "test", testId: "local-1" },
       prompt: "Rephrase in house style",
-      contexts: ["ctx-a"],
+      without: ["context:ctx-b"],
       model: "opus",
       effort: "high",
     });
@@ -268,20 +286,29 @@ describe("dock: scope, presets, contexts, models", () => {
     expect(screen.getAllByText(/Cancelled/).length).toBeGreaterThan(0);
   });
 
-  it("the per-run context switch resets when the focused test changes", async () => {
-    routes["contexts.list"] = () => ctxList;
-    routes["contexts.ofTest"] = (i) => ({
-      effective: i.testId === "t2" ? ["ctx-b"] : ["ctx-a", "ctx-b"],
-      own: null,
-      project: [],
-    });
+  it("what was ticked for a run starts again when the focused test changes", async () => {
+    routes["claude.preview"] = (i) =>
+      previewOf(given((i.scope as { testId?: string }).testId === "t2" ? ["ctx-b"] : ["ctx-a", "ctx-b"]), i);
+    routes["claude.run"] = () => ({ ok: true, summary: "ok", changedTests: [], raw: "" });
     const state = app({ focus: focus() });
     const r = render(wrap(state, <ClaudeDock />));
-    fireEvent.click(await screen.findByRole("button", { name: "Glossary" }));
-    expect(screen.getByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "false");
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context3$/));
+    await leaveOut("Glossary");
+    expect(context()).toHaveTextContent(/^Context2 · changed$/);
     r.rerender(wrap({ ...state, focus: focus({ testId: "t2" }) }, <ClaudeDock />));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "House style" })).toBeNull());
-    expect(await screen.findByRole("button", { name: "Glossary" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(context()).toHaveTextContent(/^Context2$/));
+    expect(callsOf("claude.preview").at(-1)?.input).toEqual({
+      use: "ask-test",
+      scope: { kind: "test", testId: "t2" },
+    });
+    const dialog = await graph();
+    expect(within(dialog).getByRole("checkbox", { name: "Glossary" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "House style" })).not.toBeChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    send("Go");
+    await waitFor(() => expect(callsOf("claude.run")).toHaveLength(1));
+    expect(callsOf("claude.run")[0].input).not.toHaveProperty("without");
+    expect(callsOf("claude.run")[0].input).not.toHaveProperty("contexts");
   });
 
   it("switches between step, test and project", async () => {
@@ -405,170 +432,6 @@ describe("dock: run details and failures", () => {
     expect(metaLine({ durationMs: 12345, tokens: { input: 900, output: 41 }, model: "opus", effort: "high" })).toBe(
       "12.3 s · 900 tokens in · 41 out · opus / high",
     );
-  });
-});
-
-describe("contexts dialog", () => {
-  it("lists, creates, edits notes (debounced), paths and files, and deletes after a confirm", async () => {
-    const store: Record<string, { id: string; name: string; notes: string; paths: string[]; files: string[] }> = {
-      "ctx-a": { id: "ctx-a", name: "House style", notes: "", paths: [], files: ["g.pdf"] },
-    };
-    const detail = (id: string) => ({ ...store[id], hasNotes: !!store[id].notes.trim() });
-    routes["contexts.list"] = () => Object.keys(store).map(detail);
-    routes["contexts.show"] = (i) => detail(String(i.id));
-    routes["contexts.create"] = () => {
-      store["ctx-n"] = { id: "ctx-n", name: "New context", notes: "", paths: [], files: [] };
-      return detail("ctx-n");
-    };
-    routes["contexts.set"] = (i) => {
-      const c = store[String(i.id)];
-      if (i.paths && (i.paths as string[]).some((p) => !/^[A-Z]:\\/.test(p))) throw new Error("Not an absolute path");
-      Object.assign(c, Object.fromEntries(Object.entries(i).filter(([k]) => k !== "id")));
-      return detail(c.id);
-    };
-    routes["contexts.addFile"] = (i) => {
-      store[String(i.id)].files.push(String(i.name));
-      return { ...detail(String(i.id)), added: i.name };
-    };
-    routes["contexts.removeFile"] = (i) => {
-      const c = store[String(i.id)];
-      c.files = c.files.filter((f) => f !== i.name);
-      return detail(c.id);
-    };
-    routes["contexts.remove"] = (i) => {
-      delete store[String(i.id)];
-      return { id: i.id, removed: true };
-    };
-    const onClose = vi.fn();
-    render(<ContextsDialog onClose={onClose} initialId="ctx-a" />);
-    await waitFor(() =>
-      expect(screen.getByRole("option", { name: /House style/ })).toHaveAttribute("aria-selected", "true"),
-    );
-    expect(screen.getByText("1 file")).toBeInTheDocument();
-    const notes = await screen.findByRole("textbox", { name: /Notes/ });
-    fireEvent.change(notes, { target: { value: "Une action par pas." } });
-    expect(callsOf("contexts.set")).toHaveLength(0);
-    await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(1), { timeout: 1500 });
-    expect(callsOf("contexts.set")[0].input).toEqual({
-      id: "ctx-a",
-      name: "House style",
-      notes: "Une action par pas.",
-    });
-    fireEvent.change(screen.getByRole("textbox", { name: /^Name/ }), { target: { value: "Style" } });
-    fireEvent.blur(screen.getByRole("textbox", { name: /^Name/ }));
-    await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(2));
-    expect(await screen.findByText("1 file · notes")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /^Style/ })).toBeInTheDocument();
-    const path = screen.getByRole("textbox", { name: "Path to add" });
-    fireEvent.change(path, { target: { value: "D:\\Specs\\J5" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
-    expect(await screen.findByText("D:\\Specs\\J5")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Browse folder…" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Remove path D:\\Specs\\J5" }));
-    await waitFor(() => expect(screen.queryByText("D:\\Specs\\J5")).toBeNull());
-    const input = document.querySelector("input[type=file]") as HTMLInputElement;
-    fireEvent.change(input, { target: { files: [new File(["hello"], "plan.txt", { type: "text/plain" })] } });
-    expect(await screen.findByText("plan.txt")).toBeInTheDocument();
-    expect(callsOf("contexts.addFile")[0].input).toEqual({
-      id: "ctx-a",
-      name: "plan.txt",
-      dataBase64: Buffer.from("hello").toString("base64"),
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Remove file g.pdf" }));
-    await waitFor(() => expect(screen.queryByText("g.pdf")).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "New context" }));
-    await waitFor(() =>
-      expect(screen.getByRole("option", { name: /New context/ })).toHaveAttribute("aria-selected", "true"),
-    );
-    expect(callsOf("contexts.create")[0].input).toEqual({ shared: true });
-    fireEvent.click(screen.getByRole("button", { name: "Delete context…" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Delete the context" }));
-    await waitFor(() => expect(callsOf("contexts.remove")).toHaveLength(1));
-    await waitFor(() => expect(screen.getByRole("option", { name: /Style/ })).toHaveAttribute("aria-selected", "true"));
-    expect(callsOf("contexts.list").length).toBeGreaterThan(1);
-    fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it("flushes typed notes when it closes, and browses a folder in the desktop app", async () => {
-    const d = desktop();
-    routes["contexts.list"] = () => [{ id: "ctx-a", name: "A", paths: [], files: [], hasNotes: false }];
-    routes["contexts.show"] = () => ({ id: "ctx-a", name: "A", paths: [], files: [], hasNotes: false, notes: "" });
-    routes["contexts.set"] = (i) => ({
-      id: "ctx-a",
-      name: "A",
-      paths: i.paths ?? [],
-      files: [],
-      hasNotes: false,
-      notes: "",
-    });
-    const r = render(<ContextsDialog onClose={() => {}} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Browse folder…" }));
-    await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(1));
-    expect(d.pickFolder).toHaveBeenCalled();
-    expect(callsOf("contexts.set")[0].input).toEqual({ id: "ctx-a", paths: ["D:\\Picked"] });
-    fireEvent.change(screen.getByRole("textbox", { name: /Notes/ }), { target: { value: "x" } });
-    r.unmount();
-    await waitFor(() => expect(callsOf("contexts.set")).toHaveLength(2));
-    expect(callsOf("contexts.set")[1].input).toMatchObject({ notes: "x" });
-  });
-
-  it("copies a context from another project and opens the copy", async () => {
-    const mine: { id: string; name: string; paths: string[]; files: string[]; hasNotes: boolean }[] = [
-      { id: "ctx-a", name: "A", paths: [], files: [], hasNotes: false },
-    ];
-    routes["contexts.list"] = (i) =>
-      i.from ? [{ id: "ctx-g", name: "Glossaire", paths: [], files: ["g.txt"], hasNotes: true }] : mine;
-    routes["contexts.show"] = (i) => ({ ...(mine.find((c) => c.id === i.id) ?? mine[0]), notes: "" });
-    routes["project.list"] = () => ({
-      last: "",
-      projects: [
-        { dir: "D:\\Other", name: "Other", jiraProject: "BHPTCC", exists: true },
-        { dir: "D:\\Gone", name: "Gone", jiraProject: "X", exists: false },
-      ],
-    });
-    routes["contexts.copy"] = (i) => {
-      mine.push({ id: "ctx-g", name: "Glossaire", paths: [], files: ["g.txt"], hasNotes: true });
-      return { ...mine[1], notes: "", from: i.from };
-    };
-    render(<ContextsDialog onClose={() => {}} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Copy from another project…" }));
-    const pick = await screen.findByRole("combobox", { name: "Project to copy from" });
-    expect(within(openList(pick)).queryByRole("option", { name: "Gone" })).toBeNull();
-    choose(pick, "Other");
-    const ctx = await screen.findByRole("combobox", { name: "Context to copy" });
-    expect(ctx).toHaveTextContent("Glossaire");
-    fireEvent.click(screen.getByRole("button", { name: "Copy into this project" }));
-    await waitFor(() => expect(callsOf("contexts.copy")[0]?.input).toEqual({ from: "D:\\Other", id: "ctx-g" }));
-    expect(await screen.findByRole("option", { name: /Glossaire/, selected: true })).toBeVisible();
-  });
-
-  it("moves a context into the shared library and says so before deleting it", async () => {
-    let shared = false;
-    const one = () => ({ id: "ctx-a", name: "A", paths: [], files: [], hasNotes: false, shared });
-    routes["contexts.list"] = () => [one()];
-    routes["contexts.show"] = () => ({ ...one(), notes: "" });
-    routes["contexts.share"] = (i) => {
-      shared = i.shared === true;
-      return { ...one(), notes: "" };
-    };
-    render(<ContextsDialog onClose={() => {}} />);
-    const box = await screen.findByRole("switch", { name: /Shared with every project/ });
-    expect(box).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(box);
-    await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /Shared with every project/ })).toHaveAttribute("aria-checked", "true"),
-    );
-    expect(callsOf("contexts.share")[0].input).toEqual({ id: "ctx-a", shared: true });
-    expect(screen.getByRole("option", { name: /shared · empty/ })).toBeVisible();
-    expect(screen.getByText(/In the shared library/)).toBeVisible();
-    expect(screen.queryByText(/ctx-a/)).toBeNull();
-    expect(screen.getByText("· deleted for every project")).toBeVisible();
-  });
-
-  it("says what a context holds", () => {
-    expect(contextLine({ files: ["a", "b"], paths: ["p"], hasNotes: true })).toBe("2 files · 1 path · notes");
-    expect(contextLine({ files: [], paths: [], hasNotes: false })).toBe("empty");
   });
 });
 

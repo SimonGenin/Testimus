@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type ClaudeScope, type Effort, type FindingKind, REVIEWS, type Review } from "../types.ts";
+import { type ClaudeScope, type Effort, type FindingKind, REVIEWS, type Review, VERDICTS } from "../types.ts";
 
 // ponytail: the schemas every command that starts Claude shares — this module imports nothing of the app but its
 // types, so no command file imports another command file (the registry cycle)
@@ -13,6 +13,15 @@ export const EFFORT = z.enum(EFFORTS);
 export const MODEL = z.string().regex(MODEL_RE, "A model alias or id: letters, digits and . - [ ] : only");
 
 export const CONTEXT_IDS = z.array(z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -"));
+
+export const WITHOUT = z
+  .array(
+    z.string().regex(/^(overview|(context|doc|docnote):[\w.-]+)$/, "overview, context:<id>, doc:<id> or docnote:<id>"),
+  )
+  .optional()
+  .describe(
+    "What is left out of this run only: overview (how the documents fit together), context:<id> (a saved context), doc:<id> (a document: Claude can neither search, read nor cite it), docnote:<id> (what the team wrote about a document). claude.preview lists what a run is given",
+  );
 
 export const NOTE = z
   .string()
@@ -134,6 +143,29 @@ const FINDING = z.object({
   message: z.string().describe("The exact discrepancy, in one sentence in the project language"),
   sources: z.array(z.string()).describe("The anchors that prove it: docId#anchor"),
   pass: z.enum(["mechanical", "semantic"]).optional().describe("Which pass found it"),
+  fix: z
+    .string()
+    .optional()
+    .describe("What the step should say instead, from which passage — given when the documents settle the finding"),
+});
+
+export const VERDICT = z
+  .enum(VERDICTS)
+  .describe(
+    "supported: the passages opened state the step's expected result · unsupported: they do not, or say otherwise · unverified: it could not be judged",
+  );
+
+export const STEP_VERDICT = z.object({
+  step: z.number().int().min(1).describe("Step number (1-based)"),
+  verdict: VERDICT,
+  read: z.array(z.string()).describe("The passages opened to judge the step: docId#anchor"),
+  why: z.string().optional().describe("unverified: what stopped the check"),
+  opened: z
+    .boolean()
+    .optional()
+    .describe(
+      "Testimus' own word: whether the run really opened one of the passages it names (its tool calls); false = the verdict is no proof",
+    ),
 });
 
 export const CHECK_FILE = z
@@ -141,6 +173,12 @@ export const CHECK_FILE = z
     at: z.string().describe("When the test was checked"),
     testHash: z.string().describe("The hash of test.md the check is about: another hash means the check is stale"),
     findings: z.array(FINDING).describe("Every finding of the check, mechanical and semantic"),
+    verdicts: z
+      .array(STEP_VERDICT)
+      .optional()
+      .describe(
+        "What the semantic pass says of each step, findings or not: its verdict and the passages it read. Absent while only the mechanical pass ran",
+      ),
   })
   .describe("A test's last check (tests/<id>/check.json)");
 

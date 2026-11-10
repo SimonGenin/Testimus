@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkGenInput, genPrompt } from "../../../../src/core/claude/gen-prompt.ts";
-import { contextLines, readContexts } from "../../../../src/core/claude/prompt.ts";
+import { given } from "../../../../src/core/claude/given.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import {
   columnGuidance,
@@ -224,30 +224,40 @@ describe("generation input", () => {
     expect(() => checkGenInput({ request: "" })).toThrow(/Nothing to generate/);
   });
 
-  it("the prompt names the documents, the columns and the note", () => {
+  it("the prompt names the documents, the columns and the note that goes with the run", () => {
     write("docs/D/doc.md", "# D\n");
-    const p = genPrompt(dir, { request: "Menus", docs: ["D"], note: " Poste PCC " });
+    const input = { request: "Menus", docs: ["D"], note: " Poste PCC " };
+    const p = genPrompt(dir, input, given(dir, "generate", { kind: "project", docs: input.docs }, input).lines);
     expect(p).toContain("Documents in scope, each in full (find in them what the request is about): D");
     expect(p).toContain("Smart columns — write each as ### <column>");
-    expect(p).toContain("Additional context from the user for this run:\nPoste PCC");
+    expect(p).toContain("\n\nFrom the user, for this run only:\nPoste PCC\n\nEnd your reply with the report");
+    expect(genPrompt(dir, input)).not.toContain("Poste PCC");
     expect(genPrompt(dir, { request: "", docs: ["D"] })).toContain("(test the behaviors they specify)");
   });
 
-  it("context lines: saved contexts pointed at, the note said in full, nothing when both are empty", () => {
+  it("what goes with a run: a saved context said in full, then the note; nothing when both are empty", () => {
     write("contexts/c1/context.md", "---\nname: Glossaire\npaths:\n---\nTK");
-    const lines = contextLines(dir, readContexts(dir, ["c1"]), "Note");
-    expect(lines[1]).toMatch(/Context to read before you start/);
-    expect(lines[2]).toMatch(/^- Glossaire — notes: .*contexts\/c1\/context\.md$/);
-    expect(lines.slice(-2)).toEqual(["Additional context from the user for this run:", "Note"]);
-    expect(contextLines(dir, [], " ")).toEqual([]);
+    const lines = given(dir, "generate", { kind: "none" }, { contexts: ["c1"], note: "Note" }).lines;
+    expect(lines).toEqual([
+      "",
+      "Read first — reference material, never edit it:",
+      "- « Glossaire » — its notes are below",
+      "",
+      "« Glossaire »:",
+      "TK",
+      "",
+      "From the user, for this run only:",
+      "Note",
+    ]);
+    expect(given(dir, "generate", { kind: "none" }, { contexts: [], note: " " }).lines).toEqual([]);
   });
 
-  it("context lines: the uncleared conversation of the panel comes last, as background", () => {
-    const lines = contextLines(dir, [], "Note", " User: Raccourcis\n\nClaude: Fait ");
-    expect(lines.slice(-2)).toEqual([
-      "Earlier in this conversation (background: what was asked and answered before; the request below is what to do now):",
+  it("what goes with a run: the uncleared conversation of the panel comes last, as background", () => {
+    const pick = { note: "Note", conversation: " User: Raccourcis\n\nClaude: Fait " };
+    expect(given(dir, "run", { kind: "none" }, pick).lines.slice(-2)).toEqual([
+      "Earlier in this conversation (background; the request below is what to do now):",
       "User: Raccourcis\n\nClaude: Fait",
     ]);
-    expect(contextLines(dir, [], "", " ")).toEqual([]);
+    expect(given(dir, "run", { kind: "none" }, { note: "", conversation: " " }).lines).toEqual([]);
   });
 });

@@ -23,13 +23,16 @@ const styles = stylex.create({
 
 const STALE = "Out of date: the test changed after this check";
 
+// ponytail: the test's own last check wins over the generation's count — a fix run after the generation checks the test
+// again, and the card must say what is left, not what was found then; the generation's count serves until the list
+// knows the test
 function Findings({ refItem, check }: { refItem?: LocalTestRef; check?: GenCheck }) {
-  if (check) {
+  const f = refItem?.findings;
+  if (!f && check) {
     if (check.errors) return <Badge tone="danger" icon="x-circle" label={plural(check.errors, "error")} />;
     if (check.warnings) return <Badge tone="warning" icon="alert-triangle" label={plural(check.warnings, "warning")} />;
     return <Badge tone="success" icon="check" label="No findings" />;
   }
-  const f = refItem?.findings;
   if (!f) return <Badge tone="neutral" label="Not checked yet" />;
   const stale = f.stale ? STALE : undefined;
   if (f.errors)
@@ -71,7 +74,7 @@ export function GenCard({ item, check, onOpen, fixes }: GenCardProps) {
     );
   const test = item.test;
   const title = testLabel(test);
-  const review = (check?.review ?? item.ref?.review ?? test.review) as ReviewState;
+  const review = (item.ref?.review ?? check?.review ?? test.review) as ReviewState;
   return (
     <Card
       title={

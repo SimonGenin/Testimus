@@ -9,22 +9,13 @@ import { AppContext, type AppState, type ClaudeRun } from "../../../../../src/ui
 import { discardAutosave, flushAutosaves, pendingAutosaves } from "../../../../../src/ui/lib/data/autosave.ts";
 import { key } from "../../../../../src/ui/lib/data/query.ts";
 import { TestEditor } from "../../../../../src/ui/screens/tests/TestEditor.tsx";
+import { piece, previewOf } from "../../../helpers/fake-preview.ts";
 import { iconOf } from "../../../helpers/icons.ts";
 import { layoutOf } from "../../../helpers/layout.ts";
 import { FakeES } from "../../../helpers/ui-data.tsx";
 import { app } from "../../../helpers/ui-desktop.tsx";
 import { callsTo, deferred, Fail, server, stubServer } from "../../../helpers/ui-server.ts";
 import { testClient, WithData } from "../data-helpers.tsx";
-
-vi.mock("../../../../../src/ui/components/claude/ContextsDialog.tsx", () => ({
-  ContextsDialog: ({ onClose }: { onClose: () => void }) => (
-    <div role="dialog" aria-label="Contexts">
-      <button type="button" onClick={onClose}>
-        close contexts
-      </button>
-    </div>
-  ),
-}));
 
 type T = { kind: string; title: string; detail?: string; onExpire?: () => void; action?: { run: () => void } };
 const toasts: T[] = [];
@@ -1250,35 +1241,102 @@ describe("TestEditor › menu and settings", () => {
     await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not change the contexts of this test"));
   });
 
-  it("manages contexts in their dialog and refreshes them after", async () => {
-    server.routes["contexts.list"] = () => [];
+  it("« Context… » shows what a run on this test is given; a saved context ticked there becomes the test's own list", async () => {
+    let own: string[] | null = null;
+    const saved = [
+      { id: "c1", name: "Glossary" },
+      { id: "c2", name: "Style" },
+    ];
+    server.routes["contexts.list"] = () => saved;
+    server.routes["contexts.ofTest"] = () => ({ effective: own ?? ["c2"], own });
+    server.routes["contexts.setTest"] = (input) => {
+      own = input.contexts as string[];
+      return { effective: own, own };
+    };
+    server.routes["claude.preview"] = (input) =>
+      previewOf(
+        [
+          piece("instruction", "Ask Claude on a test"),
+          piece("overview", "How the documents fit together"),
+          ...saved.map((c) =>
+            piece(`context:${c.id}`, c.name, { on: (own ?? ["c2"]).includes(c.id), why: "A default of the project" }),
+          ),
+        ],
+        input,
+      );
     editor();
     await ready();
-    fireEvent.click(await screen.findByRole("button", { name: "Manage contexts…" }));
-    const before = callsTo("contexts.list").length;
-    fireEvent.click(screen.getByRole("button", { name: "close contexts" }));
-    expect(screen.queryByRole("dialog", { name: "Contexts" })).toBeNull();
-    await waitFor(() => expect(callsTo("contexts.list").length).toBe(before + 1));
-    server.routes["contexts.list"] = () => {
+    expect(await screen.findByRole("button", { name: "Remove Style" })).toBeInTheDocument();
+    expect(screen.getByText("Project defaults · Style")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Context…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    expect(dialog).toHaveAccessibleDescription(/What Claude is given in every run on this test\./);
+    expect(callsTo("claude.preview")[0].input).toEqual({ use: "ask-test", scope: { kind: "test", testId: "t1" } });
+    const box = (name: string) => within(dialog).getByRole("checkbox", { name });
+    expect(await within(dialog).findByRole("checkbox", { name: "Style" })).toBeChecked();
+    expect(box("Glossary")).not.toBeChecked();
+    expect(within(dialog).queryByRole("checkbox", { name: "How the documents fit together" })).toBeNull();
+    fireEvent.click(box("Glossary"));
+    await waitFor(() => expect(callsTo("contexts.setTest")).toHaveLength(1));
+    expect(callsTo("contexts.setTest")[0].input).toEqual({ testId: "t1", contexts: ["c2", "c1"] });
+    await waitFor(() => expect(box("Glossary")).toBeChecked());
+    expect(screen.getByRole("button", { name: "Remove Glossary" })).toBeInTheDocument();
+    expect(screen.getByText("This test's own list")).toBeInTheDocument();
+    fireEvent.click(box("Style"));
+    await waitFor(() => expect(callsTo("contexts.setTest")[1]?.input).toEqual({ testId: "t1", contexts: ["c1"] }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Style" })).toBeNull());
+    server.routes["contexts.setTest"] = () => {
       throw new Fail("x");
     };
-    server.routes["contexts.ofTest"] = () => {
-      throw new Fail("x");
-    };
-    fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));
-    fireEvent.click(screen.getByRole("button", { name: "close contexts" }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(errors).toEqual([]);
+    fireEvent.click(box("Style"));
+    await waitFor(() => expect(errors.at(-1)?.title).toBe("Could not change the contexts of this test"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog", { name: "Context" })).toBeNull();
   });
 
-  it("refreshes contexts listed as null", async () => {
+  it("a context changed from the header is read again by what a run on this test is given", async () => {
+    let own: string[] | null = null;
+    server.routes["contexts.setTest"] = (input) => {
+      own = input.contexts as string[];
+      return { effective: own, own };
+    };
+    server.routes["claude.preview"] = (input) =>
+      previewOf([piece("context:c1", "Glossary", { on: !!own?.includes("c1") })], input);
+    editor();
+    await ready();
+    await waitFor(() => expect(callsTo("claude.preview")).toHaveLength(1));
+    fireEvent.focus(await screen.findByRole("combobox", { name: "Claude contexts" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Glossary" }));
+    await waitFor(() => expect(callsTo("claude.preview")).toHaveLength(2));
+    fireEvent.click(screen.getByRole("button", { name: "Context…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    expect(await within(dialog).findByRole("checkbox", { name: "Glossary" })).toBeChecked();
+  });
+
+  it("while Claude works, the test's list is shown in « Context… » but cannot be ticked, like the rest of the head", async () => {
+    server.routes["claude.preview"] = (input) => previewOf([piece("context:c1", "Glossary", { on: false })], input);
+    editor({ claudeRunning: "t1" });
+    await ready();
+    fireEvent.click(await screen.findByRole("button", { name: "Context…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    const box = await within(dialog).findByRole("checkbox", { name: "Glossary" });
+    expect(box).toBeDisabled();
+    expect(box.closest("label")).toHaveAccessibleDescription("Claude is editing this test — wait for it to finish");
+    expect(within(dialog).getByRole("button", { name: "New context" })).toBeDisabled();
+  });
+
+  it("copes with contexts listed as null: none to attach, and the Context dialog still opens", async () => {
     server.routes["contexts.list"] = () => null;
     editor();
     await ready();
-    expect(await screen.findByRole("button", { name: "Manage contexts…" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Manage contexts…" }));
-    fireEvent.click(screen.getByRole("button", { name: "close contexts" }));
-    await waitFor(() => expect(callsTo("contexts.list").length).toBe(2));
+    fireEvent.focus(await screen.findByRole("combobox", { name: "Claude contexts" }));
+    expect(screen.queryByRole("option")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Context…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    expect(await within(dialog).findByText("Could not work out what Claude is given")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog", { name: "Context" })).toBeNull();
+    expect(errors).toEqual([]);
   });
 
   it("saves column modes for the project and for this test", async () => {

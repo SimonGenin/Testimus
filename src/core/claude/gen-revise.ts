@@ -1,14 +1,13 @@
 import type { Ctx } from "../command.ts";
 import { UserError } from "../command.ts";
-import { readProject } from "../lib/project.ts";
 import { testExists } from "../lib/store.ts";
 import type { Effort } from "../types.ts";
 import { checkTests } from "./check.ts";
 import { genBoard } from "./gen-board.ts";
-import { proposeNext } from "./gen-next.ts";
 import { inCategoryOrder } from "./gen-reply.ts";
+import { reviewPart } from "./gen-review.ts";
 import { type GenCheck, type GenResult, generateTests, toolStep } from "./generate.ts";
-import { readLedger } from "./ledger.ts";
+import { readLedger, setSuggestions } from "./ledger.ts";
 import { runOnScope } from "./scoped.ts";
 
 export type ReviseInput = {
@@ -19,6 +18,7 @@ export type ReviseInput = {
   model?: string;
   effort?: Effort;
   contexts?: string[];
+  without?: string[];
   note?: string;
 };
 
@@ -26,7 +26,7 @@ export type ReviseResult = GenResult & { revised: string[] };
 
 // ponytail: the prompts a revision sends are built by the modules it calls — generateTests with what the generation
 // has (generate-add), runOnScope on several tests (ask-tests); tests/unit/core/claude/catalog.test.ts holds it to them
-export const promptsUsed = ["generate-add", "ask-tests", "gen-next"];
+export const promptsUsed = ["generate-add", "ask-tests", "check"];
 
 // ponytail: a generation asked again — « change » runs edit-test on its tests (all, or the ones picked), « add » runs
 // a generation under the same id with what the user asks for and the tests it already has; either way the result is the
@@ -52,6 +52,7 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
         model: input.model,
         effort: input.effort,
         contexts,
+        without: input.without,
         discard: false,
         resume: undefined,
         check: true,
@@ -70,10 +71,8 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
   ctx.steps?.([
     { id: "write", label: "Change the tests" },
     { id: "check", label: "Check the changed tests" },
-    { id: "next", label: "Propose what is next" },
   ]);
   ctx.step?.("write");
-  const p = readProject(project);
   const board = genBoard((gen) => ctx.progress({ message: "Claude changes the tests", gen }));
   const lane = board.run();
   const r = await runOnScope(
@@ -93,6 +92,7 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
       model: input.model,
       effort: input.effort,
       ...(contexts ? { contexts } : {}),
+      ...(input.without ? { without: input.without } : {}),
       ...(input.note ? { note: input.note } : {}),
     },
   );
@@ -102,20 +102,22 @@ export async function reviseGeneration(project: string, input: ReviseInput, ctx:
   if (revised.length && !ctx.signal.aborted) {
     ctx.step?.("check");
     ctx.progress({ message: `Checking ${revised.length} changed test(s)` });
-    for (const c of await checkTests(ctx, project, revised, true)) {
+    // ponytail: the request that checks the changed tests also says what to ask next about them — with the request
+    // just asked, and what the change itself was given
+    const review = reviewPart({ request: input.request.trim(), tests: revised, skipped: [], revised: true });
+    const checked = await checkTests(ctx, project, revised, true, {
+      also: [review.part],
+      pick: { contexts, without: input.without },
+    });
+    const reply = review.reply();
+    if (reply?.suggestions.length) setSuggestions(project, input.generation, reply.suggestions);
+    for (const c of checked) {
       const n = (s: string) => c.check.findings.filter((f) => f.severity === s).length;
       checks.push({ id: c.id, ok: c.ok, review: c.review, errors: n("error"), warnings: n("warning") });
     }
   }
   if (!r.ok) ctx.log("error", r.summary);
   const skipped = inCategoryOrder(ledger.skipped ?? []);
-  await proposeNext(ctx, project, input.generation, {
-    tests: revised,
-    skipped: [],
-    by: { runId: r.runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
-    ask: r.ok,
-    revised: true,
-  });
   return {
     runId: r.runId,
     ok: r.ok,

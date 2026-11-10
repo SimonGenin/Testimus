@@ -53,13 +53,13 @@ test("a request runs live, the tests land, and « Review these tests » opens th
 
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(result.getByRole("button", { name: "What Claude did" })).toHaveAttribute("aria-expanded", "false");
-  await result.getByRole("button", { name: "Not written · 3" }).click();
+  await result.getByRole("button", { name: /^Not written · 3/ }).click();
   await expect(result.getByText(/sectionneur avec TK/).first()).toBeVisible();
   const groups = result.getByRole("region", { name: "Not written" }).getByRole("region");
   await expect(groups).toHaveCount(2);
-  await expect(groups.first()).toHaveAccessibleName("Pas de source pour le résultat attendu");
+  await expect(groups.first()).toHaveAccessibleName("No source for the expected result");
   await expect(groups.first().getByRole("listitem")).toHaveCount(2);
-  await expect(groups.nth(1)).toHaveAccessibleName("Hors du périmètre demandé");
+  await expect(groups.nth(1)).toHaveAccessibleName("Outside the request");
   const landed = result.getByRole("region", { name: /^Sectionneur (sans|avec) TK/ });
   await expect(landed).toHaveCount(2);
   for (const card of await landed.all())
@@ -91,6 +91,8 @@ test("a landed test opens for review with its findings", async ({ page }) => {
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await request.getByRole("button", { name: /^Generate/ }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete and generate" }).click();
+  // ponytail: the last generation stays on screen until the new one starts — its cards are not the ones to open
+  await expect(result.getByText("Claude is writing")).toBeVisible();
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await result
     .getByRole("region", { name: /^Sectionneur avec TK/ })
@@ -118,23 +120,24 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
     .getByRole("alertdialog")
     .getByRole("button", { name: /^Delete and generate/ })
     .click();
+  await expect(result.getByText("Claude is writing")).toBeVisible();
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 30_000 });
 
   const ask = page.getByRole("region", { name: "Ask for changes" });
   await expect(ask).toBeVisible();
   await expect(ask.getByRole("combobox", { name: "Scope" })).toHaveText(/All 2 tests/);
   const proposes = ask.getByRole("region", { name: "Claude proposes" });
-  await expect(
-    proposes.getByText("Write the 2 tests skipped for « Pas de source pour le résultat attendu »"),
-  ).toBeVisible();
+  await expect(proposes.getByText("Write the test left out: Défaut de la TK pendant la manœuvre")).toBeVisible();
+  await expect(proposes.getByText(/^Write the /)).toHaveCount(1);
   await expect(proposes).toContainText(/\d+ fix(es)? on \d+ tests?, each on its test at the right/);
-  const claudes = /^(Add the TK case|List the commands|Source or drop)/;
-  await expect(ask.getByRole("button", { name: claudes })).toHaveCount(0);
+  const fixes = /Fix \d+ (error|warning)s? in « Sectionneur (sans|avec) TK/;
+  await expect(ask.getByText(fixes)).toHaveCount(0);
   const onCards = page
     .getByRole("region", { name: "Tests written" })
     .getByRole("list", { name: "Fixes Claude proposes" });
-  await expect(onCards.first()).toContainText(claudes);
-  await expect(onCards.first()).not.toContainText(/Fix the \d+/);
+  await expect(onCards).toHaveCount(2);
+  await expect(onCards.first().getByRole("listitem")).toHaveCount(1);
+  await expect(onCards.first()).toContainText(fixes);
   await expect(onCards.first().getByRole("button", { name: "Fix", exact: true }).first()).toBeVisible();
   await ask.getByRole("combobox", { name: "Scope" }).click();
   await expect(page.getByRole("option", { name: /^The \d+ with a fix$/ })).toBeVisible();

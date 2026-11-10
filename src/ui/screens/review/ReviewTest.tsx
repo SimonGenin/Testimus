@@ -196,6 +196,7 @@ export function ReviewTest(p: ReviewTestProps) {
                 step={s}
                 xray={p.xray}
                 findings={own.map(({ f }) => f)}
+                verdict={check?.verdicts?.find((v) => v.step === n)}
                 at={own.map(({ i: at }) => at)}
                 stale={stale}
                 folded={p.folded.has(i) && p.activeStep !== i}

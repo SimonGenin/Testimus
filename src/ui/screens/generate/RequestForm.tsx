@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { DocRef, StepColumn } from "../../../core/types.ts";
+import { changed } from "../../components/claude/pieces.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Menu } from "../../components/ui/Menu.tsx";
@@ -158,7 +159,7 @@ export function RequestForm({
           <span>
             {plural(inScope, "document")} in scope
             {narrowed ? ` · ${narrowed} narrowed to sections` : ""}
-            {form.ctxIds.length > 0 ? ` · ${plural(form.ctxIds.length, "saved context")}` : ""}
+            {changed(form.pick) ? " · context changed for this run" : ""}
           </span>
           <span>
             {folder

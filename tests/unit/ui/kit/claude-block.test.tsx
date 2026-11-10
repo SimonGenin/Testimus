@@ -48,10 +48,6 @@ describe("ClaudeBlock", () => {
         value=""
         placeholder="Ask about this test"
         scope="Whole test"
-        contexts={[
-          { id: "glossaire", label: "Glossaire", on: true },
-          { id: "old", label: "Old notes", on: false },
-        ]}
         model={{ ...models, onChange: onModel }}
         effort={{ ...efforts, onChange: () => {} }}
         onSubmit={onSubmit}
@@ -65,34 +61,63 @@ describe("ClaudeBlock", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onSubmit).not.toHaveBeenCalled();
     fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
-    expect(onSubmit).toHaveBeenCalledWith("Add a negative step", {
-      model: "opus",
-      effort: "high",
-      contexts: ["glossaire"],
-    });
+    expect(onSubmit).toHaveBeenCalledWith("Add a negative step", { model: "opus", effort: "high" });
     expect(box).toHaveValue("");
     expect(runChoice()).toHaveAccessibleName("Opus · High");
     pickRun("Sonnet");
     expect(onModel).toHaveBeenCalledWith("sonnet");
   });
 
-  it("switches a context off for this run and offers to add one", () => {
-    const onContext = vi.fn();
-    const onAdd = vi.fn();
-    render(
+  it("what goes with the run is one Context button: how many pieces go, and its owner's dialog on a click", () => {
+    const onOpen = vi.fn();
+    const onSubmit = vi.fn();
+    const { rerender } = render(
+      <ClaudeBlock ariaLabel="Prompt" value="Go" context={{ count: 7, onOpen }} onSubmit={onSubmit} />,
+    );
+    const context = screen.getByRole("button", { name: /^Context/ });
+    expect(context).toHaveTextContent(/^Context7$/);
+    expect(context.querySelector("[data-icon]")).toHaveAttribute("data-icon", "context");
+    expect(screen.queryByRole("button", { name: "Add context" })).toBeNull();
+    fireEvent.click(context);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+    rerender(<ClaudeBlock ariaLabel="Prompt" value="Go" context={{ onOpen }} onSubmit={onSubmit} />);
+    expect(screen.getByRole("button", { name: /^Context/ })).toHaveTextContent(/^Context$/);
+    rerender(<ClaudeBlock ariaLabel="Prompt" value="Go" onSubmit={onSubmit} />);
+    expect(screen.queryByRole("button", { name: /^Context/ })).toBeNull();
+  });
+
+  it("the Context button says when this run's context was changed, with or without a count", () => {
+    const plain = render(
+      <ClaudeBlock ariaLabel="Prompt" value="" context={{ count: 7, onOpen: () => {} }} onSubmit={() => {}} />,
+    );
+    const quiet = screen.getByRole("button", { name: /^Context/ }).getAttribute("class");
+    plain.unmount();
+    const { rerender } = render(
       <ClaudeBlock
         ariaLabel="Prompt"
         value=""
-        contexts={[{ id: "g", label: "Glossaire", on: true }]}
-        onContext={onContext}
-        onAddContext={onAdd}
+        context={{ count: 6, changed: true, onOpen: () => {} }}
         onSubmit={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Glossaire" }));
-    expect(onContext).toHaveBeenCalledWith("g", false);
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    expect(onAdd).toHaveBeenCalled();
+    const changed = screen.getByRole("button", { name: /^Context/ });
+    expect(changed).toHaveTextContent(/^Context6 · changed$/);
+    expect(changed.getAttribute("class")).not.toBe(quiet);
+    rerender(
+      <ClaudeBlock ariaLabel="Prompt" value="" context={{ changed: true, onOpen: () => {} }} onSubmit={() => {}} />,
+    );
+    expect(screen.getByRole("button", { name: /^Context/ })).toHaveTextContent(/^Contextchanged$/);
+  });
+
+  it("the Context button leaves while Claude works, and is off with a disabled box", () => {
+    const onOpen = vi.fn();
+    const { rerender } = render(
+      <ClaudeBlock ariaLabel="Prompt" value="Go" running={3} context={{ count: 7, onOpen }} onSubmit={() => {}} />,
+    );
+    expect(screen.queryByRole("button", { name: /^Context/ })).toBeNull();
+    rerender(<ClaudeBlock ariaLabel="Prompt" value="Go" disabled context={{ count: 7, onOpen }} onSubmit={() => {}} />);
+    expect(screen.getByRole("button", { name: /^Context/ })).toBeDisabled();
   });
 
   it("Suggestions is a menu in the foot: one picked writes its prompt in the box", () => {
@@ -176,7 +201,7 @@ describe("ClaudeBlock", () => {
     fireEvent.keyDown(box, { key: "Enter", isComposing: true });
     expect(onSubmit).not.toHaveBeenCalled();
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(onSubmit).toHaveBeenCalledWith("", { model: undefined, effort: undefined, contexts: [] });
+    expect(onSubmit).toHaveBeenCalledWith("", { model: undefined, effort: undefined });
     fireEvent.click(screen.getByRole("button", { name: "Ask Claude" }));
     expect(onSubmit).toHaveBeenCalledTimes(2);
   });
@@ -223,6 +248,19 @@ describe("ClaudeBlock", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /To fix/ }), { target: { value: "Step 3 is wrong" } });
     await act(() => vi.advanceTimersByTimeAsync(400));
     expect(save).toHaveBeenCalledWith("Step 3 is wrong", undefined);
+  });
+
+  it("a note with a Context keeps that one button in its foot, and still nothing to send", () => {
+    const onOpen = vi.fn();
+    render(
+      <ClaudeBlock label="Note" value="x" onChange={() => {}} submit="autosave" context={{ count: 6, onOpen }} />,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Context/ }));
+    expect(onOpen).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    expect(screen.queryByText("to send")).toBeNull();
+    expect(screen.queryByText("Ctrl+Enter")).toBeNull();
   });
 
   it("can be controlled by its owner and shows a focus state for the catalogue", () => {

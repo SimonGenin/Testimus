@@ -2,12 +2,19 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { mcpAccess, readOnlyCommands } from "../../../../src/core/claude/access.ts";
+import {
+  mcpAccess,
+  mcpName,
+  READS,
+  type RunKind,
+  readOnlyCommands,
+  runCommands,
+} from "../../../../src/core/claude/access.ts";
 import { mcpServer, runClaude } from "../../../../src/core/claude/run.ts";
 import { claudeVersion, forShell, resetProbe } from "../../../../src/core/claude/status.ts";
 import { invoke, registry } from "../../../../src/core/commands/index.ts";
 import { DEFAULT_SETTINGS, readProject, writeProject, writeSettings } from "../../../../src/core/lib/project.ts";
-import { allowed, argOf, denied, dir, fake, idIn, isCheck, NEVER, recordLine, result, seen, win } from "./run-fakes.ts";
+import { allowed, argOf, checked, denied, dir, fake, isCheck, isGen, NEVER, reported, seen, win } from "./run-fakes.ts";
 
 describe("each run kind gets its own MCP allow-list", () => {
   it("read-only = mutates:false, no job, nothing that starts Claude or touches the app", async () => {
@@ -23,29 +30,60 @@ describe("each run kind gets its own MCP allow-list", () => {
     );
   });
 
-  it("the lists: chat/figures/headers read-only, check + check_record, generate/fix/run + test writes, triage proposes", async () => {
-    const ro = (await readOnlyCommands()).map((n) => `mcp__testimus__${n.replace(".", "_")}`);
-    const extra = async (k: Parameters<typeof mcpAccess>[0]) =>
-      (await mcpAccess(k)).allow.filter((t) => !ro.includes(t)).sort();
+  it("the lists: what a run answers with and may change — check records, generate/fix/run write tests, triage and study propose", () => {
+    const ro = readOnlyCommands().map(mcpName);
+    const extra = (k: RunKind) =>
+      mcpAccess(k)
+        .allow.filter((t) => !ro.includes(t))
+        .sort();
     const m = (xs: string[]) => xs.map((x) => `mcp__testimus__${x}`).sort();
-    expect(await extra("chat")).toEqual([]);
-    expect(await extra("figures")).toEqual([]);
-    expect(await extra("headers")).toEqual([]);
-    expect(await extra("check")).toEqual(m(["check_record", "actions_propose"]));
-    expect(await extra("generate")).toEqual(
-      m(["tests_create", "tests_edit", "tests_save", "tests_addImage", "check_run", "actions_propose"]),
-    );
-    expect(await extra("triage")).toEqual(m(["actions_propose"]));
-    expect(await extra("fix")).toEqual(m(["tests_edit", "tests_save", "tests_addImage"]));
-    expect(await extra("run")).toEqual(m(["tests_edit", "tests_save", "tests_addImage", "check_run"]));
+    expect(extra("chat")).toEqual([]);
+    expect(extra("figures")).toEqual([]);
+    expect(extra("headers")).toEqual([]);
+    expect(extra("media")).toEqual([]);
+    expect(extra("columns")).toEqual([]);
+    expect(extra("overview")).toEqual([]);
+    expect(extra("check")).toEqual(m(["check_record"]));
+    expect(extra("analyze")).toEqual(m(["analysis_record"]));
+    expect(extra("generate")).toEqual(m(["tests_create", "tests_edit", "tests_save", "tests_addImage", "check_run"]));
+    expect(extra("triage")).toEqual(m(["actions_propose"]));
+    expect(extra("study")).toEqual(m(["actions_propose"]));
+    expect(extra("fix")).toEqual(m(["tests_edit", "tests_save", "tests_addImage"]));
+    expect(extra("run")).toEqual(m(["tests_edit", "tests_save", "tests_addImage", "check_run"]));
     for (const k of ["chat", "figures", "headers", "check", "generate", "fix", "run"] as const) {
-      const a = await mcpAccess(k);
+      const a = mcpAccess(k);
       for (const n of NEVER) {
         expect(a.allow, `${k} ${n}`).not.toContain(n);
         expect(a.deny, `${k} ${n}`).toContain(n);
       }
       expect(a.allow.length + a.deny.length).toBe(registry.length);
     }
+  });
+
+  it("the reads: each kind is given the read-only commands its job uses, a run on pictures none, a triage all of them", () => {
+    const ro = readOnlyCommands();
+    const reads = (k: RunKind) => runCommands(k).filter((n) => ro.includes(n));
+    for (const [kind, names] of Object.entries(READS) as [Exclude<RunKind, "action">, readonly string[] | "all"][]) {
+      if (names === "all") continue;
+      for (const n of names) expect(ro, `${kind}: ${n} is a read-only command of the app`).toContain(n);
+      expect(reads(kind), kind).toEqual([...names].sort());
+    }
+    expect(READS.triage).toBe("all");
+    expect(reads("triage")).toEqual(ro);
+    for (const k of ["figures", "headers", "media"] as const) expect(mcpAccess(k).allow, k).toEqual([]);
+    expect(reads("check")).toEqual(expect.arrayContaining(["rag.search", "rag.passage", "tests.show"]));
+    for (const n of ["runs.list", "xray.search", "issue.comments", "contexts.show", "actions.list", "check.show"])
+      expect(reads("check"), n).not.toContain(n);
+    expect(reads("chat")).toEqual(expect.arrayContaining(["runs.show", "issue.comments", "contexts.show", "gen.show"]));
+    expect(reads("study")).toEqual([
+      "docs.inspect",
+      "docs.list",
+      "docs.page",
+      "docs.show",
+      "rag.figure",
+      "rag.passage",
+    ]);
+    expect(reads("check").length).toBeLessThan(ro.length / 3);
   });
 
   it("an action cannot run a past job again (a push, a Claude run) nor delete a project folder", async () => {
@@ -57,7 +95,7 @@ describe("each run kind gets its own MCP allow-list", () => {
   });
 
   it("chat.ask, claude.run, review.fix, check.run, gen.tests and describeFigures pass their list, never mcp__testimus__*", async () => {
-    fake((s) => ({ lines: () => (isCheck(s) ? [recordLine(idIn(s)), result("0")] : [result("ok")]) }));
+    fake((s) => (isCheck(s) ? checked() : isGen(s) ? reported() : {}));
     await invoke("chat.ask", { question: "Quel menu ?" }, { project: dir });
     await invoke("claude.run", { scope: { kind: "test", testId: "LFRPS12-1420" }, prompt: "x" }, { project: dir });
     await invoke("review.fix", { id: "local-3f9a12c0" }, { project: dir });

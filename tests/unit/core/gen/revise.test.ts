@@ -20,7 +20,13 @@ const real = env.spawnClaude;
 let dir: string;
 
 type Gen = { generation: string; tests: string[]; revised?: string[]; ok: boolean; checks: { id: string }[] };
-type Shown = { name: string; request: string; tests: string[]; skipped: { category: string }[] };
+type Shown = {
+  name: string;
+  request: string;
+  tests: string[];
+  skipped: { item: string; reason: string; category: string; doubts?: string[]; review?: { verdict: string } }[];
+  suggestions: { label: string; prompt: string; scope?: "add" }[];
+};
 type Listed = ClaudeAction & { stale: boolean };
 
 const generate = () =>
@@ -47,27 +53,39 @@ describe("after a generation", () => {
     expect(shown.request).toBe(REQUEST);
     expect(shown.name).toBe(REQUEST);
     expect([...shown.tests].sort()).toEqual([...g.tests].sort());
-    expect(shown.skipped.map((s) => s.category)).toContain("Hors du périmètre demandé");
+    expect(shown.skipped.map((s) => [s.item, s.reason, s.category, s.review?.verdict])).toEqual([
+      ["Manœuvre à distance d'un sectionneur avec TK", "no-source", "No source for the expected result", "confirmed"],
+      ["Défaut de la TK pendant la manœuvre", "no-source", "No source for the expected result", "writable"],
+      ["EXI_MOP_SPF_510_A_20", "out-of-scope", "Outside the request", "confirmed"],
+    ]);
+    for (const s of shown.skipped) expect(s.doubts, s.item).toBeUndefined();
+    expect(shown.suggestions.map((s) => [s.label, s.scope])).toEqual([
+      ["Add the faulty TK cases", "add"],
+      ["Check each command of the menu", undefined],
+      ["Merge the 2 menu tests", undefined],
+    ]);
     await expect(invoke("gen.show", { generation: "nope" }, { project: dir })).rejects.toThrow(/No generation nope/);
   });
 
-  it("the core leaves one Claude action per test with findings and per category not written, once", async () => {
+  it("leaves one « Fix » action per test whose check found something to fix, and one « Write the test left out » for the item a second look found writable, once", async () => {
     const g = await generate();
     const listed = await actionsOf(g.generation);
     const onTests = listed.filter((a) => a.where.startsWith("test:"));
     const onGen = listed.filter((a) => a.where === `gen:${g.generation}`);
-    expect(onTests.length).toBeGreaterThan(0);
+    expect(onTests.map((a) => a.where.slice(5)).sort()).toEqual([...g.tests].sort());
     for (const a of onTests) {
-      expect(g.tests).toContain(a.where.slice(5));
-      expect(a.title).toMatch(/^Fix the \d+ (error|warning)s? in « .+ »$/);
+      expect(a.title).toMatch(/^Fix \d+ (error|warning)s? in « .+ »$/);
       expect(a.title).not.toMatch(/local-/);
-      expect(a.proposedBy.run).toBe("generate");
+      expect(a.proposedBy.run).toBe("check");
+      expect(a.scope).toEqual({ kind: "test", testId: a.where.slice(5) });
+      expect(a.plan.at(-1)).toBe("Run check_run on the test: none of these findings is left");
     }
-    expect(onGen.map((a) => a.title).sort()).toEqual([
-      "Write the 1 test skipped for « Hors du périmètre demandé »",
-      "Write the 2 tests skipped for « Pas de source pour le résultat attendu »",
-    ]);
-    expect(onGen[0].problem).toMatch(/not written/);
+    expect(onGen.map((a) => a.title)).toEqual(["Write the test left out: Défaut de la TK pendant la manœuvre"]);
+    expect(onGen[0].problem).toMatch(
+      /^No test for « Défaut de la TK pendant la manœuvre » \(No source for the expected result: .+\)\. A second look found the passage: SOSIE_211_D401-1_3#§5\.6\.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"$/,
+    );
+    expect(onGen[0]).toMatchObject({ scope: { kind: "project" }, suggest: { model: "opus", effort: "high" } });
+    expect(onGen[0].proposedBy.run).toBe("check");
     const all = (await invoke("actions.list", {}, { project: dir })) as Listed[];
     expect(all.length).toBe(listed.length);
 
@@ -76,11 +94,11 @@ describe("after a generation", () => {
     writeFileSync(ledger, JSON.stringify({ ...l, skipped: [] }));
     expect((await actionsOf(g.generation)).filter((a) => a.where.startsWith("gen:"))).toHaveLength(0);
     writeFileSync(ledger, JSON.stringify(l));
-    expect((await actionsOf(g.generation)).filter((a) => a.where.startsWith("gen:"))).toHaveLength(2);
+    expect((await actionsOf(g.generation)).filter((a) => a.where.startsWith("gen:"))).toHaveLength(1);
     for (const id of g.tests) rmSync(join(dir, "tests", id), { recursive: true, force: true });
     const left = await actionsOf(g.generation);
     expect(left.filter((a) => a.where.startsWith("test:"))).toHaveLength(0);
-    expect(left.filter((a) => a.where === `gen:${g.generation}`)).toHaveLength(2);
+    expect(left.filter((a) => a.where === `gen:${g.generation}`)).toHaveLength(1);
     rmSync(ledger);
     expect(await actionsOf(g.generation)).toHaveLength(0);
   });
@@ -140,14 +158,23 @@ describe("after a generation", () => {
     const sent = prompts.find((p) => p.includes("Use the generate-tests skill")) ?? "";
     expect(sent).toContain(`This adds tests to an earlier generation for: ${REQUEST}.`);
     for (const id of g.tests) expect(sent).toContain(`- ${readTest(dir, id).test.summary}`);
-    expect(sent).toContain("- Article à part (Catégorie d'origine: x)");
-    expect(sent).toContain('"covered"');
-    expect(sent).toContain("Additional context from the user for this run:\nMa note");
+    expect(sent).toContain(
+      'Left without a test before — write each one the request covers and a source now supports, and name it under "covered":\n- Manœuvre à distance d\'un sectionneur avec TK (No source for the expected result: ',
+    );
+    expect(sent).toContain("\n- Article à part (Catégorie d'origine: x)\n");
+    expect(sent).toContain(', "covered": ["<an item listed above you wrote a test for>"]}');
+    expect(sent).toContain("\n\nFrom the user, for this run only:\nMa note\n");
     expect(sent).not.toContain("never write them again:\n- Ma note");
 
     const after = JSON.parse(readFileSync(file, "utf8"));
     const items = after.skipped.map((s: { item: string }) => s.item);
     expect(items).toContain("Article à part");
+    expect(after.skipped.find((s: { item: string }) => s.item === "Article à part")).toEqual({
+      item: "Article à part",
+      reason: "other",
+      category: "Catégorie d'origine",
+      why: "x",
+    });
     expect(items).not.toContain(before.skipped[0].item);
     expect(items).toHaveLength(before.skipped.length);
     expect(r.skipped.map((s) => s.item)).toEqual(items);
@@ -187,7 +214,9 @@ describe("after a generation", () => {
     await ask();
     const edit = () => prompts.filter((p) => p.startsWith("Use the edit-test skill")).pop() ?? "";
     expect(edit()).toMatch(/^Scope: the tests /m);
-    expect(edit()).toContain("- RATP glossary — notes:");
+    expect(edit()).toContain(
+      "\nRead first — reference material, never edit it:\n- « RATP glossary » — its notes are below\n\n« RATP glossary »:\nTCO: poste de commande.\n",
+    );
     await ask([]);
     expect(edit()).not.toContain("RATP glossary");
   });

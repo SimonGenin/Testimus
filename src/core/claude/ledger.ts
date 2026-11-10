@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readFigures } from "../lib/docs.ts";
 import { readJson, writeJson } from "../lib/project.ts";
-import { normalizeRef } from "../rag/anchors.ts";
+import { normalizeRef, parseAnchor } from "../rag/anchors.ts";
 import { docFigures, parseSections, type Section } from "../rag/chunk.ts";
 import type { GenInput } from "./gen-prompt.ts";
 import { asSkipped, type Skipped, type TestPlan } from "./gen-reply.ts";
@@ -175,5 +175,32 @@ export function covers(consulted: string[], ref: string): boolean {
   if (!m) return false;
   const parts = m[2].split(".");
   for (let i = parts.length - 1; i > 0; i--) if (set.has(`${m[1]}#§${parts.slice(0, i).join(".")}`)) return true;
+  return false;
+}
+
+const HEADING = /^(#{1,6}) .*<!-- § (\S+) -->\s*$/;
+
+// ponytail: was a passage a run names really opened — it was when the run opened it, or a section that holds it: a
+// requirement written as a sub-heading of §5.6.6, or a figure captioned there, says nothing of its place in its own
+// anchor, so the place is read in doc.md (the headings above it)
+export function wasOpened(project: string, consulted: string[], raw: string): boolean {
+  const ref = normalizeRef(raw);
+  if (covers(consulted, ref)) return true;
+  const [docId, anchor] = ref.split("#");
+  const file = join(project, "docs", docId, "doc.md");
+  if (!anchor || !existsSync(file)) return false;
+  const { kind, id } = parseAnchor(anchor);
+  const lines = readFileSync(file, "utf8").split(/\r?\n/);
+  const marker = `<!-- ${kind} ${id} -->`;
+  const at = lines.findIndex((l) => l.includes(marker));
+  if (at < 0) return false;
+  const set = new Set(consulted);
+  let level = (kind === "§" ? HEADING.exec(lines[at])?.[1].length : undefined) ?? 7;
+  for (let i = at - 1; i >= 0 && level > 1; i--) {
+    const h = HEADING.exec(lines[i]);
+    if (!h || h[1].length >= level) continue;
+    level = h[1].length;
+    if (set.has(`${docId}#§${h[2]}`)) return true;
+  }
   return false;
 }

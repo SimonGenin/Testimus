@@ -125,7 +125,7 @@ export type PopoverProps = {
   /** the content edge to edge (a ClaudeBlock, a List), not padded */
   flush?: boolean;
   /** false: no head (title and close button) — the title still names the dialog; for a picker inside a pane (the
-   * dock's « Add context »), where Escape and a press outside close it */
+   * editor's « Step columns »), where Escape and a press outside close it */
   head?: boolean;
   /** the catalogue only: drawn open in place */
   debugState?: "open";

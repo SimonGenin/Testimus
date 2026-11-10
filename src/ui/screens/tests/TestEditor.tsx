@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { ColumnModes, Folder, LocalTestRef, Precondition, Step, StepImage, Test } from "../../../core/types.ts";
-import { ContextsDialog } from "../../components/claude/ContextsDialog.tsx";
+import { useRunContext } from "../../components/claude/useRunContext.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { useSideTab } from "../../components/ui/workspace/useSideTab.tsx";
@@ -10,7 +10,7 @@ import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { pendingAutosaves } from "../../lib/data/autosave.ts";
 import { fileUrl } from "../../lib/data/client.ts";
-import { invalidate, key, useRead } from "../../lib/data/query.ts";
+import { key, useRead } from "../../lib/data/query.ts";
 import { differs, diffLocal, diffRun, type Gone, lossOf, restoreRunStep, restoreStep } from "../../lib/diff.ts";
 import { DEFAULT_LAYOUT } from "../../lib/fields.ts";
 import { uploadImage } from "../../lib/files.ts";
@@ -75,8 +75,7 @@ type Run = { run: { runId: string; changedSteps: Record<string, number[]> }; bef
 export type Dialog =
   | { kind: "undo" }
   | { kind: "delete"; target: DeleteTarget }
-  | { kind: "restore"; base: Step; gone: Gone | null; n: number; from: WasFrom }
-  | { kind: "contexts" };
+  | { kind: "restore"; base: Step; gone: Gone | null; n: number; from: WasFrom };
 
 const flatten = (f: Folder): string[] => [f.path, ...f.folders.flatMap(flatten)];
 
@@ -273,6 +272,17 @@ export function TestEditor({
     current: () => idRef.current,
   });
   const busyDl = actions.downloading;
+  // ponytail: the test's own list of saved contexts is ticked in the same graph a run on this test would show — and
+  // like the rest of the head, not while Claude works
+  const given = useRunContext({
+    use: "ask-test",
+    scope: { kind: "test", testId },
+    standing: {
+      says: "every run on this test",
+      onChange: (ids) => actions.setTestContexts(ids),
+      locked: locked || undefined,
+    },
+  });
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const analysis = useAnalysis(testId, {
     save: () => doc.doc.saveNow(),
@@ -293,6 +303,7 @@ export function TestEditor({
     analysisOpen || !!analysis.running,
     test && (
       <AnalysisPane
+        testId={testId}
         test={test}
         state={analysis}
         defaults={app.info?.project.claude ?? { model: "sonnet", effort: "medium" }}
@@ -511,7 +522,7 @@ export function TestEditor({
               testContexts={testCtx}
               update={update}
               onContexts={(ids) => void actions.setTestContexts(ids)}
-              onManageContexts={() => setDialog({ kind: "contexts" })}
+              onContext={given.context.onOpen}
             />
           </DetailsCard>
           {test.preconditions.length > 0 && (
@@ -672,14 +683,7 @@ export function TestEditor({
             }}
           />
         )}
-        {dialog?.kind === "contexts" && (
-          <ContextsDialog
-            onClose={() => {
-              setDialog(null);
-              void invalidate(client, [["contexts.list"], ["contexts.ofTest"], ["contexts.ofProject"]]);
-            }}
-          />
-        )}
+        {given.dialog}
       </div>
       {analysisTab.node}
     </div>

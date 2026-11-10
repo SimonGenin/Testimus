@@ -1,7 +1,10 @@
 import { z } from "zod";
-import { listPrompts } from "../claude/catalog.ts";
+import { listPrompts, previewRun } from "../claude/catalog.ts";
 import { draftComment } from "../claude/comment.ts";
 import { diagnose } from "../claude/diagnose.ts";
+import { scopeDocs } from "../claude/gen-prompt.ts";
+import { type Subject, subjectOf } from "../claude/given.ts";
+import { readLedger } from "../claude/ledger.ts";
 import {
   CONTEXT_IDS,
   CONVERSATION,
@@ -13,6 +16,7 @@ import {
   SCOPE,
   scopeLabel,
   TOKENS,
+  WITHOUT,
 } from "../claude/schemas.ts";
 import { runOnScope } from "../claude/scoped.ts";
 import { leftAsIs, readRun, revert, standingRun } from "../claude/snapshot.ts";
@@ -41,7 +45,94 @@ const STATUS = z.object({
     .describe("How to install Claude Code and sign in"),
 });
 
+const PIECE = z.object({
+  id: z
+    .string()
+    .describe(
+      "Stable id: instruction, skill:<name>, rules, tools, overview, context:<id>, doc:<id>, docnote:<id>, note, conversation — what `without` takes for the ones a run may leave out",
+    ),
+  kind: z
+    .enum([
+      "instruction",
+      "skill",
+      "rules",
+      "tools",
+      "overview",
+      "context",
+      "document",
+      "docnote",
+      "note",
+      "conversation",
+    ])
+    .describe(
+      "instruction: what Testimus asks · skill: the method the instruction names · rules: the project's CLAUDE.md · tools: the app's commands the run may call · overview: how the documents fit together · context: a saved context · document: a document Claude may search · docnote: what the team wrote about a document · note, conversation: the user's own words for this run",
+    ),
+  name: z.string().describe("What it is, in words"),
+  why: z.string().describe("Why it is in this request: who attaches it"),
+  how: z
+    .enum(["inline", "pointer", "auto", "search"])
+    .describe(
+      "inline: said in full in the prompt · pointer: Claude is told where to read it · auto: Claude Code loads it by itself · search: Claude finds passages in it with the search tools",
+    ),
+  locked: z.boolean().describe("True when the run cannot go without it: it is shown, never left out"),
+  on: z.boolean().describe("Whether it goes with this run"),
+  chars: z.number().describe("Its size in characters: the text said, or the file pointed at (0 when it has none)"),
+  path: z.string().optional().describe("Its file, relative to the project folder (absolute for a shared context)"),
+  parent: z.string().optional().describe("The piece it hangs under: a document's note under its document"),
+  detail: z.string().optional().describe("One line more: a context's files and outside paths, a document's version"),
+  text: z.string().optional().describe("Its text, when it has one to read"),
+});
+
 export const commands = [
+  command({
+    name: "claude.preview",
+    summary:
+      "What a Claude run would be given, before it is sent, piece by piece: the instruction (its template), the skill it names, the project rules, the tools of that kind of run, then what goes with it — how the documents fit together, the saved contexts (the ones attached and the others, off), the documents Claude may search and what the team wrote about those the run is about, the note and the conversation. Worked out by the function the run itself calls: what is listed is what is sent.",
+    input: z.object({
+      use: z
+        .string()
+        .describe(
+          "The prompt the run sends, by its id (claude.prompts): generate, check, analyze, fix, ask-step, ask-test, ask-tests, ask-doc, ask-project, ask-run, chat, chat-problem, comment, columns, action, triage, triage-doc, figures…",
+        ),
+      scope: SCOPE.optional().describe(
+        "What the run is about, as claude.run takes it: its contexts and its documents follow from it (default: nothing in particular — the project's defaults)",
+      ),
+      docs: z.array(z.string()).optional().describe("A generation: the documents in scope as a whole"),
+      sections: z.array(z.string()).optional().describe("A generation: the document sections in scope, docId#§x.y"),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved context ids for this run, in place of the ones its subject attaches",
+      ),
+      generation: z
+        .string()
+        .optional()
+        .describe(
+          "A request on a generation (gen.revise): unless given here, the contexts and the documents in scope are the ones that generation ran with",
+        ),
+      without: WITHOUT,
+      note: NOTE,
+      conversation: CONVERSATION,
+    }),
+    output: z.object({
+      use: z.string().describe("The prompt's id"),
+      kind: z.string().describe("The kind of run: it decides the tools and what goes with the run"),
+      name: z.string().describe("The prompt's name"),
+      answers: z.string().describe("What the run gives back, and through what"),
+      pieces: z.array(PIECE).describe("Everything the run is given, in the order it is said"),
+    }),
+    mutates: false,
+    positional: ["use"],
+    async run(ctx, input) {
+      const project = projectOf(ctx);
+      const ran = input.generation ? readLedger(project, input.generation)?.input : undefined;
+      const docs = scopeDocs(input.docs?.length || input.sections?.length ? input : (ran ?? input));
+      const subject: Subject = input.scope
+        ? subjectOf(input.scope)
+        : docs.length
+          ? { kind: "project", docs }
+          : { kind: "none" };
+      return previewRun(project, input.use, subject, { ...input, contexts: input.contexts ?? ran?.contexts });
+    },
+  }),
   command({
     name: "claude.run",
     summary:
@@ -54,8 +145,9 @@ export const commands = [
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)."),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)."),
       contexts: CONTEXT_IDS.optional().describe(
-        "Context ids to attach (default: the test's own list, else project.json claude.contexts; on the project, every context the project or a test attaches, once each).",
+        "Saved context ids for this run, in place of the ones its subject attaches (default: the test's own list, else project.json claude.contexts; on the project, every context the project or a test attaches, once each).",
       ),
+      without: WITHOUT,
       note: NOTE,
       conversation: CONVERSATION,
     }),
@@ -140,7 +232,10 @@ export const commands = [
       ask: z.string().default("").describe("What the comment should say (empty: answer the thread)"),
       model: MODEL.optional().describe("Model alias or name (default: project.json claude.model)."),
       effort: EFFORT.optional().describe("Effort level (default: project.json claude.effort)."),
-      contexts: CONTEXT_IDS.optional().describe("Saved context ids Claude reads first (default: none)."),
+      contexts: CONTEXT_IDS.optional().describe(
+        "Saved context ids for this run, in place of the ones its subject attaches (a test's or a document's own list, else the project's defaults; claude.preview shows them).",
+      ),
+      without: WITHOUT,
     }),
     output: z.object({
       ok: z.boolean().describe("Whether Claude drafted something"),
@@ -166,6 +261,7 @@ export const commands = [
         model: input.model,
         effort: input.effort,
         contexts: input.contexts,
+        without: input.without,
         signal: ctx.signal,
         onEvent: (e) => ctx.claude(e),
       });
@@ -174,7 +270,7 @@ export const commands = [
   command({
     name: "claude.prompts",
     summary:
-      "Everything Claude is given in this project, run by run: the project's skills (the team's too), each prompt Testimus builds (as its template, the parts filled per run in {braces}), CLAUDE.md and the contexts attached by default — read only.",
+      "Everything Claude is given in this project, run by run: the project's skills (the team's too), each prompt Testimus builds (as its template, the parts filled per run in {braces}) with the kind of run that sends it, what goes with it, the tools it has and what it gives back, CLAUDE.md and the contexts attached by default — read only. claude.preview says it for one request.",
     input: z.object({}),
     output: z.array(
       z.object({
@@ -201,6 +297,25 @@ export const commands = [
         text: z
           .string()
           .describe("The full text; a prompt Testimus builds shows its template, the parts filled per run in {braces}"),
+        kind: z
+          .string()
+          .optional()
+          .describe("A built prompt: the kind of run that sends it (none for a sign-in probe)"),
+        answers: z.string().optional().describe("A built prompt: what the run gives back, and through what"),
+        takes: z
+          .object({
+            overview: z.boolean().describe("Whether the run is told to read how the documents fit together (when on)"),
+            documents: z
+              .boolean()
+              .describe("Whether the run searches the documents: they are listed, and one can be left out of a run"),
+            contexts: z.string().describe("Which saved contexts go with it, as a rule"),
+            tools: z.array(z.string()).describe("The app's commands the run may call, as tools"),
+            files: z
+              .array(z.string())
+              .describe("Claude Code's own tools the run has: Read, Edit, Write, Glob, Grep, Skill"),
+          })
+          .optional()
+          .describe("A built prompt: what goes with every run of its kind, whatever the request"),
       }),
     ),
     mutates: false,

@@ -6,6 +6,7 @@ import type { DocRef } from "../../../../src/core/types.ts";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { DocDetail } from "../../../../src/ui/screens/documents/DocDetail.tsx";
 import { DocDetails } from "../../../../src/ui/screens/documents/DocDetails.tsx";
+import { piece, previewOf } from "../../helpers/fake-preview.ts";
 import { scrolling } from "../../helpers/scrolling.ts";
 import { api, FakeEventSource, fakeDesktop, fakeFetch, named, noDesktop } from "../../helpers/ui-desktop.tsx";
 import { clearToasts } from "../../helpers/ui-screens.tsx";
@@ -58,6 +59,13 @@ const show = (anchor = "", over: Record<string, unknown> = {}) => {
 };
 
 const toc = () => screen.getByRole("navigation", { name: "Sections" });
+// ponytail: the Context of the document's note — the graph of what a run on this document is given
+const graph = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: /^Context/ }));
+  const dialog = await screen.findByRole("dialog", { name: "Context" });
+  await within(dialog).findByRole("group", { name: "What Claude is given" });
+  return dialog;
+};
 const more = () => fireEvent.click(screen.getByRole("button", { name: "More actions for this document" }));
 const status = () => screen.getByRole("radiogroup", { name: "Status" });
 
@@ -371,7 +379,17 @@ describe("DocDetail", () => {
       saved = { ...saved, ...(i as Partial<DocRef>) };
       return { ...saved, contextMtime: 42 };
     };
-    api.routes["contexts.list"] = () => [{ id: "glossary", name: "Glossary", shared: false }];
+    api.routes["claude.preview"] = (i) =>
+      previewOf(
+        [
+          piece("instruction", "Ask Claude on a document"),
+          piece("context:glossary", "Glossary", {
+            on: (saved.contexts ?? ["glossary"]).includes("glossary"),
+            why: "Attached to the document D1",
+          }),
+        ],
+        i,
+      );
     show("", { contexts: ["glossary"], contextMtime: 7 });
     await screen.findByRole("heading", { name: "Title D1" });
     expect(
@@ -400,19 +418,29 @@ describe("DocDetail", () => {
     fireEvent.blur(ctx);
     expect(named("docs.set")).toHaveLength(2);
     fireEvent.change(ctx, { target: { value: "unsaved note" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Remove Glossary" }));
+    const dialog = await graph();
+    expect(dialog).toHaveAccessibleDescription(/What Claude is given in every run on this document\./);
+    expect(named("claude.preview")[0].input).toEqual({ use: "ask-doc", scope: { kind: "doc", docId: "D1" } });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Glossary" }));
     await waitFor(() => expect(named("docs.set")).toHaveLength(4));
     expect(named("docs.set")[2]?.input).toEqual({ id: "D1", context: "unsaved note", ifMtime: 42 });
     expect(named("docs.set")[3]?.input).toEqual({ id: "D1", contexts: [] });
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Glossary" })).toBeNull());
+    await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: "Glossary" })).not.toBeChecked());
   });
 
   it("leaving a saved context out with the note untouched saves the list alone", async () => {
-    api.routes["docs.set"] = (i) => ({ ...doc("D1"), ...(i as Partial<DocRef>), contextMtime: null });
-    api.routes["contexts.list"] = () => [{ id: "glossary", name: "Glossary", shared: false }];
+    let contexts = ["glossary"];
+    api.routes["docs.set"] = (i) => {
+      contexts = (i.contexts as string[] | undefined) ?? contexts;
+      return { ...doc("D1"), ...(i as Partial<DocRef>), contextMtime: null };
+    };
+    api.routes["claude.preview"] = (i) =>
+      previewOf([piece("context:glossary", "Glossary", { on: contexts.includes("glossary") })], i);
     show("", { contexts: ["glossary"] });
-    fireEvent.click(await screen.findByRole("button", { name: "Remove Glossary" }));
+    const dialog = await graph();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Glossary" }));
     await waitFor(() => expect(named("docs.set")[0]?.input).toEqual({ id: "D1", contexts: [] }));
+    await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: "Glossary" })).not.toBeChecked());
     expect(named("docs.set")).toHaveLength(1);
   });
 

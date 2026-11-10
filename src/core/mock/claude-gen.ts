@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { FIGURES_MARKER, FIGURES_TAG } from "../claude/figures.ts";
-import { GEN_MARKER, PLAN_MARKER, PLAN_TAG, REPORT_TAG } from "../claude/gen-prompt.ts";
+import { GEN_MARKER, PLAN_MARKER } from "../claude/gen-prompt.ts";
+import { PLAN_TAG, REPORT_TAG } from "../claude/gen-reply.ts";
 import { HEADERS_MARKER, HEADERS_TAG } from "../claude/headers.ts";
 import { attachImage } from "../commands/images.ts";
 import type { ClaudeSpawn } from "../env.ts";
@@ -126,35 +127,46 @@ ${
     : ""
 }`;
 
-const NO_SOURCE = "Pas de source pour le résultat attendu";
+const TK = 'SOSIE_211_D401-1_3#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"';
 
+// ponytail: what the scripted Claude leaves without a test, said the way the report asks — a reason of the list, what
+// it searched and read, the passage that asks for it, what would let it be written
 const SKIPPED = [
   {
     item: "Manœuvre à distance d'un sectionneur avec TK",
-    category: NO_SOURCE,
+    reason: "no-source",
     why: "context.md : les sectionneurs avec TK ne sont pas encore câblés dans le simulateur ; aucun document ne décrit le résultat attendu.",
-    sources: ['SOSIE_211_D401-1_3#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"'],
+    sources: [TK],
+    searched: ["manœuvre à distance", "télécommande sectionneur"],
+    read: ["SOSIE_211_D401-1_3#§5.6.6"],
+    unblock:
+      "Un passage qui dit ce que l'écran montre pendant la manœuvre : une note de l'équipe ou la spécification du simulateur.",
   },
   {
     item: "Défaut de la TK pendant la manœuvre",
-    category: NO_SOURCE,
-    why: "Le §5.6.6 nomme le défaut de la TK mais ne dit pas ce que l'écran montre alors.",
+    reason: "no-source",
+    why: "Le §5.6.6 parle du sectionneur avec TK mais ne dit pas ce que l'écran montre quand la TK est en défaut.",
+    sources: ['SOSIE_211_D401-1_3#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"'],
+    searched: ["défaut TK", "TK en défaut"],
+    read: ["SOSIE_211_D401-1_3#§5.6.6"],
+    unblock: "Le passage qui décrit l'affichage d'une TK en défaut, ou la décision de l'équipe sur ce cas.",
   },
   {
     item: "EXI_MOP_SPF_510_A_20",
-    category: "Hors du périmètre demandé",
-    why: "Le TCO à deux rangées ne concerne pas le sectionneur.",
+    reason: "out-of-scope",
+    why: "Le TCO à deux rangs ne concerne pas le sectionneur : la demande porte sur son menu contextuel.",
+    sources: ['SOSIE_211_D401-1_3#§5 "Le TCO à deux rangs affiche la schématique du trafic sur le rang haut"'],
   },
 ];
 
-// ponytail: a run adding to a generation writes a test for the first item it was told the generation could not write,
-// names it under « covered », and reports the others again
-const coveredItem = (prompt: string) => prompt.match(/^Items it could not write before[^\n]*\n- (.+?) \(/m)?.[1];
+// ponytail: a run adding to a generation writes a test for the first item it was told the generation left without
+// one, names it under « covered », and reports the others again
+const coveredItem = (prompt: string) => prompt.match(/^Left without a test before[^\n]*\n- (.+?) \(/m)?.[1];
 
 // ponytail: test i of the run as Claude saves it — its first steps, then the whole test — so the Generate page sees a
 // test grow while it is written
 function writeTest(spawn: ClaudeSpawn, ids: string[], i: number, steps?: number): void {
-  const folder = spawn.stdin.match(/^Target Xray folder: (\/\S*)\s*$/m)?.[1] ?? "/Traction/Sectionneurs";
+  const folder = spawn.stdin.match(/^Xray folder of the tests: (\/\S*)\s*$/m)?.[1] ?? "/Traction/Sectionneurs";
   const body = [menuTest(folder), tkTest(folder, partialRead(spawn.stdin))][i];
   const cut = steps === undefined ? -1 : body.indexOf(`## Step ${steps + 1}\n`);
   mkdirSync(join(spawn.cwd, "tests", ids[i]), { recursive: true });
@@ -165,7 +177,7 @@ function writeTest(spawn: ClaudeSpawn, ids: string[], i: number, steps?: number)
 // wrong section — the Review screen's evidence state; any other request reads the whole document and cites every
 // quote where it is
 function partialRead(prompt: string): boolean {
-  return /avec TK/i.test(prompt);
+  return /^Request: .*avec TK/im.test(prompt);
 }
 
 registerMockScript(

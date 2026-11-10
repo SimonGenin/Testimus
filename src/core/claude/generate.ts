@@ -3,7 +3,7 @@ import { perKey } from "../../shared/run/work.ts";
 import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
 import { agentPool, agentsSetting, loadLine } from "../lib/agents.ts";
-import { loadCorpus, runMechanical } from "../lib/check.ts";
+import { type Corpus, loadCorpus, runMechanical } from "../lib/check.ts";
 import { fieldOrder } from "../lib/columns.ts";
 import { quoted, testName } from "../lib/names.ts";
 import { readProject } from "../lib/project.ts";
@@ -20,10 +20,24 @@ import { awaitsReview, type ClaudeEvent, type Diagnosis, type GenTestProgress, t
 import { checkTests } from "./check.ts";
 import { addPart, mergeSkipped, readPrior } from "./gen-again.ts";
 import { genBoard, type Lane } from "./gen-board.ts";
-import { proposeNext } from "./gen-next.ts";
-import { categoriesOf, checkGenInput, type GenInput, genPrompt, indexGate, plannedInput } from "./gen-prompt.ts";
-import { type GenReport, inCategoryOrder, parseGenReport, parsePlan, type Skipped, STOPPED } from "./gen-reply.ts";
-import { ledgerOf, readLedger, writeLedger } from "./ledger.ts";
+import { checkGenInput, type GenInput, genPrompt, indexGate, plannedInput, scopeDocs } from "./gen-prompt.ts";
+import {
+  dedupeSkipped,
+  type GenReport,
+  inCategoryOrder,
+  PLAN_TAG,
+  parseGenReport,
+  parsePlan,
+  REPORT_TAG,
+  type Skipped,
+  STOPPED,
+  skipDoubts,
+  type TestPlan,
+} from "./gen-reply.ts";
+import { applyReview, hasReview, proposeWritable, reviewPart } from "./gen-review.ts";
+import { type Given, given } from "./given.ts";
+import { type Ledger, ledgerOf, readLedger, writeLedger } from "./ledger.ts";
+import { askAgainLines } from "./parts.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { absorbRun, markLeft, readRun } from "./snapshot.ts";
 
@@ -41,6 +55,8 @@ export type GenResult = {
   discarded: string[];
   skipped: Skipped[];
   reportFound: boolean;
+  /** why the report of a run could not be read, when it could not: the items left without a test are then unknown */
+  reportErrors?: string[];
   consulted: number;
   planned: number;
   generation: string;
@@ -97,33 +113,40 @@ export const discardable = (project: string) =>
     .filter((t) => awaitsReview(t) && !t.key)
     .map((t) => t.id);
 
-type GenRun = { run: RunResult; tests: string[]; changed: string[]; report: GenReport };
+type GenRun = { run: RunResult; tests: string[]; changed: string[]; report: GenReport; plan: TestPlan | null };
 
 async function genRun(
   ctx: Ctx,
   project: string,
   input: GenInput,
-  o: { runId: string; by: string; contexts: string[]; prompt: string; label: string; title?: string; lane: Lane },
+  o: {
+    runId: string;
+    by: string;
+    given: Given;
+    prompt: string;
+    label: string;
+    title?: string;
+    lane: Lane;
+    mayPlan?: boolean;
+  },
 ): Promise<GenRun> {
   const p = readProject(project);
   let reads = 0;
   const written: string[] = [];
-  const texts: string[] = [];
+  const who = { model: input.model || p.claude.model, effort: input.effort || p.claude.effort };
   const run = await runClaude({
     project,
     runId: o.runId,
     label: o.label,
     ...(o.title ? { title: o.title } : {}),
     prompt: o.prompt,
-    model: input.model || p.claude.model,
-    effort: input.effort || p.claude.effort,
+    ...who,
     kind: "generate",
     scope: { kind: "project" },
-    contexts: o.contexts,
+    given: o.given,
     signal: ctx.signal,
     onEvent: (e) => {
       ctx.claude(e);
-      if (e.type === "text") texts.push(e.text);
       const s = toolStep(e);
       if (s?.kind === "read") ctx.progress({ message: `Reading passages (${++reads})` });
       if (s?.kind === "write") {
@@ -145,8 +168,52 @@ async function genRun(
       [undefined, "", o.by].includes(readTest(project, id).test.generatedBy),
   );
   const changed = run.changedTests.filter((id) => before[id] !== null && run.written.includes(id));
-  const report = parseGenReport(run.summary);
-  return { run, tests, changed, report: report.found ? report : parseGenReport(texts.join("")) };
+  // ponytail: a run that wrote no test may answer with a plan; anything else answers with its report. A reply that
+  // carries neither, or one that cannot be read, is asked again once, in the same session, for that block alone — a
+  // behavior left without a test is never lost with a report nobody could read
+  const read = (text: string) => {
+    const plan = o.mayPlan && !tests.length ? parsePlan(text) : null;
+    return { plan: plan?.found ? plan : null, report: parseGenReport(text), planErrors: plan?.errors ?? [] };
+  };
+  let got = read(run.summary);
+  if (run.ok && !got.plan && !got.report.found && run.sessionId && !ctx.signal.aborted) {
+    const planned = o.mayPlan && !tests.length && got.planErrors.length && !got.planErrors[0].startsWith("no ");
+    const tag = planned ? PLAN_TAG : REPORT_TAG;
+    ctx.log("warn", `The reply of ${o.label} has no readable ${tag} block: Claude is asked for it again.`);
+    const again = await runClaude({
+      project,
+      label: `${o.label}: report`,
+      prompt: askAgainLines(tag, planned ? got.planErrors : got.report.errors),
+      ...who,
+      kind: "generate",
+      resume: run.sessionId,
+      signal: ctx.signal,
+      onEvent: (e) => ctx.claude(e),
+    });
+    if (again.ok) got = read(again.summary);
+  }
+  return { run, tests, changed, report: got.report, plan: got.plan };
+}
+
+// ponytail: the items a generation left without a test, as one list — what it had before, what its plan and each run
+// reported (the same behavior once), what a cancel stopped — each with what Testimus could not confirm about it
+function leftOut(
+  project: string,
+  before: Skipped[],
+  now: Skipped[],
+  covered: string[],
+  written: string[],
+  corpus: Corpus,
+  ledger: Ledger,
+): Skipped[] {
+  return inCategoryOrder(
+    mergeSkipped(before, dedupeSkipped(now, written), covered).map((s) => {
+      if (s.reason === "stopped" || s.reason === "other") return s;
+      const doubts = skipDoubts(project, s, corpus, ledger);
+      const { doubts: _old, ...rest } = s;
+      return doubts.length ? { ...rest, doubts } : rest;
+    }),
+  );
 }
 
 const union = (xs: string[][]) => [...new Set(xs.flat())];
@@ -210,13 +277,12 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   for (const id of discarded) removeTest(project, id);
   if (discarded.length)
     ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
-  const contexts = input.contexts ?? p.claude.contexts;
+  const g = given(project, "generate", { kind: "project", docs: scopeDocs(input) }, input);
   const add = into && base ? addPart(project, base) : undefined;
   ctx.steps?.([
     ...(prior ? [] : [{ id: "read", label: "Read the sources" }]),
     { id: "write", label: "Write the tests" },
-    ...(input.check !== false ? [{ id: "check", label: "Check the new tests" }] : []),
-    { id: "next", label: "Propose what is next" },
+    ...(input.check !== false ? [{ id: "check", label: "Check the new tests and what was left out" }] : []),
   ]);
   if (!prior) ctx.step?.("read");
   ctx.progress({ message: "Reading passages" });
@@ -227,18 +293,18 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     : await genRun(ctx, project, input, {
         runId,
         by,
-        contexts,
-        prompt: genPrompt(project, input, contexts, runId, undefined, add ? { add } : {}),
+        given: g,
+        prompt: genPrompt(project, input, g.lines, undefined, add ? { add } : {}),
         label: "generate",
         title: "read and write",
         lane: board.run(),
+        mayPlan: true,
       });
-  const plan = prior?.plan ?? (first && !first.tests.length && first.run.ok ? parsePlan(first.run.summary) : null);
+  const plan = prior?.plan ?? (first?.run.ok ? first.plan : null);
   const of = plan?.found ? plan.tests.length : 0;
   const done = new Set(prior?.done ?? []);
   const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k }) => !done.has(k)) : [];
   const slots = board.plan(todo.map(({ t }) => t.summary));
-  const categories = categoriesOf([...(base?.skipped ?? []), ...(plan?.skipped ?? [])]).filter((c) => c !== STOPPED);
   if (todo.length) ctx.step?.("write");
   if (prior) ctx.log("info", `Resuming the plan: ${todo.length} of ${of} test(s) left.`);
   const set = agentsSetting();
@@ -268,15 +334,8 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
         const r = await genRun(ctx, project, part, {
           runId: id,
           by,
-          contexts,
-          prompt: genPrompt(
-            project,
-            part,
-            contexts,
-            id,
-            { n: k + 1, of, request: input.request.trim() },
-            { categories },
-          ),
+          given: g,
+          prompt: genPrompt(project, part, g.lines, { n: k + 1, of, request: input.request.trim() }),
           label: `generate ${k + 1}/${of}`,
           title: t.summary,
           lane: board.start(slots[n]),
@@ -302,7 +361,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   );
   const consulted = union([prior?.consulted ?? [], base?.consulted ?? [], ledger.consulted]);
   const searched = [...(prior?.searched ?? []), ...(base?.searched ?? []), ...ledger.searched];
-  const asked0 = base?.input ?? { ...input, contexts };
+  const asked0 = base?.input ?? { ...input, contexts: g.contexts };
   const at = base?.at ?? env.now().toISOString();
   const ownPlan = !base?.plan && plan?.found;
   const kept = {
@@ -315,11 +374,45 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   };
   writeLedger(project, by, { at, input: asked0, runId, ...kept });
   for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
+  const reports = planned.length || !first ? planned.map((r) => r.report) : [first.report];
+  const reportFound = reports.every((r) => r.found);
+  const failed = runs.find((r) => !r.run.ok)?.run;
+  const why = `not written: the generation ${ctx.signal.aborted ? "was cancelled" : "stopped on a failed run"} — resume it`;
+  const corpus = loadCorpus(project);
+  let skipped = leftOut(
+    project,
+    base?.skipped ?? prior?.skipped ?? [],
+    [
+      ...(first ? (plan?.skipped ?? []) : []),
+      ...reports.flatMap((r) => r.skipped),
+      ...left.map((t) => ({ item: t.summary, reason: "stopped" as const, category: STOPPED, why })),
+    ],
+    reports.flatMap((r) => r.covered),
+    kept.tests,
+    corpus,
+    { consulted, searched },
+  );
+  const who = { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort };
   const checks: GenCheck[] = [];
-  if (tests.length && input.check !== false && !ctx.signal.aborted) {
+  let suggestions = kept.suggestions;
+  // ponytail: one request checks the new tests and says what is to be said of the generation — a second look at what
+  // it left without a test, what to ask next; a generation that failed or was cancelled is not looked at again
+  if (input.check !== false && !ctx.signal.aborted && !failed && hasReview({ tests, skipped })) {
     ctx.step?.("check");
     ctx.progress({ message: `Checking ${tests.length} new test(s)` });
-    for (const r of await checkTests(ctx, project, tests, true)) {
+    // ponytail: the request said is the one just asked (an added one too), and the check is given what the
+    // generation was given — the tests were written with those contexts, they are judged with them
+    const review = reviewPart({ request: input.request ?? asked0.request ?? "", tests, skipped });
+    const checked = await checkTests(ctx, project, tests, true, {
+      also: [review.part],
+      pick: { contexts: g.contexts, without: input.without },
+    });
+    const reply = review.reply();
+    if (reply) {
+      skipped = applyReview(skipped, review.items, reply, corpus);
+      if (reply.suggestions.length) suggestions = reply.suggestions;
+    } else ctx.log("warn", "Claude gave no second look at what was left out: the reasons are the generation's own.");
+    for (const r of checked) {
       const n = (s: string) => r.check.findings.filter((f) => f.severity === s).length;
       checks.push({
         id: r.id,
@@ -329,25 +422,23 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
         warnings: n("warning"),
       });
     }
-  } else if (tests.length) {
-    const corpus = loadCorpus(project);
-    for (const id of tests) runMechanical(project, id, corpus);
-  }
+  } else for (const id of tests) runMechanical(project, id, corpus);
   markLeft(project, runId, tests);
   for (const id of tests) markGenerated(project, id);
   for (const id of changed)
     ctx.log("warn", `The generation changed the existing test ${quoted(testName(project, id))} — Revert puts it back.`);
-  const reports = planned.length || !first ? planned.map((r) => r.report) : [first.report];
-  const reportFound = reports.every((r) => r.found);
-  const failed = runs.find((r) => !r.run.ok)?.run;
-  if (!reportFound && !failed) ctx.log("warn", "The generation reply has no gen-report block: skipped items unknown.");
+  const reportErrors = reports.flatMap((r) => (r.found ? [] : r.errors));
+  if (!reportFound && !failed)
+    ctx.log(
+      "error",
+      `A run's report could not be read (${reportErrors.slice(0, 3).join("; ")}): what it left without a test is not known. Ask the generation again for it.`,
+    );
   if (failed) ctx.log("error", failed.summary);
   if (left.length)
     ctx.log(
       "warn",
       `${left.length} planned test(s) not written${ownPlan ? ` — resume with gen.tests --resume ${by}` : ""}.`,
     );
-  const why = `not written: the generation ${ctx.signal.aborted ? "was cancelled" : "stopped on a failed run"} — resume it`;
   const sum = (f: (r: RunResult) => number | undefined) =>
     runs.some((r) => f(r.run) !== undefined) ? runs.reduce((a, r) => a + (f(r.run) ?? 0), 0) : undefined;
   const tokensIn = sum((r) => r.tokens?.input);
@@ -365,18 +456,9 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     checks,
     changed,
     discarded,
-    skipped: inCategoryOrder(
-      mergeSkipped(
-        base?.skipped ?? prior?.skipped ?? [],
-        [
-          ...(first ? (plan?.skipped ?? []) : []),
-          ...reports.flatMap((r) => r.skipped),
-          ...left.map((t) => ({ item: t.summary, category: STOPPED, why })),
-        ],
-        reports.flatMap((r) => r.covered),
-      ),
-    ),
+    skipped,
     reportFound,
+    ...(reportErrors.length ? { reportErrors } : {}),
     consulted: consulted.length,
     planned: planned.length,
     generation: by,
@@ -391,14 +473,10 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     input: asked0,
     ...result,
     ...kept,
-    reportedConsulted: union(reports.map((r) => r.consulted)),
+    ...(suggestions ? { suggestions } : {}),
   });
-  await proposeNext(ctx, project, by, {
-    tests,
-    skipped: result.skipped,
-    by: { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort },
-    ask: !failed,
-  });
+  const proposed = proposeWritable(project, by, skipped, who, ctx.log);
+  if (proposed) ctx.log("info", `${proposed} behavior(s) left out can be written after all: see the Claude actions.`);
   ctx.progress({ message: `${tests.length} test(s) written`, done: tests.length, total: tests.length });
   return result;
 }

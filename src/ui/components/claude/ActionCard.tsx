@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
-import type { ClaudeAction, ClaudeScope, Effort } from "../../../core/types.ts";
+import type { ActionLeft, ClaudeAction, ClaudeScope, Effort } from "../../../core/types.ts";
 import { originLine, scopeInTarget, scopeWords } from "../../lib/actions.ts";
 import { useRead } from "../../lib/data/query.ts";
+import { plural } from "../../lib/format.ts";
 import { useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Badge } from "../ui/Badge.tsx";
@@ -23,8 +24,24 @@ const styles = stylex.create({
   origin: { color: color.textSubtle },
   plan: { margin: 0, paddingInlineStart: space.s5 },
   picks: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
+  marks: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
   grow: { flex: 1 },
 });
+
+// ponytail: what Testimus counted where the problem is, before the run and after it — the proof the action worked
+// (« 3 findings → 0 ») or did not (« 3 findings → 1 left »), never Claude's own word
+function Left({ left }: { left: ActionLeft }) {
+  const gone = left.now === 0;
+  return (
+    <Badge
+      size="sm"
+      tone={gone ? "success" : "warning"}
+      icon={gone ? "check-circle" : "alert-triangle"}
+      label={`${plural(left.was, left.of.slice(0, -1))} → ${gone ? "0" : `${left.now} left`}`}
+      tooltip={`Counted by Testimus where the problem is: ${left.was} before the run, ${left.now} after it.`}
+    />
+  );
+}
 
 // ponytail: the contexts the run attaches when none is picked — the test's own list, else the project's defaults
 // (claude/actions.ts runAction), by name
@@ -161,12 +178,13 @@ export function ActionCard({
           )
         }
       >
-        <span>
+        <span {...stylex.props(styles.marks)}>
           <Badge
             tone="claude"
             size="sm"
             label={grouped ? scopeInTarget(action.scope) : scopeWords(action.scope, names)}
           />
+          {action.last?.left && <Left left={action.last.left} />}
         </span>
         {ready ? (
           <>

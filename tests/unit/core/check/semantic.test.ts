@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
+import { readCheck } from "../../../../src/core/lib/store.ts";
+import { checkOut } from "../../helpers/fake-check.ts";
 import { call, fixtureCopy } from "../registry.ts";
 
 const real = env.spawnClaude;
@@ -15,16 +17,7 @@ function claude(present: boolean) {
     seen.push(s);
     if (!present) throw new Error("spawn claude ENOENT");
     if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
-    const id = /skill on the test ([\w.-]+)\./.exec(s.stdin)?.[1];
-    const lines = [
-      JSON.stringify({
-        type: "assistant",
-        message: { content: [{ type: "tool_use", id: "t", name: "mcp__testimus__check_record", input: { id } }] },
-      }),
-      JSON.stringify({ type: "result", subtype: "success", is_error: false, result: "0 findings", session_id: "s" }),
-    ];
-    for (const l of lines) s.onLine?.(l);
-    return { code: 0, stdout: `${lines.join("\n")}\n`, stderr: "" };
+    return await checkOut(s);
   };
 }
 
@@ -49,7 +42,9 @@ describe("check.run decides the semantic pass itself", () => {
     expect(out.semantic).toBe("done");
     expect(out.why).toBeUndefined();
     expect(runs()).toHaveLength(1);
+    expect(runs()[0].stdin).toMatch(/^Use the check-test skill on the test below\./);
     expect(out.failed).toEqual([]);
+    expect(readCheck(P, "LFRPS12-1420")?.verdicts).toHaveLength(5);
   });
 
   it("without Claude, falls back to the mechanical pass and says why — nothing fails", async () => {

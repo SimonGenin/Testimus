@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { revert, takeSnapshot } from "../../../../src/core/claude/snapshot.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { subscribe } from "../../../../src/core/jobs.ts";
-import { dir, fake, idIn, recordLine, result, testFile, tool } from "./run-fakes.ts";
+import { checked, dir, fake, result, seen, testFile, tool } from "./run-fakes.ts";
 
 describe("a run never destroys a user edit", () => {
   it("an edit made by the user while the check runs is kept (the check did not write it)", async () => {
@@ -13,11 +13,14 @@ describe("a run never destroys a user edit", () => {
     const off = subscribe((e) => {
       if (e.type === "log") logs.push(e.message);
     });
-    fake((s) => ({ during: () => writeFileSync(f, mine), lines: () => [recordLine(idIn(s)), result("0")] }));
+    fake(() => ({ during: () => writeFileSync(f, mine), ...checked() }));
     await invoke("check.run", { ids: ["LFRPS12-1398"] }, { project: dir });
     off();
     expect(readFileSync(f, "utf8")).toBe(mine);
-    expect(logs.join("\n")).toMatch(/changed while « Disjoncteur — ouverture à distance » was being checked/);
+    expect(seen).toHaveLength(1);
+    expect(logs).toContain(
+      "« Disjoncteur — ouverture à distance » changed while being checked (not by the check): check again.",
+    );
   });
 
   it("claude.revert refuses when the test changed after the run (naming it), force discards", async () => {

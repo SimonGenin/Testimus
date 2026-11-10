@@ -2,7 +2,7 @@ import { UserError } from "../command.ts";
 import { testName } from "../lib/names.ts";
 import { testExists } from "../lib/store.ts";
 import type { AddPart, GenInput } from "./gen-prompt.ts";
-import { type Skipped, STOPPED, type TestPlan } from "./gen-reply.ts";
+import type { Skipped, TestPlan } from "./gen-reply.ts";
 import { type GenLedger, readLedger, type Searched } from "./ledger.ts";
 
 // ponytail: a generation asked again — resumed where its plan stopped, or added to (gen.revise add): what its ledger
@@ -34,7 +34,7 @@ export function readPrior(project: string, generation: string): Prior {
     searched: l.searched ?? [],
     plan: l.plan,
     done: l.done ?? [],
-    skipped: (l.skipped ?? []).filter((s) => s.category !== STOPPED),
+    skipped: (l.skipped ?? []).filter((s) => s.reason !== "stopped"),
   };
 }
 
@@ -51,6 +51,6 @@ export function addPart(project: string, base: GenLedger): AddPart {
   return {
     request: base.input?.request ?? "",
     tests: (base.tests ?? []).filter((id) => testExists(project, id)).map((id) => testName(project, id)),
-    skipped: (base.skipped ?? []).filter((s) => s.category !== STOPPED),
+    skipped: (base.skipped ?? []).filter((s) => s.reason !== "stopped"),
   };
 }

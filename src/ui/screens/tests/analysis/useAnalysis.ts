@@ -53,7 +53,13 @@ export function useAnalysis(
     setFollowed(null);
   }, [testId]);
 
-  const start = async (input: { note?: string; model?: string; effort?: Effort }) => {
+  const start = async (input: {
+    note?: string;
+    model?: string;
+    effort?: Effort;
+    contexts?: string[];
+    without?: string[];
+  }) => {
     setFailed(null);
     try {
       await doc.save();

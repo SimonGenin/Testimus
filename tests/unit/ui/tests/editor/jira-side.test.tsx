@@ -8,6 +8,7 @@ import { forComposer, forJira, pieces, putMention, typingMention } from "../../.
 import { CommentsCard } from "../../../../../src/ui/screens/tests/editor/CommentsCard.tsx";
 import { JiraControls, JiraOff } from "../../../../../src/ui/screens/tests/editor/JiraControls.tsx";
 import { assigneesIn, assigneesOf, toggleAssignee } from "../../../../../src/ui/screens/tests/list/assignee.ts";
+import { piece, previewOf } from "../../../helpers/fake-preview.ts";
 import { callsOf, Fail, fakeNet, net, renderWithData } from "../../../helpers/ui-data.tsx";
 import { clearToasts } from "../../../helpers/ui-screens.tsx";
 
@@ -324,6 +325,48 @@ describe("the comments card", () => {
     expect(callsOf("issue.comment")).toHaveLength(0);
     fireEvent.change(box(), { target: { value: "@Camille Martin d'accord, merci." } });
     expect(screen.queryByText("Drafted by Claude")).toBeNull();
+  });
+
+  it("the draft's Context opens over the popover, which stays under it; what is ticked goes with the draft", async () => {
+    net.routes["claude.preview"] = (i) =>
+      previewOf([piece("instruction", "Draft a comment"), piece("context:glossaire", "Glossaire")], i);
+    net.routes["claude.draftComment"] = () => ({ jobId: "comment-draft-0000beef" });
+    net.routes["jobs.show"] = () => ({
+      job: {
+        id: "comment-draft-0000beef",
+        kind: "comment-draft",
+        status: "done",
+        result: { ok: true, text: "D'accord.", mentions: [] },
+      },
+      events: [],
+    });
+    card();
+    await screen.findByText("Le menu a changé.");
+    expect(callsOf("claude.preview")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Draft with Claude" }));
+    const ask = await screen.findByRole("textbox", { name: "What should the comment say" });
+    const context = screen.getByRole("button", { name: /^Context/ });
+    await waitFor(() => expect(context).toHaveTextContent(/^Context2$/));
+    expect(callsOf("claude.preview")[0].input).toEqual({ use: "comment", scope: { kind: "test", testId: "P-1" } });
+    fireEvent.click(context);
+    const graph = await screen.findByRole("dialog", { name: "Context" });
+    const glossaire = await within(graph).findByRole("checkbox", { name: "Glossaire" });
+    act(() => glossaire.focus());
+    fireEvent.click(glossaire);
+    await waitFor(() => expect(within(graph).getByRole("checkbox", { name: "Glossaire" })).not.toBeChecked());
+    expect(screen.getByRole("textbox", { name: "What should the comment say" })).toBe(ask);
+    fireEvent.click(within(graph).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog", { name: "Context" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "What should the comment say" })).toBe(ask);
+    await act(async () => {
+      fireEvent.keyDown(ask, { key: "Enter" });
+    });
+    await waitFor(() => expect(callsOf("claude.draftComment")).toHaveLength(1));
+    expect(callsOf("claude.draftComment")[0].input).toEqual({
+      key: "P-1",
+      ask: "",
+      without: ["context:glossaire"],
+    });
   });
 
   it("says why the thread could not be read", async () => {

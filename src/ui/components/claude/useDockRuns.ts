@@ -123,8 +123,8 @@ export function useDockRuns(app: AppState) {
       const sc = r.action?.scope;
       patch(answerId, (t) => ({
         ...t,
-        text: t.text || r.summary,
-        trouble: ok ? undefined : (r.diagnosis ?? { title: "The run did not finish", detail: r.summary }),
+        text: t.text || (r.summary ?? ""),
+        trouble: ok ? undefined : (r.diagnosis ?? { title: "The run did not finish", detail: r.summary ?? "" }),
         note: ok && !t.action ? outcome.note : undefined,
         meta:
           again || reported
@@ -249,6 +249,8 @@ export function useDockRuns(app: AppState) {
     const conversation = transcript(turns, a.mode === "docs" && !!chatId && !a.problem);
     const answerId = start(a.mode === "test" ? "run" : "chat", a.text, a.label, a.mode === "test" ? tid : undefined);
     const extra = {
+      ...(a.contexts ? { contexts: a.contexts } : {}),
+      ...(a.without?.length ? { without: a.without } : {}),
       ...(a.note ? { note: a.note } : {}),
       ...(conversation ? { conversation } : {}),
     };
@@ -261,7 +263,6 @@ export function useDockRuns(app: AppState) {
             ...(a.problem ? { problem: a.problem } : { chatId }),
             model: a.model || undefined,
             effort: a.effort,
-            ...(a.contexts?.length ? { contexts: a.contexts } : {}),
             ...extra,
           },
           onEvent(answerId),
@@ -290,7 +291,6 @@ export function useDockRuns(app: AppState) {
             prompt: a.text,
             model: a.model || undefined,
             effort: a.effort,
-            ...(a.contexts ? { contexts: a.contexts } : {}),
             ...extra,
           },
           t0,
@@ -358,6 +358,9 @@ export function useDockRuns(app: AppState) {
     last,
     jobId: job.jobId,
     refused,
+    // ponytail: what the next request carries of the panel — the same words the run is sent (execute), for the graph
+    // of what a run is given; a question that continues the documents conversation leaves its own turns out
+    conversation: (docs: boolean) => transcript(turns, docs && !!chatId),
     keepAsIs: () => setRefused(null),
     execute,
     runJob,

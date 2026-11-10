@@ -136,8 +136,8 @@ describe("the event tables", () => {
     expect(keysOfPaths(["tests/T1/test.md"])).toContainEqual(["tests.show", { id: "T1" }]);
     expect(keysOfPaths(["docs/D1/doc.json"])).toContainEqual(["docs.show", { id: "D1" }]);
     expect(keysOfPaths(["docs/D1/doc.md"])).toContainEqual(["docs.list"]);
-    expect(keysOfPaths(["CLAUDE.md"])).toEqual([["project.notes"], ["claude.prompts"]]);
-    expect(keysOfPaths([".claude/skills/house-style/SKILL.md"])).toEqual([["claude.prompts"]]);
+    expect(keysOfPaths(["CLAUDE.md"])).toEqual([["project.notes"], ["claude.prompts"], ["claude.preview"]]);
+    expect(keysOfPaths([".claude/skills/house-style/SKILL.md"])).toEqual([["claude.prompts"], ["claude.preview"]]);
     expect(keysOfPaths(["contexts/c1/context.md"])).toContainEqual(["contexts.list"]);
     expect(keysOfPaths(["somewhere/else.txt"])).toEqual([]);
   });

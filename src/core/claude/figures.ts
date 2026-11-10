@@ -6,8 +6,9 @@ import { findDoc, readDocMd, readFigures, writeFigures } from "../lib/docs.ts";
 import { readProject } from "../lib/project.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "../rag/chunk.ts";
 import type { DocJson, FigureEntry } from "../types.ts";
-import { languageName } from "./gen-prompt.ts";
-import { DOC_SLOT, docContexts, docRunLines, type JobRun, type PromptTemplate } from "./prompt.ts";
+import { docGiven, GIVEN_SLOT } from "./given.ts";
+import { languageName } from "./language.ts";
+import type { JobRun, PromptTemplate } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 
 export const FIGURES_MARKER = "Testimus describe-figures run";
@@ -75,13 +76,15 @@ export const prompts: PromptTemplate[] = [
     id: "figures",
     name: "Describe the figures of a document",
     group: "Documents",
+    kind: "figures",
     usedBy: ["Documents: import and conversion", "Documents › Figures: Describe", "docs.describeFigures"],
+    answers: "A description, the visible labels and a kind for each picture, in the block that ends the reply",
     text: () =>
       figuresPrompt(
         { id: "{docId}", code: "{document}", title: "{title}" },
         [{ anchor: "{anchor}", file: "{picture file}", caption: "{caption}", section: "{section}" }],
         "{language}",
-        DOC_SLOT,
+        GIVEN_SLOT,
       ),
   },
 ];
@@ -165,6 +168,7 @@ export async function describeFigures(
   const res: DescribeResult = { docId, figures: all.length, described: 0, missing: [], runIds: [], costUsd: 0 };
   if (!todo.length) return res;
   const p = readProject(project);
+  const g = docGiven(project, "figures", docId, opts);
   const got: Record<string, Described> = {};
   const byAnchor = new Map(entries.map((e) => [e.anchor, e]));
   // ponytail: written after every batch, so a long document cut short keeps what Claude already described
@@ -192,8 +196,8 @@ export async function describeFigures(
     ctx.progress({ message: `Describing the figures of ${docId}`, done: i, total: todo.length });
     const run = await runClaude({
       project,
-      prompt: figuresPrompt(doc, batch, p.language, docRunLines(project, docId, opts)),
-      contexts: docContexts(project, docId, opts),
+      prompt: figuresPrompt(doc, batch, p.language, g.lines),
+      given: g,
       model: opts.model || p.claude.model,
       effort: opts.effort || "low",
       kind: "figures",

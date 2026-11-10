@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { llmSearch } from "../claude/access.ts";
+import { leftOutDocs, llmSearch, refuseLeftOut } from "../claude/access.ts";
 import { command, projectOf } from "../command.ts";
+import { docIds } from "../lib/docs.ts";
 import { chunkKind, retrievalOverride, searchMode } from "../rag/schemas.ts";
 import { search } from "../rag/search/hybrid.ts";
 import { figure, passage } from "../rag/search/passage.ts";
@@ -116,12 +117,19 @@ export const commands = [
       .describe("Best passages first, then the ones `expand` added"),
     mutates: false,
     positional: ["query"],
-    run: (ctx, input) =>
-      search(projectOf(ctx), input.query, {
+    run: async (ctx, input) => {
+      const project = projectOf(ctx);
+      const out = leftOutDocs(ctx.llm);
+      // ponytail: no document left to search is an empty answer — an empty list of documents would mean « all »
+      const allowed = out.length ? (input.docIds ?? docIds(project)).filter((d) => !out.includes(d)) : undefined;
+      if (allowed && !allowed.length) return [];
+      return search(project, input.query, {
         ...input,
+        ...(allowed ? { docIds: allowed } : {}),
         ...llmSearch(ctx.llm),
         log: (level, m) => ctx.log(level, m),
-      }),
+      });
+    },
   }),
   command({
     name: "rag.passage",
@@ -174,7 +182,10 @@ export const commands = [
     }),
     mutates: false,
     positional: ["ref"],
-    run: async (ctx, input) => passage(projectOf(ctx), input.ref, input.around),
+    run: async (ctx, input) => {
+      refuseLeftOut(ctx.llm, input.ref.split("#")[0]);
+      return passage(projectOf(ctx), input.ref, input.around);
+    },
   }),
   command({
     name: "rag.figure",
@@ -199,6 +210,9 @@ export const commands = [
     }),
     mutates: false,
     positional: ["docId", "n"],
-    run: async (ctx, input) => figure(projectOf(ctx), input.docId, input.n),
+    run: async (ctx, input) => {
+      refuseLeftOut(ctx.llm, input.docId);
+      return figure(projectOf(ctx), input.docId, input.n);
+    },
   }),
 ];

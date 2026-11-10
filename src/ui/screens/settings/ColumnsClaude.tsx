@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { JobEvent, StepColumn } from "../../../core/types.ts";
 import { toolLabel } from "../../components/claude/ClaudeDock.tsx";
-import { ContextMenu } from "../../components/claude/ContextMenu.tsx";
 import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
+import { useRunContext } from "../../components/claude/useRunContext.tsx";
 import { Answer } from "../../components/ui/Answer.tsx";
 import { Badge, COLUMN, type Word } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -74,14 +74,18 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const app = useApp();
   const client = useQueryClient();
   const cancel = useCancel();
-  const list = useRead("contexts.list", {});
-  const all = list.data ?? [];
   const { status } = useClaudeStatus();
   const offline = !!status && (!status.installed || status.signedIn === false);
   const [ask, setAsk] = useDraft(draft("ask"));
-  const [picked, setPicked] = useDraft(draft("contexts"), "[]");
-  const ids = JSON.parse(picked) as string[];
-  const setIds = (next: string[]) => setPicked(JSON.stringify(next));
+  // ponytail: what was ticked for the run is kept with the question, like the run and its answer
+  const given = useRunContext({
+    use: "columns",
+    scope: { kind: "project" },
+    note: ask,
+    draftKey: draft("context"),
+    onSaved: () => setAsk(""),
+    enabled: !!app.info,
+  });
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
   const [kept, setJob, clearJob] = useDraft(draft("job"));
@@ -117,7 +121,6 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
   const asking = starting || !!jobId;
   const since = job?.startedAt && !Number.isNaN(Date.parse(job.startedAt)) ? Date.parse(job.startedAt) : startedAt;
   const now = useNow(1000, asking);
-  const name = (id: string) => all.find((c) => c.id === id)?.name ?? id;
 
   const suggest = async () => {
     setStarting(true);
@@ -127,7 +130,7 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
       const r = await execute(
         client,
         "columns.suggest",
-        { ask: ask.trim(), contexts: ids },
+        { ask: ask.trim(), ...given.run },
         { invalidates: [["jobs.list"]] },
       );
       setJob(r.jobId);
@@ -211,23 +214,9 @@ export function ColumnsClaude({ columns }: { columns: StepColumn[] }) {
             unavailable={
               offline ? (status?.installed ? "Claude is not signed in" : "Claude is not connected") : undefined
             }
-            contexts={ids.map((x) => ({ id: x, label: name(x), on: true }))}
-            onContext={(x, on) => {
-              if (!on) setIds(ids.filter((y) => y !== x));
-            }}
-            addContext={
-              <ContextMenu
-                isOn={(x) => ids.includes(x)}
-                onToggle={(x, on) => setIds(on ? [...ids, x] : ids.filter((y) => y !== x))}
-                text={ask}
-                onSaved={(id) => {
-                  setIds([...ids, id]);
-                  setAsk("");
-                }}
-                disabled={asking}
-              />
-            }
+            context={given.context}
           />
+          {given.dialog}
           {jobId && (
             <span role="status" {...stylex.props(type.small, styles.reading)}>
               {reading}

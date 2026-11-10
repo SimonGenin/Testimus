@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { RunKind } from "../claude/access.ts";
 import type { DocJson } from "../types.ts";
 import { fileMtime, writeAtomic } from "./atomic.ts";
 import { contentOf, docIds, readDoc } from "./docs.ts";
@@ -186,18 +185,7 @@ export function readLastUpdate(project: string, updatedAt: string | undefined): 
   return whole && updatedAt && l.at === updatedAt ? (l as LastUpdate) : null;
 }
 
-// ponytail: the one answer to « is it given to the runs » — what runClaude appends and what Settings › Context lists
+// ponytail: the one answer to « is it given to the runs » — what goes with a run (claude/given.ts) points at it, as a
+// piece a run may leave out: a pointer, not the text, Claude reads the file once when the run needs it
 export const overviewGiven = (project: string): boolean =>
   overviewOption(project).inEveryRun && existsSync(overviewFile(project));
-
-const NOT_GIVEN: RunKind[] = ["overview", "figures", "headers", "media"];
-
-export const OVERVIEW_LINE =
-  "Before you start, read docs/OVERVIEW.md: how the project's documents fit together (what each one is, how they link, amend or contradict each other). It is background written by Claude; the documents stay the only sources.";
-
-// ponytail: a pointer, not the text — Claude reads the file once when the run needs it, and a run that only looks at
-// pictures or passages (figures, headers, media) is not told: they describe what they see, not how documents link
-export function withOverview(project: string, kind: RunKind, prompt: string): string {
-  if (NOT_GIVEN.includes(kind) || !overviewGiven(project)) return prompt;
-  return `${prompt.replace(/\n*$/, "")}\n\n${OVERVIEW_LINE}\n`;
-}

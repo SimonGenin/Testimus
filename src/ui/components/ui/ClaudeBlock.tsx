@@ -3,7 +3,6 @@ import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { useDraft } from "../../lib/data/autosave.ts";
 import { border, color, fontSize, fontWeight, lineHeight, radius, size, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "./Button.tsx";
-import { Chip } from "./Chip.tsx";
 import { GroupSelect, type SelectGroup } from "./GroupSelect.tsx";
 import { halo } from "./halo.ts";
 import { Icon } from "./Icon.tsx";
@@ -30,21 +29,6 @@ const styles = stylex.create({
   running: { borderColor: color.claudeBorder },
   disabled: { backgroundColor: color.surfaceSunken, borderColor: color.border, boxShadow: "none" },
   forceFocus: { borderColor: color.claude },
-  row: {
-    boxSizing: "border-box",
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: space.s2,
-    paddingTop: space.s3,
-    paddingInline: space.s3,
-  },
-  rowLabel: {
-    fontSize: fontSize.small,
-    lineHeight: lineHeight.small,
-    color: color.textSubtle,
-    marginInlineEnd: space.s1,
-  },
   foot: {
     boxSizing: "border-box",
     containerType: "inline-size",
@@ -91,17 +75,13 @@ const styles = stylex.create({
 });
 
 export type Choice = Omit<SelectGroup, "label">;
-export type RunChoice = { model?: string; effort?: string; contexts: string[] };
+export type RunChoice = { model?: string; effort?: string };
 
 export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onKeyDown"> & {
-  /** the run's effective contexts; a chip switched off is left out of this run only */
-  contexts?: { id: string; label: string; on: boolean }[];
-  onContext?: (id: string, on: boolean) => void;
-  /** the contexts are kept, not toggled (a document's): each chip removes itself instead of switching off */
-  onRemoveContext?: (id: string) => void;
-  onAddContext?: () => void;
-  /** in place of the « Add context » button: a trigger of the owner's (a Popover listing the contexts) */
-  addContext?: ReactNode;
+  /** what goes with the run, as a button of the foot (« Context 7 ») that opens the owner's dialog — the graph of
+   * everything Claude is given; count: the pieces that go; changed: one was left out or added for this run only (the
+   * button turns to Claude's colour and says so). The block holds none of it: its owner does */
+  context?: { count?: number; changed?: boolean; onOpen: () => void };
   /** inside the frame, under the text and above the foot (an additional note, a custom model's name) */
   children?: ReactNode;
   /** what the run works on, one of them (« All 3 tests · Add tests · Pick tests… »): a select in the foot, before the
@@ -136,14 +116,10 @@ export type ClaudeBlockProps = Omit<TextProps, "multiline" | "appearance" | "onK
 };
 
 // ponytail: every place where one writes to or for Claude is the Text component inside this frame — never a second text
-// box; contexts, quick asks, model and effort, send or autosave are options
+// box; what goes with the run (the Context button), quick asks, model and effort, send or autosave are options
 export function ClaudeBlock(props: ClaudeBlockProps) {
   const {
-    contexts,
-    onContext,
-    onRemoveContext,
-    onAddContext,
-    addContext,
+    context,
     children,
     scopes,
     scopeValue,
@@ -177,11 +153,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
   };
   const send = () => {
     if (busy || off || !onSubmit || (!allowEmpty && !value.trim())) return;
-    onSubmit(value, {
-      model: model?.value,
-      effort: effort?.value,
-      contexts: (contexts ?? []).filter((c) => c.on).map((c) => c.id),
-    });
+    onSubmit(value, { model: model?.value, effort: effort?.value });
     if (text.draftKey) clearDraft();
     else if (!text.onChange) setPlainValue("");
   };
@@ -205,46 +177,6 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
         text.debugState === "focus" && [styles.forceFocus, halo.claudeShown],
       )}
     >
-      {contexts && (
-        <div {...stylex.props(styles.row)}>
-          <span {...stylex.props(styles.rowLabel)}>Context</span>
-          {contexts.map((c) =>
-            onRemoveContext ? (
-              <Chip
-                key={c.id}
-                label={c.label}
-                tone="claude"
-                icon="context"
-                disabled={busy || !!text.disabled}
-                onRemove={() => onRemoveContext(c.id)}
-              />
-            ) : (
-              <Chip
-                key={c.id}
-                label={c.label}
-                tone="claude"
-                icon="context"
-                pressed={c.on}
-                strikeOff
-                disabled={busy}
-                onToggle={() => onContext?.(c.id, !c.on)}
-              />
-            ),
-          )}
-          {addContext ??
-            (onAddContext && (
-              <Button
-                size="sm"
-                variant="quiet"
-                icon="plus"
-                iconOnly
-                label="Add context"
-                disabled={busy}
-                onClick={onAddContext}
-              />
-            ))}
-        </div>
-      )}
       <Text
         {...text}
         value={value}
@@ -258,7 +190,7 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
         draftKey={undefined}
       />
       {children}
-      {!autosave && (
+      {(!autosave || context) && (
         <div {...stylex.props(styles.foot, busy && styles.footRunning, off && styles.footWrap)}>
           {scopes && scopes.length > 0 && !busy && (
             <span {...stylex.props(styles.keep)}>
@@ -299,6 +231,21 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               <span {...stylex.props(styles.clip)}>{scope}</span>
             </span>
           )}
+          {context && !busy && (
+            <span {...stylex.props(styles.keep)}>
+              <Button
+                size="sm"
+                variant={context.changed ? "claude-quiet" : "quiet"}
+                icon="context"
+                label="Context"
+                count={
+                  context.changed ? `${context.count === undefined ? "" : `${context.count} · `}changed` : context.count
+                }
+                disabled={!!text.disabled}
+                onClick={context.onOpen}
+              />
+            </span>
+          )}
           {(model || effort) && !busy && (
             <span {...stylex.props(styles.keep)}>
               <GroupSelect
@@ -311,8 +258,8 @@ export function ClaudeBlock(props: ClaudeBlockProps) {
               />
             </span>
           )}
-          <span {...stylex.props(styles.grow)} />
-          {busy ? (
+          {autosave ? null : <span {...stylex.props(styles.grow)} />}
+          {autosave ? null : busy ? (
             <>
               <span {...stylex.props(styles.hint, styles.whole)}>
                 <Spinner size="sm" />

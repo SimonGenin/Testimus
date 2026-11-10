@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
-import type { ColumnLayout, Finding, Source, Step } from "../../../core/types.ts";
+import type { ColumnLayout, Finding, Source, Step, StepVerdict as Verdict } from "../../../core/types.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { type } from "../../components/ui/type.ts";
@@ -13,6 +13,7 @@ import { WasToggle } from "../tests/step/WasToggle.tsx";
 import { WasView } from "../tests/WasView.tsx";
 import { FindingCard } from "./FindingCard.tsx";
 import { Links, Summary } from "./StepSources.tsx";
+import { StepVerdict } from "./StepVerdict.tsx";
 import { firstLine } from "./sources.ts";
 
 export { FindingSources } from "./FindingCard.tsx";
@@ -58,6 +59,8 @@ export type ReviewStepProps = {
   step: Step;
   xray: ColumnLayout;
   findings: Finding[];
+  /** what the check's semantic pass says of the step, findings or not (absent: only the mechanical pass ran) */
+  verdict?: Verdict;
   stale: boolean;
   folded: boolean;
   active: boolean;
@@ -81,9 +84,9 @@ export type ReviewStepProps = {
 };
 
 // ponytail: one step as the reviewer reads it — the step card of Tests (StepFrame), its columns read-only, its sources,
-// and the findings the check put on it
+// the check's verdict on it and the findings the check put on it
 export function ReviewStep(p: ReviewStepProps) {
-  const { n, step, xray, findings, stale, selected } = p;
+  const { n, step, xray, findings, verdict, stale, selected } = p;
   const [wasOpen, setWasOpen] = useState(false);
   const views = fieldViews(xray, step);
   const loose = stepSources(
@@ -106,7 +109,8 @@ export function ReviewStep(p: ReviewStepProps) {
         line={firstLine(step.fields[views[0]?.name ?? "Action"] ?? "")}
         head={
           <>
-            <Summary findings={findings} stale={stale} />
+            {verdict && <StepVerdict verdict={verdict} stale={stale} compact />}
+            {(!verdict || findings.length > 0) && <Summary findings={findings} stale={stale} />}
             <Button
               size="sm"
               variant="quiet"
@@ -194,8 +198,9 @@ export function ReviewStep(p: ReviewStepProps) {
           </span>
         )}
       </StepSourcesRow>
-      {findings.length > 0 && (
+      {(verdict || findings.length > 0) && (
         <div {...stylex.props(styles.findings)}>
+          {verdict && <StepVerdict verdict={verdict} stale={stale} step={n} selected={selected} onOpen={pick} />}
           {findings.map((f, i) => (
             <FindingCard
               key={`${f.kind}-${i}`}

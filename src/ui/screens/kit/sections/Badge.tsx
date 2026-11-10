@@ -10,8 +10,10 @@ import {
   REVIEW,
   ReviewBadge,
   RUN_STATUS,
+  SECOND_LOOK,
   SEVERITY,
   SeverityBadge,
+  STEP_VERDICT,
   SYNC,
 } from "../../../components/ui/Badge.tsx";
 import { Cell, type KitSection, States } from "../kit.tsx";
@@ -45,7 +47,7 @@ export const section: KitSection = {
     },
     {
       head: "Options",
-      text: "`outline` (a state that is a link: « Jira version ») · `sm` (16 px, in dense meta lines) · `count` (a number pill) · `dot` (a state on an icon: the rail's system status).",
+      text: "`outline` (a state that is a link: « Jira version ») · `quiet` (a state that asks for no look, among others that do: the icon and the word alone, muted, on no ground — « Supported », « Confirmed ») · `sm` (16 px, in dense meta lines) · `count` (a number pill) · `dot` (a state on an icon: the rail's system status).",
     },
     {
       head: "Fixed vocabularies",
@@ -58,6 +60,8 @@ export const section: KitSection = {
         "`DOC_STATUS` a document's status: Draft · Submitted · Validated.",
         "`HEALTH` a check of the System check: Failed · To do · OK · Not checked · Info.",
         "`RUN_STATUS` a test's result in a test run: Passed · Problem · Blocked · Not run; `QUESTION` a tester's question: Open · Answered.",
+        "`STEP_VERDICT` what the check says of one step (Review): Supported · Unsupported · Not verified, and Not opened during the check (Testimus saw that the run never opened the passages it names).",
+        "`SECOND_LOOK` a behavior a generation left without a test: Confirmed · Can be written · Unsure (the second look Claude took), and Doubt (what Testimus could not confirm).",
         "`jiraStatus(name)` a Jira status keeps Jira's word; done words are success, under-way words warning, the rest neutral, each with its icon.",
         "A screen never writes these words nor picks their tone: it spreads the vocabulary into a Badge.",
       ],
@@ -104,6 +108,18 @@ export const section: KitSection = {
         {[...Object.values(RUN_STATUS), ...Object.values(QUESTION)].map((w) => (
           <Badge key={w.label} {...w} />
         ))}
+      </Cell>
+      <Cell label="step verdict (Review) · quiet when supported" wide>
+        <Badge {...STEP_VERDICT.supported} size="sm" quiet />
+        <Badge {...STEP_VERDICT.unsupported} size="sm" />
+        <Badge {...STEP_VERDICT.unverified} size="sm" />
+        <Badge {...STEP_VERDICT["not-opened"]} size="sm" />
+      </Cell>
+      <Cell label="second look (a behavior left without a test) · quiet when confirmed" wide>
+        <Badge {...SECOND_LOOK.confirmed} size="sm" quiet />
+        <Badge {...SECOND_LOOK.writable} size="sm" />
+        <Badge {...SECOND_LOOK.unsure} size="sm" />
+        <Badge {...SECOND_LOOK.doubt} size="sm" />
       </Cell>
       <Cell label="Jira status">
         {["To Do", "In Progress", "Done"].map((s) => (

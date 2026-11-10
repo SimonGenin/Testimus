@@ -7,6 +7,7 @@ import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { apply } from "../../../../src/ui/lib/data/events.ts";
 import { ReviewScreen } from "../../../../src/ui/screens/review/ReviewScreen.tsx";
 import { openInEditor } from "../../../../src/ui/screens/review/useReview.ts";
+import { piece, previewOf } from "../../helpers/fake-preview.ts";
 import { choose } from "../../helpers/select.ts";
 import { clearToasts, fakeServer, item, mountReview, named, net, refused, reviewRoutes, testOf } from "./helpers.tsx";
 
@@ -601,6 +602,33 @@ describe("Review screen", () => {
     expect(named("review.set")).toHaveLength(0);
     expect(a.navigate).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "What needs fixing?" })).toBeNull();
+  });
+
+  it("what is ticked in the note's Context goes with Claude's fix, and with nothing else", async () => {
+    reviewRoutes();
+    net.routes["claude.preview"] = (i) =>
+      previewOf([piece("instruction", "Fix a test"), piece("doc:SIG", "Signalisation")], i);
+    const { app: a } = show();
+    await screen.findByRole("heading", { name: "Summary K-1" });
+    await openFix();
+    fireEvent.change(screen.getByLabelText(/Note for the author/), { target: { value: "Fix step 2" } });
+    fireEvent.click(within(dialog()).getByRole("button", { name: /^Context/ }));
+    const graph = await screen.findByRole("dialog", { name: "Context" });
+    expect(named("claude.preview")[0].input).toEqual({ use: "fix", scope: { kind: "test", testId: "K-1" } });
+    fireEvent.click(await within(graph).findByRole("checkbox", { name: "Signalisation" }));
+    await waitFor(() => expect(within(graph).getByRole("checkbox", { name: "Signalisation" })).not.toBeChecked());
+    fireEvent.click(within(graph).getByRole("button", { name: "Done" }));
+    expect(dialog()).toBeInTheDocument();
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Ask Claude to fix it" }));
+    await waitFor(() =>
+      expect(a.runInDock).toHaveBeenCalledWith({
+        name: "review.fix",
+        input: { id: "K-1", note: "Fix step 2", without: ["doc:SIG"] },
+        label: "Fix step 2",
+        testId: "K-1",
+      }),
+    );
+    expect(named("review.set")).toHaveLength(0);
   });
 
   it("a test marked To fix shows its note, asks Claude from it, and edits it", async () => {

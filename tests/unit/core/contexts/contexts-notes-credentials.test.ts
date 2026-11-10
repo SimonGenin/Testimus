@@ -12,13 +12,8 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  buildPrompt,
-  effectiveContexts,
-  readContextFile,
-  readContexts,
-  sharedContexts,
-} from "../../../../src/core/claude/prompt.ts";
+import { given } from "../../../../src/core/claude/given.ts";
+import { readContextFile, sharedContexts } from "../../../../src/core/claude/prompt.ts";
 import { contextDirs } from "../../../../src/core/claude/run.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { commands as contexts } from "../../../../src/core/commands/contexts.ts";
@@ -144,16 +139,20 @@ describe("contexts commands", () => {
         claude: { contexts: [lib.id] },
       }),
     );
-    expect(effectiveContexts(other)).toContain(lib.id);
-    expect(buildPrompt({ kind: "project" }, "", readContexts(other, [lib.id]), other)).toContain(
-      `${sharedContexts().replace(/\\/g, "/")}/${lib.id}/context.md`,
-    );
+    const attached = given(other, "run", { kind: "project" });
+    expect(attached.contexts).toEqual([lib.id]);
+    expect(attached.lines.join("\n")).toContain("\n« Glossaire »:\nPCC = poste de commande");
+    expect(attached.pieces.find((p) => p.id === `context:${lib.id}`)).toMatchObject({
+      on: true,
+      why: "A default of the project",
+      path: `${sharedContexts().replace(/\\/g, "/")}/${lib.id}/context.md`,
+    });
     expect(contextDirs(other, [lib.id])).toEqual([join(sharedContexts(), lib.id)]);
     const moved = await run<Detail & { shared: boolean }>("contexts.share", { id: lib.id, shared: false });
     expect(moved).toMatchObject({ shared: false, notes: "PCC = poste de commande" });
     expect(existsSync(join(P, "contexts", lib.id, "context.md"))).toBe(true);
     expect(existsSync(join(sharedContexts(), lib.id))).toBe(false);
-    expect(effectiveContexts(other)).not.toContain(lib.id);
+    expect(given(other, "run", { kind: "project" }).contexts).toEqual([]);
     const back = await run<Detail & { shared: boolean }>("contexts.share", { id: own.id, shared: true });
     expect(back.shared).toBe(true);
     expect((await run<Detail & { shared: boolean }>("contexts.share", { id: own.id, shared: true })).shared).toBe(true);

@@ -19,6 +19,7 @@ export const CONTEXT_READS: Prefix[] = [
   ["contexts.ofTest"],
   ["contexts.ofProject"],
   ["project.info"],
+  ["claude.preview"],
 ];
 
 export function contextLine(c: Pick<ContextSummary, "files" | "paths" | "hasNotes">): string {

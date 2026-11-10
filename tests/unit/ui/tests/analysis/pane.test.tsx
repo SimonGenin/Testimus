@@ -6,6 +6,7 @@ import type { Test } from "../../../../../src/core/types.ts";
 import { setProject } from "../../../../../src/ui/api.ts";
 import { AnalysisPane } from "../../../../../src/ui/screens/tests/analysis/AnalysisPane.tsx";
 import { useAnalysis } from "../../../../../src/ui/screens/tests/analysis/useAnalysis.ts";
+import { piece, previewOf } from "../../../helpers/fake-preview.ts";
 import { callsOf, fakeEvents, fakeNet, net, withApp } from "../../../helpers/ui-data.tsx";
 
 const ID = "LFRPS12-1420";
@@ -114,6 +115,7 @@ function Harness() {
   const state = useAnalysis(ID, { save: saved, expect: () => {}, reload: reloaded });
   return (
     <AnalysisPane
+      testId={ID}
       test={test}
       state={state}
       defaults={{ model: "sonnet", effort: "medium" }}
@@ -150,8 +152,52 @@ describe("the analysis pane", () => {
     expect(await screen.findByText(/Nothing changes until you accept it/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
     await waitFor(() => expect(callsOf("analysis.run")).toHaveLength(1));
-    expect(callsOf("analysis.run")[0].input).toMatchObject({ id: ID, model: "sonnet", effort: "medium" });
+    expect(callsOf("analysis.run")[0].input).toEqual({ id: ID, model: "sonnet", effort: "medium" });
     expect(saved).toHaveBeenCalled();
+  });
+
+  it("its Context is what an analysis of this test is given; a document unticked there is left out of the run", async () => {
+    net.routes["claude.preview"] = (i) =>
+      previewOf(
+        [
+          piece("instruction", "Analyze a test"),
+          piece(`doc:${D3}`, "Spécifications J5", { why: "A document of this run" }),
+          piece("doc:SIG", "Signalisation"),
+        ],
+        i,
+      );
+    withApp(<Harness />);
+    const context = await screen.findByRole("button", { name: /^Context/ });
+    await waitFor(() => expect(context).toHaveTextContent(/^Context3$/));
+    expect(callsOf("claude.preview")[0].input).toEqual({ use: "analyze", scope: { kind: "test", testId: ID } });
+    fireEvent.click(context);
+    const dialog = await screen.findByRole("dialog", { name: "Context" });
+    fireEvent.click(await within(dialog).findByRole("checkbox", { name: "Signalisation" }));
+    await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: "Signalisation" })).not.toBeChecked());
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Look especially at" }), { target: { value: "le TK" } });
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    await waitFor(() => expect(callsOf("analysis.run")).toHaveLength(1));
+    expect(callsOf("analysis.run")[0].input).toEqual({
+      id: ID,
+      note: "le TK",
+      model: "sonnet",
+      effort: "medium",
+      without: ["doc:SIG"],
+    });
+  });
+
+  it("once an analysis is shown, what a new one would be given is only read when « Analyze again » opens the box", async () => {
+    analysis = base;
+    net.routes["claude.preview"] = (i) => previewOf([piece("instruction", "Analyze a test")], i);
+    withApp(<Harness />);
+    const again = await screen.findByRole("button", { name: "Analyze again" });
+    expect(screen.queryByRole("button", { name: /^Context/ })).toBeNull();
+    expect(callsOf("claude.preview")).toHaveLength(0);
+    fireEvent.click(again);
+    const context = await screen.findByRole("button", { name: /^Context/ });
+    await waitFor(() => expect(context).toHaveTextContent(/^Context1$/));
+    expect(callsOf("claude.preview")).toHaveLength(1);
   });
 
   it("groups the proposals to decide by the step they are about, in the test's order", async () => {

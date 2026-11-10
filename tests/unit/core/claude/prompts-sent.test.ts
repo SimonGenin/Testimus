@@ -5,10 +5,11 @@ import { triage } from "../../../../src/core/claude/actions.ts";
 import { checkOne } from "../../../../src/core/claude/check.ts";
 import { describeFigures } from "../../../../src/core/claude/figures.ts";
 import { fixTest } from "../../../../src/core/claude/fix.ts";
+import { docGiven } from "../../../../src/core/claude/given.ts";
 import { claudeHeaders } from "../../../../src/core/claude/headers.ts";
 import { readPictures, surveyVideo } from "../../../../src/core/claude/media.ts";
 import { OVERVIEW_MARKER } from "../../../../src/core/claude/overview.ts";
-import { contextDir, docRunLines } from "../../../../src/core/claude/prompt.ts";
+import { contextDir } from "../../../../src/core/claude/prompt.ts";
 import { checkSignedIn, resetProbe } from "../../../../src/core/claude/status.ts";
 import { checkConversion, studyDoc } from "../../../../src/core/claude/study.ts";
 import { quietCtx } from "../../../../src/core/command.ts";
@@ -19,11 +20,23 @@ import { readProject, writeProject } from "../../../../src/core/lib/project.ts";
 import type { Chunk } from "../../../../src/core/types.ts";
 import { writeContextMd } from "../../helpers/context.ts";
 import { call } from "../registry.ts";
-import { after, dir, fake, result, seen } from "./run-fakes.ts";
+import {
+  checked,
+  dir,
+  fake,
+  isCheck,
+  isGen,
+  reportBlock,
+  reported,
+  result,
+  type Script,
+  seen,
+  tool,
+} from "./run-fakes.ts";
 
-// ponytail: what each Claude run is sent, word for word, for one fixed input — recorded before the prompts became
-// templates (claude.prompts), so the refactor is proven to send the same text; a deliberate prompt change updates the
-// files (vitest -u) and the diff shows it
+// ponytail: what each Claude run is sent, word for word, for one fixed input — a deliberate prompt change updates the
+// files (vitest -u) and the diff shows it. The fake answers as the run is asked to (a plan, a report, a check recorded
+// per test), so no request is sent a second time for want of an answer — that request has its own case
 
 const D3 = "SOSIE_211_D401-1_3";
 const TEST = "LFRPS12-1420";
@@ -39,17 +52,22 @@ const sent = () =>
     .replace(/run-\d{14}-[0-9a-f]{6}/g, "<runId>")
     .replace(/act-\d{14}-[0-9a-f]{6}/g, "<actionId>");
 
+const answers = (s: Parameters<Parameters<typeof fake>[0]>[0]): Script =>
+  isCheck(s)
+    ? checked()
+    : isGen(s)
+      ? s.stdin.includes("This is test")
+        ? reported()
+        : { lines: () => [result(plan)] }
+      : {};
+
 function setup() {
   resetProbe();
   const spec = contextDir(dir, "spec");
   writeContextMd(spec, { name: "Spec notes", paths: ["D:/specs"], notes: "Some notes" });
   mkdirSync(join(spec, "files"), { recursive: true });
   writeFileSync(join(spec, "files", "a.pdf"), "");
-  fake((s) =>
-    s.stdin.includes("Use the generate-tests skill") && !s.stdin.includes("This is test")
-      ? { lines: () => [result(plan)] }
-      : {},
-  );
+  fake(answers);
 }
 
 const file = (name: string) => `./prompts-sent/${name}.txt`;
@@ -116,40 +134,84 @@ describe("the prompts the Claude runs send", () => {
     await expect(sent()).toMatchFileSnapshot(file("revise-doc"));
   });
 
-  it("what is next after a generation: the tests it changed, their findings, the items not written", async () => {
+  it("what is said of a generation rides in the check of its tests: a second look at what it left out, what to ask next", async () => {
     setup();
-    mkdirSync(join(dir, ".testimus", "gen"), { recursive: true });
-    writeFileSync(
-      join(dir, ".testimus", "gen", "generate-1.json"),
-      JSON.stringify({
-        at: "2026-11-01T10:00:00.000Z",
-        input: { request: "Le sectionneur", docs: [D3], contexts: [], folder: "/Traction" },
-        runId: "run-1",
-        tests: [TEST, "LFRPS12-1398"],
-        consulted: [],
-        searched: [],
-        skipped: [{ item: "Manœuvre à distance", category: "Pas de source", why: "Aucun document ne la décrit." }],
-      }),
-    );
+    const id = "local-0000aaaa";
+    const skipped = [
+      {
+        item: "Manœuvre à distance d'un sectionneur avec TK",
+        reason: "no-source",
+        why: "Aucun passage ne dit ce que l'écran montre pendant la manœuvre.",
+        sources: [`${D3}#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"`],
+        searched: ["manœuvre à distance"],
+        read: [`${D3}#§5.6.6`],
+        unblock: "Un passage qui décrit l'écran pendant la manœuvre, apporté par l'équipe.",
+      },
+      {
+        item: "Menu du disjoncteur",
+        reason: "already-tested",
+        why: "Le test LFRPS12-1398 vérifie déjà ce menu.",
+        test: "LFRPS12-1398",
+      },
+    ];
     fake((s) =>
-      s.stdin.includes("edit-test skill")
-        ? {
-            during: () => {
-              const f = join(dir, "tests", TEST, "test.md");
-              writeFileSync(f, readFileSync(f, "utf8").replace("### Action\n\n", "### Action\n\nPuis : "));
+      isCheck(s)
+        ? checked()
+        : isGen(s)
+          ? {
+              during: () => {
+                mkdirSync(join(s.cwd, "tests", id), { recursive: true });
+                writeFileSync(
+                  join(s.cwd, "tests", id, "test.md"),
+                  readFileSync(join(s.cwd, "tests", "LFRPS12-1398", "test.md"), "utf8")
+                    .replace(/^key: .*\n/m, "")
+                    .replace(/^review.*\n/gm, ""),
+                );
+              },
+              lines: () => [
+                tool("Write", { file_path: `tests/${id}/test.md` }),
+                result(reportBlock({ tests: [id], skipped })),
+              ],
+            }
+          : {
+              during: () => {
+                const f = join(s.cwd, "tests", id, "test.md");
+                writeFileSync(f, readFileSync(f, "utf8").replace("### Action\n\n", "### Action\n\nPuis : "));
+              },
+              lines: () => [tool("Edit", { file_path: `tests/${id}/test.md` }), result("ok")],
             },
-          }
-        : {},
     );
-    await call(
-      "gen.revise",
-      { generation: "generate-1", request: "Précise les commandes", mode: "change", tests: [TEST] },
+    const gen = await call<{ generation: string; tests: string[] }>(
+      "gen.tests",
+      { request: "Le sectionneur", sections: [`${D3}#§5.6.6`], contexts: ["spec"] },
       dir,
     );
-    expect(after).toHaveLength(1);
-    await expect(
-      after[0].stdin.replaceAll(dir.replaceAll("\\", "/"), "<project>").replaceAll(dir, "<project>"),
-    ).toMatchFileSnapshot(file("gen-next"));
+    expect(gen.tests).toEqual([id]);
+    await call("gen.revise", { generation: gen.generation, request: "Précise les commandes", mode: "change" }, dir);
+    expect(seen.map((s) => (isCheck(s) ? "check" : isGen(s) ? "generate" : "change"))).toEqual([
+      "generate",
+      "check",
+      "change",
+      "check",
+    ]);
+    for (const check of [seen[1], seen[3]]) expect(check.stdin).toContain("« Spec notes »:");
+    seen.splice(0, seen.length, seen[1], seen[3]);
+    await expect(sent()).toMatchFileSnapshot(file("gen-review"));
+  });
+
+  it("a generation whose report cannot be read is asked for that block again, in the same session", async () => {
+    setup();
+    fake((s) =>
+      isGen(s)
+        ? { lines: () => [result('Done.\n```gen-report\n{"tests": [], "skipped": [{"item": "TK"}]}\n```')] }
+        : reported(),
+    );
+    const r = await call<{ reportFound: boolean }>("gen.tests", { request: "Le sectionneur", check: false }, dir);
+    expect(r.reportFound).toBe(true);
+    expect(seen).toHaveLength(2);
+    expect(seen[1].args[seen[1].args.indexOf("--resume") + 1]).toBe("s-1");
+    seen.splice(0, 1);
+    await expect(sent()).toMatchFileSnapshot(file("report-again"));
   });
 
   it("the semantic check and the fix of a test", async () => {
@@ -208,7 +270,7 @@ describe("the prompts the Claude runs send", () => {
       `the document ${D3}`,
       {},
       "import",
-      docRunLines(dir, D3, { note: RUN.note, contexts: ["spec"] }),
+      docGiven(dir, "triage", D3, { note: RUN.note, contexts: ["spec"] }),
     );
     await expect(sent()).toMatchFileSnapshot(file("actions"));
   });
@@ -259,7 +321,7 @@ describe("the prompts the Claude runs send", () => {
     fake((s) =>
       s.stdin.startsWith(OVERVIEW_MARKER)
         ? { during: (x) => writeFileSync(overviewFile(x.cwd), `## Traction <!-- doc ${D3} -->\n\nTraction.\n`) }
-        : {},
+        : answers(s),
     );
     await call("docs.overview", { mode: "full" }, dir);
     await call("docs.set", { id: D3, status: "submitted" }, dir);

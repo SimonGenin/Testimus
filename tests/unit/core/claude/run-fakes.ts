@@ -2,10 +2,15 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach } from "vitest";
+import { GEN_MARKER } from "../../../../src/core/claude/gen-prompt.ts";
+import { PLAN_TAG, REPORT_TAG } from "../../../../src/core/claude/gen-reply.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
-import { afterGenOut, isAfterGen } from "../../helpers/after-gen.ts";
+import { answerCheck, type CheckAnswer, line, recordCall, resultLine, toolLine } from "../../helpers/fake-check.ts";
 import { markIndexedInDb as markIndexed } from "../../helpers/index-state.ts";
+
+export { checkedIn, isCheck } from "../../helpers/fake-check.ts";
+export { line };
 
 // ponytail: the fake claude and the fixture copy the Claude-run tests share (one project per test)
 export const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -14,45 +19,49 @@ export const win = process.platform === "win32";
 
 export let dir: string;
 export let seen: ClaudeSpawn[] = [];
-/** the runs after a generation (claude/gen-next.ts), kept apart from `seen` */
-export let after: ClaudeSpawn[] = [];
 
-export const line = (m: unknown) => JSON.stringify(m);
-export const tool = (name: string, input: unknown, id = `t-${Math.random().toString(16).slice(2)}`) =>
-  line({ type: "assistant", message: { content: [{ type: "tool_use", id, name, input }] } });
+export const tool = toolLine;
 export const toolResult = (id: string, text: string) =>
   line({
     type: "user",
     message: { content: [{ type: "tool_result", tool_use_id: id, content: [{ type: "text", text }] }] },
   });
-export const result = (r: string, isError = false) =>
-  line({ type: "result", subtype: "success", is_error: isError, result: r, session_id: "s-1", duration_ms: 5 });
+export const result = resultLine;
 
 export type Script = {
-  lines?: (s: ClaudeSpawn) => string[];
-  during?: (s: ClaudeSpawn) => void;
+  lines?: (s: ClaudeSpawn) => string[] | Promise<string[]>;
+  during?: (s: ClaudeSpawn) => void | Promise<void>;
   out?: Partial<ClaudeOut>;
 };
 
 export function fake(pick: (s: ClaudeSpawn) => Script) {
   env.spawnClaude = async (s) => {
     if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
-    if (isAfterGen(s)) {
-      after.push(s);
-      return afterGenOut(s);
-    }
     seen.push(s);
     const sc = pick(s);
-    sc.during?.(s);
-    const ls = sc.lines?.(s) ?? [result("ok")];
+    await sc.during?.(s);
+    const ls = (await sc.lines?.(s)) ?? [result("ok")];
     for (const l of ls) s.onLine?.(l);
     return { code: 0, stdout: `${ls.join("\n")}\n`, stderr: "", ...sc.out };
   };
 }
 
+/** a check request answered as the check-test skill does: every test it names recorded with a verdict per step */
+export const checked = (o: CheckAnswer = {}): Script => ({ lines: (s) => answerCheck(s, o) });
+
+export const isGen = (s: ClaudeSpawn): boolean => s.stdin.startsWith(GEN_MARKER);
+/** the block a generation run ends its reply with (claude/gen-reply.ts): without one, the run is asked for it again */
+export const reportBlock = (o: unknown = { tests: [], skipped: [] }): string =>
+  `\`\`\`${REPORT_TAG}\n${JSON.stringify(o)}\n\`\`\``;
+export const planBlock = (o: unknown): string => `\`\`\`${PLAN_TAG}\n${JSON.stringify(o)}\n\`\`\``;
+/** a generation run that wrote nothing and says so */
+export const reported = (o: unknown = { tests: [], skipped: [] }): Script => ({
+  lines: () => [result(reportBlock(o))],
+});
+
 export const idIn = (s: ClaudeSpawn) => /skill on the test ([\w.-]+)\./.exec(s.stdin)?.[1] ?? "";
-export const recordLine = (id: string) => tool("mcp__testimus__check_record", { id, findings: [] });
-export const isCheck = (s: ClaudeSpawn) => s.stdin.includes("Use the check-test skill");
+/** the stream line of a check_record call alone: nothing is recorded by it */
+export const recordLine = recordCall;
 export const argOf = (s: ClaudeSpawn, flag: string) => s.args[s.args.indexOf(flag) + 1] ?? "";
 export const allowed = (s: ClaudeSpawn) => argOf(s, "--allowedTools").split(",");
 export const denied = (s: ClaudeSpawn) => argOf(s, "--disallowedTools").split(",");
@@ -66,12 +75,12 @@ beforeEach(() => {
   markIndexed(dir);
   writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
   seen = [];
-  after = [];
 });
 afterEach(() => {
   env.spawnClaude = real;
   delete process.env.TESTIMUS_IN_CLAUDE;
   delete process.env.TESTIMUS_HOME_BIN;
+  delete process.env.TESTIMUS_WITHOUT_DOCS;
 });
 
 export const NEVER = [

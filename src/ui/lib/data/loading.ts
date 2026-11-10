@@ -7,6 +7,7 @@ import { matches } from "./query.ts";
 // ponytail: what a skeleton stands for, in words — the one vocabulary of the « Loading … » line under every skeleton,
 // one entry per read a screen waits on behind one
 const WORDS = {
+  "claude.preview": "what the run is given",
   "claude.prompts": "what Claude is given",
   "claude.status": "Claude's status",
   "contexts.list": "the contexts",

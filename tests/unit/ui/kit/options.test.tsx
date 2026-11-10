@@ -3,6 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SkipReview } from "../../../../src/core/claude/gen-reply.ts";
+import { VERDICTS } from "../../../../src/core/types.ts";
 import {
   Badge,
   COLUMN,
@@ -12,8 +14,11 @@ import {
   jiraStatus,
   REVIEW,
   RUN_STATUS,
+  SECOND_LOOK,
   SEVERITY,
+  STEP_VERDICT,
   SYNC,
+  type Word,
 } from "../../../../src/ui/components/ui/Badge.tsx";
 import { Button } from "../../../../src/ui/components/ui/Button.tsx";
 import { Card } from "../../../../src/ui/components/ui/Card.tsx";
@@ -126,6 +131,50 @@ describe("Badge vocabularies (audit n° 30, 31, 32, 33)", () => {
     expect(jiraStatus("Done")).toMatchObject({ label: "Done", tone: "success", icon: "check-circle" });
     expect(jiraStatus("In Progress")).toMatchObject({ tone: "warning", icon: "clock" });
     expect(jiraStatus("To Do")).toMatchObject({ tone: "neutral", icon: "circle-dashed" });
+  });
+
+  it("STEP_VERDICT has a word for each verdict of the check, and one for passages the run never opened", () => {
+    const words = (v: Record<string, Word>) => Object.entries(v).map(([k, w]) => [k, w.label, w.tone, w.icon]);
+    expect(words(STEP_VERDICT)).toEqual([
+      ["supported", "Supported", "success", "check"],
+      ["unsupported", "Unsupported", "danger", "x-circle"],
+      ["unverified", "Not verified", "warning", "circle-dashed"],
+      ["not-opened", "Not opened during the check", "warning", "alert-triangle"],
+    ]);
+    for (const v of VERDICTS) expect(STEP_VERDICT[v], v).toBeTruthy();
+    expect(STEP_VERDICT["not-opened"].tooltip).toMatch(/this verdict is no proof/);
+    render(<Badge {...STEP_VERDICT["not-opened"]} size="sm" />);
+    expect(screen.getByText("Not opened during the check")).toHaveAccessibleDescription(/saw no call of the check/);
+  });
+
+  it("SECOND_LOOK has a word for each second look at an item left without a test, and one for a doubt of Testimus' own", () => {
+    const words = (v: Record<string, Word>) => Object.entries(v).map(([k, w]) => [k, w.label, w.tone, w.icon]);
+    expect(words(SECOND_LOOK)).toEqual([
+      ["confirmed", "Confirmed", "success", "check"],
+      ["writable", "Can be written", "warning", "generate"],
+      ["unsure", "Unsure", "neutral", "circle-dashed"],
+      ["doubt", "Doubt", "warning", "alert-triangle"],
+    ]);
+    const perVerdict: Record<SkipReview["verdict"], Word> = SECOND_LOOK;
+    expect(Object.values(perVerdict).every((w) => w.icon)).toBe(true);
+  });
+
+  it("quiet: the icon and the word alone, one look whatever the tone, and still its tooltip", () => {
+    render(
+      <>
+        <Badge label="Loud" tone="success" icon="check" size="sm" />
+        <Badge label="Quiet" tone="success" icon="check" size="sm" quiet />
+        <Badge label="Quiet danger" tone="danger" icon="check" size="sm" quiet tooltip="Read against §2" />
+        <Badge label="Plain" size="sm" />
+      </>,
+    );
+    const quiet = screen.getByText("Quiet");
+    expect(quiet.querySelector('[data-icon="check"]')).not.toBeNull();
+    expect(cls(quiet)).not.toBe(cls(screen.getByText("Loud")));
+    expect(cls(quiet)).not.toBe(cls(screen.getByText("Plain")));
+    expect(cls(quiet)).toContain("Badge__styles.quiet");
+    expect(cls(screen.getByText("Loud"))).not.toContain("Badge__styles.quiet");
+    expect(screen.getByText("Quiet danger")).toHaveAccessibleDescription("Read against §2");
   });
 });
 

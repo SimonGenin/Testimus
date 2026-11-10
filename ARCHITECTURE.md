@@ -172,7 +172,8 @@ rebuilt; they are never hand-edited.
 
 ```
 <project>/
-  CLAUDE.md            project rules for Claude (template, then the team's)
+  CLAUDE.md            project rules for Claude: Testimus' rules, which follow the app, then « Team notes », the
+                         team's own (§11)
   .mcp.json            declares `testimus mcp` (rewritten by every run)
   .claude/skills/      shipped skills (generate-tests, plan-tests, check-test, analyze-test, fix-test, edit-test, ask-docs,
                          define-columns, study-document, draft-comment, overview-documents) + the team's own
@@ -194,7 +195,8 @@ rebuilt; they are never hand-edited.
                          the tester found), results/<testId>/ (screenshots), images/<testId>/ (the tests' pictures)
   eval/behaviors.jsonl the project's retrieval benchmark set (§6)
   index/rag.db         derived: chunks, full text, vectors per space, graph, last index state; per machine, not shared
-  .testimus/           derived, not shared: jobs/, runs/<runId>/ (snapshots), gen/<generation>.json (ledger),
+  .testimus/           derived, not shared: jobs/, runs/<runId>/ (run.json: who, what was sent, the snapshots;
+                         mcp.json: the run's own MCP config, §11), gen/<generation>.json (ledger),
                          chats/, actions/, eval/ (reports), pages/, frames/ (media.frame), uploads/, migrations/
                          (what a migration changed), overview/last.json (the last update's before and after),
                          shipped.json (above), jira-project.json
@@ -398,11 +400,12 @@ docs/<docId>/
     than not asking — `testimus docs add` leaves the overview up to date, as the app does; `lib/overview-after.ts
     overviewAsked`).
   - **Given to every run** while `inEveryRun` is on and the file is there (`lib/overview.ts overviewGiven`, the one test
-    `withOverview` — applied by `runClaude` — and Settings › Context both use): one line
-    at the end of the prompt — « Before you start, read docs/OVERVIEW.md: … » —, a pointer and not the text (decided:
-    the soberest in tokens — the file grows with the corpus, Claude reads it once when the run needs it, and the line
-    costs ~40 tokens); not to the runs that only describe pictures or passages (figures, headers, media) nor to the
-    overview's own run. Settings › Context shows the line (« Every run ») and the file itself while it is given.
+    what goes with a run — `claude/given.ts`, §11 — and Settings › Context both use): one line of the block every
+    prompt carries, « Read first — … docs/OVERVIEW.md — how the project's documents fit together », a pointer and not
+    the text (decided: the soberest in tokens — the file grows with the corpus, Claude reads it once when the run
+    needs it); not to the runs that only describe pictures or passages (figures, headers, media) nor to the
+    overview's own run. It is a piece like the others (2026-11-10): the Context dialog of a Claude block shows it and
+    a run may leave it out (`without: ["overview"]`). Settings › Context shows the file itself while it is given.
 - **Migration of the media batches** (2026-11-08; the batches were built on 2026-11-05: `doc.json.media`,
   `media/<lot>/part.md` appended to `body.md`, anchors `§lot-<lot>.<item>` and `fig:lot-<lot>.<item>`).
   `lib/media-migrate.ts` turns each batch into an images document of its own: id `<parent>-<batch>`, title the
@@ -648,7 +651,10 @@ after the frontmatter, so a review decision never makes findings stale.
 - `gen.tests` is a job running the `generate-tests` skill through `claude -p`. A request that takes more than one test
   is first planned (`plan-tests`, a `test-plan` block), then written **one run per test**, as many at a time as the
   agents setting and the PC allow (`lib/agents.ts`); one revert for all; a failed run stops the plan and
-  `gen.tests --resume <generation>` writes what is left under the same generation.
+  `gen.tests --resume <generation>` writes what is left under the same generation. **The search is the plan's**: a
+  planned run the plan gave its sections is told to read them in full and follow what they refer to, not to search
+  the scope again (four planned runs searching one section again cost 4.7 M input tokens against 2.7 M, §16); a
+  planned run given whole documents, and every unplanned run, keeps the line « Search before you design ».
 - Skill rules: positive and negative paths, technique named; every smart column filled as its description says, only
   with what a source supports; **every expected result has a source, else the step is not written and the gap is
   reported**; « not simulated » only when a source says so; no reference inside Action/Expected (they live in
@@ -659,19 +665,37 @@ after the frontmatter, so a review decision never makes findings stale.
   holds over a skill the team edited); the mechanical check has no length rule and `check-test` never reports one.
   `tests/unit/core/gen/step-length.test.ts` fails on a hard-limit wording in any shipped skill, the code's prompts or
   the mock.
-- The skill ends with a fenced `gen-report` block `{ tests, skipped: [{ item, category, why, sources? }], consulted,
-  covered? }` (`claude/gen-reply.ts`; `plan-tests`' `test-plan` block has the same `skipped`; `covered`, asked only of a
-  run that adds to a generation, names the items not written before that it wrote a test for). Every new test is stamped `review:
-  draft` + `generated_by`, and checked at once. The run is snapshotted (revertable).
-- **Why a test was not written** (2026-11-08): `category` is a few words Claude chooses for the run, in the project
-  language, the same words for items of the same nature — **no list of categories exists in the code**, the skills and
-  the prompt only give examples; `why` is one or two concrete sentences (which source is missing, what the documents or
-  `context.md` say). An item without a category (an older report, a model that left it out) reads as « Other »; a
-  planned test a cancel or a failed run left is « Stopped before it was written ». One grouping, the core's
-  (`claude/gen-reply.ts byCategory`): the results and `gen.show` carry the items by category, the largest group first,
-  and the core's actions group them the same way; the page only cuts the list where the category changes
-  (`screens/generate/SkippedList.tsx`); every category wears the warning tone, since
-  the code cannot tell a gap from a choice.
+- The skill ends with a fenced `gen-report` block `{ tests, skipped, covered? }` (`claude/gen-reply.ts`;
+  `plan-tests`' `test-plan` block has the same `skipped`; `covered`, asked only of a run that adds to a generation,
+  names the items left out before that it wrote a test for). The block is **read against a schema** (zod, `REPORT`,
+  `PLAN`): a reply that carries none, or one that does not fit, is asked again once in the same session
+  (`--resume`, the problems named field by field — `claude/parts.ts readBlock`, `askAgainLines`); still unreadable,
+  the result says so (`reportFound: false`, `reportErrors`), the job logs an error and Generate shows it — what a run
+  left without a test is never lost in a log. Every new test is stamped `review: draft` + `generated_by`, and checked
+  at once. The run is snapshotted (revertable).
+- **What a generation leaves without a test is said with its proof** (rethought on 2026-11-10; it replaced the free
+  categories of 2026-11-08, which a benchmark showed drifting — the same nature under two wordings, the same item
+  three times, an item another test of the plan took reported as left out). A behavior left out is coverage taken
+  away, so it is told like a step: `{ item, reason, why, sources, searched, read, unblock, test }`. `reason` is a
+  **closed list** (`SKIP_REASONS`): `no-source` (no passage states what the tester must see), `not-observable`,
+  `already-tested` (with `test`), `out-of-scope`, `documents-disagree`, `missing-material` (what would state it is
+  not in the project), plus the core's own `stopped` (a cancel or a failed run) and `other` (a ledger older than the
+  list: its words are kept as its `category`). `why` is one or two concrete sentences; `sources` the passage that
+  asks for it; `searched` and `read` what the run did before giving up; `unblock` what would let the test be
+  written and who can bring it. The schema refuses an item without them (a `no-source` without a search said, an
+  `already-tested` without its test). Then three things happen, none of them Claude's own word:
+  1. **one list** — the plan and each run report on their own: `dedupeSkipped` keeps one of a behavior reported
+     several times (same reason and the same words, or the same passage asking for it), and drops an item
+     `already-tested` by a test of the generation itself; a planned run is told that what the other tests of the plan
+     take is theirs and never reported;
+  2. **doubts** (`skipDoubts`, no model) — a source that does not hold its quote at its anchor, a passage said read
+     that the run's tool calls never opened, a run that gave up for want of a source without a single search, a test
+     that does not exist: told beside the item, never removing it;
+  3. **a second look** (`review`, below) — while the new tests are checked, Claude searches once more for each item
+     and says `confirmed`, `writable` (with the passage, which Testimus checks like any source — it is `unsure`
+     otherwise) or `unsure`.
+  One grouping, the core's (`byCategory`: by reason, the largest group first); the page only cuts the list where the
+  reason changes.
 - **The test being written** (2026-11-08): a generation job's progress lines carry, when it moved, `gen: [{ id?, summary?, state:
   waiting | writing | written | missed }]` (`claude/gen-board.ts`), from the run's own tool calls — the test a run is on
   is `writing`, the one it left `written`, a planned test not started `waiting` with its plan summary, a planned run
@@ -690,8 +714,7 @@ after the frontmatter, so a review decision never makes findings stale.
   replacing the old). Two *add* on one generation run one after the other (`perKey` in `src/shared/run/work.ts`), so
   neither loses the other's tests. Both modes run with the contexts the generation ran with (the ledger's
   `input.contexts`, recorded since 2026-11-08; an older ledger falls back to the project's default) unless given
-  others. A planned run, and a run that adds, is told the categories the generation's items not written already use,
-  so the same kind of item keeps the same words across runs. « Cover the skipped items » is an *add* (a quick ask may
+  others. « Cover the skipped items » is an *add* (a quick ask may
   carry a scope: `ClaudeBlock` `quickAsks[].scope`). Both are snapshotted like any generation. `gen.show` reads a generation: its name, request, date, tests still there and
   skipped items. On Generate, once a generation is done, the left column is « Ask for changes » (`AskChanges`: the
   kit's `ClaudeBlock`: in its foot a Scope select — All N tests · The n with a fix · Pick tests… · New tests — then
@@ -705,27 +728,23 @@ after the frontmatter, so a review decision never makes findings stale.
   is on that test's card in the result (its title, its problem in two lines, Fix runs it in the dock, × dismisses it;
   running and failed say so), the result's head counts them with « Show only these n »; beside the ask, « Claude
   proposes » counts them and lists what is proposed on the generation itself (the categories not written, Run).
-- **Claude says what is next after a generation** (`claude/gen-next.ts`, decided on 2026-11-09, at the end of
-  `gen.tests` and `gen.revise`, the job's last step « Propose what is next »): one run (template `gen-next`, marker
-  « Testimus after a generation ») reads the tests this run wrote or changed — those with findings whole, with their
-  findings, the others whole while the prompt stays under ~60 000 characters, then by summary — the request and the
-  items not written, calls no tool, and answers one fenced `gen-next` block: `fixes` (per test with findings, at most
-  3: a title that says the change — « Add EXI_MOP_CDC_365_1640 to steps 6 and 10 » —, its problem, why, plan, the
-  model and effort the fix needs) and `suggestions` (3 to 5 requests that fit these tests: `{ label, prompt, scope?:
-  "add" }`). Its fixes become ordinary `actions.*` on `test:<id>` (proposed by the core, `proposedBy.run` « after
-  generation »: deduplicated per problem, dismissed for good, stale once the test changes); a fix on a test that is not
-  this run's, or has no finding, is dropped. Its suggestions are kept in the generation's ledger (`suggestions`,
-  replaced by the next run that writes some, carried by an *add*), given by `gen.show`, and are the « Suggestions »
-  menu of Ask for changes; the fixed list (Add the negative paths…) is shown while a generation has none. **Sober**:
-  Sonnet, effort low, after every generation — measured on 2026-11-09 at $0.15 for two tests (most of it Claude Code's
-  own context), said in the job's log: « Claude proposed 3 fixes and 4 suggestions (sonnet, low effort: $0.15) ». **The core's rules are the fallback** (`claude/gen-actions.ts`):
-  when the run fails, its reply has no block, Claude is away or the generation failed or was cancelled (Claude is then
-  not asked), each test with errors or warnings gets « Fix the 2 errors in « summary » », and so does a test with
-  findings Claude left without a fix; the tests not written are always the core's: one action per category (« Write
-  the 2 tests skipped for « category » », where `gen:<generation>`, stale once the generation's skipped items change —
-  its stamp is the ledger's existence and its skipped items only: a test of it deleted, or a generation that wrote
-  none, leaves the action as it was); « Stopped before it was written » is resumed, never acted on. Proposing never
-  fails the generation: an action that cannot be proposed is a warning in the job's log.
+- **What is said about a generation rides in the request that checks its tests** (`claude/gen-review.ts`, decided
+  on 2026-11-10; it replaced the « what is next » run of 2026-11-09 and the core's « Write the N tests skipped for
+  « category » » actions, which the benchmark showed proposing work nobody could do — five actions for items with no
+  source, a design deliverable among them). The check request of `gen.tests` and `gen.revise` carries one more part,
+  answered in a fenced `gen-review` block: the **second look** at each item left out (above; not for a revision) and
+  **3 to 5 suggestions** (`{ label, prompt, scope?: "add" }`, never one that asks again for a behavior no passage
+  supports), kept in the generation's ledger and shown as the « Suggestions » of Ask for changes. No run of its own:
+  the check has just read the same passages. **Only what can be done leaves a Claude action**: a test with fixable
+  findings gets one from its check (§9), and an item the second look found `writable` gets « Write the test left
+  out: … » with the passage as the first step of its plan (`proposeWritable`, where `gen:<generation>`). A reason
+  that holds leaves nothing to do; `stopped` is resumed, never acted on. Without Claude, or after a failed or
+  cancelled generation, there is no second look and no action: the reasons are shown as the generation gave them,
+  with their doubts. The part asks only for what it has matter for (`hasReview`): the suggestions need tests to speak
+  of, the second look an item another look can settle — a request that added no test and left nothing of the kind
+  sends no request at all. The request it quotes is the one just asked (an « add » or a « change » too), and **the
+  check is given what the generation was given** (`checkTests { pick }`: its contexts, what it left out): tests written
+  with a glossary are judged with it.
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
   of `doc.md` mapped to sections, figure images) and what it searched. `gen.bench` scores agentic recall from it and a
@@ -743,13 +762,33 @@ after the frontmatter, so a review decision never makes findings stale.
   place), `quote-weak` (< 4 words or 20 chars, or found twice); Reference-source columns (`column-unsourced`,
   `item-not-found`); `figure-not-embedded`; `observed-only` (an expected result whose every source is in an images or
   video document not marked as the reference, §5).
-- **Semantic pass** (`check-test` skill, one test per run, in parallel): `unsupported`, `contradicted`, smart column
-  not as described, `wrong-object`, `negative-missing`, `case-missing`, `not-simulated-unsourced`, `vague-result`,
-  `documents-conflict` (an amendment wins, a validated document wins over a draft), `figure-not-embedded`, `other`. It
-  sends findings with `check_record` (replaces the semantic ones, stamps `testHash`). A `fig:` source's image must be
-  `Read` before it is accepted. `check.run` decides the semantic pass itself (Claude there or not); the page never does.
-- `check.json` `{ at, testHash, findings: [{ step?, kind, severity, message, sources, pass }] }`; stale when `testHash`
-  moved. A document that changes re-runs the mechanical pass of the tests citing it.
+- **Semantic pass** (`check-test` skill; rethought on 2026-11-10): `unsupported`, `contradicted`, smart column not
+  as described, `wrong-object`, `negative-missing`, `case-missing`, `not-simulated-unsourced`, `vague-result`,
+  `documents-conflict` (an amendment wins, a validated document wins over a draft), `figure-not-embedded`, `other`.
+  A `fig:` source's image must be `Read` before it is accepted. `check.run` decides the semantic pass itself (Claude
+  there or not); the page never does.
+  - **One request checks up to four tests** (`CHECK_LIMITS`, `claude/parts.ts`): they share the passages they have
+    in common and the turns it takes to open them. Each test is recorded on its own with `check_record`; a test the
+    request did not record is asked again once, alone, and only then gets « The semantic check did not finish ».
+    Measured on 2026-11-10 on four tests with six planted errors, Sonnet high and Opus high: the six errors found
+    before and after, 1.6 M → 0.39 M and 2.4 M → 0.43 M input tokens.
+  - **A verdict per step is the proof of the check** (`check_record { id, steps: [{ step, verdict, read, why? }],
+    findings }`): `supported` (the passages opened state the expected result), `unsupported`, `unverified` (with
+    why), and `read`, the `docId#anchor` opened to judge it. Called by a Claude run the command refuses a record
+    that is not one (`check-incomplete`: a step without verdict, a judged step without a passage, a step called
+    supported that an error of the same record disproves — `lib/check.ts verdictProblems`), saying what is missing, so
+    Claude corrects it in the same run. The core then stamps each verdict `opened` from the run's own tool calls
+    (`stampOpened`): a verdict naming passages the run never opened is shown as no proof. A test without finding
+    still shows that every step was read against a passage, and which.
+  - **A finding the documents settle carries its fix** (`fix`: what the step should say instead, from which
+    passage; none when only the team can decide). The check proposes no action itself: after it, the core leaves
+    **one Claude action per test** with fixable findings (`proposeFix`: the mechanical findings, whose message says
+    what to write, and the semantic ones with a fix), its plan the fixes themselves. This is the one place a fix is
+    proposed for a test — the check's own `actions_propose`, the « what is next » run and the core's fallback rule
+    were three sources for the same thing.
+- `check.json` `{ at, testHash, findings: [{ step?, kind, severity, message, sources, pass, fix? }], verdicts?: [{
+  step, verdict, read, why?, opened? }] }`; stale when `testHash` moved. A document that changes re-runs the
+  mechanical pass of the tests citing it (the verdicts stay while the test did not change).
 - **Review**: **Validate** (`validated`) or **To fix** with a note (`to-fix`). `draft` → `checked` only after a
   successful semantic check. `review.fix { id, note }` = mark to-fix, run `fix-test`, re-check → `checked` (never
   straight to `validated`), with a run id for Revert. A push of a non-validated test asks for confirmation; on push the
@@ -927,10 +966,16 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   it resolves to an `.exe`. Every run and `project.init` rewrite `.mcp.json` (installed: `cmd /c <abs>\testimus.cmd
   mcp`; development: `node <checkout>/src/faces/cli.ts mcp`), which sets `TESTIMUS_IN_CLAUDE=1`.
 - **Tool access per run kind** (`claude/access.ts`, from the command list the registry hands over — the Claude layer
-  never imports the registry): chat, figures, headers, triage → read-only commands only (`mutates: false`, no job, no
-  `system`/`project`/`jobs`/`claude` but `claude.prompts`); check adds `check_record`; analyze adds `analysis_record`; generation adds `tests_create/edit/save/addImage`,
-  `check_run`; fix and `claude.run` add `tests_edit/save/addImage`; `action` gets the whole set minus another Claude
-  run, Jira writes and the machine. Everything else goes to `--disallowedTools`, with `Edit`/`Write` refused on
+  never imports the registry). **A run is given the tools its job uses, not every read of the app** (2026-11-10):
+  every tool's definition is sent with every turn, and 62 to 68 of them were 10 000 to 15 000 tokens a turn — for a
+  run that only looks at pictures too. `READS` lists the read-only commands of each kind (figures, headers, media:
+  none; check, analyze, generate, fix, run, columns, study, overview: the document and test reads their skill uses,
+  17 to 26 tools; chat: a wide set, a question may be about anything; triage: all of them — a problem of the app may
+  be anywhere), `EXTRA` what a kind answers with or may change (check `check_record`; analyze `analysis_record`;
+  generation `tests_create/edit/save/addImage`, `check_run`; fix and `claude.run` `tests_edit/save/addImage`;
+  triage and study `actions_propose`); `action` keeps the whole set minus another Claude run, Jira writes and the
+  machine. A name in `READS` that is not a read-only command fails a test. Everything else goes to
+  `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
   `.mcp.json`, `CLAUDE.md`, `test-runs/**`; the writes of `runs.*` are off every run kind, `action` included (§9b).
   The `overview` kind (§5) is the one run that may write a file under `docs/`, `docs/OVERVIEW.md`: instead of
@@ -945,15 +990,58 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
 - **Chat** (`chat.ask`): a session per conversation (`--resume <session_id>`, `.testimus/chats/`), skill `ask-docs`,
   sources in the same `docId#anchor "quote"` form. « The documents do not say » only after `rag_mentions` and
   `rag_related`.
-- **Contexts**: a run on a test attaches its own list (`local.json`) else the project's `claude.contexts`; ids whose
-  folder is gone drop out.
+- **What goes with a run is decided in one place** (`claude/given.ts`, 2026-11-10; before, seventeen modules each
+  built their own context lines with four inheritance rules, the overview was appended by the runner, and the check
+  opened the contexts' folders without ever naming them). `given(project, kind, subject, pick)` gives the **pieces**
+  of a run and the block every prompt carries after its instruction:
+  - *the overview* (`docs/OVERVIEW.md`, a pointer) when it is given to the runs, not for the kinds overview, figures,
+    headers, media;
+  - *the saved contexts* by **one rule** (`attachedContexts`): a run reads the contexts of what it is about — a
+    test's own list (`local.json`) or a document's own list (`doc.json`) when it has one, else the project's
+    `claude.contexts`; several tests, each one's; the whole project, the defaults and every test's own list; ids
+    whose folder is gone drop out; what the user picks for one run replaces it. Every kind of run goes by it — a
+    question, a comment draft, the check and the overview get the project's defaults like the others. A context's
+    notes of 4 000 characters or less are **said in full** in the prompt (no file to open); longer ones, its files and
+    its outside paths are pointed at;
+  - *what the team knows about the documents of the run* (`docs/<id>/context.md`): said in full for the documents
+    the run is about — the ones a test cites, a generation's scope, the document of a document job — no longer left
+    for Claude to go and read;
+  - *the documents Claude may search*, for the kinds that search: listed, and one **can be left out of a run**. A
+    document left out is closed for real, not asked politely: `Read(docs/<id>/**)` is denied, and the run starts
+    with its own MCP config (`.testimus/runs/<runId>/mcp.json`) whose env names the documents, so `rag_search`,
+    `rag_mentions`, `rag_related`, `rag_passage`, `rag_figure` and `docs_show` leave them out or refuse them
+    (`doc-left-out`) for that run only;
+  - *the user's note and the conversation*, said in full.
+  Every command that starts a run takes `contexts` (the run's list) and `without` (`overview`, `context:<id>`,
+  `doc:<id>`, `docnote:<id>`): a choice for this run only, never kept. The runner records what was sent with the
+  run (`run.json` `sent: { chars, tools, given }`).
+- **A request is shown before it is sent** (`claude.preview { use, scope?, docs?, sections?, contexts?, without?,
+  generation?, note?, conversation? }`): the instruction (its template), the skill it names, the project rules, the
+  tools of that kind of run, then the pieces of `given` — worked out by the function the run itself calls, so what is
+  listed is what is sent. With `generation` (a request of « Ask for changes ») the contexts and the documents in scope
+  are the ones that generation ran with, as `gen.revise` takes them from its ledger (§8). Each piece says how it
+  reaches Claude (`inline`, `pointer`, `auto`: loaded by Claude Code,
+  `search`), its size, why it is there, and whether the run can go without it (`locked`: the instruction, the skill,
+  the rules, the tools, the user's own words). The Context button of every Claude block opens it (§12).
+- **One request, several parts** (`claude/parts.ts`, 2026-11-10): a request carries as many parts as fit — four
+  tests to check, and what to say about the generation they come from — and each part is answered on its own, through
+  a command of the app (`check_record`, validated as it is called) or in a tagged block of the reply read against a
+  schema (`readBlock`). What came back is kept; what did not is asked once more, alone (`askParts`); a part still
+  unanswered is told to whoever asked. A request never fails whole because one of its parts did.
 - **Claude actions** (`actions.*`, `.testimus/actions/`): proposals from the check, the generation and triage, and after
   a generation from its « what is next » run or the core's own rules (§8), shown beside the problem they fix; stale when the problem's place (`where`:
   `doc:`, `test:`, `job:`, `gen:<generation>` or `project`) changes; one open action per problem; dismissed stays
   dismissed. `actions.list { generation }` gives a generation's own and its tests'. A Claude action never starts
   `gen.revise`. `actions.run` refuses an action whose test, document, generation or job is gone (code `action-gone`,
   the fix says to dismiss it). Triage has two templates: a failed job's (`triage`) and a document's conversion
-  problems' (`triage-doc`, with what the team knows about the document).
+  problems' (`triage-doc`, with what the team knows about the document). **Who proposes** (2026-11-10): a run proposes
+  with `actions_propose` only where it looked at a problem of the app's — triage, the conversion check, a question
+  about a problem — by one rule said once (`ACTION_RULE`: what it looked at and can fix from the files, at most 3,
+  never a choice of the team, a plan whose last step says how anyone will know it worked); a test's findings and a
+  generation's items left out are never proposed by a run: the core builds those actions from the check (§9, §8).
+  **An action is known to have worked by what is left** (`last.left { was, now, of }`): after a run on a test the
+  test is checked again and its findings counted, after a run on a document its conversion warnings — counted by
+  Testimus, never taken from Claude's reply.
 - **The action file** `.testimus/actions/<act-id>.json`: `{ id, title, scope, where, problem, why, plan, stamp,
   proposedBy: { run, model, effort, at, runId? }, suggest?: { model, effort }, state: open | running | done |
   dismissed, at, last?: { runId, ok, summary, at, model, effort }, target?: { kind: project | document | test |
@@ -974,16 +1062,36 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   the project's skills (`.claude/skills/*/SKILL.md`, the team's own too), every prompt Testimus builds, `CLAUDE.md`
   and the contexts attached by default, grouped by use, each with what sends it (screens and commands). **A built
   prompt is shown as its template, from the builder the run itself calls**: every module that runs `claude -p` exports
-  `prompts` — its builder given the parts filled per run as `{placeholders}` (`{request}`, `{contexts}`…; the context
-  lines, a document's team note and the smart columns are pure functions for that) — and `claude/catalog.ts` lists
-  them, so the screen never shows a copy of the text. A module that runs Claude without its entry fails
-  `tests/unit/core/claude/catalog.test.ts`; so does a module outside `commands/` that runs Claude through another
-  (`generateTests`, `runOnScope`, `triage`…) without `promptsUsed` naming the templates it causes, and a `claude.run`
-  scope without its `ask-<kind>` template. The skills are shown after `shipSkills`, as the next run sends them; `prompts-sent.test.ts` keeps the exact text each run sends for one input
+  `prompts` — its builder given the parts filled per run as `{placeholders}` — each with the **kind of run** that
+  sends it, **what the run gives back** (`answers`) and, worked out from that kind, **what goes with it** (`takes`:
+  the overview or not, the documents listed or not, the contexts' rule, the tools); `claude/catalog.ts` lists them,
+  so the screen never shows a copy of the text. The block every prompt carries is one entry (`given`). A module that
+  runs Claude without its entry fails `tests/unit/core/claude/catalog.test.ts`; so does a module outside `commands/`
+  that runs Claude through another (`generateTests`, `runOnScope`, `triage`…) without `promptsUsed` naming the
+  templates it causes, and a `claude.run` scope without its `ask-<kind>` template. The skills are shown after
+  `shipSkills`, as the next run sends them; `prompts-sent.test.ts` keeps the exact text each run sends for one input
   (`prompts-sent/*.txt`, updated with `vitest -u` when a prompt changes on purpose). Decided: a skill takes the group
   and the « used by » of the built prompts that name it (« Use the X skill »); one no prompt names is a Team skill;
   each default context is its own entry (its `context.md`); the two sign-in probes (`claude.status`, the doctor) are
   listed too; `claude.run`'s run moved from its command to `claude/scoped.ts`.
+- **Who says what, once** (2026-11-10, when every prompt, the eleven skills and the project `CLAUDE.md` were
+  rewritten): the *prompt* holds what is this run's alone (the request, its scope, the columns, the shape of the
+  answer); the *skill* how the job is done; `CLAUDE.md` what holds for every run and for a person in a terminal (what
+  is in the folder, `test.md`, the sources, the columns). A rule lives in one of the three. `CLAUDE.md` went from
+  15.8 to 8.4 thousand characters — it is read by every run — and `generate-tests` from 18.7 to 11. The skills tell
+  Claude to send independent calls in the same turn: a turn costs the whole conversation again. A prompt names the
+  project's language by its name (`claude/language.ts` `languageName`: « French », never « fr »), every prompt the
+  same way.
+- **The rules of `CLAUDE.md` follow the app** (`lib/shipped.ts`): everything above `## Team notes` is Testimus' and is
+  brought up to the app's version at every run, like a skill; the team's notes below are kept as they are. Rules the
+  team edited are kept and the new file is written beside (`CLAUDE.new.md`). A project made before this rule held no
+  record of its file: the rules of every `CLAUDE.md` Testimus shipped are known by their hash (`RULES_BEFORE`), so an
+  unedited one is recognised. Before, a project kept for ever the rules of the day it was made.
+- **Prompts are measured, not believed** (2026-11-10): a change of prompt or skill is run for real on two
+  configurations — Sonnet high and Opus high — before and after, on a copy of a project with a real specification:
+  the check on tests with planted errors (how many are found, how many false alarms on right tests), a generation on
+  one section (the tests, what is left out and whether each reason holds, the actions proposed), and the tokens of
+  each. The figures of 2026-11-10 are in §16.
 - « Is Claude there » is `claude --version` (10 s cap, shared by callers); failure diagnosis (connect / login / credit /
   limit / network) is ported from Xray Editor.
 - Claude acts on the app only through MCP tools and by editing files in the project folder; it never calls the HTTP
@@ -1023,8 +1131,14 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
 - **One kit** (`src/ui/components/ui/`): one component per control, and every drawn piece of the design (Field,
   SaveState, Answer, Ask, Passage, Raw, Facts, Timer, Pane, Tile, Card, Badge vocabularies…). `Text` is every field
   (boxed, inline, bare, table cell) with its save state, Claude's lock and its autosave; `ClaudeBlock` (every place
-  Claude is asked) is built on `Text`, and its « + » is always `components/claude/ContextMenu` (the saved contexts
-  ticked, the block's own text saved as a context, Manage — no second text box for a note; guard G3). Nothing of the
+  Claude is asked) is built on `Text`, and its « Context » button always comes from `components/claude/useRunContext`
+  (2026-11-10; it replaced the « + » menu of saved contexts): it opens `ContextDialog`, which draws with the kit's
+  `FlowMap` everything `claude.preview` says the run is given — instruction, skills, rules, tools, contexts, documents
+  and what the team knows about them — each piece linked to the request, with its weight, why it is there and how it
+  travels (said in full, pointed at, loaded by Claude Code, searched). A tick holds for this run only (`contexts` /
+  `without` in the command's input); a locked piece is shown and cannot be unticked; the saved contexts are created,
+  edited and deleted there, and the block's own text is saved as one (no second text box for a note; guard G3). The
+  same dialog picks a kept list (a document's, a test's) in its `standing` mode. Nothing of the
   browser's own UI shows (a select's list is the kit's `Menu`, a
   search field's cross is the kit's). Extend a component by an option, then a wrapper, then — only if it resembles
   nothing — a new component; never copy its JSX. `#/kit` (under `--mock`) is the catalogue: every component in each
@@ -1231,6 +1345,41 @@ first-class: every screen works without the bridge.
   and the French quality of the small model on a real PCC recording is unmeasured; the mosaics' tile labels need a
   font for librsvg (the prompt lists every tile's moment anyway); HEVC `.mov` from an iPhone may not play in the
   page's player (Chromium has no HEVC on Windows without the system codec).
+- **The prompts of 2026-11-10, measured** (§11 « Prompts are measured »; real `claude -p` runs on a copy of a
+  project holding the specification `SOSIE_211_D401-1_3`, « before » = the code and prompts of the commit before the
+  rework, one run per cell, so a figure is an order of magnitude, not a mean):
+
+  | Check of 4 tests, 6 planted errors | Sonnet high before | after | Opus high before | after |
+  |---|---|---|---|---|
+  | Planted errors found | 6 | 6 | 6 | 6 |
+  | Findings on the 2 right tests | 1 warning | 1 warning | 3 warnings | 2 warnings |
+  | Requests / tool calls | 4 / 41 | 1 / 21 | 4 / 56 | 1 / 23 |
+  | Input tokens | 1.60 M | 0.39 M | 2.36 M | 0.43 M |
+  | Wall time | 32 s | 58 s | 53 s | 81 s |
+
+  | Generation, « L'objet Sectionneur (S) de l'image Traction », §5.6.6 | Sonnet high before | after | Opus high before | after |
+  |---|---|---|---|---|
+  | Tests written (steps) | 2 (12) | 3 (23) | 2 (25) | 3 (29) |
+  | Findings of the check on them | 0 | 1 warning | 0 | 1 warning |
+  | Passages opened | 31 | 30 | 96 | 70 |
+  | Items left without a test | 6, one free category | 7, each a reason with its evidence | 11 with duplicates, 5 free categories | 6 |
+  | Second look at them | none | 6 confirmed, 1 unsure | none | 5 confirmed, 1 unsure |
+  | Actions proposed | 1 generic | 0 | 5 generic | 1 (« Fix 1 warning in … ») |
+  | Runs / tool calls | 4 / 51 | 5 / 103 | 6 / 163 | 6 / 180 |
+  | Input tokens, all runs | 1.83 M | 2.67 M | 7.72 M | 5.90 M |
+  | Wall time | 115 s | 229 s | 331 s | 324 s |
+
+  Read: the check finds the same errors for a quarter to a sixth of the tokens (one request for four tests, 17 tools
+  described instead of 62), and takes longer on the clock since nothing runs side by side any more. The generation
+  now writes one test per type of the object (the specification gives three types, each with its own menu) where it
+  wrote two; what it leaves out has no duplicate and no free category, and no action is proposed for an item no
+  document can decide. Sonnet spends more in all (2.67 M against 1.83 M) for nearly twice the steps — 116 k tokens a
+  step against 152 k; Opus spends a quarter less for more steps. Two things are **not measured**: the Opus « after »
+  column was run before the last change (a planned run reads the sections of its plan instead of searching the scope
+  again — on Sonnet that change took the same request from 4.68 M to 2.67 M), and the quality of the tests was judged
+  by reading them (Claude, the session that wrote the prompts), not by a tester on the simulator. A first « after »
+  version without the search line wrote a single test and opened 2 passages on Sonnet: the line « Search before you
+  design » stays in the unplanned prompt for that reason.
 - Test runs as pages (§9b) were designed from the description of the team's interactive test sheet
   (`D:\SVN\B040L00320_Ratp_Sosie_Sources\.claude\skills\testing\`: HTML + `data.json`, OK / NOK per line) and the
   design, on a Mac where that sheet is not: **the port was not compared with the original**. Not proven either:

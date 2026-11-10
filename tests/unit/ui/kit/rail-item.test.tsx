@@ -80,22 +80,22 @@ describe("options asked by the screens", () => {
     expect(screen.getByLabelText("Default model")).toHaveAttribute("id", "set-model");
   });
 
-  it("a ClaudeBlock takes its own add-context trigger and content inside its frame", () => {
+  it("a ClaudeBlock takes its owner's Context and content inside its frame, above the foot", () => {
+    const onOpen = vi.fn();
     render(
-      <ClaudeBlock
-        ariaLabel="Prompt"
-        value=""
-        contexts={[{ id: "g", label: "Glossaire", on: true }]}
-        onAddContext={() => {}}
-        addContext={<Button size="sm" label="Pick contexts" />}
-        onSubmit={() => {}}
-      >
+      <ClaudeBlock ariaLabel="Prompt" value="" context={{ count: 3, onOpen }} onSubmit={() => {}}>
         <span>Additional note</span>
       </ClaudeBlock>,
     );
-    expect(screen.getByRole("button", { name: "Pick contexts" })).toBeInTheDocument();
+    const note = screen.getByText("Additional note");
+    const context = screen.getByRole("button", { name: /^Context/ });
     expect(screen.queryByRole("button", { name: "Add context" })).toBeNull();
-    expect(screen.getByText("Additional note")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Prompt" }).compareDocumentPosition(note)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(note.compareDocumentPosition(context)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    fireEvent.click(context);
+    expect(onOpen).toHaveBeenCalled();
   });
 
   it("the live toasts can be read outside the stack", () => {

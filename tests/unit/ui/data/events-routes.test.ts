@@ -30,16 +30,31 @@ describe("which reads a changed file refreshes", () => {
     expect(keysOfPaths(["tests/T-2"])[0]).toEqual(["tests.show", { id: "T-2" }]);
   });
 
-  it("a document's context refreshes the document only; another file of its folder refreshes the lists", () => {
-    expect(keysOfPaths(["docs/D-1/context.md"])).toEqual([["docs.show", { id: "D-1" }]]);
+  it("a document's context refreshes the document and what a run is given; another file of its folder refreshes the lists", () => {
+    expect(keysOfPaths(["docs/D-1/context.md"])).toEqual([["docs.show", { id: "D-1" }], ["claude.preview"]]);
     expect(names(["docs/D-1/original.docx"])).toEqual([
       "docs.list",
       "rag.status",
       "project.info",
       "gen.preview",
       "docs.overviewShow",
+      "claude.preview",
     ]);
-    expect(names(["docs/OVERVIEW.md"])).toEqual(["docs.overviewShow", "claude.prompts"]);
+    expect(names(["docs/OVERVIEW.md"])).toEqual(["docs.overviewShow", "claude.prompts", "claude.preview"]);
+  });
+
+  it("what a run is given is read again with everything it is made of", () => {
+    for (const path of [
+      "project.json",
+      "CLAUDE.md",
+      ".claude/skills/check-test/SKILL.md",
+      "contexts/ctx-1/context.md",
+      "docs/D-1/doc.json",
+      "tests/T-1/local.json",
+    ])
+      expect(keysOfPaths([path]), path).toContainEqual(["claude.preview"]);
+    expect(keysOfKind("docs.overview")).toContainEqual(["claude.preview"]);
+    expect(keysOfPaths(["tests/T-1/test.md"])).not.toContainEqual(["claude.preview"]);
   });
 
   it("the columns and Xray's step schema refresh the project and the columns", () => {
@@ -51,11 +66,13 @@ describe("which reads a changed file refreshes", () => {
     expect(names(["CLAUDE.md", "contexts/a.md"])).toEqual([
       "project.notes",
       "claude.prompts",
+      "claude.preview",
       "contexts.list",
       "contexts.show",
       "contexts.ofTest",
       "contexts.ofProject",
       "claude.prompts",
+      "claude.preview",
     ]);
     expect(keysOfPaths(["README.txt", ".testimus/jobs/j1.jsonl"])).toEqual([]);
   });

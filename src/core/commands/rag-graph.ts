@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { leftOutDocs, refuseLeftOut } from "../claude/access.ts";
 import { command, projectOf } from "../command.ts";
+import { docIds } from "../lib/docs.ts";
 import { mentions } from "../rag/mentions.ts";
 import { related } from "../rag/related.ts";
 import { chunkKind, edgeKind } from "../rag/schemas.ts";
@@ -55,7 +57,15 @@ export const commands = [
     }),
     mutates: false,
     positional: ["term"],
-    run: async (ctx, input) => mentions(projectOf(ctx), input),
+    run: async (ctx, input) => {
+      const project = projectOf(ctx);
+      const out = leftOutDocs(ctx.llm);
+      if (!out.length) return mentions(project, input);
+      // ponytail: no document left to look in is an empty answer — an empty list of documents would mean « all »
+      const allowed = (input.docIds ?? docIds(project)).filter((d) => !out.includes(d));
+      if (!allowed.length) return { term: input.term, forms: [], total: 0, sections: 0, page: 1, pages: 0, docs: [] };
+      return mentions(project, { ...input, docIds: allowed });
+    },
   }),
   command({
     name: "rag.related",
@@ -84,6 +94,11 @@ export const commands = [
     }),
     mutates: false,
     positional: ["ref"],
-    run: async (ctx, input) => related(projectOf(ctx), input),
+    run: async (ctx, input) => {
+      const out = leftOutDocs(ctx.llm);
+      refuseLeftOut(ctx.llm, input.ref.split("#")[0]);
+      const r = await related(projectOf(ctx), input);
+      return out.length ? { ...r, neighbours: r.neighbours.filter((n) => !out.includes(n.ref.split("#")[0])) } : r;
+    },
   }),
 ];
