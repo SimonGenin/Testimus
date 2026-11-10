@@ -6,6 +6,8 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+## 0.0.9
+
 - L'écran Jobs disparaît. Un job s'ouvre dans un panneau à côté de l'écran (depuis un toast, la barre du haut ou l'écran qui l'a lancé) : ce qu'il a fait, où aller ensuite, ce qui n'a pas marché et quoi faire. Un job qui échoue reste signalé dans la barre du haut jusqu'à ce qu'on l'ouvre. Chaque test (sous ses étapes) et chaque document (Details) a son historique. Les jobs terminés sont gardés 30 jours, puis effacés tout seuls.
 - Les vidéos deviennent des sources à la seconde : une source cite un moment ou une plage (de 2:36 à 2:52), dite ou vue. Un clic la rejoue aussitôt en boucle, avec quelques secondes de marge (réglables dans Settings › Videos) ; au survol, la source montre l'image clé la plus proche et la phrase citée.
 - En tête d'un document d'images ou de vidéo, un badge dit s'il est « Observed » ou « Reference » ; on le change par le menu « … » (« Mark as the reference » / « Mark as observed »).
