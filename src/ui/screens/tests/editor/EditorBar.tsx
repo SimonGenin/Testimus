@@ -82,7 +82,7 @@ export function EditorBar({
   onFolder: (folder: string) => void;
   onRetry: () => void;
   onAsk: () => void;
-  /** Claude's analysis of the test against the documents: the pane open, the proposals left to decide */
+  /** Claude's cross-check of the test against the documents: the pane open, the proposals left to decide */
   analysis?: { open: boolean; count: number; onToggle: () => void };
   onPush: () => void;
   /** Review › Edit: the bar says « Editing », without folder, push or ⋯ (the way back to the review is in the top bar) */
@@ -119,7 +119,7 @@ export function EditorBar({
           size="sm"
           variant="claude-quiet"
           icon="verify"
-          label="Analysis"
+          label="Cross-check"
           count={analysis.count || undefined}
           pressed={analysis.open}
           onClick={analysis.onToggle}

@@ -299,7 +299,7 @@ export const HEALTH = {
   info: { label: "Info", tone: "info", icon: "info" },
 } as const satisfies Record<string, Word>;
 
-// what one proposal of Claude's analysis of a test does, and where it stands (Tests › Analysis)
+// what one proposal of Claude's analysis of a test does, and where it stands (Tests › Cross-check)
 export const PROPOSAL = {
   source: { label: "Source", tone: "accent", icon: "quote" },
   change: { label: "Change", tone: "warning", icon: "circle-dot", ink: "diffModified" },

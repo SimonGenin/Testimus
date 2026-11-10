@@ -42,9 +42,9 @@ export function useAnalysis(
     if (!followed || !job || job.status === "running") return;
     setFollowed(null);
     const out = job.result as RunOut | undefined;
-    if (job.status === "failed") setFailed(job.error || "The analysis did not finish.");
-    else if (job.status === "cancelled") setFailed("The analysis was cancelled.");
-    else if (out && !out.ok) setFailed(out.summary || "The analysis did not finish.");
+    if (job.status === "failed") setFailed(job.error || "The cross-check did not finish.");
+    else if (job.status === "cancelled") setFailed("The cross-check was cancelled.");
+    else if (out && !out.ok) setFailed(out.summary || "The cross-check did not finish.");
     else setFailed(null);
   }, [ended, followed]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: another test in the same editor starts with no failure

@@ -817,6 +817,9 @@ nothing**: it records proposals and the team decides each one.
 - `analysis.run { id, note?, model?, effort?, contexts? }` is a job (kind `analyze`, `claude/analyze.ts`, skill
   `analyze-test`, run kind `analyze`: the read tools plus `analysis.record`, no Edit/Write; an edit that got through is
   put back). The run calls `analysis_record` once; the job fails when it does not, and the previous analysis stays.
+- **The name the team sees is « Cross-check »** (the user's ask, 2026-11-10: « Analysis » said nothing of what it
+  does): the tab, the button, the pane and the prompt's name; the commands (`analysis.*`), the file (`analysis.json`),
+  the run kind and the skill (`analyze-test`) keep their names, so projects already analysed keep working.
 - **Analysing again** (the user's ask, 2026-11-10: a second reading is often wanted): the prompt carries what the team
   decided on the last analysis (`earlierAnalysis`), the step numbers the test's now — accepted (never propose to undo
   them), rejected (never again, in any wording) and not decided yet (propose again only what still holds). The new
@@ -857,7 +860,7 @@ nothing**: it records proposals and the team decides each one.
 - The page (`screens/tests/analysis/`): « Analysis » in the editor's bar (the count left to decide) opens a pane beside
   the editor (`size.dock`, it gives way down to `size.sidebar`; the editor keeps `size.sidebar`). Before an analysis:
   the ClaudeBlock that starts one (an optional « look especially at » note, model, effort; while it runs the same box
-  with its timer and Cancel). After: « Analyze again » in the pane's head opens that box again (saying Claude is told
+  with its timer and Cancel). After: « Cross-check again » in the pane's head opens that box again (saying Claude is told
   what was decided). Claude's summary, To decide · Accepted · Rejected, the proposals grouped by the
   step they are about (the group's name scrolls the editor there), each a Card with its PROPOSAL badge, the change
   (SourceChips, TextDiff, the new step's columns), why, Reject and Accept; « Accept the n sources » in the foot; the

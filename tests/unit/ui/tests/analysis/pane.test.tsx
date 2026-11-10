@@ -150,7 +150,7 @@ describe("the analysis pane", () => {
   it("before any analysis: says what it does and starts one on this test, the edit saved first", async () => {
     withApp(<Harness />);
     expect(await screen.findByText(/Nothing changes until you accept it/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cross-check" }));
     await waitFor(() => expect(callsOf("analysis.run")).toHaveLength(1));
     expect(callsOf("analysis.run")[0].input).toEqual({ id: ID, model: "sonnet", effort: "medium" });
     expect(saved).toHaveBeenCalled();
@@ -176,7 +176,7 @@ describe("the analysis pane", () => {
     await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: "Signalisation" })).not.toBeChecked());
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Look especially at" }), { target: { value: "le TK" } });
-    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cross-check" }));
     await waitFor(() => expect(callsOf("analysis.run")).toHaveLength(1));
     expect(callsOf("analysis.run")[0].input).toEqual({
       id: ID,
@@ -187,11 +187,11 @@ describe("the analysis pane", () => {
     });
   });
 
-  it("once an analysis is shown, what a new one would be given is only read when « Analyze again » opens the box", async () => {
+  it("once an analysis is shown, what a new one would be given is only read when « Cross-check again » opens the box", async () => {
     analysis = base;
     net.routes["claude.preview"] = (i) => previewOf([piece("instruction", "Analyze a test")], i);
     withApp(<Harness />);
-    const again = await screen.findByRole("button", { name: "Analyze again" });
+    const again = await screen.findByRole("button", { name: "Cross-check again" });
     expect(screen.queryByRole("button", { name: /^Context/ })).toBeNull();
     expect(callsOf("claude.preview")).toHaveLength(0);
     fireEvent.click(again);
@@ -209,7 +209,7 @@ describe("the analysis pane", () => {
     const note = await screen.findByText(/Accepted by s\.genin .*then taken out of the test/);
     const card = note.closest("[data-proposal]") as HTMLElement;
     expect(within(card).getByRole("button", { name: "Accept" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Analyze again" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cross-check again" }));
     expect(await screen.findByText(/Claude is told what you accepted, rejected and left open/)).toBeInTheDocument();
   });
 

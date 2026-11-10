@@ -7,13 +7,13 @@ const ID = "LFRPS12-1420";
 type Shown = { analysis: { proposals: { id: string; title: string; state: string }[] } | null };
 type Steps = { test: { steps: { sources: { column?: string; item?: string }[] }[] } };
 
-const pane = (page: Page) => page.getByRole("complementary", { name: "Analysis against the documents" });
+const pane = (page: Page) => page.getByRole("complementary", { name: "Cross-check against the documents" });
 
 async function analyze(page: Page) {
   await openTest(page, ID);
-  await page.getByRole("button", { name: /^Analysis/ }).click();
+  await page.getByRole("button", { name: /^Cross-check/ }).click();
   await expect(pane(page)).toContainText("Nothing changes until you accept it");
-  await pane(page).getByRole("button", { name: "Analyze" }).click();
+  await pane(page).getByRole("button", { name: "Cross-check", exact: true }).click();
   await expect(pane(page).getByRole("radio", { name: /To decide/ })).toBeVisible({ timeout: 20_000 });
 }
 
@@ -53,16 +53,16 @@ test("a step's group leads to the step, and the analysis is still there when the
   page,
 }) => {
   await openTest(page, ID);
-  await page.getByRole("button", { name: /^Analysis/ }).click();
+  await page.getByRole("button", { name: /^Cross-check/ }).click();
   const p = pane(page);
   if (!(await p.getByRole("radio", { name: /To decide/ }).isVisible())) {
-    await p.getByRole("button", { name: "Analyze" }).click();
+    await p.getByRole("button", { name: "Cross-check", exact: true }).click();
     await expect(p.getByRole("radio", { name: /To decide/ })).toBeVisible({ timeout: 20_000 });
   }
   await p.getByRole("button", { name: "Step 3", exact: true }).click();
   await expect(page.getByRole("main").getByRole("article", { name: "Step 3" })).toBeInViewport();
-  await p.getByRole("button", { name: "Close the analysis" }).click();
+  await p.getByRole("button", { name: "Close the cross-check" }).click();
   await expect(p).toHaveCount(0);
-  await page.getByRole("button", { name: /^Analysis/ }).click();
+  await page.getByRole("button", { name: /^Cross-check/ }).click();
   await expect(pane(page).getByRole("radio", { name: /To decide/ })).toBeVisible();
 });

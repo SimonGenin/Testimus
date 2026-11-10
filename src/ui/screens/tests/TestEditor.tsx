@@ -290,11 +290,11 @@ export function TestEditor({
     reload: () => doc.reload("analysis"),
   });
   const toDecide = analysis.analysis?.proposals.filter((p) => p.state === "open").length ?? 0;
-  // ponytail: the analysis is a tab of the screen's sections, beside the test (never over it); it stays the editor's
+  // ponytail: the cross-check (its analysis) is a tab of the screen's sections, beside the test (never over it); it stays the editor's
   const analysisTab = useSideTab(
     {
       id: "analysis",
-      label: "Analysis",
+      label: "Cross-check",
       icon: "verify",
       claude: true,
       ...(toDecide ? { count: toDecide } : {}),

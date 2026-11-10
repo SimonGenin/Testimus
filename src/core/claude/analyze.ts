@@ -121,10 +121,10 @@ export function analyzePrompt(
 export const prompts: PromptTemplate[] = [
   {
     id: "analyze",
-    name: "Analyze a test against the documents",
+    name: "Cross-check a test against the documents",
     group: "Check and fix",
     kind: "analyze",
-    usedBy: ["Tests: Analysis", "analysis.run"],
+    usedBy: ["Tests: Cross-check", "analysis.run"],
     answers: "analysis_record, once: the sources of what is right and the proposals the team accepts or rejects",
     text: () =>
       analyzePrompt(
@@ -182,9 +182,9 @@ export async function analyzeTest(
   if (r.changedTests.includes(id) && r.written.includes(id))
     try {
       revert(project, r.runId, { ids: [id] });
-      ctx.log("warn", `The analysis of ${name} edited the test; the edit was put back.`);
+      ctx.log("warn", `The cross-check of ${name} edited the test; the edit was put back.`);
     } catch {
-      ctx.log("warn", `The analysis of ${name} edited the test, then the file changed again — kept as it is.`);
+      ctx.log("warn", `The cross-check of ${name} edited the test, then the file changed again — kept as it is.`);
     }
   const recorded = calledFor(r.calls, "analysis_record", id) && !!readAnalysis(project, id);
   const base = { runId: r.runId, ...(r.diagnosis ? { diagnosis: r.diagnosis } : {}) };
@@ -195,7 +195,7 @@ export async function analyzeTest(
       proposals: 0,
       summary:
         r.ok && !recorded && !ctx.signal.aborted
-          ? `Claude did not record its analysis of ${name} (analysis_record was not called).`
+          ? `Claude did not record its cross-check of ${name} (analysis_record was not called).`
           : r.summary,
     };
   stampRun(project, id, { runId: r.runId, model, effort, ...(o.note?.trim() ? { note: o.note.trim() } : {}) });

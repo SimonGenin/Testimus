@@ -116,7 +116,7 @@ export const commands = [
   command({
     name: "analysis.run",
     summary:
-      "Claude reads a test against the project's documents (skill analyze-test) and records what it proposes: sources for what is right, changes, new steps, steps to remove — each decided one by one with analysis.decide. The test is never changed by the run. Run again on a test already analysed, Claude is told what the team accepted, rejected and left open, and the new analysis replaces the previous one, keeping its rejections.",
+      "Cross-check (a test's Cross-check tab): Claude reads the test against the project's documents (skill analyze-test) and records what it proposes: sources for what is right, changes, new steps, steps to remove — each decided one by one with analysis.decide. The test is never changed by the run. Run again on a test already analysed, Claude is told what the team accepted, rejected and left open, and the new analysis replaces the previous one, keeping its rejections.",
     input: z.object({
       id: TEST_REF,
       note: NOTE.describe("What to look at especially, in plain words"),
@@ -149,7 +149,7 @@ export const commands = [
   command({
     name: "analysis.record",
     summary:
-      "Record Claude's analysis of a test (what the analyze-test skill sends): its reading, how it treats each column, the items no document holds, and its proposals. Every source is checked at its anchor and a column kept as written may only grow; a call with any problem records nothing and lists them all.",
+      "Record Claude's cross-check of a test (what the analyze-test skill sends): its reading, how it treats each column, the items no document holds, and its proposals. Every source is checked at its anchor and a column kept as written may only grow; a call with any problem records nothing and lists them all.",
     input: z.object({
       id: TEST_REF,
       summary: z
@@ -206,7 +206,7 @@ export const commands = [
   command({
     name: "analysis.show",
     summary:
-      "The last analysis of a test: Claude's reading, how each column is treated, the items no document holds, and every proposal with its state — those still to decide say where they land in the test now, or why they no longer apply; an accepted one whose edit left the test since (reverted from Jira, undone) is to decide again.",
+      "The last cross-check of a test: Claude's reading, how each column is treated, the items no document holds, and every proposal with its state — those still to decide say where they land in the test now, or why they no longer apply; an accepted one whose edit left the test since (reverted from Jira, undone) is to decide again.",
     input: z.object({ id: TEST_REF }),
     output: z.object({
       id: z.string().describe("Test id"),
@@ -225,7 +225,7 @@ export const commands = [
   command({
     name: "analysis.decide",
     summary:
-      "Accept, reject or reconsider proposals of a test's analysis. accept writes them into test.md at once, in the order given (a proposal that no longer applies refuses the whole call, code stale); reject keeps one aside; reopen brings a rejected one back.",
+      "Accept, reject or reconsider proposals of a test's cross-check. accept writes them into test.md at once, in the order given (a proposal that no longer applies refuses the whole call, code stale); reject keeps one aside; reopen brings a rejected one back.",
     input: z.object({
       id: TEST_REF,
       proposals: z.array(z.string()).min(1).describe("Proposal ids (p1, p2…), as analysis.show lists them"),

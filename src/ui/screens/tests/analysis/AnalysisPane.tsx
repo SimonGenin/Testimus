@@ -115,7 +115,7 @@ export function AnalysisPane({
       allowEmpty
       model={{ value: choice.selected, shown: cap(model), options: choice.options, onChange: choice.pick }}
       effort={{ value: effort, options: effortOptions, onChange: (e) => setEffort(e as Effort) }}
-      submitLabel="Analyze"
+      submitLabel="Cross-check"
       running={seconds}
       onCancel={running ? () => void execute(client, "jobs.cancel", { id: running.id }) : undefined}
       unavailable={offline ? "Claude is not connected" : locked || undefined}
@@ -132,7 +132,7 @@ export function AnalysisPane({
     <div {...stylex.props(styles.pane)}>
       <Pane
         as="aside"
-        title="Analysis against the documents"
+        title="Cross-check against the documents"
         fill
         actions={
           <>
@@ -141,12 +141,12 @@ export function AnalysisPane({
                 size="sm"
                 variant="claude-quiet"
                 icon="claude"
-                label="Analyze again"
+                label="Cross-check again"
                 disabled={locked || undefined}
                 onClick={() => setAsking(true)}
               />
             )}
-            <Button size="sm" variant="quiet" iconOnly icon="close" label="Close the analysis" onClick={onClose} />
+            <Button size="sm" variant="quiet" iconOnly icon="close" label="Close the cross-check" onClick={onClose} />
           </>
         }
         footer={
@@ -176,7 +176,7 @@ export function AnalysisPane({
           {failed && !running && (
             <Banner
               tone="warning"
-              title="The analysis stopped."
+              title="The cross-check stopped."
               actions={
                 <Button
                   size="sm"
