@@ -10,6 +10,11 @@ describe("desktop logs", () => {
     expect(dataDir(env)).toMatch(/Roaming[\\/]Testimus$/);
   });
 
+  it("the unit tests write their journal under the run's temporary root, never the real one (global-setup.ts)", () => {
+    expect(process.env.LOCALAPPDATA).toMatch(/testimus-vitest-[^\\/]+[\\/]localappdata$/);
+    expect(logDir()).toContain(process.env.LOCALAPPDATA);
+  });
+
   it("keeps 14 days and touches no other file", () => {
     const now = new Date("2026-11-20T08:00:00Z");
     const names = [

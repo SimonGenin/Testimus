@@ -874,7 +874,31 @@ export type Diagnosis = {
   title: string;
   detail: string;
 };
-export type ChatTurn = { role: "user" | "assistant"; text: string; at: string };
+/** runId: the run that answered (its proposals and its Revert) */
+export type ChatTurn = { role: "user" | "assistant"; text: string; at: string; runId?: string };
+// ponytail: a change the chat proposed to a file no run writes (lib/proposals.ts) — shown as a diff under the answer,
+// applied or ignored by the user
+export const PROPOSAL_KINDS = ["overview", "context", "column"] as const;
+export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
+export const PROPOSAL_STATES = ["open", "applied", "ignored"] as const;
+export type ProposalState = (typeof PROPOSAL_STATES)[number];
+export type Proposal = {
+  id: string;
+  kind: ProposalKind;
+  /** the context id or the column name; "overview" for the overview */
+  target: string;
+  /** what the page calls it: the context's or the column's name */
+  name: string;
+  before: string;
+  after: string;
+  why: string;
+  runId: string;
+  at: string;
+  /** the file's mtime when proposed (overview, context): applying refuses a file that moved since */
+  mtime: number;
+  state: ProposalState;
+  settledAt?: string;
+};
 /** a problem the app met (a failed check, an error): where it is, and what the app says about it */
 export type ChatProblem = { where: string; text: string };
 export type ChatSession = {

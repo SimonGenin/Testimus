@@ -143,12 +143,19 @@ const readBytes = (project: string, rel: string) => {
   return existsSync(abs) ? readFileSync(abs) : null;
 };
 
-export function takeSnapshot(project: string, runId: string, scope: ClaudeScope, withFiles = false): RunRecord {
+// ponytail: withFiles — the truth files of the scope (an action), or the few files a run may change by name (the
+// conversations context of a learning run)
+export function takeSnapshot(
+  project: string,
+  runId: string,
+  scope: ClaudeScope,
+  withFiles: boolean | string[] = false,
+): RunRecord {
   const before: Record<string, string | null> = {};
   for (const id of scopeIds(project, scope)) before[id] = readMd(project, id);
   const rec: RunRecord = { runId, at: env.now().toISOString(), scope, before, changedTests: [], changedSteps: {} };
   if (withFiles) {
-    const t = truthFiles(project, scope);
+    const t = Array.isArray(withFiles) ? { roots: [], files: withFiles } : truthFiles(project, scope);
     rec.roots = t.roots;
     rec.files = {};
     for (const rel of t.files) {
@@ -244,6 +251,34 @@ export function absorbRun(project: string, into: string, from: string): void {
     if (wrote && !rec.written?.includes(id)) rec.written = [...(rec.written ?? []), id];
   }
   writeJson(runFile(project, into), rec);
+}
+
+// ponytail: a change the run proposed and the user applied after it (chat.apply) joins the run's record, as if the run
+// had written it — the run's Revert takes it back, and refuses when the file moved since
+export function recordApplied(project: string, runId: string, rel: string, before: Buffer | null): void {
+  if (!/^[\w-]+$/.test(runId)) return;
+  const rec = readJson<Partial<RunRecord>>(runFile(project, runId), {});
+  const files = { ...rec.files };
+  if (!(rel in files)) {
+    files[rel] = before ? sha256(before) : null;
+    if (before) writeAtomic(beforeFile(project, runId, rel), before);
+  }
+  const now = readBytes(project, rel);
+  const { reverted: _, revertedFiles: __, ...kept } = rec;
+  writeJson(runFile(project, runId), {
+    ...kept,
+    runId,
+    at: rec.at ?? env.now().toISOString(),
+    scope: rec.scope ?? { kind: "tests", testIds: [] },
+    before: rec.before ?? {},
+    changedTests: rec.changedTests ?? [],
+    changedSteps: rec.changedSteps ?? {},
+    after: rec.after ?? {},
+    roots: rec.roots ?? [],
+    files,
+    filesAfter: { ...rec.filesAfter, [rel]: now ? sha256(now) : null },
+    changedFiles: [...new Set([...(rec.changedFiles ?? []), rel])].sort(),
+  });
 }
 
 // ponytail: what Testimus itself writes right after a run (generation stamp, review state) is part of what the run left

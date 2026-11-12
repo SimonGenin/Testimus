@@ -244,6 +244,16 @@ describe("the prompts the Claude runs send", () => {
     await expect(sent()).toMatchFileSnapshot(file("chat"));
   });
 
+  it("what a conversation taught, kept by its learning run", async () => {
+    setup();
+    fake(() => ({ lines: () => [result("Le menu dépend du type de sectionneur.")] }));
+    const chat = await call<{ chatId: string }>("chat.ask", { question: "Que veut dire TCO ?", ...RUN }, dir);
+    await call("contexts.learn", { text: "- Les tests sont écrits en français." }, dir);
+    seen.length = 0;
+    await call("chat.learn", { chatId: chat.chatId, contexts: ["spec"] }, dir);
+    await expect(sent()).toMatchFileSnapshot(file("learn"));
+  });
+
   it("a comment draft and the smart columns", async () => {
     setup();
     await call("claude.draftComment", { key: TEST, ask: "Say step 2 is fixed", contexts: ["spec"] }, dir);

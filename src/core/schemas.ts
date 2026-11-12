@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { retrievalOverride } from "./rag/schemas.ts";
-import { REVIEWS, type Review } from "./types.ts";
+import { PROPOSAL_KINDS, PROPOSAL_STATES, REVIEWS, type Review } from "./types.ts";
 
 // ponytail: the zod shapes several command groups share (a test, its id, its review state) — declared once, so the
 // CLI help, the MCP tool and the page read the same words
@@ -248,3 +248,23 @@ export const PROJECT_JSON = z.object({
   glossary: z.record(z.string(), z.string()).optional().describe("Acronyms and their long forms"),
   video: VIDEO_OPTIONS.optional().describe("How the project's videos are read (defaults when absent)"),
 });
+
+export const PROPOSAL = z.object({
+  id: z.string().describe("Proposal id (prop-<8hex>): chat.apply or chat.ignore it"),
+  kind: z.enum(PROPOSAL_KINDS).describe("What it changes: the overview, a context's notes, a column's description"),
+  target: z.string().describe("The context id or the column name; overview for the overview"),
+  name: z.string().describe("Its name as the page says it"),
+  before: z.string().describe("The text when it was proposed"),
+  after: z.string().describe("The text proposed in its place"),
+  why: z.string().describe("Why, in one sentence"),
+  runId: z.string().describe("The Claude run that proposed it (its Revert takes an applied proposal back)"),
+  at: z.string().describe("When it was proposed (ISO)"),
+  mtime: z.number().describe("The file's mtime when proposed: applying refuses a file that moved since"),
+  state: z.enum(PROPOSAL_STATES).describe("open, applied or ignored"),
+  settledAt: z.string().optional().describe("When it was applied or ignored (ISO)"),
+});
+
+export const RUN_ID = z
+  .string()
+  .regex(/^[\w-]+$/, "A run id: run-<digits>-<hex>")
+  .describe("The runId your prompt gave you: the answer the proposal goes under");

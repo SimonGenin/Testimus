@@ -10,6 +10,7 @@ import { Button } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/EmptyState.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { List } from "../ui/List.tsx";
+import { Switch } from "../ui/Switch.tsx";
 import { type } from "../ui/type.ts";
 import { ActionCard } from "./ActionCard.tsx";
 import { type ClaudeStatus, ConnectClaude } from "./ConnectClaude.tsx";
@@ -106,6 +107,8 @@ export function DockLog({
     onToggleRaw: runs.toggleRaw,
     onRetry: (a) => void runs.execute(a),
     onSettings: () => app.navigate("settings", "claude"),
+    settling: runs.settling,
+    onProposal: (p, how) => void runs.settleProposal(p, how),
     onUseNote: (t, note) => {
       const to = t.pasteTo;
       if (!to) return;
@@ -156,6 +159,18 @@ export function DockLog({
                 onClick={runs.clear}
               />
             </div>
+          )}
+          {docs && (
+            <Switch
+              on={runs.forget}
+              onChange={runs.setForget}
+              label="Don't remember this conversation"
+              hint={
+                runs.forget
+                  ? "What it settles is not kept for the other runs."
+                  : "After each answer, Claude keeps what it settled in the « Conversations » context."
+              }
+            />
           )}
           {onActions && actionsList}
           {!onActions && !visible.length && (

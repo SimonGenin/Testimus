@@ -15,7 +15,8 @@ import {
   writeOverview,
 } from "../lib/overview.ts";
 import { OVERVIEW_JOB, OVERVIEW_LABEL, runOverviewJob } from "../lib/overview-after.ts";
-import { IF_MTIME } from "../schemas.ts";
+import { propose } from "../lib/proposals.ts";
+import { IF_MTIME, PROPOSAL, RUN_ID } from "../schemas.ts";
 
 const names = z.array(z.string()).describe("Section titles");
 const sectionChanges = z
@@ -128,6 +129,29 @@ export const commands = [
       unchangedSince(overviewFile(project), input.ifMtime, OVERVIEW_PATH);
       writeOverview(project, readOverview(project).meta, input.text);
       return { mtime: readOverview(project).mtime };
+    },
+  }),
+  command({
+    name: "docs.overviewPropose",
+    summary: `Propose a new text for ${OVERVIEW_PATH}, which a chat cannot write: nothing is written — the user sees the change as a diff under the answer and applies it (chat.apply) or ignores it.`,
+    input: z.object({
+      runId: RUN_ID,
+      text: z
+        .string()
+        .min(1)
+        .describe("The whole new markdown, without the frontmatter: the current text with what the user asked changed"),
+      why: z.string().min(1).max(500).describe("Why, in one sentence, in the language of the conversation"),
+    }),
+    output: PROPOSAL,
+    mutates: true,
+    async run(ctx, input) {
+      return propose(projectOf(ctx), {
+        kind: "overview",
+        target: "overview",
+        after: input.text,
+        why: input.why,
+        runId: input.runId,
+      });
     },
   }),
 ];

@@ -72,9 +72,9 @@ export type Given = {
 export const INLINE_NOTES = 4000;
 export const INLINE_DOC_NOTE = 3000;
 
-// ponytail: a run that only looks at pictures or passages of one document (figures, headers, media), or that writes the
-// overview itself, is not told to read how the documents fit together
-const NO_OVERVIEW: RunKind[] = ["overview", "figures", "headers", "media"];
+// ponytail: a run that only looks at pictures or passages of one document (figures, headers, media), that writes the
+// overview itself, or that keeps what a conversation taught (learn), is not told to read how the documents fit together
+const NO_OVERVIEW: RunKind[] = ["overview", "figures", "headers", "media", "learn"];
 // ponytail: the runs that search the documents list them, and a document can be left out of one run; a run on one
 // document's own files (figures, headers, media, study, overview) does not search
 const SEARCHES: RunKind[] = ["chat", "check", "analyze", "generate", "fix", "run", "triage", "action", "columns"];

@@ -79,7 +79,10 @@ describe("How the documents fit together", () => {
     mount();
     await waitFor(() => expect(pane()).toBeInTheDocument());
     expect(within(pane()).getByRole("heading", { level: 2, name: "Traction" })).toBeInTheDocument();
-    expect(within(pane()).getByText(/La traction : manœuvre des sectionneurs/)).toBeInTheDocument();
+    const para = within(pane()).getByText(
+      (_, el) => el?.tagName === "P" && /^La traction : manœuvre des sectionneurs/.test(el.textContent ?? ""),
+    );
+    expect(within(para).getByText("traction").tagName).toBe("STRONG");
     expect(pane().textContent).not.toContain("<!--");
     expect(pane().textContent).not.toContain("**");
     expect(within(pane()).getByText(/after « Import of 3 documents »/)).toBeInTheDocument();

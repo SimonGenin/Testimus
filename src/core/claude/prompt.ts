@@ -213,10 +213,21 @@ export function problemPrompt(
   ].join("\n");
 }
 
-export function chatPrompt(question: string, language: string, context: string[] = []): string {
+// ponytail: the chat writes no file, and the files the user may ask it to correct are closed to every run — it proposes,
+// the user applies (lib/proposals.ts)
+export function proposeChangeLines(runId: string): string[] {
+  const id = `runId: "${runId}"`;
+  return [
+    `A change the user asks to the overview of how the documents fit together, to a saved context or to a smart column's description is never written by you: propose it with docs_overviewPropose { ${id}, text, why }, contexts_propose { ${id}, id, notes, why } or columns_propose { ${id}, column, description, why }.`,
+    "Give the whole new text: the current one (read it first) changed only where the user asked. The user sees it as a diff under your answer and applies it or not; say in one sentence what you proposed.",
+  ];
+}
+
+export function chatPrompt(question: string, language: string, context: string[] = [], runId = "{runId}"): string {
   return [
     "Use the ask-docs skill to answer the question below from the project's documents, and only from them.",
     `Answer in the language of the question (the project's is ${languageName(language)}).`,
+    ...proposeChangeLines(runId),
     ...context,
     "",
     `Question: ${question.trim()}`,

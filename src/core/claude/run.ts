@@ -162,7 +162,8 @@ export type RunOpts = {
   signal?: AbortSignal;
   jobId?: string;
   runId?: string;
-  files?: boolean;
+  /** a snapshot of the truth files too (true), or of these files of the project only */
+  files?: boolean | string[];
   label?: string;
   // ponytail: how the run is named in its job's processes (a test's title); the label otherwise
   title?: string;
@@ -209,7 +210,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     resume: o.resume,
   });
   const shell = forShell(resolveExe(claudeExe()), args);
-  if (o.scope) takeSnapshot(project, runId, o.scope, o.files === true);
+  if (o.scope) takeSnapshot(project, runId, o.scope, o.files ?? false);
   writeRunMeta(project, runId, {
     kind: o.kind,
     model,

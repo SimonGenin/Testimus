@@ -30,14 +30,15 @@ describe("each run kind gets its own MCP allow-list", () => {
     );
   });
 
-  it("the lists: what a run answers with and may change — check records, generate/fix/run write tests, triage and study propose", () => {
+  it("the lists: what a run answers with and may change — check records, generate/fix/run write tests, triage and study propose, the chat proposes edits, learn keeps the conversations", () => {
     const ro = readOnlyCommands().map(mcpName);
     const extra = (k: RunKind) =>
       mcpAccess(k)
         .allow.filter((t) => !ro.includes(t))
         .sort();
     const m = (xs: string[]) => xs.map((x) => `mcp__testimus__${x}`).sort();
-    expect(extra("chat")).toEqual([]);
+    expect(extra("chat")).toEqual(m(["docs_overviewPropose", "contexts_propose", "columns_propose"]));
+    expect(extra("learn")).toEqual(m(["contexts_learn"]));
     expect(extra("figures")).toEqual([]);
     expect(extra("headers")).toEqual([]);
     expect(extra("media")).toEqual([]);

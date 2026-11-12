@@ -10,7 +10,7 @@ import {
 } from "../claude/prompt.ts";
 import { UserError } from "../command.ts";
 import { copyDirAtomic, fileMtime, writeAtomic } from "./atomic.ts";
-import { isProject } from "./project.ts";
+import { isProject, readProject, writeProject } from "./project.ts";
 import { hex8 } from "./store.ts";
 
 // ponytail: a context is a folder — contexts/<id>/ in the project, or the shared library every project sees —
@@ -178,4 +178,41 @@ export function removeContextFile(project: string, cid: string, name: string): C
     throw new UserError(`"${name}" is not a file of this context.`, "contexts show lists the context's files.");
   rmSync(join(files, name), { force: true });
   return showContext(project, cid);
+}
+
+// ponytail: what the conversations with Claude taught — an ordinary context of the project, created by its first
+// learning run and attached to the project's defaults then (unticked like any other afterwards). Its learning run
+// rewrites it whole after each chat turn, without asking, and these rules hold it short and free of the documents
+export const CONVERSATIONS = "conversations";
+export const CONVERSATIONS_FILE = `contexts/${CONVERSATIONS}/context.md`;
+export const LEARN_MAX = 4000;
+const CITED = /[A-Za-z0-9][\w.-]*#(?:§|fig:|page:|img:|t:|v:|frame:)\S/;
+const DATED = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/;
+
+export function learnConversations(project: string, text: string): ContextDetail {
+  const notes = text.replace(/\r\n/g, "\n").trim();
+  if (notes.length > LEARN_MAX)
+    throw new UserError(
+      `${notes.length} characters: the conversations context keeps ${LEARN_MAX} at most.`,
+      "Condense it: merge what repeats, drop what no other run needs, then save the whole text again.",
+    );
+  if (CITED.test(notes))
+    throw new UserError(
+      "The text cites a document (docId#anchor).",
+      "Keep no passage or source of the documents: the runs read them themselves. Say the decision or the preference alone.",
+    );
+  if (DATED.test(notes))
+    throw new UserError(
+      "The text holds a date.",
+      "No dates and no log: write what holds now, as if it had always been so.",
+    );
+  const dir = join(project, "contexts", CONVERSATIONS);
+  if (!existsSync(join(dir, "context.md"))) {
+    mkdirSync(join(dir, "files"), { recursive: true });
+    writeContextFile(dir, { name: "Conversations", paths: [], notes });
+    const p = readProject(project);
+    if (!p.claude.contexts.includes(CONVERSATIONS))
+      writeProject(project, { ...p, claude: { ...p.claude, contexts: [...p.claude.contexts, CONVERSATIONS] } });
+  } else writeContextFile(dir, { ...readContextFile(dir), notes });
+  return showContext(project, CONVERSATIONS);
 }

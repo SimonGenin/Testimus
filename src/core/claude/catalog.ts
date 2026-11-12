@@ -17,6 +17,7 @@ import { prompts as generate } from "./generate.ts";
 import { attachedContexts, given, givenTemplate, type Pick, type Piece, type Subject, takesOf } from "./given.ts";
 import { prompts as glossary } from "./glossary.ts";
 import { prompts as headers } from "./headers.ts";
+import { prompts as learn } from "./learn.ts";
 import { prompts as media } from "./media.ts";
 import { prompts as overview } from "./overview.ts";
 import { contextDir, isShared, type PromptTemplate, readContextFile } from "./prompt.ts";
@@ -72,6 +73,7 @@ export const BUILT: PromptTemplate[] = [
   ...overview,
   ...study,
   ...chat,
+  ...learn,
   ...columns,
   ...comment,
   ...actions,

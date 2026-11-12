@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
-import type { ChatProblem, ChatSession, ClaudeEvent, Diagnosis, Effort, Source, Tokens } from "../types.ts";
+import { proposalsOf } from "../lib/proposals.ts";
+import type { ChatProblem, ChatSession, ClaudeEvent, Diagnosis, Effort, Proposal, Source, Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
 import { GIVEN_SLOT, given } from "./given.ts";
 import { chatPrompt, type PromptTemplate, problemPrompt } from "./prompt.ts";
@@ -99,6 +100,8 @@ export type AskResult = {
   ok: boolean;
   answer: string;
   sources: Source[];
+  /** the changes the answer proposes, each applied or ignored by the user */
+  proposals: Proposal[];
   costUsd?: number;
   tokens?: Tokens;
   diagnosis?: Diagnosis;
@@ -128,11 +131,12 @@ export async function ask(o: AskOpts): Promise<AskResult> {
       project: o.project,
       prompt: problem
         ? problemPrompt(o.question, problem, p.language, proposeLines(runId, PROBLEM_EXAMPLES), g.lines)
-        : chatPrompt(o.question, p.language, g.lines),
+        : chatPrompt(o.question, p.language, g.lines, runId),
       model: o.model || p.claude.model,
       effort: o.effort || p.claude.effort,
       kind,
-      ...(problem ? { runId, label: "ask" } : {}),
+      runId,
+      ...(problem ? { label: "ask" } : {}),
       given: g,
       resume,
       signal: o.signal,
@@ -144,7 +148,7 @@ export async function ask(o: AskOpts): Promise<AskResult> {
     res = await run();
   if (res.sessionId) chat.sessionId = res.sessionId;
   const answer = res.ok ? res.summary : "";
-  if (res.ok) chat.turns.push({ role: "assistant", text: answer, at: now() });
+  if (res.ok) chat.turns.push({ role: "assistant", text: answer, at: now(), runId });
   chat.updatedAt = now();
   writeJson(chatFile(o.project, chat.id), chat);
   return {
@@ -153,6 +157,7 @@ export async function ask(o: AskOpts): Promise<AskResult> {
     ok: res.ok,
     answer: res.ok ? answer : res.summary,
     sources: res.ok ? sourceRefs(answer) : [],
+    proposals: res.ok ? proposalsOf(o.project, [runId]) : [],
     costUsd: res.costUsd,
     tokens: res.tokens,
     diagnosis: res.diagnosis,

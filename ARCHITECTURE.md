@@ -1200,8 +1200,8 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   17 to 26 tools; chat: a wide set, a question may be about anything; triage: all of them — a problem of the app may
   be anywhere), `EXTRA` what a kind answers with or may change (check `check_record`; analyze `analysis_record`;
   generation `tests_create/edit/save/addImage`, `check_run`; fix and `claude.run` `tests_edit/save/addImage`;
-  triage and study `actions_propose`); `action` keeps the whole set minus another Claude run, Jira writes and the
-  machine. A name in `READS` that is not a read-only command fails a test. Everything else goes to
+  triage and study `actions_propose`; chat the three proposals below; learn `contexts_learn`); `action` keeps the whole
+  set minus another Claude run, Jira writes and the machine. A name in `READS` that is not a read-only command fails a test. Everything else goes to
   `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
   `.mcp.json`, `CLAUDE.md`, `test-runs/**`; the writes of `runs.*` are off every run kind, `action` included (§9b).
@@ -1216,7 +1216,28 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   (`edited-after-run`, unless `force`), never deletes a test the run did not write. Cancel kills the whole tree.
 - **Chat** (`chat.ask`): a session per conversation (`--resume <session_id>`, `.testimus/chats/`), skill `ask-docs`,
   sources in the same `docId#anchor "quote"` form. « The documents do not say » only after `rag_mentions` and
-  `rag_related`.
+  `rag_related`. Each answer keeps the `runId` of its run in the chat file.
+- **The chat proposes, the user applies** (2026-11-12, WORKLOAD decision 6). Asked to correct the overview, a saved
+  context or a smart column's description — files no run may write (`PROTECTED` did not change) — the chat calls
+  `docs.overviewPropose { runId, text, why }`, `contexts.propose { runId, id, notes, why }` or `columns.propose { runId,
+  column, description, why }` with the whole new text: nothing is written, a proposal is recorded
+  (`.testimus/proposals/prop-<8hex>.json`, `lib/proposals.ts`: what, before, after, why, the run, the file's mtime,
+  open | applied | ignored). `chat.ask` returns its run's proposals and `chat.show` puts them under the answer that made
+  them. `chat.apply` writes through the command that owns the file — `docs.overviewSave` and `contexts.set` with the
+  mtime the proposal was made on, `columns.save` after comparing the description — so a file that moved since is
+  refused (`conflict`), never overwritten unseen; what it changed joins the proposing run's record (`recordApplied`),
+  so `claude.revert <runId>` takes it back. `chat.ignore` closes it. A context of the shared library is applied but
+  outside the run's Revert (it is not in the project).
+- **The conversations context** (2026-11-12, decision 7): `contexts/conversations/context.md`, an ordinary context,
+  created by its first lesson and added then to the project's defaults (`claude.contexts`; unticked like any other,
+  for the project, a test or one run). After each answer of the documents chat the dock starts `chat.learn { chatId }`
+  (job `learn`, kind `learn`, Sonnet low by default): the run gets the context as it is and the last question and
+  answer, and rewrites the context whole through `contexts.learn { text }`, its one write — refused over 4 000
+  characters (so it condenses and the notes stay said in full in every prompt), with a `docId#anchor` source, or with a
+  date. Its prompt holds the rest of the rules (only what helps another run, a contradicted point replaced, no log). It
+  is snapshotted on that one file (`takeSnapshot` takes a list of files), so `claude.revert` puts the last version back.
+  It is never its own reference: the context is in its prompt as the text to rewrite. The dock's « Don't remember this
+  conversation » starts no learning run until Start over; a conversation about a problem of the app teaches nothing.
 - **What goes with a run is decided in one place** (`claude/given.ts`, 2026-11-10; before, seventeen modules each
   built their own context lines with four inheritance rules, the overview was appended by the runner, and the check
   opened the contexts' folders without ever naming them). `given(project, kind, subject, pick)` gives the **pieces**
@@ -1494,6 +1515,19 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   `design/` was not in the checkout (it is the design sessions' own, never written from here): their four `.svg`,
   drawn from the same shapes, wait in `.build/video-sources/icons/` for `design/icons/`.
 
+- **Claude's Markdown is drawn, never shown raw** (2026-11-12, WORKLOAD decision 9): one hand-written reader
+  (`lib/markdown.ts`: blocks and inline pieces as data — headings `#` to `###`, paragraphs keeping their line breaks,
+  bold, italic, bullet and numbered lists one level deep, inline and fenced code, `|` tables, https and mailto links,
+  `>` quotes, rules; every `docId#anchor "quote"` a source) and one renderer to React elements
+  (`components/claude/Markdown.tsx`: headings through `type.ts`, code in the mono face and fenced code in the kit's
+  `Raw`, tables in the kit's `Table`, links as the kit's link Button opened outside the page, the kit's spacing between
+  blocks, the reading width `size.reading`). `AnswerText` (the dock, the analysis), the overview page and
+  `DiagnosisText` (a line, no block) use it; `DocText` keeps its own reader — its quote marking works on its own runs
+  of text. No new dependency, no HTML string (guard N4c). The conversation keeps `type.body` (14/22): no larger
+  reading size exists in the design for the interface face.
+- **A chat answer's proposals** sit under it (`ProposalCard`: what it changes, why, the kit's `TextDiff` of before and
+  after, Apply · Ignore, then Applied with Revert); the docs tab of the dock has the switch « Don't remember this
+  conversation ».
 - **How the documents fit together on the Documents screen** (design wave C « Overview »): the list's first row
   (`~overview`, a route no document id can take; « By Claude », what it was last updated after), then the documents
   under a « Documents » group head; its page renders the text as React elements (headings, Claude's words with their

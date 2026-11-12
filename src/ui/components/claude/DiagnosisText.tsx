@@ -1,26 +1,7 @@
-import * as stylex from "@stylexjs/stylex";
-import { color, radius, space } from "../../styles/tokens.stylex.ts";
-import { type } from "../ui/type.ts";
+import { MarkdownLine } from "./Markdown.tsx";
 
-const styles = stylex.create({
-  code: { paddingInline: space.s1, borderRadius: radius.r1, backgroundColor: color.surfaceSunken },
-});
-
-// ponytail: a diagnosis is written with `commands` in backquotes (src/core/claude/diagnose.ts); they are shown as code,
-// never as raw markdown
+// ponytail: a diagnosis is written with `commands` in backquotes (src/core/claude/diagnose.ts), sometimes **bold** —
+// read as a line of Markdown inside its sentence, never shown as raw marks
 export function DiagnosisText({ text }: { text: string }) {
-  const parts = text.split(/`([^`\n]+)`/);
-  return (
-    <>
-      {parts.map((p, i) =>
-        i % 2 ? (
-          <code key={i} {...stylex.props(type.code, styles.code)}>
-            {p}
-          </code>
-        ) : (
-          p
-        ),
-      )}
-    </>
-  );
+  return <MarkdownLine text={text} />;
 }

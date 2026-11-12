@@ -10,6 +10,8 @@ import {
   contextFolder,
   copyContext,
   createContext,
+  LEARN_MAX,
+  learnConversations,
   listContexts,
   otherProject,
   removeContextFile,
@@ -18,8 +20,9 @@ import {
   showContext,
 } from "../lib/contexts.ts";
 import { readProject } from "../lib/project.ts";
+import { propose } from "../lib/proposals.ts";
 import { testExists } from "../lib/store.ts";
-import { IF_MTIME } from "../schemas.ts";
+import { IF_MTIME, PROPOSAL, RUN_ID } from "../schemas.ts";
 
 const ID = z.string().regex(/^[\w-]+$/, "A context id: letters, digits, _ and -");
 const id = ID.describe("Context id: the folder under contexts/ (ctx-<8hex>)");
@@ -144,6 +147,46 @@ export const commands = [
       const project = projectOf(ctx);
       unchangedSince(join(contextFolder(project, input.id), "context.md"), input.ifMtime, `Context ${input.id}`);
       return setContext(project, input.id, input);
+    },
+  }),
+  command({
+    name: "contexts.propose",
+    summary:
+      "Propose new notes for a saved context, which a chat cannot write: nothing is written — the user sees the change as a diff under the answer and applies it (chat.apply) or ignores it.",
+    input: z.object({
+      runId: RUN_ID,
+      id,
+      notes: z.string().describe("The whole new notes (markdown): the current ones with what the user asked changed"),
+      why: z.string().min(1).max(500).describe("Why, in one sentence, in the language of the conversation"),
+    }),
+    output: PROPOSAL,
+    mutates: true,
+    positional: ["id"],
+    async run(ctx, input) {
+      return propose(projectOf(ctx), {
+        kind: "context",
+        target: input.id,
+        after: input.notes,
+        why: input.why,
+        runId: input.runId,
+      });
+    },
+  }),
+  command({
+    name: "contexts.learn",
+    summary: `Rewrite the conversations context (contexts/conversations/context.md, created and attached to the project's defaults the first time) with what the chat taught: the whole text, at most ${LEARN_MAX} characters, no source of the documents (docId#anchor), no dates. The one write of the learning run after a chat turn.`,
+    input: z.object({
+      text: z
+        .string()
+        .describe(
+          `The whole new notes: what holds now — decisions, writing preferences, repeated corrections, vocabulary, settled questions; at most ${LEARN_MAX} characters`,
+        ),
+    }),
+    output: detail,
+    mutates: true,
+    positional: ["text"],
+    async run(ctx, input) {
+      return learnConversations(projectOf(ctx), input.text);
     },
   }),
   command({

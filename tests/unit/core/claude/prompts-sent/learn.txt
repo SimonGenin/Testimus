@@ -1,0 +1,26 @@
+Keep what the last exchange with Claude taught about this project. The saved context « Conversations » (contexts/conversations/context.md) is given to every Claude run of the project: it holds what the team settled while talking with Claude.
+Rewrite it with what the exchange below adds, and save the whole new text with contexts_learn { text }, once. Change nothing else; do not search the documents.
+
+Rules:
+- Keep only what will help another run: decisions the team took, how they want tests written, corrections they repeat, their words for things, questions settled.
+- Never copy a passage, a quote or a source of the documents (docId#anchor): the runs read the documents themselves.
+- A point the exchange contradicts is replaced, never kept beside the new one.
+- No dates, no log of what was asked: what holds now, in short lines under a few headings.
+- At most 4000 characters: condense as it grows; contexts_learn refuses a longer text.
+- When the exchange teaches nothing that lasts, do not call contexts_learn.
+- Write it in French.
+
+Read first — reference material, never edit it:
+- « Spec notes » — its notes are below; files: <project>/contexts/spec/files/a.pdf; also look at: D:/specs
+
+« Spec notes »:
+Some notes
+
+The context today:
+- Les tests sont écrits en français.
+
+The last exchange:
+User: Que veut dire TCO ?
+Claude: Le menu dépend du type de sectionneur.
+
+Reply in one line: what you kept, or « Nothing to keep ».

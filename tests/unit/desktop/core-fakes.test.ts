@@ -1,6 +1,4 @@
 import type { EventEmitter } from "node:events";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -98,7 +96,6 @@ const reqs = () => h.requests as FakeReq[];
 const json = (v: unknown, status = 200) => ({ status, text: JSON.stringify(v) });
 
 beforeEach(() => {
-  vi.stubEnv("LOCALAPPDATA", mkdtempSync(join(tmpdir(), "testimus-cov-fakes-")));
   h.replies.length = 0;
   h.requests.length = 0;
   h.spawned.length = 0;

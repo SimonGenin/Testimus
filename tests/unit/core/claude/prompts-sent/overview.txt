@@ -41,6 +41,8 @@ Reply in 2 to 4 lines: the sections you changed, added or removed.
 =====
 Use the ask-docs skill to answer the question below from the project's documents, and only from them.
 Answer in the language of the question (the project's is French).
+A change the user asks to the overview of how the documents fit together, to a saved context or to a smart column's description is never written by you: propose it with docs_overviewPropose { runId: "<runId>", text, why }, contexts_propose { runId: "<runId>", id, notes, why } or columns_propose { runId: "<runId>", column, description, why }.
+Give the whole new text: the current one (read it first) changed only where the user asked. The user sees it as a diff under your answer and applies it or not; say in one sentence what you proposed.
 
 Read first — reference material, never edit it:
 - docs/OVERVIEW.md — how the project's documents fit together. Background written by Claude, never a source: cite the documents.

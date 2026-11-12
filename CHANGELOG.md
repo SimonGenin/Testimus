@@ -7,6 +7,9 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 ## Unreleased
 
 - Importer un dossier (même plein de vidéos) ne bloque plus : la fenêtre se ferme aussitôt, la copie, la conversion et l'indexation avancent dans un job en arrière-plan, et l'application reste utilisable pendant la copie.
+- Dans le chat, demander à Claude de corriger la vue d'ensemble, un contexte ou la description d'une colonne donne une proposition montrée en différences sous la réponse : « Apply » l'écrit, « Ignore » la laisse, « Revert » la défait.
+- Ce que les conversations ont tranché (décisions, vocabulaire, préférences d'écriture) est gardé par Claude après chaque réponse dans un contexte « Conversations », donné à tous les runs et décochable comme les autres ; « Don't remember this conversation » dans le chat l'en empêche.
+- Les réponses de Claude (chat, vue d'ensemble, diagnostics) s'affichent mises en forme : titres, listes, gras, tableaux, code et citations, au lieu du Markdown brut.
 
 ## 0.0.9
 

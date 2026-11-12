@@ -5,6 +5,7 @@ import type {
   ClaudeScope,
   Diagnosis,
   Effort,
+  Proposal,
   Source,
   Tokens,
 } from "../../../core/types.ts";
@@ -47,6 +48,9 @@ export type RunCard = {
   fix?: boolean;
 };
 
+/** a proposal as the dock holds it: its state from the core, and whether the run's Revert took it back */
+export type ShownProposal = Proposal & { reverted?: boolean };
+
 // one thing Claude did in a turn: what it says, whether it is over, when (ms), the skill it opened
 export type Tool = { label: string; done: boolean; at?: number; skill?: string };
 
@@ -70,6 +74,8 @@ export type Turn = {
   showRaw?: boolean;
   again?: Again;
   action?: ClaudeAction;
+  /** the changes a chat answer proposed (the overview, a context, a column): applied or ignored under it */
+  proposals?: ShownProposal[];
   /** an answer about one step of a test run: its pasted block may become the step's note */
   pasteTo?: { run: string; testId: string; step: number };
 };
@@ -94,6 +100,7 @@ export type ChatResult = {
   ok?: boolean;
   answer: string;
   sources?: Source[];
+  proposals?: Proposal[];
   diagnosis?: Diagnosis;
   tokens?: Tokens;
   sessionId?: string;

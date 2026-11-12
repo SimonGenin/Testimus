@@ -3,7 +3,8 @@ import { suggestColumns } from "../claude/columns.ts";
 import { CONTEXT_IDS, MODEL, NOTE, WITHOUT } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { removeColumn, saveColumn, setModes, setOrder, stepColumns } from "../lib/columns.ts";
-import { COLUMN_SHOW, STEP_COLUMN } from "../schemas.ts";
+import { propose } from "../lib/proposals.ts";
+import { COLUMN_SHOW, PROPOSAL, RUN_ID, STEP_COLUMN } from "../schemas.ts";
 
 const SHOW = COLUMN_SHOW;
 const column = STEP_COLUMN;
@@ -39,6 +40,30 @@ export const commands = [
     mutates: true,
     positional: ["name"],
     run: async (ctx, input) => saveColumn(projectOf(ctx), input),
+  }),
+  command({
+    name: "columns.propose",
+    summary:
+      "Propose a new description for a smart column (what Claude writes in it), which a chat cannot write: nothing is written — the user sees the change as a diff under the answer and applies it (chat.apply) or ignores it.",
+    input: z.object({
+      runId: RUN_ID,
+      column: z.string().min(1).describe("Column name (columns.list), or a new local column"),
+      description: z
+        .string()
+        .describe("The whole new description, in plain words; empty = Claude never fills the column"),
+      why: z.string().min(1).max(500).describe("Why, in one sentence, in the language of the conversation"),
+    }),
+    output: PROPOSAL,
+    mutates: true,
+    positional: ["column"],
+    run: async (ctx, input) =>
+      propose(projectOf(ctx), {
+        kind: "column",
+        target: input.column,
+        after: input.description,
+        why: input.why,
+        runId: input.runId,
+      }),
   }),
   command({
     name: "columns.setModes",

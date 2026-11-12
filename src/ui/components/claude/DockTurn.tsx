@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { Source } from "../../../core/types.ts";
+import type { Proposal, Source } from "../../../core/types.ts";
 import { sourceLabel } from "../../lib/fields.ts";
 import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { isPictureAnchor, useObserved } from "../../lib/media.ts";
@@ -15,6 +15,7 @@ import { type } from "../ui/type.ts";
 import { AnswerText } from "./AnswerText.tsx";
 import { DiagnosisText } from "./DiagnosisText.tsx";
 import { DockActivity } from "./DockActivity.tsx";
+import { ProposalCard } from "./ProposalCard.tsx";
 import { RevertConflict } from "./RevertConflict.tsx";
 import { type Again, changed, metaLine, pasteOf, type RunCard, runBadges, type Turn } from "./turns.ts";
 
@@ -40,6 +41,9 @@ export type TurnActions = {
   onSettings: () => void;
   /** the pasted block of an answer about a step of a test run becomes that step's note (a NOK) */
   onUseNote?: (t: Turn, note: string) => void;
+  /** the proposal whose Apply, Ignore or Revert is at work */
+  settling?: string | null;
+  onProposal?: (p: Proposal, how: "apply" | "ignore" | "revert") => void;
 };
 
 export function UserTurn({ turn }: { turn: Turn }) {
@@ -155,6 +159,16 @@ export function AnswerTurn({ turn: t, actions: a }: { turn: Turn; actions: TurnA
               ))}
             </div>
           )}
+          {t.proposals?.map((p) => (
+            <ProposalCard
+              key={p.id}
+              proposal={p}
+              busy={a.settling ? (a.settling === p.id ? "Working on it" : "Another change is being applied") : false}
+              onApply={() => a.onProposal?.(p, "apply")}
+              onIgnore={() => a.onProposal?.(p, "ignore")}
+              onRevert={() => a.onProposal?.(p, "revert")}
+            />
+          ))}
           {t.note && (
             <div role="status" {...stylex.props(styles.trouble)}>
               <strong {...stylex.props(type.strong, styles.troubleTitle)}>Re-check incomplete</strong>

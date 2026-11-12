@@ -15,7 +15,7 @@ src/core/types.ts     shared types; schemas.ts the zod pieces several groups sha
 src/core/shell.ts     which shell runs the core (TESTIMUS_SHELL), loopback NO_PROXY, clean shutdown
 src/core/lib/         the domain modules (analysis: a test's analysis, its proof and its decisions):
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
-                        agents, atomic (every owned write), changed, file-memo (reads per file version), natural (the
+                        agents, proposals (a change the chat proposed, applied by the user), atomic (every owned write), changed, file-memo (reads per file version), natural (the
                         one collator), creds, project (+ project-info, project-init), doctor (+ doctor-row,
                         doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
                         exported as pages and imported back);
@@ -47,7 +47,7 @@ src/core/claude/      run (claude -p), access (the tools of each kind of run), g
                       rule for contexts, the documents and their notes, the block every prompt carries), parts (a
                       request in several parts, each answered on its own; a reply's block read against a schema),
                       stream, snapshot/revert, diagnose, status,
-                      chat, generate (+ gen-prompt, gen-reply: the report and what is left without a test, gen-review:
+                      chat, learn (what a conversation taught, kept in the conversations context), generate (+ gen-prompt, gen-reply: the report and what is left without a test, gen-review:
                       the second look and the suggestions that ride in the check request), check (several tests per
                       request, a verdict per step, the fix action), analyze (a test against the documents: its prompt
                       and run), fix, review, columns, actions, figures, headers,
@@ -74,6 +74,7 @@ src/ui/
   lib/data/           the data layer: client (call, the HTTP seam), query (useRead, useCommand, execute, keys),
                       events (one SSE stream → cache), autosave, provider, loading (what a skeleton waits on, in
                       words: the one vocabulary of the kit's Loading line, and its Try again)
+  lib/markdown.ts     the one reader of the Markdown Claude writes (drawn by components/claude/Markdown.tsx)
   lib/prefs.ts        presentation preferences (typed, localStorage); lib/theme.ts; lib/desktop.ts (the bridge)
   styles/             tokens.stylex.ts (generated) and fonts.css
 models/catalog.json   the model catalog (entries, packs, measured figures)

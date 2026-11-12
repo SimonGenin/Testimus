@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import type { ClaudeAction, ClaudeEvent, Effort, JobEvent } from "../../../core/types.ts";
+import type { ClaudeAction, ClaudeEvent, Effort, JobEvent, Proposal } from "../../../core/types.ts";
 import type { AppState } from "../../lib/app.ts";
 import { ApiError } from "../../lib/data/client.ts";
-import { invalidate, type Prefix, useCommand } from "../../lib/data/query.ts";
+import { invalidate, type Prefix, execute as send, useCommand } from "../../lib/data/query.ts";
 import { message } from "../../lib/format.ts";
 import { editedAfterRun, revertDone } from "../../lib/revert.ts";
 import { errorToast, toast } from "../../lib/toast.ts";
@@ -23,6 +23,7 @@ import {
 } from "./turns.ts";
 import { useClaudeJob } from "./useClaudeJob.ts";
 import { noteRun } from "./useClaudeStatus.ts";
+import { useDockProposals } from "./useDockProposals.ts";
 
 // a run handed by the app (Fix with Claude in Review, Ask Claude on a step): `text` is the request as asked, when it
 // is not the label
@@ -50,6 +51,10 @@ export function useDockRuns(app: AppState) {
   const [last, setLast] = useState<Last | null>(null);
   const [chatId, setChatId] = useState<string | undefined>(undefined);
   const [refused, setRefused] = useState<{ turn: Turn; detail: string } | null>(null);
+  // ponytail: « Don't remember this conversation » — off, each answer of the documents chat is followed by its learning
+  // run (chat.learn) in the background; it holds until Start over
+  const [forget, setForget] = useState(false);
+  const proposals = useDockProposals(setTurns);
   const cfg = app.info?.project.claude;
   // ponytail: a Claude job started anywhere (the dock, Generate, the CLI) keeps the dock from starting another
   const locked = busy || !!app.claudeRunning;
@@ -274,6 +279,7 @@ export function useDockRuns(app: AppState) {
           ...t,
           text: r.answer || t.text,
           sources: r.sources ?? [],
+          ...(r.proposals?.length ? { proposals: r.proposals } : {}),
           trouble: ok ? undefined : (r.diagnosis ?? { title: "Claude could not answer", detail: "" }),
           meta: { durationMs, tokens: r.tokens, sessionId: r.sessionId, model: a.model, effort: a.effort },
           raw: typeof r.raw === "string" ? r.raw : t.raw,
@@ -281,6 +287,8 @@ export function useDockRuns(app: AppState) {
         }));
         setLast({ seconds: durationMs / 1000, summary: (r.answer ?? "").split("\n")[0], ok });
         recheck(ok, r.diagnosis, r.raw || r.answer || "");
+        if (ok && !a.problem && !forget && r.chatId)
+          void send(client, "chat.learn", { chatId: r.chatId }, { invalidates: "none" }).catch(() => {});
       } else if (a.scope) {
         await runOnTest(
           answerId,
@@ -309,10 +317,14 @@ export function useDockRuns(app: AppState) {
     setTurns([]);
     setChatId(undefined);
     setLast(null);
+    setForget(false);
   };
 
   // ponytail: an earlier conversation with the documents comes back as it was said, and the next question continues it
-  const resume = (chat: { id: string; turns: { role: "user" | "assistant"; text: string }[] }) => {
+  const resume = (chat: {
+    id: string;
+    turns: { role: "user" | "assistant"; text: string; proposals?: Proposal[] }[];
+  }) => {
     if (busy) return;
     setTurns(
       chat.turns.map((x) => ({
@@ -322,10 +334,12 @@ export function useDockRuns(app: AppState) {
         text: x.text,
         tools: [],
         ...(x.role === "assistant" ? { sources: sourcesOf(x.text) } : {}),
+        ...(x.proposals?.length ? { proposals: x.proposals } : {}),
       })),
     );
     setChatId(chat.id);
     setLast(null);
+    setForget(false);
   };
 
   const cancel = () => {
@@ -362,6 +376,10 @@ export function useDockRuns(app: AppState) {
     // of what a run is given; a question that continues the documents conversation leaves its own turns out
     conversation: (docs: boolean) => transcript(turns, docs && !!chatId),
     keepAsIs: () => setRefused(null),
+    forget,
+    setForget,
+    settling: proposals.settling,
+    settleProposal: proposals.settle,
     execute,
     runJob,
     runAction,
