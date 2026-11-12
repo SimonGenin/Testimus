@@ -324,7 +324,8 @@ docs/<docId>/
   doc.json                   { code, title, version, date, kind, status, amends?, contexts?, conversion?, source: {
                                type?, name, file, sha256, uploaded?, files?: [{ n, name, file, kind, sha256, figure?,
                                takenAt?, width?, height?, duration?, state, spoken?, track?, range? }], last? }, twin?, reference?, relatesTo?,
-                               converted?: { with, at, warnings, stats } }
+                               converted?: { with, at, warnings, stats }, pending?: { files: [{ path, size, duration?,
+                               audio?, tracks?, picture? }], pdf?, at, failed? } }
   context.md                 what the team says about this document (read by every run)
 ```
 
@@ -380,9 +381,9 @@ docs/<docId>/
   (a reconversion) is read again by the next pass, the one its own conversion asks for (`doc.json` is written last; a
   new document has none until it is converted, so no pass sees it before). The shared pass has a signal of its own
   (`lib/docs-index.ts` `queueIndex`): a conversion cancelled stops only its own wait; the pass is cancelled once
-  everyone waiting for it cancelled, or when its own `rag-index` job is cancelled. The Documents list shows
-  « Converting · … » on each conversion going, « Waiting to convert » on those in line, and « Converting 2 at a time ·
-  2 waiting · indexed as they end ». `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
+  everyone waiting for it cancelled, or when its own `rag-index` job is cancelled. The Documents list shows each
+  document's stage (below), « Waiting to convert » on those in line, and « Converting 2 at a time · 2 waiting · indexed
+  as they end ». `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
   citing tests are left and their sources become `source-missing`.
 - **A folder** (`lib/docs-folder.ts`): `docs.scanFolder` reads a folder (sub-folders by default, hidden ones and the
   project's own folder skipped, at most 2 000 files) and says, file by file, whether an import adds it: each `.docx`,
@@ -392,13 +393,44 @@ docs/<docId>/
   already in the project (same id or same file name), or the same id as another file found. The id is the code read
   from the name, accents and ligatures dropped (œ → oe), made a valid folder name. The project's own folder, or one inside it, is refused (paths compared without case on Windows
   and macOS); a file that goes while the folder is read is left out; past 2 000 files `truncated` says so, in the
-  scan and in `docs.addFolder`'s result, with a warning in its log. `docs.addFolder` copies the
-  documents asked for (the same `addDoc` as `docs.add`), then starts one `docs.convert` job per document, children of
-  the import job, and waits for them (they share the pool and the index passes above). A network path
+  scan and in `docs.addFolder`'s result, with a warning in its log. `docs.addFolder` adds the documents asked for
+  **waiting to start** (`start: false`, what the page sends), or adds them and starts them at once (`start`, the
+  default of the command line and MCP: a command typed is the go). A network path
   (`\\server\share`) is refused (§13). Decided: a document already in the project is shown, unticked, never replaced —
   reconverting is `docs.convert`. Decided (2026-11-08): **the images of one folder are one images document**, named
   after that folder (`group` = the folder's path, « . » for the folder itself) — a team files a visit's photos in a
   folder of their own; a photo alone in a folder is a document of one image.
+- **The import waits for the go** (WORKLOAD.md decisions 1 and 2, 2026-11-12; `lib/docs-pending.ts`): no copy and no
+  conversion of a folder's documents leaves without a click, and the wait holds nothing else (the other documents,
+  search, generation on the ready ones go on). A document waiting to start is its `doc.json` alone: title, code, kind,
+  `source.name` (its first original; `source.type` for images or a video, `source.file` empty) and `pending` — each
+  original's path and size (a video's length, sound and tracks read by ffprobe as it comes in, for the estimate), the
+  `.pdf` rendering of a `.docx`, when it came in, and `failed`, why the last start could not copy it. Nothing reads it as
+  a document yet: the index skips it (no `doc.md`), `docs.convert` and `media.*` refuse it (code `pending`).
+  `docs.planStart` says what starting them takes, before anything moves: the documents by type, the bytes to copy
+  against the room on the project's drive (a video counts half its size again, 200 MB stay free; short → `docs.start`
+  refuses, code `no-room`), Claude's runs (one per Word or PDF document, one per 20 photos, about 3 for a video under
+  10 min and 12 beyond — §16) and a time: the copies one after the other at about 60 MB/s, then the conversions side by
+  side in the pool's places (about a minute each for a Word or PDF document: ~5 a minute with 5 places, measured on
+  2026-11-10), the videos one at a time (`media.estimate`'s figure, else about 12 min — a 50 min video took that). An
+  estimate, said as one. `docs.start { ids? }` (default: every document waiting) is a `docs.add` job: it copies each
+  original as `docs.add` would (streamed, hashed, in bytes), drops `pending` once every copy is in place — what the team
+  set meanwhile stays —, then starts one `docs.convert` per document, children of its job, and waits for them (the pool
+  and the index passes above). A copy that fails leaves its document waiting with the reason; a cancel leaves it waiting
+  as it was. `docs.remove` takes a document waiting away without a trace (its originals are not touched); one being
+  copied is refused until its start is cancelled. Decided: the page's « Add documents » (`docs.addFiles`, files picked
+  or dropped by hand) still copies at once and converts nothing — picking the files is the click; only a folder, whose
+  volume nobody chose file by file, waits. Projects written before `pending` read as before (no document waits).
+- **A document's stage** (WORKLOAD.md lot 6 A, 2026-11-12; `lib/doc-stage.ts`): `docs.list` says where each document
+  is, worked out from its files and the jobs running, never stored — `pending` (with the bytes to copy), `copying`
+  (its bytes, or `waiting` its turn in a start), `not-converted` (copied, never converted), `converting` with its step
+  (`waiting` for a place, `text`, `figures` for a Word or PDF document, `pictures` for images read by Claude,
+  `transcribing` then `frames` for a video — the job's own line tells which —, `checking` the citing tests and the
+  warnings), `waiting-index` (with `before`: the documents the running pass reads, while the next one waits),
+  `indexing` (its percent), `ready`, `stale` (search reads an older text), `not-indexed`, `failed` with its step (`copy`:
+  `pending.failed`; `convert`: the last conversion failed and nothing is converted; `index`: the last index run failed
+  since it was converted) and the message. The page shows it one way (`DocStage`, §12). A document's **status**
+  (draft, submitted, validated) is the team's word and stays apart.
 - **Amendments**: `doc.json.amends` lists what a document amends; the graph links it (document and section level), and
   an amendment wins over what it amends.
 - **A document has a source type** (2026-11-08): `docx` · `pdf` · `txt` (a `.txt` or `.md`) — read from the copy's
@@ -1620,6 +1652,17 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   moment, `#img:3` that image large. « Observed » on a source chip is decided by its **document** (`useObserved()`
   reads the cached `docs.list`), never by its anchor. Generation chooses these documents like any other. An import of a
   folder shows the images of one folder as one row (« N images from <folder> »).
+- **A document's stage is drawn one way** (2026-11-12, `components/sources/DocStage.tsx`): docs.list's `stage` as one
+  badge, icon and word (« Waiting to start », « Copying · 40 % », « Describing the figures », « Transcribing », « Waiting
+  to index · 3 documents before », « Indexed », « Not up to date », « Copy failed »…), the same in the documents list,
+  in the panel of a job about one document (`JobDocStage`), in Generate's picker and its reasons (`unready()` in
+  `lib/scope.ts` reads the stage). The list follows it live: docs.list is read again at each progress line of an add or
+  a start (the bytes) and each step of a conversion; until the list catches up, the page's own job row stands for it
+  (`stageWith`). A conversion's row is the document's own row with Cancel, no longer a row of its own. Documents
+  waiting to start gather under a card at the head of the list (`PendingBatch`): what starting them takes
+  (`docs.planStart`: by type, the volume, the room, Claude's runs, the time), « Choose the documents » (all ticked),
+  « Start all » / « Start N documents » and « Remove ». One opened shows its originals, its own plan, why its last start
+  stopped, Start and Remove (`PendingDoc`). Import a folder only adds them: nothing is copied before Start.
 - **The player is Testimus's own, made to check a source** (2026-11-10, the kit's `Video` and
   `components/ui/video/`, designed in the canvas « Testimus — vidéos comme sources »). The browser's controls can
   neither loop on a range nor show one, so they are off. A source that cites 02:36 → 02:52 plays 02:32 → 02:56 **in a

@@ -536,7 +536,7 @@ describe("Documents screen", () => {
     expect(within(listOf()).getByText("Not converted")).toBeInTheDocument();
   });
 
-  it("a document listed while its add still runs shows once, as the upload, then as itself", async () => {
+  it("a document listed while its add still runs shows once, as itself being copied, then at rest", async () => {
     let listed = false;
     const old = doc("OLD", { title: "Older copy", source: { name: "C:/x/other.docx", sha256: "", file: "" } });
     const early = doc("EARLY", {
@@ -567,11 +567,13 @@ describe("Documents screen", () => {
     await waitFor(() => expect(named("docs.list").length).toBeGreaterThan(lists));
     await waitFor(() => expect(rows()).toHaveLength(2));
     expect(within(listOf()).queryByText("Not converted")).toBeNull();
-    fireEvent.click(row("early.docx"));
+    expect(within(row("early")).getByText("Copying")).toBeInTheDocument();
+    expect(within(listOf()).queryAllByText("early.docx")).toHaveLength(0);
+    fireEvent.click(row("early"));
     expect(a.navigate).toHaveBeenCalledWith("documents", "EARLY");
     emit(ended("add-3", "docs.add", { added: [{ id: "EARLY" }], rejected: [] }));
     expect(await within(listOf()).findByText("Not converted")).toBeInTheDocument();
-    expect(within(listOf()).queryAllByText("early.docx")).toHaveLength(0);
+    expect(within(listOf()).queryByText("Copying")).toBeNull();
     expect(rows()).toHaveLength(2);
   });
 

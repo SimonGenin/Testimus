@@ -26,6 +26,12 @@ export function mediaDoc(project: string, id: string): DocJson {
       `${id} is not an images or video document.`,
       "Images and videos are documents of their own: add them with docs.addFiles, or to an images document with media.add.",
     );
+  if (d.pending)
+    throw new UserError(
+      `${id} is waiting to start: none of its files is copied yet.`,
+      `Start it first: testimus docs start ${id}`,
+      "pending",
+    );
   return d;
 }
 

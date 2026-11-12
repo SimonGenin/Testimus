@@ -177,19 +177,21 @@ export function DocHead({
           )}
         </div>
         <span {...stylex.props(type.small, styles.facts)}>
-          {media
+          {media && !doc.pending
             ? running
               ? `Preparing · ${mediaFacts(doc)}`
               : mediaFacts(doc)
-            : running
-              ? `Converting from ${from} · ${baseName(doc.source.name || doc.source.file)}`
-              : converted
-                ? `Converted from ${from} · ${plural(sections, "section")} · ${plural(figures, "figure")}`
-                : `${from} file, not converted · ${baseName(doc.source.name || doc.source.file)}`}
+            : doc.pending
+              ? `${from} file, waiting to start · ${baseName(doc.source.name)}`
+              : running
+                ? `Converting from ${from} · ${baseName(doc.source.name || doc.source.file)}`
+                : converted
+                  ? `Converted from ${from} · ${plural(sections, "section")} · ${plural(figures, "figure")}`
+                  : `${from} file, not converted · ${baseName(doc.source.name || doc.source.file)}`}
         </span>
       </div>
       <div {...stylex.props(styles.acts)}>
-        {media && doc.type !== "video" && onAddMedia && !running && (
+        {media && doc.type !== "video" && onAddMedia && !running && !doc.pending && (
           <Button
             size="sm"
             icon="plus"

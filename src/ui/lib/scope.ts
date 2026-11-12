@@ -1,4 +1,5 @@
-import type { DocRef } from "../../core/types.ts";
+import type { DocRef, DocStageName } from "../../core/types.ts";
+import { stageOf } from "./stage.ts";
 
 export type TocEntry = { anchor: string; title: string; level: number };
 
@@ -67,12 +68,28 @@ export function scopeOf(scopes: Record<string, DocScope>, ids: string[]): { docs
 export type DocWork = { converting: string[] };
 export type Unready = "not-converted" | "converting" | "indexing" | "not-indexed";
 
+const UNREADY: Record<DocStageName, Unready | null> = {
+  pending: "not-converted",
+  copying: "not-converted",
+  "not-converted": "not-converted",
+  converting: "converting",
+  "waiting-index": "indexing",
+  indexing: "indexing",
+  "not-indexed": "not-indexed",
+  ready: null,
+  stale: null,
+  failed: "not-converted",
+};
+
 // ponytail: a document search cannot read yet is shown but never in scope — its choice is kept for when it is ready; a
-// stale one stays (search still finds its previous version) unless an index run is rewriting it (docs.list's indexing)
-export function unready(d: Pick<DocRef, "id" | "converted" | "indexed" | "indexing">, w: DocWork): Unready | null {
+// stale one stays (search still finds its previous version) unless an index run is rewriting it. Read from docs.list's
+// stage; a conversion the page started counts before the list says so
+export function unready(
+  d: Pick<DocRef, "id" | "converted" | "indexed" | "indexing"> & Partial<Pick<DocRef, "stage" | "pending">>,
+  w: DocWork,
+): Unready | null {
   if (w.converting.includes(d.id)) return "converting";
-  if (!d.converted?.at) return "not-converted";
-  if (d.indexing) return "indexing";
-  if (d.indexed === "fresh") return null;
-  return d.indexed === "missing" ? "not-indexed" : null;
+  const s = stageOf(d);
+  if (s.name === "failed" && s.step === "index") return "not-indexed";
+  return UNREADY[s.name];
 }

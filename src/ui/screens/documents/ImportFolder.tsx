@@ -15,7 +15,6 @@ import { execute, useRead } from "../../lib/data/query.ts";
 import { examplePath } from "../../lib/desktop.ts";
 import { message, plural } from "../../lib/format.ts";
 import { jobToast } from "../../lib/toast.ts";
-import { importClaude } from "../../lib/uploads.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 
 const styles = stylex.create({
@@ -55,8 +54,8 @@ const folderName = (group: string, dir: string) =>
     .pop() || group;
 
 // ponytail: a folder's documents, ticked by default, the files left aside with their reason under them — each document
-// ticked is copied, converted, then indexed (docs.addFolder); the desktop app hands the folder it picked, a browser types
-// its path
+// ticked enters the list waiting to start (docs.addFolder start false): nothing is copied before the list's Start,
+// which says first what it takes; the desktop app hands the folder it picked, a browser types its path
 export function ImportFolder({ picked, onClose }: { picked: string | null; onClose: () => void }) {
   const app = useApp();
   const client = useQueryClient();
@@ -83,17 +82,13 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
     setError(null);
     setStarting(true);
     try {
-      const { model, effort } = importClaude();
       const r = await execute(client, "docs.addFolder", {
         dir: scan.dir,
         recursive: true,
         files: chosen.map((f) => f.rel),
-        triage: true,
-        index: true,
-        ...(model ? { model } : {}),
-        ...(effort ? { effort } : {}),
+        start: false,
       });
-      jobToast(`Importing ${plural(units, "document")} — started`, r.jobId, app.openJob);
+      jobToast(`${plural(units, "document")} imported, waiting to start`, r.jobId, app.openJob);
       onClose();
     } catch (e) {
       setStarting(false);
@@ -135,14 +130,18 @@ export function ImportFolder({ picked, onClose }: { picked: string | null; onClo
         scan ? (
           <span {...stylex.props(type.mono, styles.path)}>{scan.dir}</span>
         ) : (
-          "Every Word, PDF and text file of a folder and its sub-folders becomes a document, each video one, the images of a folder one; converted then indexed."
+          "Every Word, PDF and text file of a folder and its sub-folders becomes a document, each video one, the images of a folder one. They wait in the list until you start them."
         )
       }
       onClose={onClose}
       busy={starting}
       error={error ?? (read.isError ? message(read.error) : null)}
       onSubmit={() => (readFirst ? look() : void start())}
-      footNote={scan ? "Copied, converted, then indexed in the background." : undefined}
+      footNote={
+        scan
+          ? "They wait in the list: nothing is copied until you start them there, with what it takes said first."
+          : undefined
+      }
       actions={
         <>
           <Button label="Cancel" onClick={onClose} disabled={starting} />

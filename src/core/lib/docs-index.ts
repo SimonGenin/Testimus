@@ -181,6 +181,13 @@ export function indexRunState(project: string): IndexRun["state"] | null {
   return q?.running ? "running" : q?.waiting ? "waiting" : null;
 }
 
+// ponytail: while a pass runs and the next one waits, the documents the running pass reads — what a document waiting
+// for the next pass has before it; null otherwise
+export function waitingBefore(project: string): number | null {
+  const q = queues.get(resolve(project).toLowerCase());
+  return q?.running && q.waiting ? q.reads : null;
+}
+
 const WAITING: DocIndexing = { state: "waiting", percent: 0, done: 0, total: 0 };
 
 // ponytail: the document the run reads now, and those it has started embedding, are running; one with nothing to

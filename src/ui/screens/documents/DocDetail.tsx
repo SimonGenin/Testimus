@@ -20,6 +20,7 @@ import { DocUnreadable } from "./DocUnreadable.tsx";
 import { tocFits, useTocPane } from "./layout.ts";
 import { MediaImages } from "./MediaImages.tsx";
 import { MediaVideo } from "./MediaVideo.tsx";
+import { PendingDoc } from "./PendingDoc.tsx";
 import { RemoveDoc } from "./RemoveDoc.tsx";
 import { useDocSet } from "./useDocSet.ts";
 
@@ -218,7 +219,8 @@ export function DocDetail({
           )}
           <div {...stylex.props(styles.view)}>
             {running && <DocReading docId={id} upload={running} />}
-            {!running && !converted && <ConvertDoc doc={d} />}
+            {!running && !converted && listed?.pending && <PendingDoc doc={listed} onRemoved={onRemoved} />}
+            {!running && !converted && !listed?.pending && <ConvertDoc doc={d} />}
             {reading && view === "images" && (
               <MediaImages docId={id} shown={pictures.data} focus={anchor.startsWith("img:") ? anchor : undefined} />
             )}

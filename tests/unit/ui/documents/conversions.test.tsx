@@ -52,7 +52,7 @@ describe("Several conversions at once", () => {
     expect(
       await within(list).findByText("Converting 2 at a time · 2 waiting · indexed as they end"),
     ).toBeInTheDocument();
-    expect(within(list).getAllByRole("progressbar", { name: "Converting" })).toHaveLength(2);
+    expect(within(list).getAllByText("Converting")).toHaveLength(2);
     expect(within(list).getAllByText("Waiting to convert")).toHaveLength(2);
   });
 });

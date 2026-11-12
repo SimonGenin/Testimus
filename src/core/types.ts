@@ -230,6 +230,60 @@ export type DocJson = {
   // documents this one is about (an images document made from photos once attached to another): shown, given to
   // Claude with it, never an amendment
   relatesTo?: string[];
+  // a document waiting for the team's go (docs.addFolder start false): nothing copied nor converted until docs.start
+  pending?: DocPending;
+};
+
+// ponytail: an original a pending document will copy — where it is on this PC and its size; a video's facts read by
+// ffprobe when it came in (its length weighs the estimate, absent when ffprobe could not read it)
+export type PendingFile = {
+  path: string;
+  size: number;
+  duration?: number;
+  audio?: boolean;
+  tracks?: number;
+  picture?: boolean;
+};
+// ponytail: doc.json pending — the originals (one for a Word, PDF, text or video document, several for the images of a
+// folder), the .pdf rendering of a .docx, when it came in, and why the last start could not copy it
+export type DocPending = { files: PendingFile[]; pdf?: PendingFile; at: string; failed?: string };
+
+// ponytail: where a document is, worked out by the core from its files and the jobs running (docs.list), never stored
+export const DOC_STAGES = [
+  "pending",
+  "copying",
+  "not-converted",
+  "converting",
+  "waiting-index",
+  "indexing",
+  "not-indexed",
+  "ready",
+  "stale",
+  "failed",
+] as const;
+export type DocStageName = (typeof DOC_STAGES)[number];
+export const STAGE_STEPS = [
+  "waiting",
+  "text",
+  "figures",
+  "pictures",
+  "transcribing",
+  "frames",
+  "checking",
+  "copy",
+  "convert",
+  "index",
+] as const;
+export type StageStep = (typeof STAGE_STEPS)[number];
+export type DocStage = {
+  name: DocStageName;
+  step?: StageStep;
+  done?: number;
+  total?: number;
+  percent?: number;
+  before?: number;
+  bytes?: number;
+  message?: string;
 };
 
 // ponytail: what a document is made of — a Word or PDF file (with its twin), a text file, or files of its own: one or
@@ -380,7 +434,7 @@ export type FigureEntry = {
 };
 // ponytail: a document the index run under way reads (running, with how far it got) or will read (waiting)
 export type DocIndexing = { state: "running" | "waiting"; percent: number; done: number; total: number };
-export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing"; indexing?: DocIndexing };
+export type DocRef = DocJson & { indexed: "fresh" | "stale" | "missing"; indexing?: DocIndexing; stage?: DocStage };
 export type IndexRun = { state: "running" | "waiting"; doc: number; docs: number; done: number; total: number };
 
 // Index

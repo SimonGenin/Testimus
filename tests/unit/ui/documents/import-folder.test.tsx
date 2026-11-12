@@ -91,7 +91,7 @@ describe("Import a folder", () => {
     );
   });
 
-  it("in a browser the folder is typed; its documents are ticked, the rest left aside with the reason; the ticked ones are imported", async () => {
+  it("in a browser the folder is typed; its documents are ticked, the rest left aside with the reason; the ticked ones are imported waiting to start", async () => {
     serve();
     mountDocs(<DocumentsScreen />);
     fireEvent.click(await screen.findByRole("button", { name: "Import a folder…" }));
@@ -115,7 +115,11 @@ describe("Import a folder", () => {
     expect(within(dialog).getByText("Left aside · 2")).toBeInTheDocument();
     expect(within(dialog).getByText("Word's lock file")).toBeInTheDocument();
     expect(within(dialog).getByText("not a document")).toBeInTheDocument();
-    expect(within(dialog).getByText("Copied, converted, then indexed in the background.")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "They wait in the list: nothing is copied until you start them there, with what it takes said first.",
+      ),
+    ).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "B.pdf" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Import 1 document" }));
@@ -124,12 +128,11 @@ describe("Import a folder", () => {
         dir: "/c/J5",
         recursive: true,
         files: ["A_01_00.docx"],
-        triage: true,
-        index: true,
+        start: false,
       }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Import a folder" })).toBeNull());
-    expect(await screen.findByText("Importing 1 document — started")).toBeInTheDocument();
+    expect(await screen.findByText("1 document imported, waiting to start")).toBeInTheDocument();
   });
 
   it("in the desktop app the folder comes from the folder dialog, and a refused path says why", async () => {

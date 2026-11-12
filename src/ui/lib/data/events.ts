@@ -6,8 +6,11 @@ import { invalidateProject, type Key, key, matches, type Prefix, setReachable } 
 import { keysOfKind, keysOfPaths } from "./refresh.ts";
 
 // ponytail: the reads a job changes while it runs — an index run says in docs.list and rag.status which documents it
-// reads and how far it got; they follow each step of it (a read in flight is not restarted, so a fast run cannot starve it)
-const LIVE = /^rag-index$|^rag\.index$/;
+// reads and how far it got, a start the bytes of the document it copies, a conversion its step (docs.list's stage);
+// they follow each progress line of it, or each step of a conversion (a read in flight is not restarted, so a fast run
+// cannot starve it)
+const LIVE = /^rag-index$|^rag\.index$|^docs\.add$/;
+const LIVE_STEPS = /^docs\.convert$/;
 const LIVE_KEYS: Prefix[] = [["docs.list"], ["rag.status"]];
 
 // ponytail: a progress event names its job only — the kind is the one its status said, or, for a job that started
@@ -25,8 +28,8 @@ function kindOf(client: QueryClient, jobId: string, p: string | null): string | 
   return undefined;
 }
 
-function followLive(client: QueryClient, kind: string | undefined, p: string | null): void {
-  if (!kind || !LIVE.test(kind)) return;
+function followLive(client: QueryClient, kind: string | undefined, p: string | null, steps = false): void {
+  if (!kind || !(steps ? LIVE_STEPS : LIVE).test(kind)) return;
   void client.invalidateQueries(
     { predicate: (q) => LIVE_KEYS.some((x) => matches(q.queryKey, x, p)) },
     { cancelRefetch: false },
@@ -193,6 +196,7 @@ export function apply(client: QueryClient, e: JobEvent, p: string | null = proje
     if (e.type !== "status") {
       followSoon(client, e, p);
       if (e.type === "progress") followLive(client, kindOf(client, e.jobId, p), p);
+      else if (e.type === "step" || e.type === "steps") followLive(client, kindOf(client, e.jobId, p), p, true);
       return;
     }
     flushJobs();

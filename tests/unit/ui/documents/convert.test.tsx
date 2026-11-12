@@ -79,7 +79,7 @@ describe("Converting a document", () => {
 
     fail = false;
     fireEvent.click(within(side).getByRole("button", { name: "Convert and index" }));
-    expect(await within(listOf()).findByRole("progressbar", { name: "Converting" })).toBeInTheDocument();
+    expect(await within(listOf()).findByText("Converting")).toBeInTheDocument();
     const reading = within(side).getByRole("region", { name: "Reading the document" });
     expect(reading).toHaveAttribute("aria-busy", "true");
     expect(within(side).queryByRole("region", { name: "Convert and index" })).toBeNull();
@@ -101,9 +101,9 @@ describe("Converting a document", () => {
       message: "Waiting for the running index (2 documents before)",
       step: "index",
     });
-    expect(await within(listOf()).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
+    expect(await within(listOf()).findByText("Waiting to index")).toBeInTheDocument();
     emit({ jobId: "conv-2", at, type: "progress", message: "m", done: 3, total: 4, step: "index" });
-    expect(await within(listOf()).findByText(/75%/)).toBeInTheDocument();
+    expect(await within(listOf()).findByText("Indexing · 75 %")).toBeInTheDocument();
     emit({
       jobId: "conv-2",
       at,

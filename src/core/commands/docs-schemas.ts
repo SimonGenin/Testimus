@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CONTEXT_IDS, EFFORT, MODEL } from "../claude/schemas.ts";
 import { REVIEW } from "../schemas.ts";
+import { DOC_STAGES, STAGE_STEPS } from "../types.ts";
 import { MEDIA_FILE, SOURCE_TYPE } from "./media-schemas.ts";
 
 export const kind = z.enum(["spec", "minutes", "other"]);
@@ -128,6 +129,46 @@ const copy = z.object({
   sha256: z.string().describe("sha256 of the copy, to tell a changed original"),
 });
 
+const pendingFile = z.object({
+  path: z.string().describe("Full path of the original on this PC"),
+  size: z.number().describe("Its size in bytes"),
+  duration: z.number().optional().describe("A video: its length in seconds, read when it came in"),
+  audio: z.boolean().optional().describe("A video: whether it has sound"),
+  tracks: z.number().optional().describe("A video: its sound tracks"),
+  picture: z.boolean().optional().describe("A video: false for a recording of sound alone"),
+});
+
+export const pending = z
+  .object({
+    files: z.array(pendingFile).describe("The originals it will copy (several for the images of a folder)"),
+    pdf: pendingFile.optional().describe("The .pdf rendering of a .docx, copied with it"),
+    at: z.string().describe("When it came in, ISO time"),
+    failed: z.string().optional().describe("Why the last start could not copy it"),
+  })
+  .describe("Set while the document waits for docs.start: nothing is copied nor converted yet");
+
+export const docStage = z
+  .object({
+    name: z
+      .enum(DOC_STAGES)
+      .describe(
+        "pending: waiting for docs.start · copying · not-converted: copied, never converted · converting · waiting-index: converted, waiting for an index pass · indexing · not-indexed · ready: search reads its current text · stale: search reads an older text · failed",
+      ),
+    step: z
+      .enum(STAGE_STEPS)
+      .optional()
+      .describe(
+        "copying or converting: waiting (its turn has not come); converting: text, figures (Word, PDF), pictures (images read by Claude), transcribing, frames (a video), checking (the citing tests, the warnings); failed: copy, convert or index",
+      ),
+    done: z.number().optional().describe("How far it got (bytes copied, items done)"),
+    total: z.number().optional().describe("Out of"),
+    percent: z.number().optional().describe("done of total, 0 to 100"),
+    before: z.number().optional().describe("waiting-index: the documents the running index pass reads first"),
+    bytes: z.number().optional().describe("pending: the bytes a start will copy"),
+    message: z.string().optional().describe("failed: why"),
+  })
+  .describe("Where the document is, worked out from its files and the jobs running; never stored");
+
 export const docJson = z.object({
   id: z.string().describe("Document id: its folder under docs/"),
   code: z.string().describe("The document's code, read from the file name (e.g. SOSIE_211_D401-1_3)"),
@@ -187,6 +228,7 @@ export const docJson = z.object({
     .array(z.string())
     .optional()
     .describe("Ids of the documents this one is about (photos once attached to a document): shown, never an amendment"),
+  pending: pending.optional(),
 });
 
 export const figure = z.object({

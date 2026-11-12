@@ -18,6 +18,7 @@ import { commands as docsEdit } from "./docs-edit.ts";
 import { commands as docsFolder } from "./docs-folder.ts";
 import { commands as docsOverview } from "./docs-overview.ts";
 import { commands as docsRead } from "./docs-read.ts";
+import { commands as docsStart } from "./docs-start.ts";
 import { commands as gen } from "./gen.ts";
 import { commands as images } from "./images.ts";
 import { commands as issue } from "./issue.ts";
@@ -43,6 +44,7 @@ type Defined =
   | (typeof docsRead)[number]
   | (typeof docsEdit)[number]
   | (typeof docsFolder)[number]
+  | (typeof docsStart)[number]
   | (typeof docsOverview)[number]
   | (typeof media)[number]
   | (typeof columns)[number]
@@ -84,6 +86,7 @@ export const registry: Command[] = [
   ...docsRead,
   ...docsEdit,
   ...docsFolder,
+  ...docsStart,
   ...docsOverview,
   ...media,
   ...columns,

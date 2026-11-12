@@ -28,6 +28,7 @@ const MOCK_VALUES: Record<string, (v: string) => boolean> = {
   TESTIMUS_MOCK_DOWNLOAD_MS: (v) => Number(v) >= 0,
   TESTIMUS_MOCK_INDEX_MS: (v) => Number(v) > 0,
   TESTIMUS_MOCK_JOBS: (v) => Number.isInteger(Number(v)) && Number(v) > 0,
+  TESTIMUS_MOCK_STAGES: (v) => v === "1",
   TESTIMUS_MOCK_MAX_ATTACHMENT: (v) => Number(v) > 0,
   TESTIMUS_MOCK_READ_MS: (v) => readPace(v).size === v.split(",").length,
 };

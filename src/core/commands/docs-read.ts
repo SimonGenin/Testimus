@@ -6,12 +6,13 @@ import { refuseLeftOut } from "../claude/access.ts";
 import { attachedContexts } from "../claude/given.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { writeAtomic } from "../lib/atomic.ts";
+import { withStages } from "../lib/doc-stage.ts";
 import { contextMtime, docDir, docShape, headingAt, partOf, readContext, readDoc, readDocMd } from "../lib/docs.ts";
 import { docsFreshness } from "../lib/docs-index.ts";
 import { isObserved, sourceType } from "../lib/media.ts";
 import { renderPage } from "../rag/pdf.ts";
 import type { DocJson } from "../types.ts";
-import { docJson, figure, id, mtime, status } from "./docs-schemas.ts";
+import { docJson, docStage, figure, id, mtime, status } from "./docs-schemas.ts";
 import { SOURCE_TYPE } from "./media-schemas.ts";
 
 // ponytail: an answer of docs.show holds about 15 000 tokens, what an answer to Claude can hold
@@ -119,7 +120,8 @@ export const commands = [
   }),
   command({
     name: "docs.list",
-    summary: "List the project's documents with their status and index freshness.",
+    summary:
+      "List the project's documents with their status (draft, submitted, validated), their index freshness and their stage: pending, copying, converting (and the step), waiting for the index, indexing, ready, stale, failed.",
     input: z.object({ status: status.optional().describe("Only the documents with this status") }),
     output: z.array(
       docJson.extend({
@@ -142,11 +144,13 @@ export const commands = [
           .describe(
             "Set while an index run is under way or waiting and this document is not fresh: the run reads it, so its stale or missing state is the run's own work in progress, not a problem",
           ),
+        stage: docStage,
       }),
     ),
     mutates: false,
     async run(ctx, input) {
-      const all = (await docsFreshness(projectOf(ctx))).map((d) => ({ ...d, ...whatOf(d) }));
+      const project = projectOf(ctx);
+      const all = withStages(project, await docsFreshness(project)).map((d) => ({ ...d, ...whatOf(d) }));
       return input.status ? all.filter((d) => d.status === input.status) : all;
     },
   }),
