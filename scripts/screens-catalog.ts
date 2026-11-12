@@ -85,6 +85,13 @@ const modal = (page: Page | Locator, name?: string | RegExp) =>
   page.getByRole("dialog", name ? { name } : {}).or(page.getByRole("alertdialog", name ? { name } : {}));
 const dialog = (page: Page, name?: string | RegExp) => modal(page, name).first().waitFor({ timeout: T });
 
+// ponytail: Review's two decisions are in the test section's foot, outside the test under review
+const toFix = (page: Page) =>
+  page
+    .getByRole("button", { name: /^To fix/ })
+    .first()
+    .click({ timeout: T });
+
 const writing = (page: Page) => page.getByRole("region", { name: "Result" }).getByText("Claude is writing").first();
 
 const see = (page: Page, text: string | RegExp) => page.getByText(text).first().waitFor({ timeout: T });
@@ -470,7 +477,17 @@ function fixtureShots(): Shot[] {
       id: "review-filter-to-fix",
       note: "Queue filtered on To fix",
       hash: "#/review",
-      prep: (p) => tap(p, /^To fix 1/),
+      prep: async (p) => {
+        const queue = p.getByRole("complementary", { name: "Review queue" });
+        await tap(queue, "State");
+        await p.getByRole("menuitemcheckbox", { name: /^To fix/ }).click({ timeout: T });
+        await p.keyboard.press("Escape");
+        await queue
+          .getByRole("listbox", { name: "Tests to review" })
+          .getByRole("option")
+          .first()
+          .waitFor({ timeout: T });
+      },
     },
     {
       id: "review-sort-menu",
@@ -483,7 +500,7 @@ function fixtureShots(): Shot[] {
       note: "Mark as To fix dialog",
       hash: `#/review/${T1420}`,
       prep: async (p) => {
-        await tap(p.getByRole("region", { name: "Test under review" }), /^To fix/);
+        await toFix(p);
         await dialog(p, "What needs fixing?");
       },
     },
@@ -492,7 +509,7 @@ function fixtureShots(): Shot[] {
       note: "Mark as To fix submitted without a note",
       hash: `#/review/${T1420}`,
       prep: async (p) => {
-        await tap(p.getByRole("region", { name: "Test under review" }), /^To fix/);
+        await toFix(p);
         await dialog(p, "What needs fixing?");
         await tap(modal(p).first(), /^Mark To fix/);
       },
@@ -612,14 +629,18 @@ function fixtureShots(): Shot[] {
     },
     {
       id: "tests-passage",
-      note: "Source passage dialog from a step",
+      note: "Source passage from a step, read in the Source tab beside the test",
       hash: `#/tests/${T1420}`,
       prep: async (p) => {
         await step(p, 2)
           .getByRole("button", { name: /^SOSIE_211_D401-1_3 §5\.6\.6/ })
           .first()
           .click({ timeout: T });
-        await dialog(p);
+        await p
+          .getByRole("complementary")
+          .getByRole("region", { name: /^Source / })
+          .first()
+          .waitFor({ timeout: T });
       },
     },
     {
@@ -808,8 +829,13 @@ function fixtureShots(): Shot[] {
       prep: async (p) => {
         await p.getByRole("radio", { name: "Meaning" }).click();
         await p.getByRole("searchbox", { name: "Try a search" }).fill("ouverture sectionneur TK");
-        await p.getByRole("list", { name: "Passages found" }).getByRole("listitem").first().waitFor();
-        await p.getByRole("heading", { name: "Try it" }).scrollIntoViewIfNeeded();
+        // ponytail: the first search by meaning starts the embed worker, slow on a busy PC
+        await p
+          .getByRole("list", { name: "Passages found" })
+          .getByRole("listitem")
+          .first()
+          .waitFor({ timeout: 45_000 });
+        await p.getByRole("region", { name: "Try it" }).scrollIntoViewIfNeeded({ timeout: T });
       },
     },
     {
@@ -928,11 +954,9 @@ function fixtureShots(): Shot[] {
       note: "Claude dock › Actions grouped by what they work on (after a generation: its tests, the generation)",
       hash: "#/generate",
       prep: async (p) => {
-        const dock = p.getByRole("complementary", { name: "Claude" });
-        const rail = dock.getByRole("button", { name: "Open Claude" });
-        if (await rail.isVisible()) await rail.click();
-        await tap(dock, /^Actions/);
-        await dock
+        const d = await dock(p);
+        await tap(d, /^Actions/);
+        await d
           .getByRole("region", { name: /^Generation · / })
           .first()
           .waitFor({ timeout: T });
@@ -1777,15 +1801,15 @@ export function SCENARIOS(essai: string): Scenario[] {
           id: "settings-models-folder-first",
           note: "The first download asks for a folder",
           hash: "#/settings/models",
+          // ponytail: the advised embedding is already on this PC (a shared path), so the first download is a model
+          // of the table that is not
           prep: async (p) => {
-            await pickAdvised(p);
-            await p.waitForTimeout(500);
-            const go = p
-              .getByRole("dialog")
-              .getByRole("button", { name: /^(Download|Use)/ })
-              .first();
-            if (await go.isVisible().catch(() => false)) await go.click();
-            await dialog(p, /models folder|Where should models be stored/i);
+            await p
+              .getByRole("table", { name: "Embedding models" })
+              .getByRole("row", { name: /^Qwen3 Embedding 0\.6B \(16-bit, DirectML\)/ })
+              .getByRole("button", { name: "Use", exact: true })
+              .click({ timeout: T });
+            await dialog(p, "Where should models be stored?");
           },
         },
       ],
