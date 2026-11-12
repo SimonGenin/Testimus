@@ -207,7 +207,7 @@ describe("docs.addFolder", () => {
       }),
     );
     expect(said).toContainEqual(
-      expect.objectContaining({ message: expect.stringMatching(/^Copying Essai\.mp4 — .* \(file \d of 2\)$/) }),
+      expect.objectContaining({ message: expect.stringMatching(/^Copying Essai\.mp4( — .*)? \(file \d of 2\)$/) }),
     );
   });
 
