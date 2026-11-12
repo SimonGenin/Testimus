@@ -31,6 +31,9 @@ export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefin
   const [model, setModel] = useDraft(draft("model"));
   const [effort, setEffort] = useDraft(draft("effort"));
   const [folder, setFolder] = useDraft(draft("folder"));
+  // ponytail: « Review the plan before writing » is ticked until the user unticks it (decision 4 of WORKLOAD.md)
+  const [reviewRaw, setReviewRaw] = useDraft(draft("review"), "1");
+  const review = reviewRaw !== "0";
 
   const scopes = parse<Record<string, DocScope>>(scopesRaw, {});
   const pick = pickOf(pickRaw);
@@ -51,6 +54,7 @@ export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefin
       ...(scope.sections.length ? { sections: scope.sections } : {}),
       ...pick,
       ...(folder.trim() ? { folder: folder.trim() } : {}),
+      ...(review ? { review: true } : {}),
       model: runModel,
       effort: runEffort,
     }) as CommandInput<"gen.tests">;
@@ -69,6 +73,8 @@ export function useGenerateForm(info: Info | undefined, docs: DocRef[] | undefin
     setEffort,
     folder,
     setFolder,
+    review,
+    setReview: (on: boolean) => setReviewRaw(on ? "1" : "0"),
     defaultModel,
     defaultEffort,
     runModel,

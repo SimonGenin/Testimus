@@ -143,7 +143,12 @@ describe("after a generation", () => {
     const file = join(dir, ".testimus", "gen", `${g.generation}.json`);
     const before = JSON.parse(readFileSync(file, "utf8"));
     const unique = { item: "Article à part", category: "Catégorie d'origine", why: "x" };
-    const plan = { found: true, tests: [{ summary: "planned A", technique: "", sections: [] }], skipped: [] };
+    const plan = {
+      found: true,
+      tests: [{ summary: "planned A", technique: "", sections: [] }],
+      skipped: [],
+      questions: [],
+    };
     writeFileSync(file, JSON.stringify({ ...before, skipped: [...before.skipped, unique], plan, done: [0] }));
     const prompts: string[] = [];
     env.spawnClaude = (s) => {

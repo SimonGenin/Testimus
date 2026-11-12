@@ -16,8 +16,11 @@ goes with the run: what to read first, what the team knows about the documents i
 left out. Read that first. The format of `test.md` and the rules of `### Sources` are in the project
 `CLAUDE.md`; this skill is how to get there.
 
-When the request names the plan-tests skill and testing the scope takes more than one test: follow
-plan-tests and write no test — Testimus runs this skill once per planned test.
+When the request names the plan-tests skill and testing the scope takes more than one test (or the
+user reviews the plan first, whatever its size): follow plan-tests and write no test — Testimus runs
+this skill once per planned test. A planned test's request may list questions the user settled on
+the plan: their answers hold over what the documents leave open — never ask them again, never leave
+a behavior out for them.
 
 ## 1. Know the scope before you design
 

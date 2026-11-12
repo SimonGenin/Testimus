@@ -78,16 +78,16 @@ const strings = z.array(z.string().trim().min(1));
 
 // ponytail: an optional field a reply writes null means it is absent — Claude writes "test": null as often as it
 // leaves the key out, and a report is never asked again for that
-const absent = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === null ? undefined : v), schema);
-const list = () => absent(strings.default([]));
-const text = () => absent(z.string().trim().default(""));
+export const absent = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === null ? undefined : v), schema);
+export const list = () => absent(strings.default([]));
+export const text = () => absent(z.string().trim().default(""));
 
 // ponytail: the test an already-tested item names — a local id, a Jira key, or plan:<n> for a test of the same plan
 // (one written by another run of this generation, which may have no id yet); never a description
 export const TEST_NAMED = /^(local-[0-9a-f]{8}|[A-Z][A-Z0-9_]*-\d+|plan:\d+)$/i;
 export const isPlanRef = (test: string) => /^plan:\d+$/i.test(test);
 
-const SKIP = z
+export const SKIP = z
   .object({
     item: z.string().trim().min(3).describe("The behavior, in a few words"),
     reason: z.enum(SKIP_REASONS.filter((r) => r !== "stopped" && r !== "other") as [SkipReason, ...SkipReason[]]),
@@ -125,21 +125,7 @@ export const REPORT = z.object({
   covered: list().describe("Items not written before, written now"),
 });
 
-export const PLAN = z.object({
-  tests: z
-    .array(
-      z.object({
-        summary: z.string().trim().min(3).describe("The test's summary, as it will appear in Xray"),
-        technique: text().describe("The test technique, in a few words"),
-        sections: list().describe("The docId#§x.y the test is written from"),
-      }),
-    )
-    .min(1)
-    .describe("The planned tests"),
-  skipped: absent(z.array(SKIP).default([])).describe("Every behavior of the scope no planned test verifies"),
-});
-
-const told = (s: z.output<typeof SKIP>): Skipped => ({
+export const told = (s: z.output<typeof SKIP>): Skipped => ({
   item: s.item,
   reason: s.reason,
   category: REASON_LABEL[s.reason],
@@ -152,8 +138,6 @@ const told = (s: z.output<typeof SKIP>): Skipped => ({
 });
 
 export type GenReport = { found: boolean; tests: string[]; skipped: Skipped[]; covered: string[]; errors: string[] };
-export type PlannedTest = { summary: string; technique: string; sections: string[] };
-export type TestPlan = { found: boolean; tests: PlannedTest[]; skipped: Skipped[]; errors?: string[] };
 
 const none = <T>(b: Block<T>) => ({ found: false as const, errors: b.errors });
 
@@ -166,17 +150,6 @@ export function parseGenReport(text: string): GenReport {
     skipped: b.value.skipped.map(told),
     covered: b.value.covered,
     errors: [],
-  };
-}
-
-// ponytail: a planned test keeps only the sections written docId#anchor
-export function parsePlan(text: string): TestPlan {
-  const b = readBlock(text, PLAN_TAG, PLAN);
-  if (!b.value) return { ...none(b), tests: [], skipped: [] };
-  return {
-    found: true,
-    tests: b.value.tests.map((t) => ({ ...t, sections: t.sections.filter(isSection) })),
-    skipped: b.value.skipped.map(told),
   };
 }
 

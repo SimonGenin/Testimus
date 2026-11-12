@@ -1,10 +1,18 @@
-import type { Folder, LocalTestRef } from "../../../../core/types.ts";
+import type { Folder, LocalTestRef } from "../../../core/types.ts";
 
-export type Node = { name: string; path: string; tests: LocalTestRef[]; folders: Node[]; total: number };
+/** what a tree files: a test of the project, or one a generation writes */
+export type Filed = { summary: string; folder?: string };
+export type Node<T extends Filed = LocalTestRef> = {
+  name: string;
+  path: string;
+  tests: T[];
+  folders: Node<T>[];
+  total: number;
+};
 
 // the local tests nested by their Xray folder, folders and tests sorted by name, each folder counting what it holds
-export function localTree(refs: LocalTestRef[]): Node {
-  const root: Node = { name: "/", path: "/", tests: [], folders: [], total: 0 };
+export function localTree<T extends Filed = LocalTestRef>(refs: T[], sorted = true): Node<T> {
+  const root: Node<T> = { name: "/", path: "/", tests: [], folders: [], total: 0 };
   for (const r of refs) {
     let at = root;
     root.total++;
@@ -21,9 +29,9 @@ export function localTree(refs: LocalTestRef[]): Node {
     }
     at.tests.push(r);
   }
-  const sort = (n: Node) => {
+  const sort = (n: Node<T>) => {
     n.folders.sort((a, b) => a.name.localeCompare(b.name));
-    n.tests.sort((a, b) => a.summary.localeCompare(b.summary));
+    if (sorted) n.tests.sort((a, b) => a.summary.localeCompare(b.summary));
     n.folders.forEach(sort);
   };
   sort(root);

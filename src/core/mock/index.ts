@@ -16,6 +16,7 @@ import "./claude-chat.ts";
 import "./claude-check.ts";
 import "./claude-columns.ts";
 import "./claude-gen.ts";
+import "./claude-plan.ts";
 import "./claude-media.ts";
 import "./claude-overview.ts";
 import "./claude-study.ts";

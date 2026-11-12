@@ -1,5 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import type { LocalTestRef } from "../../../../core/types.ts";
+import { FolderPanes, type PanesLayout } from "../../../components/tree/FolderPanes.tsx";
+import { testItem } from "../../../components/tree/rows.tsx";
+import { folderName, type Node } from "../../../components/tree/tree.ts";
 import { Button } from "../../../components/ui/Button.tsx";
 import { EmptyState } from "../../../components/ui/EmptyState.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
@@ -7,9 +10,6 @@ import { List } from "../../../components/ui/List.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { plural } from "../../../lib/format.ts";
 import { color } from "../../../styles/tokens.stylex.ts";
-import { FolderPanes, type PanesLayout } from "./FolderPanes.tsx";
-import { testItem } from "./LocalTree.tsx";
-import { folderName, type Node } from "./tree.ts";
 
 const styles = stylex.create({
   count: { color: color.textMuted },

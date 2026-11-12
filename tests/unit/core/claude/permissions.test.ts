@@ -37,7 +37,9 @@ describe("each run kind gets its own MCP allow-list", () => {
         .allow.filter((t) => !ro.includes(t))
         .sort();
     const m = (xs: string[]) => xs.map((x) => `mcp__testimus__${x}`).sort();
-    expect(extra("chat")).toEqual(m(["docs_overviewPropose", "contexts_propose", "columns_propose"]));
+    expect(extra("chat")).toEqual(
+      m(["docs_overviewPropose", "contexts_propose", "columns_propose", "gen_planPropose"]),
+    );
     expect(extra("learn")).toEqual(m(["contexts_learn"]));
     expect(extra("figures")).toEqual([]);
     expect(extra("headers")).toEqual([]);

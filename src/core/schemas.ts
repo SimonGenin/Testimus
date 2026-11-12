@@ -251,8 +251,10 @@ export const PROJECT_JSON = z.object({
 
 export const PROPOSAL = z.object({
   id: z.string().describe("Proposal id (prop-<8hex>): chat.apply or chat.ignore it"),
-  kind: z.enum(PROPOSAL_KINDS).describe("What it changes: the overview, a context's notes, a column's description"),
-  target: z.string().describe("The context id or the column name; overview for the overview"),
+  kind: z
+    .enum(PROPOSAL_KINDS)
+    .describe("What it changes: the overview, a context's notes, a column's description, a generation's plan"),
+  target: z.string().describe("The context id, the column name or the generation; overview for the overview"),
   name: z.string().describe("Its name as the page says it"),
   before: z.string().describe("The text when it was proposed"),
   after: z.string().describe("The text proposed in its place"),

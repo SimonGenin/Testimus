@@ -16,6 +16,7 @@ const WORDS = {
   "docs.overviewShow": "how the documents fit together",
   "docs.remove": "the tests that cite it",
   "docs.show": "the document",
+  "gen.show": "the generation",
   "issue.comments": "the comments",
   "issue.people": "the people",
   "jobs.activity": "what Claude did",

@@ -14,11 +14,12 @@ import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { color, container, space } from "../../styles/tokens.stylex.ts";
-import { LandedCard } from "./GenCard.tsx";
 import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
+import { GenTests } from "./GenTests.tsx";
+import { landedRows, writingRows } from "./genRows.ts";
+import { PlanReview } from "./PlanReview.tsx";
 import type { Generation } from "./useGeneration.ts";
 import { useGenFixes } from "./useGenFixes.ts";
-import { WritingTests } from "./WritingTests.tsx";
 
 const styles = stylex.create({
   pane: {
@@ -35,7 +36,6 @@ const styles = stylex.create({
   muted: { margin: 0, color: color.textMuted },
   fixes: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.claudeText },
   grow: { flex: "1 1 16rem", minWidth: 0, color: color.textMuted },
-  cards: { display: "flex", flexDirection: "column", gap: space.s4 },
   split: {
     display: "grid",
     gridTemplateColumns: { default: "minmax(0, 3fr) minmax(0, 2fr)", [container.paneCompact]: "minmax(0, 1fr)" },
@@ -61,6 +61,7 @@ export function ResultPane({
   onCancel,
   onResume,
   onRetry,
+  plan,
 }: {
   gen: Generation;
   status: ClaudeStatus | null;
@@ -71,11 +72,13 @@ export function ResultPane({
   onCancel: () => void;
   onResume: (generation: string) => void;
   onRetry?: () => void;
+  /** a plan waiting for the user's go: revising and writing it */
+  plan?: Omit<Parameters<typeof PlanReview>[0], "generation" | "failed">;
 }) {
   const app = useApp();
   const [fold, setFold] = useState<Fold>({ all: true, flip: new Set() });
   const [now, setNow] = useState(Date.now());
-  const refs = useRead("tests.list", { generating: true }, { enabled: gen.ids.length > 0 });
+  const refs = useRead("tests.list", { generating: true }, { enabled: gen.ids.length > 0 || gen.running });
   const fixes = useGenFixes(gen.result?.generation ?? null);
   const [onlyFixes, setOnlyFixes] = useState(false);
   const { job, result, stopped, ids, running } = gen;
@@ -137,7 +140,6 @@ export function ResultPane({
       return { all: cur.all, flip };
     });
   const doing = DOING[activityOf(gen.events).at(-1)?.kind ?? "prepare"];
-  const checkOf = (id: string) => result?.checks?.find((c) => c.id === id);
   const head = (
     <Card density="compact">
       <div {...stylex.props(styles.summary)}>
@@ -190,16 +192,8 @@ export function ResultPane({
       </div>
     </Card>
   );
-  const cards = (onlyFixes && fixes.count ? ids.filter((id) => fixes.tests.includes(id)) : ids).map((id) => (
-    <LandedCard
-      key={id}
-      id={id}
-      refs={refs.data as LocalTestRef[] | undefined}
-      check={checkOf(id)}
-      onOpen={() => app.navigate("review", id)}
-      fixes={{ list: fixes.of(id), onFix: fixes.run, onDismiss: fixes.dismiss }}
-    />
-  ));
+  const listed = refs.data as LocalTestRef[] | undefined;
+  const shownIds = onlyFixes && fixes.count ? ids.filter((id) => fixes.tests.includes(id)) : ids;
   const asked = askedOf(job, app.info?.project.claude);
   const activity = (
     <ClaudeActivity
@@ -212,22 +206,40 @@ export function ResultPane({
       onOpenChange={(o) => o !== isOpen(ACTIVITY) && toggle(ACTIVITY)}
     />
   );
+  const ended = !running ? (result ?? stopped) : null;
+  if (ended?.state === "planned" && ended.generation && plan)
+    return (
+      <div {...stylex.props(styles.pane)}>
+        <PlanReview generation={ended.generation} failed={ended.ok === false ? ended.summary : undefined} {...plan} />
+        {activity}
+      </div>
+    );
   return (
     <div {...stylex.props(styles.pane)}>
       {head}
       {running ? (
         <div {...stylex.props(styles.split)}>
           <div {...stylex.props(styles.col)}>
-            <WritingTests tests={gen.writing} />
+            <GenTests
+              rows={writingRows(gen.writing, listed)}
+              running
+              refs={listed}
+              onReview={(id) => app.navigate("review", id)}
+            />
           </div>
           <div {...stylex.props(styles.col)}>{activity}</div>
         </div>
       ) : (
         <>
           {ids.length > 0 && (
-            <section aria-label="Tests written" aria-live="polite" {...stylex.props(styles.cards)}>
-              {cards}
-            </section>
+            <GenTests
+              rows={landedRows(shownIds, listed)}
+              running={false}
+              refs={listed}
+              checks={result?.checks}
+              fixes={fixes}
+              onReview={(id) => app.navigate("review", id)}
+            />
           )}
           {activity}
         </>

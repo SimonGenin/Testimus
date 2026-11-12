@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parsePlan } from "../../../../src/core/claude/gen-plan.ts";
 import {
   checkGenInput,
   genPrompt,
@@ -11,14 +12,7 @@ import {
   prompts,
   scopeIndex,
 } from "../../../../src/core/claude/gen-prompt.ts";
-import {
-  PLAN_TAG,
-  parseGenReport,
-  parsePlan,
-  REPORT_TAG,
-  type Skipped,
-  STOPPED,
-} from "../../../../src/core/claude/gen-reply.ts";
+import { PLAN_TAG, parseGenReport, REPORT_TAG, type Skipped, STOPPED } from "../../../../src/core/claude/gen-reply.ts";
 import { toolStep } from "../../../../src/core/claude/generate.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
@@ -386,6 +380,7 @@ describe("planned generation", () => {
         { summary: "Test B", technique: "", sections: [] },
       ],
       skipped: [{ ...server, category: "Nothing a tester can observe" }],
+      questions: [],
     });
     expect(parsePlan(block({ tests: [] }))).toMatchObject({
       found: false,
@@ -494,7 +489,7 @@ describe("planned generation", () => {
     for (const id of ids) expect(existsSync(join(dir, "tests", id))).toBe(false);
   });
 
-  it("against the --mock Claude: a plan of two tests, then two runs that write two tests each", async () => {
+  it("against the --mock Claude: a plan of two tests, then two runs that write one test each", async () => {
     bigDoc();
     env.spawnClaude = mockSpawnClaude;
     const r = (await invoke(
@@ -504,7 +499,7 @@ describe("planned generation", () => {
     )) as { ok: boolean; planned: number; tests: string[]; skipped: Skipped[] };
     expect(r.ok).toBe(true);
     expect(r.planned).toBe(2);
-    expect(r.tests).toHaveLength(4);
+    expect(r.tests).toHaveLength(2);
     expect(r.skipped.map((s) => [s.item, s.reason])).toEqual([
       ["Manœuvre à distance d'un sectionneur avec TK", "no-source"],
       ["Défaut de la TK pendant la manœuvre", "no-source"],

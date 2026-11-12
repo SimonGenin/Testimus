@@ -60,11 +60,43 @@ function ScopeHost({
 
 describe("Generate › documents", () => {
   const value = () => JSON.parse(screen.getByTestId("v").textContent ?? "{}");
+  const narrow = () => fireEvent.click(screen.getByRole("button", { name: "Narrow…" }));
+
+  it("one line by default, « All documents (N) »; Narrow… unfolds the import folders, each folded, then their documents", () => {
+    const from = (dir: string, name: string) => ({ source: { name: `${dir}\\${name}`, file: "", sha256: "" } });
+    const docs = [
+      docRef("D1", "Traction", 3, from("D:\\Specs\\J5", "a.docx") as Partial<DocRef>),
+      docRef("D2", "Signaux", 3, from("D:\\Specs\\J5", "b.docx") as Partial<DocRef>),
+      docRef("D3", "Notes", 3, { source: { name: "notes.txt", file: "", sha256: "" } } as Partial<DocRef>),
+    ];
+    renderData(<ScopeHost docs={docs} />);
+    expect(screen.getByText("All documents (3)")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Documents in scope" })).toBeNull();
+    narrow();
+    const j5 = screen.getByRole("checkbox", { name: /^J5/ });
+    expect(j5).toBeChecked();
+    expect(screen.getByText("D:\\Specs\\J5 · 2 documents")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Traction/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Unfold J5" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Traction/ }));
+    expect(value()).toEqual({ D1: "none" });
+    expect(j5).toHaveProperty("indeterminate", true);
+    fireEvent.click(screen.getAllByRole("button", { name: "Only some sections…" })[1]);
+    expect(screen.getByText("2 of 3 documents, 1 narrowed")).toBeInTheDocument();
+    fireEvent.click(j5);
+    expect(value()).toEqual({ D1: "all", D2: "all" });
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Added one by one/ }));
+    expect(value().D3).toBe("none");
+    fireEvent.click(screen.getByRole("button", { name: "Fold" }));
+    expect(screen.getByText("2 of 3 documents")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Documents in scope" })).toBeNull();
+  });
 
   it("every document whole by default; left out, back, narrowed to sections, a section's text in the source dialog", async () => {
     api.routes["docs.show"] = () => ({ toc });
     const { app } = mountData(<ScopeHost docs={[docRef("D1", "Traction", 62), docRef("D2", "Signaux")]} />);
-    expect(screen.getByText("2 of 2 documents")).toBeInTheDocument();
+    expect(screen.getByText("All documents (2)")).toBeInTheDocument();
+    narrow();
     expect(screen.getByText(/whole document · 62 sections/)).toBeInTheDocument();
     const d2 = screen.getByRole("checkbox", { name: /Signaux/ });
     expect(d2).toBeChecked();
@@ -98,7 +130,8 @@ describe("Generate › documents", () => {
 
   it("a narrowed document ticked again takes the whole document", () => {
     renderData(<ScopeHost docs={[docRef("D1", "Traction")]} initial={{ D1: ["§5"] }} />);
-    expect(screen.getByText("1 of 1 document · 1 narrowed to sections")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 document, 1 narrowed")).toBeInTheDocument();
+    narrow();
     fireEvent.click(screen.getByRole("checkbox", { name: /Traction/ }));
     expect(value()).toEqual({ D1: "all" });
   });
@@ -115,6 +148,7 @@ describe("Generate › documents", () => {
     cleanup();
     api.routes["docs.show"] = () => null;
     renderData(<ScopeHost docs={[docRef("D1", "")]} initial={{ D1: [] }} />);
+    narrow();
     expect(await screen.findByText("This document has no headings to pick from.")).toBeInTheDocument();
     expect(screen.getAllByText(/C-D1/).length).toBeGreaterThan(0);
   });
@@ -128,6 +162,9 @@ describe("Generate › documents", () => {
       docRef("D4", "Raw", undefined, { converted: undefined }),
     ];
     renderData(<ScopeHost docs={docs} />);
+    expect(screen.getByText("All documents (2)")).toBeInTheDocument();
+    expect(screen.getByText("· 2 not ready")).toBeInTheDocument();
+    narrow();
     const row = (t: string) => screen.getByRole("checkbox", { name: new RegExp(t) }).closest("li") as HTMLElement;
     const box = (t: string) => screen.getByRole("checkbox", { name: new RegExp(t) });
     expect(within(row("Fresh")).getByText("Indexed")).toBeInTheDocument();
@@ -141,7 +178,6 @@ describe("Generate › documents", () => {
       expect(within(row(t)).queryByRole("button", { name: "Only some sections…" })).toBeNull();
     }
     expect(box("Stale")).toBeEnabled();
-    expect(screen.getByText("2 of 4 documents")).toBeInTheDocument();
     cleanup();
     const run = (indexing: DocRef["indexing"]) => (d: DocRef) => (d.indexed === "fresh" ? d : { ...d, indexing });
     const indexing = docs.map((d) =>
@@ -152,6 +188,8 @@ describe("Generate › documents", () => {
           : d,
     );
     renderData(<ScopeHost docs={indexing} work={{ converting: ["D1"] }} initial={{ D1: ["§5"] }} />);
+    expect(screen.getByText("No document ready yet")).toBeInTheDocument();
+    narrow();
     expect(within(row("Fresh")).getByText("Converting…")).toBeInTheDocument();
     expect(within(row("Fresh")).getByText(/being converted · available once indexed/)).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Sections" })).toBeNull();
@@ -162,7 +200,6 @@ describe("Generate › documents", () => {
     expect(screen.queryByText("Not up to date")).toBeNull();
     expect(screen.queryByText("Not indexed")).toBeNull();
     for (const t of ["Fresh", "Missing", "Stale"]) expect(box(t)).toBeDisabled();
-    expect(screen.getByText("0 of 4 documents")).toBeInTheDocument();
   });
 
   it("unready: converting first, then not converted, then the index state while an index run reads it (docs.list) or not", () => {

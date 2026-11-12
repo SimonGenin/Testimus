@@ -50,7 +50,8 @@ src/core/claude/      run (claude -p), access (the tools of each kind of run), g
                       rule for contexts, the documents and their notes, the block every prompt carries), parts (a
                       request in several parts, each answered on its own; a reply's block read against a schema),
                       stream, snapshot/revert, diagnose, status,
-                      chat, learn (what a conversation taught, kept in the conversations context), generate (+ gen-prompt, gen-reply: the report and what is left without a test, gen-review:
+                      chat, learn (what a conversation taught, kept in the conversations context), generate (+ gen-prompt, gen-reply: the report and what is left without a test, gen-plan and gen-replan: the plan,
+                      its themes and questions, reviewed before writing, gen-review:
                       the second look and the suggestions that ride in the check request), check (several tests per
                       request, a verdict per step, the fix action), analyze (a test against the documents: its prompt
                       and run), fix, review, columns, actions, figures, headers, picture (Find a picture: a
@@ -72,7 +73,7 @@ src/ui/
   components/ui/      the kit — one component per control, StyleX, tokens only; the only place that renders a bare
                       <button>/<input>/<select>/<textarea>; type.ts (text styles), halo.ts (focus halo), icons.ts,
                       rowWindow.ts (long lists)
-  components/         claude/, jobs/ (the job panel, a history), shell/, sources/ — composites shared by several screens
+  components/         claude/, jobs/ (the job panel, a history), shell/, sources/, tree/ (tests by folder: Tests and Generate) — composites shared by several screens
   screens/<screen>/   one folder per screen (documents, generate, tests, review, run, settings, setup, doctor);
                       screens/kit/ is the catalogue (#/kit under --mock)
   lib/data/           the data layer: client (call, the HTTP seam), query (useRead, useCommand, execute, keys),

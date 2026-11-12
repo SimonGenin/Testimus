@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parsePlan } from "../../../../src/core/claude/gen-plan.ts";
 import { genLabel, genPrompt, PLAN_MARKER } from "../../../../src/core/claude/gen-prompt.ts";
 import {
   dedupeSkipped,
   parseGenReport,
-  parsePlan,
   REPORT_TAG,
   type Skipped,
   STOPPED,
@@ -239,9 +239,14 @@ describe("a reply's optional fields may be null (G5)", () => {
       sources: [SRC],
     });
     const plan = parsePlan(
-      `\`\`\`test-plan\n${JSON.stringify({ tests: [{ summary: "Test A", technique: null, sections: null }], skipped: null })}\n\`\`\``,
+      `\`\`\`test-plan\n${JSON.stringify({ tests: [{ summary: "Test A", technique: null, sections: null, theme: null }], skipped: null, questions: null })}\n\`\`\``,
     );
-    expect(plan).toEqual({ found: true, tests: [{ summary: "Test A", technique: "", sections: [] }], skipped: [] });
+    expect(plan).toEqual({
+      found: true,
+      tests: [{ summary: "Test A", technique: "", sections: [] }],
+      skipped: [],
+      questions: [],
+    });
   });
 
   it("a refused block is said with the fields refused, an absent one as absent", () => {

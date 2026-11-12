@@ -202,8 +202,10 @@ describe("claude.prompts lists everything Claude is given", () => {
       "skill:generate-tests",
       "skill:plan-tests",
       "generate",
+      "generate-review",
       "generate-planned",
       "generate-add",
+      "generate-replan",
     ]);
     expect(out.filter((p) => p.group === "Every run").map((p) => p.id)).toEqual([
       "file:CLAUDE.md",

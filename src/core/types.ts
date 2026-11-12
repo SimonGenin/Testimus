@@ -878,8 +878,8 @@ export type Diagnosis = {
 /** runId: the run that answered (its proposals and its Revert) */
 export type ChatTurn = { role: "user" | "assistant"; text: string; at: string; runId?: string };
 // ponytail: a change the chat proposed to a file no run writes (lib/proposals.ts) — shown as a diff under the answer,
-// applied or ignored by the user
-export const PROPOSAL_KINDS = ["overview", "context", "column"] as const;
+// applied or ignored by the user; a plan is a generation's plan waiting for the user's go (its ledger)
+export const PROPOSAL_KINDS = ["overview", "context", "column", "plan"] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 export const PROPOSAL_STATES = ["open", "applied", "ignored"] as const;
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
@@ -899,6 +899,8 @@ export type Proposal = {
   mtime: number;
   state: ProposalState;
   settledAt?: string;
+  /** what applying writes when the text is only its reading: a plan's tests and questions */
+  data?: unknown;
 };
 /** a problem the app met (a failed check, an error): where it is, and what the app says about it */
 export type ChatProblem = { where: string; text: string };
@@ -999,7 +1001,8 @@ export type PullInfo = { key: string } & PullStage;
 // on are writing, a run that ended leaves its tests written (a planned test it wrote none for is missed); id once a
 // tool call names the test, summary from the plan
 export type GenTestState = "waiting" | "writing" | "written" | "missed";
-export type GenTestProgress = { id?: string; summary?: string; state: GenTestState };
+// ponytail: folder — where a planned test with a theme will be written, known before its run starts
+export type GenTestProgress = { id?: string; summary?: string; folder?: string; state: GenTestState };
 // ponytail: every event names its project (null: the machine's own work), so a page only follows its own project
 export type JobEvent = (
   | { jobId: string; at: string; type: "status"; job: Job }

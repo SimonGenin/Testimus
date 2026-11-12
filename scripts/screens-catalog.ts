@@ -134,14 +134,18 @@ async function openGenerated(page: Page): Promise<void> {
   await page.waitForTimeout(500);
 }
 
-// ponytail: Generate asks first to replace the tests not validated yet, when there are some
-async function generate(page: Page): Promise<void> {
+// ponytail: Generate asks first to replace the tests not validated yet, when there are some; plan: the plan is reviewed
+// before writing (the default), else the request is written at once
+async function generate(page: Page, plan = false): Promise<void> {
   const again = page.getByRole("button", { name: "New request" });
   await again
     .or(page.getByRole("textbox", { name: "What should be tested?" }))
     .first()
     .waitFor({ timeout: T });
   if (await again.isVisible()) await again.click();
+  const review = page.getByRole("checkbox", { name: "Review the plan before writing" });
+  if (await review.isEnabled()) await review.setChecked(plan);
+  if (plan) await page.getByRole("textbox", { name: "Xray folder" }).fill("/Traction");
   await page.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await tap(page.getByRole("region", { name: "Request" }), /^Generate/);
   const replace = modal(page).first();
@@ -430,6 +434,8 @@ function fixtureShots(): Shot[] {
       note: "Generate › only some sections",
       hash: "#/generate",
       prep: async (p) => {
+        await tap(p, "Narrow…");
+        for (let more = p.getByRole("button", { name: /^Unfold/ }); await more.count(); ) await more.first().click();
         await tap(p, /^Only some sections/);
         await p.waitForTimeout(300);
         const unfold = any(p, /^Unfold/);
@@ -1450,16 +1456,72 @@ export function SCENARIOS(essai: string): Scenario[] {
       shots: [
         {
           id: "generate-writing",
-          note: "Generate › the test Claude is writing open, the one before it folded",
+          note: "Generate › the tests by folder, the one Claude is writing shown below the tree",
           hash: "#/generate",
           prep: async (p) => {
             await generate(p);
             await p
               .getByRole("region", { name: "Tests written" })
-              .getByRole("button", { name: /^Sectionneur avec TK/, expanded: true })
+              .getByRole("region", { name: /^Sectionneur avec TK/ })
               .waitFor({ timeout: 90_000 });
           },
           settle: 300,
+        },
+      ],
+    },
+    {
+      id: "plan",
+      note: "Generate in two times: the plan with its questions, revised, then written by theme",
+      env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_CLAUDE_STEP_MS: "60" },
+      shots: [
+        {
+          id: "generate-picker",
+          note: "Generate › the documents in one line, then narrowed: import folders, documents",
+          hash: "#/generate",
+          prep: async (p) => {
+            await tap(p, "Narrow…");
+            const unfold = any(p, /^Unfold/);
+            if (await unfold.isVisible()) await unfold.click();
+          },
+        },
+        {
+          id: "generate-plan",
+          note: "Generate › the plan before writing: cost, a question, two tests on the same sections",
+          hash: "#/generate",
+          prep: async (p) => {
+            await generate(p, true);
+            await p
+              .getByRole("region", { name: "Plan" })
+              .getByRole("heading", { level: 2 })
+              .waitFor({ timeout: 60_000 });
+          },
+          settle: 500,
+        },
+        {
+          id: "generate-plan-writing",
+          note: "Generate › a plan being written, each theme with how far it is",
+          hash: "#/generate",
+          prep: async (p) => {
+            const plan = p.getByRole("region", { name: "Plan" });
+            await plan.getByRole("radio", { name: "Non, seulement Propriétés" }).check({ timeout: T });
+            await tap(plan, /^Write the \d+ tests?$/);
+            await p
+              .getByRole("tree", { name: "Tests of the generation" })
+              .getByRole("treeitem", { name: /^Sectionneurs sans TK/ })
+              .waitFor({ timeout: 60_000 });
+          },
+        },
+        {
+          id: "generate-plan-result",
+          note: "Generate › the tests written by theme, their sub-folders",
+          hash: "#/generate",
+          prep: async (p) => {
+            await p
+              .getByText(/^\d+ tests? written$/)
+              .first()
+              .waitFor({ timeout: 90_000 });
+          },
+          settle: 800,
         },
       ],
     },

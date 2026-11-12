@@ -142,9 +142,12 @@ describe("Generate › Ask for changes", () => {
       label: "Fix the 2 errors in « Avec TK »",
       testId: "",
     });
-    expect(within(written).getAllByRole("region")).toHaveLength(2);
+    const rows = () =>
+      within(within(written).getByRole("tree", { name: "Tests of the generation" })).getAllByRole("treeitem");
+    expect(rows()).toHaveLength(2);
+    expect(rows()[1]).toHaveTextContent("1 fix");
     fireEvent.click(screen.getByRole("button", { name: "Show only these 1" }));
-    expect(within(written).getAllByRole("region")).toHaveLength(1);
+    expect(rows()).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Show all the tests" }));
     fireEvent.click(within(onCard).getByRole("button", { name: "Dismiss « Fix the 2 errors in « Avec TK » »" }));
     await waitFor(() => expect(named("actions.dismiss")[0]?.input).toEqual({ id: "act-1" }));

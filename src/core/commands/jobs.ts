@@ -140,6 +140,10 @@ const event = z.discriminatedUnion("type", [
         z.object({
           id: z.string().optional().describe("The test, once a tool call of the run named it"),
           summary: z.string().optional().describe("The planned test's summary, from the plan"),
+          folder: z
+            .string()
+            .optional()
+            .describe("Where the planned test is written: its theme's sub-folder of the folder asked"),
           state: z
             .enum(["waiting", "writing", "written", "missed"])
             .describe("waiting (planned, not started), writing, written, or missed (its run wrote no test)"),

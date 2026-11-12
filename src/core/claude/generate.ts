@@ -21,6 +21,7 @@ import { awaitsReview, type ClaudeEvent, type Diagnosis, type GenTestProgress, t
 import { checkTests } from "./check.ts";
 import { addPart, mergeSkipped, readPrior } from "./gen-again.ts";
 import { genBoard, type Lane } from "./gen-board.ts";
+import { parsePlan, type TestPlan, themeFolder } from "./gen-plan.ts";
 import {
   checkGenInput,
   type GenInput,
@@ -30,18 +31,17 @@ import {
   plannedInput,
   scopeDocs,
 } from "./gen-prompt.ts";
+import { stopAtPlan } from "./gen-replan.ts";
 import {
   dedupeSkipped,
   type GenReport,
   inCategoryOrder,
   PLAN_TAG,
   parseGenReport,
-  parsePlan,
   REPORT_TAG,
   type Skipped,
   STOPPED,
   skipDoubts,
-  type TestPlan,
 } from "./gen-reply.ts";
 import { applyReview, hasReview, proposeWritable, reviewPart } from "./gen-review.ts";
 import { type Given, given } from "./given.ts";
@@ -74,6 +74,8 @@ export type GenResult = {
   tokens?: Tokens;
   durationMs: number;
   diagnosis?: Diagnosis;
+  /** planned: the job ended with the plan (review), nothing written — gen.write writes it */
+  state?: "planned";
 };
 
 export type ToolStep = { kind: "read" } | { kind: "write"; testId: string } | null;
@@ -96,7 +98,9 @@ export function toolStep(e: ClaudeEvent): ToolStep {
   return null;
 }
 
-export function stampTest(project: string, id: string, generatedBy: string, folder?: string): void {
+// ponytail: a test written for a planned test with a theme goes to <folder>/<theme> whatever folder its run wrote —
+// it is its local folder, the Xray path is decided at the push; any other test keeps its own, else the folder asked
+export function stampTest(project: string, id: string, generatedBy: string, folder?: string, theme?: string): void {
   const { test } = readTest(project, id);
   const jira = readProject(project).jiraProject;
   const want = {
@@ -104,7 +108,11 @@ export function stampTest(project: string, id: string, generatedBy: string, fold
     generatedBy,
     review: "draft" as const,
     project: test.project || jira,
-    folder: folder && (!test.folder || test.folder === "/") ? folder : test.folder || "/",
+    folder: theme
+      ? themeFolder(folder, theme)
+      : folder && (!test.folder || test.folder === "/")
+        ? folder
+        : test.folder || "/",
   };
   if (
     want.generatedBy === test.generatedBy &&
@@ -344,9 +352,29 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   const prior = asked.resume?.trim() ? readPrior(project, asked.resume.trim()) : null;
   const base = into ? readLedger(project, into) : null;
   const input = prior
-    ? { ...prior.input, model: asked.model || prior.input.model, effort: asked.effort || prior.input.effort }
+    ? {
+        ...prior.input,
+        review: false,
+        model: asked.model || prior.input.model,
+        effort: asked.effort || prior.input.effort,
+      }
     : asked;
   if (!prior) checkGenInput(input, project);
+  const reviewing = !!input.review && !prior && !into;
+  const reindex = !!asked.reindex && !!prior;
+  ctx.steps?.([
+    ...(reindex ? [{ id: "index", label: "Reindex the documents" }] : []),
+    ...(prior ? [] : [{ id: "read", label: reviewing ? "Read the sources and plan" : "Read the sources" }]),
+    ...(reviewing ? [] : [{ id: "write", label: "Write the tests" }]),
+    ...(input.check !== false && !reviewing
+      ? [{ id: "check", label: "Check the new tests and what was left out" }]
+      : []),
+  ]);
+  if (reindex && ctx.invoke) {
+    ctx.step?.("index");
+    ctx.progress({ message: "Reindexing the documents first" });
+    await ctx.invoke("rag.index", {}, { signal: ctx.signal });
+  }
   const stale = indexGate(project, input);
   if (stale.length)
     ctx.log(
@@ -354,17 +382,13 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
       `Index not up to date for ${stale.join(", ")}: what changed since the last index is not searched. Reindex to include it.`,
     );
   const p = readProject(project);
-  const discarded = input.discard && !prior ? discardable(project) : [];
+  // ponytail: a reviewed plan replaces the tests awaiting review when it is written, not when it is planned
+  const discarded = input.discard && (prior ? prior.planned : !input.review) ? discardable(project) : [];
   for (const id of discarded) removeTest(project, id);
   if (discarded.length)
     ctx.log("info", `Deleted ${discarded.length} test(s) not validated yet: ${discarded.join(", ")}.`);
   const g = given(project, "generate", { kind: "project", docs: scopeDocs(input) }, input);
   const add = into && base ? addPart(project, base) : undefined;
-  ctx.steps?.([
-    ...(prior ? [] : [{ id: "read", label: "Read the sources" }]),
-    { id: "write", label: "Write the tests" },
-    ...(input.check !== false ? [{ id: "check", label: "Check the new tests and what was left out" }] : []),
-  ]);
   if (!prior) ctx.step?.("read");
   ctx.progress({ message: "Reading passages" });
   const runId = prior?.runId ?? newRunId();
@@ -382,10 +406,14 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
         mayPlan: true,
       }).catch((e: unknown) => thrownRun(runId, e));
   const plan = prior?.plan ?? (first?.run.ok ? first.plan : null);
+  if (reviewing && first && plan?.found)
+    return stopAtPlan(project, ctx, { by, runId, input: { ...input, contexts: g.contexts }, first: first.run, plan });
   const of = plan?.found ? plan.tests.length : 0;
   const done = new Set(prior?.done ?? []);
-  const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k }) => !done.has(k)) : [];
-  const slots = board.plan(todo.map(({ t }) => t.summary));
+  const todo = plan?.found ? plan.tests.map((t, k) => ({ t, k })).filter(({ k, t }) => !done.has(k) && !t.off) : [];
+  const slots = board.plan(
+    todo.map(({ t }) => ({ summary: t.summary, ...(t.theme ? { folder: themeFolder(input.folder, t.theme) } : {}) })),
+  );
   if (todo.length) ctx.step?.("write");
   if (prior) ctx.log("info", `Resuming the plan: ${todo.length} of ${of} test(s) left.`);
   const set = agentsSetting();
@@ -405,7 +433,17 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   const others = (k: number): PlanSibling[] =>
     plan?.found
       ? plan.tests.flatMap((t, j) =>
-          j === k ? [] : [{ n: j + 1, summary: t.summary, sections: t.sections, ids: made.get(j) ?? [] }],
+          j === k || t.off
+            ? []
+            : [
+                {
+                  n: j + 1,
+                  summary: t.summary,
+                  sections: t.sections,
+                  ...(t.theme ? { theme: t.theme } : {}),
+                  ids: made.get(j) ?? [],
+                },
+              ],
         )
       : [];
   const ended = new Set<number>();
@@ -434,6 +472,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
               of,
               request: input.request.trim(),
               others: others(k),
+              settled: prior?.settled ?? [],
             }),
             label: `generate ${k + 1}/${of}`,
             title: t.summary,
@@ -460,7 +499,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   );
   const planned = parts.filter((r): r is GenRun => !!r);
   const runs = first ? [first, ...planned] : planned;
-  const left = plan?.found ? plan.tests.filter((_, k) => !done.has(k)) : [];
+  const left = plan?.found ? plan.tests.filter((t, k) => !done.has(k) && !t.off) : [];
   const tests = union(runs.map((r) => r.tests));
   const changed = union(runs.map((r) => r.changed));
   // ponytail: the evidence ledger is on disk before the new tests are checked, so their first check already
@@ -481,12 +520,17 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     ...(base?.plan ? { plan: base.plan, done: base.done ?? [] } : {}),
     ...(base?.suggestions ? { suggestions: base.suggestions } : {}),
     ...(ownPlan ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
+    ...(prior?.settled.length ? { settled: prior.settled } : {}),
   };
   attempt(ctx, "Writing the generation's ledger", undefined, () =>
     writeLedger(project, by, { at, input: asked0, runId, ...kept }),
   );
+  const themeOf = new Map<string, string>();
+  for (const [k, ids] of made) for (const id of ids) if (plan?.tests[k]?.theme) themeOf.set(id, plan.tests[k].theme);
   for (const id of tests)
-    attempt(ctx, `Stamping ${id}`, undefined, () => stampTest(project, id, by, input.folder?.trim() || undefined));
+    attempt(ctx, `Stamping ${id}`, undefined, () =>
+      stampTest(project, id, by, input.folder?.trim() || undefined, themeOf.get(id)),
+    );
   const reports = planned.length || !first ? planned.map((r) => r.report) : [first.report];
   const reportFound = reports.every((r) => r.found);
   const failed = runs.find((r) => !r.run.ok)?.run;
@@ -495,7 +539,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   const corpus = attempt(ctx, "Reading the documents for the items left out", null, () => loadCorpus(project));
   const stopped: Skipped[] = plan?.found
     ? plan.tests.flatMap((t, k) =>
-        done.has(k) ? [] : [{ item: t.summary, reason: "stopped" as const, category: STOPPED, why: whyOf(k) }],
+        done.has(k) || t.off ? [] : [{ item: t.summary, reason: "stopped" as const, category: STOPPED, why: whyOf(k) }],
       )
     : [];
   const now = [...(first ? (plan?.skipped ?? []) : []), ...reports.flatMap((r) => r.skipped), ...stopped];

@@ -18,6 +18,7 @@ const WHAT: Record<Proposal["kind"], string> = {
   overview: "How the documents fit together",
   context: "Context",
   column: "Column",
+  plan: "Plan",
 };
 
 const titleOf = (p: Proposal) => (p.kind === "overview" ? WHAT.overview : `${WHAT[p.kind]} « ${p.name} »`);

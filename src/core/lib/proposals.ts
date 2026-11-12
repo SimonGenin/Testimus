@@ -1,17 +1,21 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { planText } from "../claude/gen-plan.ts";
+import { ledgerMtime } from "../claude/gen-replan.ts";
+import { ledgerPath, readLedger } from "../claude/ledger.ts";
 import { isShared } from "../claude/prompt.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type { Proposal, ProposalKind, ProposalState } from "../types.ts";
 import { stepColumns } from "./columns.ts";
 import { showContext } from "./contexts.ts";
+import { generationName } from "./names.ts";
 import { OVERVIEW_PATH, readOverview } from "./overview.ts";
 import { readJson, writeJson } from "./project.ts";
 import { hex8 } from "./store.ts";
 
 // ponytail: a change the chat proposes to a file no run may write — the overview, a saved context's notes, a smart
-// column's description. Nothing is written until the user applies it (chat.apply, through the command that writes that
+// column's description, the plan of a generation waiting for the user's go (its text is its reading, data what applies). Nothing is written until the user applies it (chat.apply, through the command that writes that
 // file); .testimus/proposals/<id>.json keeps the text it was made against, so the page shows a diff and a file that
 // moved since is refused, never overwritten unseen
 
@@ -25,6 +29,15 @@ function current(project: string, kind: ProposalKind, target: string): Current {
     const o = readOverview(project);
     return { name: "How the documents fit together", text: o.body, mtime: o.mtime };
   }
+  if (kind === "plan") {
+    const l = readLedger(project, target);
+    if (l?.state !== "planned" || !l.plan)
+      throw new UserError(
+        `No plan waits under ${target}.`,
+        "Only a plan waiting for the user's go can be changed (Generate shows it).",
+      );
+    return { name: generationName(project, target), text: planText(l.plan), mtime: ledgerMtime(project, target) };
+  }
   if (kind === "context") {
     const c = showContext(project, target);
     return { name: c.name, text: c.notes, mtime: c.mtime };
@@ -37,7 +50,7 @@ const same = (a: string, b: string) => a.replace(/\r\n/g, "\n").trim() === b.rep
 
 export function propose(
   project: string,
-  p: { kind: ProposalKind; target: string; after: string; why: string; runId: string },
+  p: { kind: ProposalKind; target: string; after: string; why: string; runId: string; data?: unknown },
 ): Proposal {
   const now = current(project, p.kind, p.target);
   if (same(now.text, p.after))
@@ -57,6 +70,7 @@ export function propose(
     at: env.now().toISOString(),
     mtime: now.mtime,
     state: "open",
+    ...(p.data !== undefined ? { data: p.data } : {}),
   };
   writeJson(file(project, out.id), out);
   return out;
@@ -92,6 +106,7 @@ export function settle(project: string, id: string, state: Exclude<ProposalState
 export function fileOf(project: string, p: Proposal): string | null {
   if (p.kind === "overview") return OVERVIEW_PATH;
   if (p.kind === "column") return "columns.json";
+  if (p.kind === "plan") return ledgerPath(p.target);
   return isShared(project, p.target) ? null : `contexts/${p.target}/context.md`;
 }
 

@@ -38,6 +38,7 @@ async function apply(ctx: Ctx, project: string, p: Proposal): Promise<void> {
   const write = ctx.invoke;
   if (!write) throw new Error("chat.apply runs through the registry.");
   if (p.kind === "overview") await write("docs.overviewSave", { text: p.after, ifMtime: p.mtime });
+  else if (p.kind === "plan") await write("gen.planSet", { generation: p.target, plan: p.data, ifMtime: p.mtime });
   else if (p.kind === "context") await write("contexts.set", { id: p.target, notes: p.after, ifMtime: p.mtime });
   else {
     if (columnMoved(project, p))
@@ -66,6 +67,13 @@ export const commands = [
       without: WITHOUT,
       note: NOTE,
       conversation: CONVERSATION,
+      generation: z
+        .string()
+        .regex(/^[\w.-]+$/)
+        .optional()
+        .describe(
+          "A generation whose plan waits for the user's go on Generate: Claude is given the plan and its questions and may propose a new plan (gen.planPropose)",
+        ),
       problem: PROBLEM.optional().describe(
         "A problem the app met (a failed check, an error): Claude explains its cause and what to do, may use what it knows beyond the documents, and may propose a Claude action; the conversation stays about it.",
       ),
@@ -78,7 +86,9 @@ export const commands = [
       sources: z.array(SOURCE).describe("The sources the answer cites"),
       proposals: z
         .array(PROPOSAL)
-        .describe("The changes the answer proposes to the overview, a context or a column: chat.apply or chat.ignore"),
+        .describe(
+          "The changes the answer proposes to the overview, a context, a column or a plan: chat.apply or chat.ignore",
+        ),
       costUsd: z.number().optional().describe("What the run cost"),
       tokens: TOKENS.optional(),
       diagnosis: DIAGNOSIS.optional(),
@@ -100,6 +110,7 @@ export const commands = [
         note: input.note,
         conversation: input.conversation,
         problem: input.problem,
+        generation: input.generation,
         signal: ctx.signal,
         onEvent: (e) => ctx.claude(e),
       });

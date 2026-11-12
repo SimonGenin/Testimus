@@ -926,7 +926,9 @@ after the frontmatter, so a review decision never makes findings stale.
   (default `fr`). `gen.preview` says which tests `discard` would replace (Claude's tests awaiting review, never one
   pushed) and which documents of the scope are not indexed or stale.
 - **Index gate**: `gen.tests` refuses before any Claude run when a document of the scope is not indexed (search could
-  not find it, the tests would have no sources); a stale one only warns.
+  not find it, the tests would have no sources); a stale one only warns — and a plan waiting for the user's go offers
+  « Reindex first (≈ N s) », ticked, which `gen.write { reindex }` runs (`rag.index`, a step of the same job) before
+  the first run.
 - `gen.tests` is a job running the `generate-tests` skill through `claude -p`. A request that takes more than one test
   is first planned (`plan-tests`, a `test-plan` block), then written **one run per test**, as many at a time as the
   agents setting and the PC allow (`lib/agents.ts`); one revert for all; a failed run stops the plan and
@@ -934,6 +936,32 @@ after the frontmatter, so a review decision never makes findings stale.
   planned run the plan gave its sections is told to read them in full and follow what they refer to, not to search
   the scope again (four planned runs searching one section again cost 4.7 M input tokens against 2.7 M, §16); a
   planned run given whole documents, and every unplanned run, keeps the line « Search before you design ».
+- **A generation in two times** (decision 4 of `WORKLOAD.md`, 2026-11-12; `claude/gen-plan.ts` the block and what the
+  core says of it, `claude/gen-replan.ts` the plan's commands). « Review the plan before writing », ticked by default on
+  Generate, is `gen.tests { review: true }`: the prompt asks for the plan whatever the size of the scope (`REVIEW_MARKER`),
+  and the job ends with it — the ledger holds the plan, `state: "planned"`, the plan run's Claude Code `session`, and
+  nothing is written (the tests `discard` replaces go only when it is written). The `test-plan` block gives each test a
+  **theme** (a few words, out of its summary) and **questions** `{ id, text, why, sources, answers }` — an ambiguity,
+  documents that disagree, an uncertain scope, with their passages and 2 or 3 answers to propose; `plan-tests` asks them
+  instead of reporting later a `documents-disagree` or an `unblock`. The core adds, without a model, the tests that read
+  the same sections or one inside the other (`overlaps`) and the cost (one run per ticked test, ~3 min 20 each as many
+  at a time as the agents setting: `writeCost`). `gen.show` gives all of it with the questions settled and the stale
+  documents of the scope. Then, as many rounds as wanted: `gen.planSet { generation, plan, ifMtime }` writes the plan
+  as the user leaves it (unticked `off`, renamed, merged — the first keeps its place and reads both tests' sections —,
+  moved to another theme), `gen.plan { generation, answers, request }` resumes the plan's own session
+  (`--resume`; from the generation's prompt again when the session is gone) with the answers, the plan as left and the
+  user's words, and takes the whole plan back (a question already settled is not asked again); the chat proposes one
+  (`gen.planPropose`, below). `gen.write { generation, answers, reindex }` settles the last answers, drops the unticked
+  tests and writes the plan on the resume path (`gen.tests --resume`): every run is given the questions settled and
+  their answers (« never ask them again, never leave a behavior out for them »). The answers stay in the ledger
+  (`settled`); the `state` goes with the writing's first ledger. Unticked, the request is written as before.
+- **Themes are sub-folders** (decision 5): a planned test with a theme is written to `<folder>/<theme>` (or `/<theme>`
+  without a folder) — its run is told that folder and `stampTest` sets it whatever folder the run wrote; it is the
+  test's local folder, the Xray path is decided at the push. An unplanned test keeps the folder given (or Claude's).
+- **The chat discusses the plan**: while Generate shows a plan waiting, the dock's questions go with its generation
+  (`chat.ask { generation }`): Claude is given the plan, its questions and what is settled, and proposes a change with
+  `gen.planPropose` — a proposal of kind `plan` (`lib/proposals.ts`) whose text is the plan as read (`planText`) and whose
+  `data` is the plan, shown as a diff, applied by `chat.apply` through `gen.planSet` against the ledger it was made on.
 - **The runs of a plan know each other** (2026-11-12, `WORKLOAD.md` G6): a planned run's prompt lists the other tests
   of the plan — `plan:<n>`, summary, sections, and the test id once a run wrote it (runs start in waves: one started
   after a neighbour wrote its test gets its id). What a neighbour covers is neither written nor reported; an
@@ -999,13 +1027,15 @@ after the frontmatter, so a review decision never makes findings stale.
      otherwise) or `unsure`.
   One grouping, the core's (`byCategory`: by reason, the largest group first); the page only cuts the list where the
   reason changes.
-- **The test being written** (2026-11-08): a generation job's progress lines carry, when it moved, `gen: [{ id?, summary?, state:
-  waiting | writing | written | missed }]` (`claude/gen-board.ts`), from the run's own tool calls — the test a run is on
-  is `writing`, the one it left `written`, a planned test not started `waiting` with its plan summary, a planned run
-  that wrote nothing `missed`. While the job runs, Generate draws each test as a folding card, read only
-  (`WritingTests`, `WritingCard`): the page reads it with `tests.show`, read again whenever the watcher says its
-  `test.md` changed — no other stream. The test Claude is on opens, folds when done; one opened or folded by hand stays
-  so; « Fold all ». Only on Generate: Review and Tests show a generation's tests once it has ended.
+- **The test being written** (2026-11-08): a generation job's progress lines carry, when it moved, `gen: [{ id?, summary?,
+  folder?, state: waiting | writing | written | missed }]` (`claude/gen-board.ts`), from the run's own tool calls — the
+  test a run is on is `writing`, the one it left `written`, a planned test not started `waiting` with its plan summary
+  and its theme's folder, a planned run that wrote nothing `missed`. While the job runs, Generate draws the tests in the
+  Tests screen's tree (`components/tree/`: `LocalTree` given Generate's row, `FolderPanes`), by folder — a theme is a
+  sub-folder, and each folder says how far it is (« 18 / 30 ») —, and below it the test Claude is on, read only
+  (`GenTests`, `WritingCard`, read with `tests.show` again whenever the watcher says its `test.md` changed — no other
+  stream), until a row is picked; once done, the picked test's card with its fixes (the first test with a fix first).
+  Only on Generate: Review and Tests show a generation's tests once it has ended.
 - **Asking again after a generation** (2026-11-08): `gen.revise { generation, request, mode: change | add, tests? }`
   is a `generate` job under the same generation (`claude/gen-revise.ts`). *change* runs `edit-test` on the
   generation's tests (all, or the ones picked), checks the ones it changed (`revised` in the result) and keeps the
@@ -1575,6 +1605,19 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   the whole queue (draft and to-fix — validated tests are in Tests) and narrows it there, so it is read again only
   for another sort. Decided on 2026-11-09 (canvas « Testimus — Pickers and filter bars »): it replaced the
   segmented states, the pill toggles and « Only with findings ».
+- **Generate at scale** (2026-11-12, `WORKLOAD.md` lot 6 B and decisions 4 and 5): the documents are one line,
+  « All documents (N) » — or « 12 of 125 documents, 3 narrowed » once something is narrowed, with how many are not ready
+  — and « Narrow… » unfolds them: the folders they were imported from (from `source.name`; each folded, ticked whole,
+  partly or not), their documents, then a document's sections (`SectionTree`). Under the request, « Review the plan
+  before writing » (ticked, kept as a draft like the rest of the form). A plan waiting for the user's go is the result
+  tab (« Plan », `PlanReview`): its count and cost, the stale index to read again first, the questions as a form (a
+  proposed answer ticked, or « Something else… » in the user's words; the answers are drafts until they go), the tests
+  grouped by theme in a List — ticked or not, renamed, moved to a theme, merged, two on the same sections flagged —, each
+  edit written at once (`gen.planSet`), then « Revise the plan » with words for Claude and « Write the N tests ». The
+  tests being written and written are the Tests screen's tree (`components/tree/`: `tree.ts`, `LocalTree` with the
+  screen's row, `FolderPanes`, the row pieces — moved there from Tests, which draws them as before) in two panes one
+  above the other: the folders and tests, each folder saying how far it is while Claude writes, and the test picked —
+  the one being written, as it grows, until another is picked.
 - **Names, never internal ids**: a label is what speaks to the user — a test's summary (its Jira key beside it in mono
   when it has one; a local test carries a « Local » badge), a document's title (and its code), the project's name, a
   context's or column's name; a missing one is « Untitled test / document / context », never the id

@@ -1,8 +1,9 @@
 import { UserError } from "../command.ts";
 import { testName } from "../lib/names.ts";
 import { testExists } from "../lib/store.ts";
+import type { Settled, TestPlan } from "./gen-plan.ts";
 import type { AddPart, GenInput } from "./gen-prompt.ts";
-import type { Skipped, TestPlan } from "./gen-reply.ts";
+import type { Skipped } from "./gen-reply.ts";
 import { type GenLedger, readLedger, type Searched } from "./ledger.ts";
 
 // ponytail: a generation asked again — resumed where its plan stopped, or added to (gen.revise add): what its ledger
@@ -17,6 +18,10 @@ export type Prior = {
   plan: TestPlan;
   done: number[];
   skipped: Skipped[];
+  /** the plan's questions the user answered: every run holds to them */
+  settled: Settled[];
+  /** the plan was waiting for the user's go: this is its first writing */
+  planned: boolean;
 };
 
 export function readPrior(project: string, generation: string): Prior {
@@ -35,6 +40,8 @@ export function readPrior(project: string, generation: string): Prior {
     plan: l.plan,
     done: l.done ?? [],
     skipped: (l.skipped ?? []).filter((s) => s.reason !== "stopped"),
+    settled: l.settled ?? [],
+    planned: l.state === "planned",
   };
 }
 

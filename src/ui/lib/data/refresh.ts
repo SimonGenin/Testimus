@@ -126,6 +126,7 @@ const PATHS: Rule[] = [
     ],
   ],
   [/^\.testimus\/actions\//, () => [["actions.list"], ["actions.show"]]],
+  [/^\.testimus\/gen\//, () => [["gen.show"]]],
   [/^test-runs\/([^/]+)(\/|$)/, (m) => [["runs.list"], ["runs.show", { run: m[1] }], ["runs.history"]]],
 ];
 
