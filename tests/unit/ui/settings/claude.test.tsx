@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDrafts } from "../../../../src/ui/lib/data/autosave.ts";
 import { ClaudeCodeSection } from "../../../../src/ui/screens/settings/ClaudeCodeSection.tsx";
 import { exeLine } from "../../../../src/ui/screens/settings/ClaudeProgram.tsx";
@@ -44,7 +44,10 @@ beforeEach(() => {
   net.routes["claude.status"] = () => ({ installed: true, version: "2.1.0", signedIn: null, exe: "claude" });
 });
 
-afterEach(reset);
+afterEach(() => {
+  reset();
+  vi.restoreAllMocks();
+});
 
 const exeField = () => screen.getByLabelText(label("Claude program"));
 
@@ -147,6 +150,7 @@ describe("Settings › Claude Code › Program", () => {
   });
 
   it("Browse… picks claude.exe, saves it, then checks it; a cancel does nothing", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
     const d = fakeDesktop({ files: [] });
     mountSettings(<ClaudeCodeSection />, { info: null });
     const browse = await screen.findByRole("button", { name: "Browse…" });
@@ -162,7 +166,7 @@ describe("Settings › Claude Code › Program", () => {
     await waitFor(() => expect(calls("claude.status").at(-1)?.input).toEqual({ refresh: true }));
     expect(d.pickFiles).toHaveBeenLastCalledWith({
       title: "Choose the Claude program",
-      filters: [],
+      filters: [{ name: "Programs", extensions: ["exe", "cmd"] }],
       multiple: false,
     });
     await waitFor(() => expect(exeField()).toHaveValue("C:\\Users\\me\\.local\\bin\\claude.exe"));
