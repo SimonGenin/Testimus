@@ -19,6 +19,14 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
       changements sur tous les tests et des ajouts. C'est déjà possible avec Claude, mais sur la page Génération la
       barre de gauche devient un Claude block avec des options pertinentes pour ces changements, et quelques Claude
       action buttons liés aux findings et aux skipped.
+- [ ] **Un ordre documenté n'est pas une exigence.** Un manuel décrit une suite d'actions dans un ordre ; ça ne veut
+      pas dire que le système l'impose. Un test tiré d'une procédure ne doit pas affirmer un ordre que la source ne
+      fait que décrire : il le suit, mais le vérifier en tant qu'exigence demande une source qui le dit. Une règle dans
+      `generate-tests` et `check-test`, et un motif de la vérification. *(Idée tirée de SRS Writing, règle W10.)*
+- [ ] **Les questions au client, rassemblées.** Les tests non écrits disent déjà ce qui les débloquerait (`unblock` :
+      un document à ajouter, une figure…). Les rassembler en une liste de questions au client, sans doublons, prête à
+      envoyer et à suivre. Une question n'y entre que si un test en dépend. *(SRS Writing : le registre des questions
+      au client.)*
 
 ## 2. Documents
 
@@ -56,6 +64,36 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
         pour les puces Intel et AMD (seulement si la lenteur gêne : ce serait notre propre binaire à compiler
         et à héberger). Limite connue : l'index est mis à jour une fois la vidéo convertie, pas pendant.
 
+- [ ] **Découper une figure en parties.** Un écran, un pupitre ou une armoire montre des dizaines d'éléments ; chacun
+      (touche, champ, zone, voyant, commande) devient une partie de la figure : une ancre stable par son libellé, jamais
+      par sa position (`fig:40/doo-l`), son propre recadrage à la résolution d'origine, son genre, et ses états quand
+      la source les montre (normal, appuyé, en défaut…). Un pas de test montre alors la touche seule, pas l'écran
+      entier ; la recherche trouve la touche ; la vérification lit le bon recadrage ; chaque état montré peut devenir
+      un cas de test. Vaut aussi pour une image clé de vidéo (l'écran recadré dans l'image de la cabine).
+      - Méthode reprise de SRS Writing (`image_tools.py`, règles P1, P3, P4, P6, P16), qui l'a apprise à ses
+        dépens : Claude lit les cadres sur une **grille graduée dessinée sur l'image**, dans ses propres pixels, jamais
+        à l'œil ; l'élément est recadré **avec son étiquette** et une marge ; un contrôle automatique refuse un bord
+        qui coupe du contenu (et élargit le cadre) ; une planche de toutes les parties, chacune avec son nom, est
+        relue pour vérifier que chacune montre sa propre étiquette ; jamais affichée à plus de 2× sa taille ; une
+        légende qui nomme deux choses donne deux parties ; on nomme par le libellé lu, jamais par l'ordre des cadres.
+      - Gardées comme les images clés : une nouvelle lecture redonne les mêmes ancres ; un cadre corrigé par une
+        personne n'est jamais réécrit. Une commande (`docs.splitFigure` ou équivalent), automatique pour les écrans
+        riches en libellés, à la demande pour le reste.
+      - À décider d'abord, dans ARCHITECTURE.md : une partie est-elle citable, ou seulement une image à joindre
+        (aujourd'hui seule la légende d'une figure est citable) ?
+      - En deux temps : les parties et leur usage dans les tests (`tests_addImage` sur une partie, un chunk par
+        partie, un lien figure → partie) ; puis un écran qui montre les cadres sur la figure et permet de les déplacer
+        (avec /design).
+- [ ] **Des corrections de transcription pour tout le projet.** Une liste `faux => juste` (mots entiers, sans tenir
+      compte de la casse), appliquée après l'écoute à toutes les vidéos du projet, et réapplicable sans réécouter. Elle
+      complète le glossaire : un terme du glossaire sortait encore faux 12 fois sur 20 dans les mesures de MediaTools.
+      Changer le texte change ce que citent les sources : passer par le même rapport qu'une nouvelle écoute.
+      *(MediaTools, `corrections.txt`.)*
+- [ ] **L'image la plus lisible autour d'un instant.** Quand on garde une image d'une vidéo, chercher sur quelques
+      secondes autour celle où la zone voulue est la plus nette et la moins éblouie (énergie des contours divisée par
+      le reflet), plutôt que l'image exacte de l'instant. Pour les vidéos tenues à la main en cabine. *(MediaTools,
+      `screengrab.py`.)*
+
 ## 3. Index, modèles et recherche
 
 - [x] **Pas de warnings pendant l'indexation.** Pendant qu'elle tourne, l'indexation affiche des avertissements de
@@ -71,6 +109,10 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
       exemple « skipped car trop gros » pour un modèle qu'on est littéralement en train d'utiliser. Retravailler ce code
       pour le rendre global et générique : il montre clairement du spaghetti.
 - [x] **Une recherche plus puissante,** avec des réglages modifiables dans Settings › Search.
+- [ ] **Un glossaire ferroviaire de départ.** Proposer, pour un projet ferroviaire, un glossaire de synonymes du
+      métier (DSD = dead man = Sifa, MSDO = ouverture sélective des portes…) à verser dans `project.json.glossary`,
+      pour que la recherche trouve un élément sous tous ses noms. Des données du projet, jamais du code. *(SRS
+      Writing, `SRS-Element-Library.md` : 44 éléments génériques avec leurs synonymes.)*
 
 ## 4. Claude
 
@@ -107,6 +149,29 @@ pourquoi de l'existant sont dans ARCHITECTURE.md ; ce qui reste à prouver de l'
       remplacer par ce qui parle à l'utilisateur (le résumé du test, sa clé Jira, le titre du document…).
 - [x] **Menu du projet simplifié.** Dans le menu principal, un clic sur le nom du projet ne montre plus « Open a
       folder », « New project » ni « Open by Jira key » : juste un bouton qui ramène à l'écran de sélection de projet.
+
+## 8. Vérification et relecture
+
+- [ ] **Une vérification à l'aveugle.** Un modèle à qui l'on montre une affirmation finit par être d'accord avec
+      elle ; notre vérification montre le test à Claude. En option, pour les tests importants ou un échantillon avant
+      validation : un run qui **ne voit pas le test** répond à des questions ouvertes sur son objet (que fait cet
+      élément, dans quels états, avec quels effets ?) à partir des documents seuls ; on compare ; chaque désaccord est
+      relu sur la page source avant d'être signalé. Mesurer sur un échantillon avant d'en faire un réglage par défaut.
+      *(SRS Writing, skill `verify-against-sources`.)*
+- [ ] **Corriger le même défaut partout.** Quand une personne corrige un pas, une tournure ou une image, chercher le
+      même défaut dans les autres tests et proposer de les corriger aussi (« 7 autres tests ont la même formulation »),
+      au lieu de s'arrêter au cas signalé. *(SRS Writing, « Maintaining this skill », point 10.)*
+- [ ] **Une modification n'empire rien.** Une modification de test, par Claude ou par une personne, qui **ajoute** un
+      défaut au contrôle mécanique est signalée avant d'être enregistrée ou synchronisée. On ne demande pas zéro
+      défaut, seulement de ne pas en ajouter. *(SRS Writing : le cliquet de `confluence.update_page`.)*
+- [ ] **Des idées pour la relecture**, à comparer d'abord avec Validate / To fix, écran par écran (avec /design) :
+      - une catégorie par commentaire (erreur, formulation, structure, image, info manquante) ;
+      - « Répondu, à vérifier » : quand Claude a corrigé, l'auteur du commentaire le voit jusqu'à ce qu'il en accuse
+        réception ou réponde de nouveau ;
+      - « Demander d'abord à un collègue » : un commentaire adressé à une personne n'est pas une demande pour Claude
+        tant qu'il ne lui a pas été passé.
+
+      *(SRS Writing, l'atelier de relecture `SRS.html`, `SRS-Local-Workspace.md` §3.)*
 
 ## À compléter
 
