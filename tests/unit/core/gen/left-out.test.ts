@@ -126,7 +126,7 @@ describe("what Testimus can check about an item without a model", () => {
 
   it("a test said to verify it that is not in the project; passages said read and never opened", () => {
     expect(doubts(left("Menu", "already-tested", { test: "LFRPS12-9999" }))).toEqual([
-      "It names the test LFRPS12-9999, which is not in this project.",
+      'It names "LFRPS12-9999", which is not a test of this project.',
     ]);
     expect(doubts(left("Menu", "already-tested", { test: "LFRPS12-1398" }))).toEqual([]);
     const unread = left("X", "not-observable", { sources: [TK], read: [`${DOC}#§5.6.7`, `${DOC}#§5.6.6`] });

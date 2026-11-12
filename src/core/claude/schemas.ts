@@ -121,6 +121,7 @@ export const FINDING_KINDS: [FindingKind, ...FindingKind[]] = [
   "not-simulated-unsourced",
   "vague-result",
   "documents-conflict",
+  "description-mismatch",
   "empty-field",
   "raw-embed",
   "duplicate-step",

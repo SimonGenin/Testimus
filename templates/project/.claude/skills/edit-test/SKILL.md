@@ -21,9 +21,13 @@ scope that test, a tests scope those tests. Everything outside it stays byte for
 4. **Step columns** (`columns_list`): a column you write follows its description; one whose
    description is empty stays empty. In a Reference source column each item has its own line
    ending `@<column> "<item>"`: an item you add, change or remove takes its line with it.
-5. Leave `review`, `review_note`, `reviewed_by`, `reviewed_at` and `generated_by` as they are, and
+5. **Pictures**: a step you add or change where the tester does or sees something on a screen gets a
+   picture of that screen when one truly shows it — a document figure (`fig:`), then a photo
+   (`img:`), then a video key frame (`frame:`, `media_keep` to keep the right instant) — with
+   `tests_addImage { id, step, figure, field }`. Finding none is fine; an approximate one is worse.
+6. Leave `review`, `review_note`, `reviewed_by`, `reviewed_at` and `generated_by` as they are, and
    never edit `check.json`: the edit makes the last check stale, and Testimus shows it.
-6. **Done** when `check_run` with `semantic: false` on each changed test reports nothing you can fix
+7. **Done** when `check_run` with `semantic: false` on each changed test reports nothing you can fix
    (`quote-not-found`: copy the quote again; `quote-weak`: quote more words) and `tests_show` shows
    the change you meant.
 

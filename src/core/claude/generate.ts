@@ -16,11 +16,20 @@ import {
   testExists,
   writeTest,
 } from "../lib/store.ts";
+import { isSkeleton } from "../lib/testfile.ts";
 import { awaitsReview, type ClaudeEvent, type Diagnosis, type GenTestProgress, type Tokens } from "../types.ts";
 import { checkTests } from "./check.ts";
 import { addPart, mergeSkipped, readPrior } from "./gen-again.ts";
 import { genBoard, type Lane } from "./gen-board.ts";
-import { checkGenInput, type GenInput, genPrompt, indexGate, plannedInput, scopeDocs } from "./gen-prompt.ts";
+import {
+  checkGenInput,
+  type GenInput,
+  genPrompt,
+  indexGate,
+  type PlanSibling,
+  plannedInput,
+  scopeDocs,
+} from "./gen-prompt.ts";
 import {
   dedupeSkipped,
   type GenReport,
@@ -113,7 +122,45 @@ export const discardable = (project: string) =>
     .filter((t) => awaitsReview(t) && !t.key)
     .map((t) => t.id);
 
-type GenRun = { run: RunResult; tests: string[]; changed: string[]; report: GenReport; plan: TestPlan | null };
+type GenRun = {
+  run: RunResult;
+  tests: string[];
+  changed: string[];
+  report: GenReport;
+  plan: TestPlan | null;
+  /** the tests it created and left as tests.create made them: removed, never counted written */
+  skeletons: string[];
+};
+
+// ponytail: a run that threw is a failed run like any other — it stops the runs not started yet, and everything after
+// the writing (the items left out, the ledger, the check) is still done for the others
+export function thrownRun(runId: string, e: unknown): GenRun {
+  const summary = `The run stopped on an error: ${e instanceof Error ? e.message : String(e)}`;
+  return {
+    run: {
+      runId,
+      ok: false,
+      summary,
+      durationMs: 0,
+      changedTests: [],
+      changedSteps: {},
+      written: [],
+      calls: [],
+      raw: summary,
+    },
+    tests: [],
+    changed: [],
+    report: { found: false, tests: [], skipped: [], covered: [], errors: [summary] },
+    plan: null,
+    skeletons: [],
+  };
+}
+
+// ponytail: what a reply's block could not give — absent, or there and refused, field by field
+export const refusedLine = (label: string, tag: string, errors: string[]): string =>
+  !errors.length || errors[0].startsWith("no ")
+    ? `The reply of ${label} has no ${tag} block: Claude is asked for it again.`
+    : `The ${tag} block of ${label} was refused (${errors.slice(0, 3).join("; ")}): Claude is asked again.`;
 
 async function genRun(
   ctx: Ctx,
@@ -128,6 +175,7 @@ async function genRun(
     title?: string;
     lane: Lane;
     mayPlan?: boolean;
+    onWrite?: (testId: string) => void;
   },
 ): Promise<GenRun> {
   const p = readProject(project);
@@ -151,7 +199,10 @@ async function genRun(
       if (s?.kind === "read") ctx.progress({ message: `Reading passages (${++reads})` });
       if (s?.kind === "write") {
         const fresh = !written.includes(s.testId);
-        if (fresh) written.push(s.testId);
+        if (fresh) {
+          written.push(s.testId);
+          o.onWrite?.(s.testId);
+        }
         if (o.lane.wrote(s.testId) || fresh) ctx.progress({ message: `Writing ${s.testId} (${written.length})` });
       }
     },
@@ -160,13 +211,22 @@ async function genRun(
   const before = readRun(project, run.runId).before;
   // ponytail: a test is this generation's only when it did not exist before the run, a call of this run
   // wrote it, and no other generation stamped it — a test made by hand meanwhile is never claimed
-  const tests = run.changedTests.filter(
+  const made = run.changedTests.filter(
     (id) =>
       before[id] === null &&
       run.written.includes(id) &&
       testExists(project, id) &&
       [undefined, "", o.by].includes(readTest(project, id).test.generatedBy),
   );
+  // ponytail: a run that ends — done, failed or cancelled — between tests.create and the writing leaves an empty
+  // draft nobody asked for: it goes, and its planned test counts as not written
+  const skeletons = made.filter((id) => isSkeleton(readTest(project, id).test));
+  for (const id of skeletons) {
+    removeTest(project, id);
+    ctx.log("warn", `${o.label} left ${id} as tests.create made it: removed, the test is not written.`);
+  }
+  if (skeletons.length) markLeft(project, run.runId, skeletons);
+  const tests = made.filter((id) => !skeletons.includes(id));
   const changed = run.changedTests.filter((id) => before[id] !== null && run.written.includes(id));
   // ponytail: a run that wrote no test may answer with a plan; anything else answers with its report. A reply that
   // carries neither, or one that cannot be read, is asked again once, in the same session, for that block alone — a
@@ -179,11 +239,12 @@ async function genRun(
   if (run.ok && !got.plan && !got.report.found && run.sessionId && !ctx.signal.aborted) {
     const planned = o.mayPlan && !tests.length && got.planErrors.length && !got.planErrors[0].startsWith("no ");
     const tag = planned ? PLAN_TAG : REPORT_TAG;
-    ctx.log("warn", `The reply of ${o.label} has no readable ${tag} block: Claude is asked for it again.`);
+    const errors = planned ? got.planErrors : got.report.errors;
+    ctx.log("warn", refusedLine(o.label, tag, errors));
     const again = await runClaude({
       project,
       label: `${o.label}: report`,
-      prompt: askAgainLines(tag, planned ? got.planErrors : got.report.errors),
+      prompt: askAgainLines(tag, errors),
       ...who,
       kind: "generate",
       resume: run.sessionId,
@@ -192,11 +253,12 @@ async function genRun(
     });
     if (again.ok) got = read(again.summary);
   }
-  return { run, tests, changed, report: got.report, plan: got.plan };
+  return { run, tests, changed, report: got.report, plan: got.plan, skeletons };
 }
 
 // ponytail: the items a generation left without a test, as one list — what it had before, what its plan and each run
 // reported (the same behavior once), what a cancel stopped — each with what Testimus could not confirm about it
+// what could not be checked about one item is said on it and logged; the others are checked all the same
 function leftOut(
   project: string,
   before: Skipped[],
@@ -205,15 +267,34 @@ function leftOut(
   written: string[],
   corpus: Corpus,
   ledger: Ledger,
+  log: Ctx["log"],
 ): Skipped[] {
   return inCategoryOrder(
     mergeSkipped(before, dedupeSkipped(now, written), covered).map((s) => {
       if (s.reason === "stopped" || s.reason === "other") return s;
-      const doubts = skipDoubts(project, s, corpus, ledger);
       const { doubts: _old, ...rest } = s;
+      let doubts: string[];
+      try {
+        doubts = skipDoubts(project, s, corpus, ledger);
+      } catch (e) {
+        const why = e instanceof Error ? e.message : String(e);
+        log("warn", `Could not check the item left out « ${s.item} »: ${why}`);
+        doubts = [`Testimus could not check it: ${why}`];
+      }
       return doubts.length ? { ...rest, doubts } : rest;
     }),
   );
+}
+
+// ponytail: each part of what follows the writing is done even when one before it failed — its error is logged and the
+// generation goes on to the next part
+function attempt<T>(ctx: Ctx, what: string, fallback: T, f: () => T): T {
+  try {
+    return f();
+  } catch (e) {
+    ctx.log("error", `${what} failed: ${e instanceof Error ? e.message : String(e)}`);
+    return fallback;
+  }
 }
 
 const union = (xs: string[][]) => [...new Set(xs.flat())];
@@ -299,7 +380,7 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
         title: "read and write",
         lane: board.run(),
         mayPlan: true,
-      });
+      }).catch((e: unknown) => thrownRun(runId, e));
   const plan = prior?.plan ?? (first?.run.ok ? first.plan : null);
   const of = plan?.found ? plan.tests.length : 0;
   const done = new Set(prior?.done ?? []);
@@ -318,8 +399,19 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
   });
   let finished = 0;
   let stop = false;
+  // ponytail: the tests each planned run wrote, as soon as it writes them — a run that starts later is told its
+  // neighbours by number and, once they have one, by id
+  const made = new Map<number, string[]>();
+  const others = (k: number): PlanSibling[] =>
+    plan?.found
+      ? plan.tests.flatMap((t, j) =>
+          j === k ? [] : [{ n: j + 1, summary: t.summary, sections: t.sections, ids: made.get(j) ?? [] }],
+        )
+      : [];
+  const ended = new Set<number>();
   // ponytail: a failed run stops the runs not started yet (a credit or login failure would fail them all); a planned
-  // test counts as written once its run wrote a test, so a resume never writes it twice
+  // test counts as written once its run wrote a test, so a resume never writes it twice — and a run that ended
+  // without one leaves it to the resume
   const parts = await Promise.all(
     todo.map(({ t, k }, n) =>
       pool.run(async () => {
@@ -330,19 +422,37 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
           total: todo.length,
         });
         const id = newRunId();
-        const part = plannedInput(input, t);
-        const r = await genRun(ctx, project, part, {
-          runId: id,
-          by,
-          given: g,
-          prompt: genPrompt(project, part, g.lines, { n: k + 1, of, request: input.request.trim() }),
-          label: `generate ${k + 1}/${of}`,
-          title: t.summary,
-          lane: board.start(slots[n]),
-        });
-        absorbRun(project, runId, id);
+        let r: GenRun;
+        try {
+          const part = plannedInput(input, t);
+          r = await genRun(ctx, project, part, {
+            runId: id,
+            by,
+            given: g,
+            prompt: genPrompt(project, part, g.lines, {
+              n: k + 1,
+              of,
+              request: input.request.trim(),
+              others: others(k),
+            }),
+            label: `generate ${k + 1}/${of}`,
+            title: t.summary,
+            lane: board.start(slots[n]),
+            onWrite: (testId) => made.set(k, [...new Set([...(made.get(k) ?? []), testId])]),
+          });
+          absorbRun(project, runId, id);
+        } catch (e) {
+          ctx.log(
+            "error",
+            `generate ${k + 1}/${of} (${t.summary}) stopped on an error: ${e instanceof Error ? e.message : String(e)}`,
+          );
+          r = thrownRun(id, e);
+        }
         finished++;
-        if (r.run.ok || r.tests.length) done.add(k);
+        if (r.tests.length) {
+          done.add(k);
+          made.set(k, r.tests);
+        } else if (r.run.ok) ended.add(k);
         if (!r.run.ok) stop = true;
         return r;
       }),
@@ -372,59 +482,80 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     ...(base?.suggestions ? { suggestions: base.suggestions } : {}),
     ...(ownPlan ? { plan, done: [...done].sort((a, b) => a - b) } : {}),
   };
-  writeLedger(project, by, { at, input: asked0, runId, ...kept });
-  for (const id of tests) stampTest(project, id, by, input.folder?.trim() || undefined);
+  attempt(ctx, "Writing the generation's ledger", undefined, () =>
+    writeLedger(project, by, { at, input: asked0, runId, ...kept }),
+  );
+  for (const id of tests)
+    attempt(ctx, `Stamping ${id}`, undefined, () => stampTest(project, id, by, input.folder?.trim() || undefined));
   const reports = planned.length || !first ? planned.map((r) => r.report) : [first.report];
   const reportFound = reports.every((r) => r.found);
   const failed = runs.find((r) => !r.run.ok)?.run;
   const why = `not written: the generation ${ctx.signal.aborted ? "was cancelled" : "stopped on a failed run"} — resume it`;
-  const corpus = loadCorpus(project);
-  let skipped = leftOut(
-    project,
-    base?.skipped ?? prior?.skipped ?? [],
-    [
-      ...(first ? (plan?.skipped ?? []) : []),
-      ...reports.flatMap((r) => r.skipped),
-      ...left.map((t) => ({ item: t.summary, reason: "stopped" as const, category: STOPPED, why })),
-    ],
-    reports.flatMap((r) => r.covered),
-    kept.tests,
-    corpus,
-    { consulted, searched },
+  const whyOf = (k: number) => (ended.has(k) ? "not written: the run ended without writing its test — resume it" : why);
+  const corpus = attempt(ctx, "Reading the documents for the items left out", null, () => loadCorpus(project));
+  const stopped: Skipped[] = plan?.found
+    ? plan.tests.flatMap((t, k) =>
+        done.has(k) ? [] : [{ item: t.summary, reason: "stopped" as const, category: STOPPED, why: whyOf(k) }],
+      )
+    : [];
+  const now = [...(first ? (plan?.skipped ?? []) : []), ...reports.flatMap((r) => r.skipped), ...stopped];
+  const before = base?.skipped ?? prior?.skipped ?? [];
+  const covered = reports.flatMap((r) => r.covered);
+  let skipped = attempt(
+    ctx,
+    "The summary of the items left out",
+    inCategoryOrder(mergeSkipped(before, now, covered)),
+    () =>
+      corpus
+        ? leftOut(project, before, now, covered, kept.tests, corpus, { consulted, searched }, ctx.log)
+        : inCategoryOrder(mergeSkipped(before, dedupeSkipped(now, kept.tests), covered)),
   );
   const who = { runId, model: input.model || p.claude.model, effort: input.effort || p.claude.effort };
   const checks: GenCheck[] = [];
   let suggestions = kept.suggestions;
   // ponytail: one request checks the new tests and says what is to be said of the generation — a second look at what
-  // it left without a test, what to ask next; a generation that failed or was cancelled is not looked at again
-  if (input.check !== false && !ctx.signal.aborted && !failed && hasReview({ tests, skipped })) {
+  // it left without a test, what to ask next. A cancelled generation is not looked at again, nor one whose failed run
+  // says Claude cannot be reached (it would fail the same); a run that failed otherwise leaves the others checked
+  const unreachable = !!failed?.diagnosis;
+  let looked = false;
+  if (input.check !== false && !ctx.signal.aborted && !unreachable && hasReview({ tests, skipped })) {
     ctx.step?.("check");
     ctx.progress({ message: `Checking ${tests.length} new test(s)` });
-    // ponytail: the request said is the one just asked (an added one too), and the check is given what the
-    // generation was given — the tests were written with those contexts, they are judged with them
-    const review = reviewPart({ request: input.request ?? asked0.request ?? "", tests, skipped });
-    const checked = await checkTests(ctx, project, tests, true, {
-      also: [review.part],
-      pick: { contexts: g.contexts, without: input.without },
-    });
-    const reply = review.reply();
-    if (reply) {
-      skipped = applyReview(skipped, review.items, reply, corpus);
-      if (reply.suggestions.length) suggestions = reply.suggestions;
-    } else ctx.log("warn", "Claude gave no second look at what was left out: the reasons are the generation's own.");
-    for (const r of checked) {
-      const n = (s: string) => r.check.findings.filter((f) => f.severity === s).length;
-      checks.push({
-        id: r.id,
-        ok: r.ok,
-        review: r.review,
-        errors: n("error"),
-        warnings: n("warning"),
+    try {
+      // ponytail: the request said is the one just asked (an added one too), and the check is given what the
+      // generation was given — the tests were written with those contexts, they are judged with them
+      const review = reviewPart({ request: input.request ?? asked0.request ?? "", tests, skipped });
+      const checked = await checkTests(ctx, project, tests, true, {
+        also: [review.part],
+        pick: { contexts: g.contexts, without: input.without },
       });
+      looked = true;
+      const reply = review.reply();
+      if (reply && corpus) {
+        skipped = applyReview(skipped, review.items, reply, corpus);
+        if (reply.suggestions.length) suggestions = reply.suggestions;
+      } else ctx.log("warn", "Claude gave no second look at what was left out: the reasons are the generation's own.");
+      for (const r of checked) {
+        const n = (s: string) => r.check.findings.filter((f) => f.severity === s).length;
+        checks.push({
+          id: r.id,
+          ok: r.ok,
+          review: r.review,
+          errors: n("error"),
+          warnings: n("warning"),
+        });
+      }
+    } catch (e) {
+      ctx.log("error", `The check of the new tests failed: ${e instanceof Error ? e.message : String(e)}`);
     }
-  } else for (const id of tests) runMechanical(project, id, corpus);
-  markLeft(project, runId, tests);
-  for (const id of tests) markGenerated(project, id);
+  }
+  if (!looked)
+    for (const id of tests)
+      attempt(ctx, `The mechanical check of ${id}`, undefined, () => runMechanical(project, id, corpus ?? undefined));
+  attempt(ctx, "Recording what the runs left", undefined, () => {
+    markLeft(project, runId, tests);
+    for (const id of tests) markGenerated(project, id);
+  });
   for (const id of changed)
     ctx.log("warn", `The generation changed the existing test ${quoted(testName(project, id))} — Revert puts it back.`);
   const reportErrors = reports.flatMap((r) => (r.found ? [] : r.errors));
@@ -468,14 +599,18 @@ async function generate(project: string, asked: GenInput, outer: Ctx, into?: str
     durationMs: runs.reduce((a, r) => a + r.run.durationMs, 0),
     ...(diagnosis ? { diagnosis } : {}),
   };
-  writeLedger(project, by, {
-    at,
-    input: asked0,
-    ...result,
-    ...kept,
-    ...(suggestions ? { suggestions } : {}),
-  });
-  const proposed = proposeWritable(project, by, skipped, who, ctx.log);
+  attempt(ctx, "Writing the generation's ledger", undefined, () =>
+    writeLedger(project, by, {
+      at,
+      input: asked0,
+      ...result,
+      ...kept,
+      ...(suggestions ? { suggestions } : {}),
+    }),
+  );
+  const proposed = attempt(ctx, "Proposing the items left out that can be written", 0, () =>
+    proposeWritable(project, by, skipped, who, ctx.log),
+  );
   if (proposed) ctx.log("info", `${proposed} behavior(s) left out can be written after all: see the Claude actions.`);
   ctx.progress({ message: `${tests.length} test(s) written`, done: tests.length, total: tests.length });
   return result;

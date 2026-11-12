@@ -14,6 +14,7 @@ import type { Gone, StepMark } from "../../../lib/diff.ts";
 import { border, color, radius, space } from "../../../styles/tokens.stylex.ts";
 import { ColumnsMenu } from "../ColumnsMenu.tsx";
 import { StepCard, type StepLayout } from "../StepCard.tsx";
+import { FindPicture, type FoundPicture } from "../step/FindPicture.tsx";
 import { cardFlush } from "../step/StepFrame.tsx";
 import type { WasFrom } from "../step/WasToggle.tsx";
 import { GoneStep } from "../WasView.tsx";
@@ -82,6 +83,7 @@ export function StepList({
   onDelete,
   onReorder,
   onAsk,
+  onAddPicture,
   onDraft,
   onRestore,
   onOpenImage,
@@ -119,6 +121,8 @@ export function StepList({
   onDelete: (i: number) => void;
   onReorder: (from: number, to: number) => void;
   onAsk: (i: number) => void;
+  /** a picture Find a picture proposed for step i, picked */
+  onAddPicture?: (i: number, p: FoundPicture) => Promise<void>;
   /** a test without steps: Claude drafts them from its description and sources */
   onDraft?: () => void;
   onRestore: (base: Step, gone: Gone | null, n: number, from: WasFrom) => void;
@@ -206,6 +210,9 @@ export function StepList({
               onInsert={() => onInsert(i + 1)}
               onDelete={() => onDelete(i)}
               onAsk={() => onAsk(i)}
+              pictureTool={
+                onAddPicture && <FindPicture testId={testId} step={i + 1} onAdd={(p) => onAddPicture(i, p)} />
+              }
               onRestore={(b) => onRestore(b, null, i + 1, "jira")}
               onRestoreClaude={(b) => onRestore(b, null, i + 1, "claude")}
               onOpenImage={(file, images, column) => onOpenImage(file, images, i + 1, column)}

@@ -86,6 +86,13 @@ export function ProposalCard({
           />
         )}
         {p.kind === "remove" && removed && <TextDiff before={removed} after="" label="The step taken out" />}
+        {p.kind === "describe" && (
+          <TextDiff
+            before={p.before ?? ""}
+            after={p.value ?? ""}
+            label={`The ${p.field ?? "description"}, before and after`}
+          />
+        )}
         {p.kind === "step" && p.fields && (
           <dl {...stylex.props(type.compact, styles.fields)}>
             {Object.entries(p.fields).map(([k, v]) => (

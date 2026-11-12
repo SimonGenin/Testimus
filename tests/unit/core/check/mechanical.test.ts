@@ -46,7 +46,7 @@ const testOf = (steps: Step[]): Test =>
     summary: "s",
     folder: "",
     labels: [],
-    description: "",
+    description: "d",
     covers: [],
     preconditions: [],
     review: "none",

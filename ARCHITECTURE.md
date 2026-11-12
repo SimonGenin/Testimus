@@ -934,6 +934,25 @@ after the frontmatter, so a review decision never makes findings stale.
   planned run the plan gave its sections is told to read them in full and follow what they refer to, not to search
   the scope again (four planned runs searching one section again cost 4.7 M input tokens against 2.7 M, §16); a
   planned run given whole documents, and every unplanned run, keeps the line « Search before you design ».
+- **The runs of a plan know each other** (2026-11-12, `WORKLOAD.md` G6): a planned run's prompt lists the other tests
+  of the plan — `plan:<n>`, summary, sections, and the test id once a run wrote it (runs start in waves: one started
+  after a neighbour wrote its test gets its id). What a neighbour covers is neither written nor reported; an
+  `already-tested` item that names one gives its id or `plan:<n>`, and `dedupeSkipped` drops both.
+- **A planned test counts as written only when its run wrote a test** (2026-11-12): a run that ended ok without one
+  leaves its test `stopped` (« the run ended without writing its test — resume it »), out of the ledger's `done`, so
+  `--resume` writes it. A run that **throws** is a failed run like any other (`thrownRun`): it stops the runs not
+  started yet, never a rejected `Promise.all`. **Everything after the writing is done even when a part fails** — the
+  ledger, the stamps, the items left out (an item whose doubts cannot be worked out says so and is logged), the check
+  (`attempt`): the job ends `done` with `ok: false`. The tests written are checked unless the generation was cancelled
+  or its failed run says Claude cannot be reached (a `diagnosis`: the check would fail the same).
+- **A test is created with its content** (2026-11-12, G4): `tests.create` takes `steps` (`fields`, `sources`) with the
+  summary and description, and the skill creates each test whole, editing only to correct it. When a generation run
+  ends — done, failed or cancelled — a test it created that is still a skeleton (`lib/testfile.ts isSkeleton`: no step
+  holds a word, and its summary is « New test » or its description is empty) is removed and its planned test counted
+  not written.
+- **A generation's job is named** (`genLabel`): « Generate N tests » for a resume (the planned tests left), else
+  « Generate: » and the words of the request without a preamble that only says « write tests for », else its
+  documents and sections.
 - Skill rules: positive and negative paths, technique named; every smart column filled as its description says, only
   with what a source supports; **every expected result has a source, else the step is not written and the gap is
   reported**; « not simulated » only when a source says so; no reference inside Action/Expected (they live in
@@ -948,7 +967,10 @@ after the frontmatter, so a review decision never makes findings stale.
   `plan-tests`' `test-plan` block has the same `skipped`; `covered`, asked only of a run that adds to a generation,
   names the items left out before that it wrote a test for). The block is **read against a schema** (zod, `REPORT`,
   `PLAN`): a reply that carries none, or one that does not fit, is asked again once in the same session
-  (`--resume`, the problems named field by field — `claude/parts.ts readBlock`, `askAgainLines`); still unreadable,
+  (`--resume`, the problems named field by field — `claude/parts.ts readBlock`, `askAgainLines`; the log says
+  whether the block was absent or refused, and which fields, `refusedLine`). An optional field written `null` is
+  absent (the `absent` helper of `gen-reply.ts`: 3 reports in 111 were asked again for a `null` on 2026-11-11); still
+  unreadable,
   the result says so (`reportFound: false`, `reportErrors`), the job logs an error and Generate shows it — what a run
   left without a test is never lost in a log. Every new test is stamped `review: draft` + `generated_by`, and checked
   at once. The run is snapshotted (revertable).
@@ -962,7 +984,9 @@ after the frontmatter, so a review decision never makes findings stale.
   list: its words are kept as its `category`). `why` is one or two concrete sentences; `sources` the passage that
   asks for it; `searched` and `read` what the run did before giving up; `unblock` what would let the test be
   written and who can bring it. The schema refuses an item without them (a `no-source` without a search said, an
-  `already-tested` without its test). Then three things happen, none of them Claude's own word:
+  `already-tested` without its test, a `documents-disagree` without both passages) and a `test` that is neither
+  `local-<8 hex>`, a Jira key nor `plan:<n>` (« autre test du plan » once failed a whole generation of 110 tests:
+  `testExists` now answers false for an id that is no folder name, only writing refuses it). Then three things happen, none of them Claude's own word:
   1. **one list** — the plan and each run report on their own: `dedupeSkipped` keeps one of a behavior reported
      several times (same reason and the same words, or the same passage asking for it), and drops an item
      `already-tested` by a test of the generation itself; a planned run is told that what the other tests of the plan
@@ -1024,6 +1048,18 @@ after the frontmatter, so a review decision never makes findings stale.
   sends no request at all. The request it quotes is the one just asked (an « add » or a « change » too), and **the
   check is given what the generation was given** (`checkTests { pick }`: its contexts, what it left out): tests written
   with a glossary are judged with it.
+- **A failed generation's triage gets its ledger** (2026-11-12, G8): for a `generate` job `actions.triage` is told
+  the planned tests not written, the check not run and the items nobody looked at again, and the core itself proposes,
+  without a model, « Write the missed test: … » (one per test; what a resume does) and « Check the N tests of the
+  generation » (`generationFacts` in `claude/actions.ts`); the triage run only explains the cause.
+- **Pictures** (2026-11-12, decision 8 of `WORKLOAD.md`): for each step where the tester does or sees something on a
+  screen, the skills (`generate-tests`, `fix-test`, `edit-test`) look for a picture in this order — a document figure,
+  a photo of the interface (`img:`), a video key frame (`frame:`, `media.keep` for the right instant) — and embed it
+  only when it truly shows that screen; none found needs no justification and the mechanical check never asks for
+  one. « Find a picture » on a step (Review and the editor) is `tests.findImage { id, step }`: a short job (run kind
+  `picture`, `claude/picture.ts`: Sonnet, low effort, the reads of documents and media plus `media.keep`) that answers
+  a `pictures` block of 0 to 3 pictures with what each shows; the core keeps those whose file it finds
+  (`lib/pictures.ts`), adds none, and the person picks one (`tests.addImage`).
 - **Evidence ledger** (`claude/ledger.ts`, `.testimus/gen/<generation>.json`): derived from the run's stream-json tool
   calls, never from the model's own report — what it opened (`rag_passage`, `rag_related`, `rag_figure`, `Read` ranges
   of `doc.md` mapped to sections, figure images) and what it searched. `gen.bench` scores agentic recall from it and a
@@ -1032,7 +1068,8 @@ after the frontmatter, so a review decision never makes findings stale.
 
 ## 9. Check, review, fix
 
-- **Mechanical pass** (`lib/check.ts`, no model): steps exist; Action and Expected filled (`empty-field`); no `raw`
+- **Mechanical pass** (`lib/check.ts`, no model): steps exist; Action and Expected filled (`empty-field`); a summary
+  still « New test » or an empty description (`empty-field`, a warning); no `raw`
   embed Xray cannot show; no duplicate step; an expected result has a source; every source resolves (document by id or
   code, anchor exists) and its quote is found **at its anchor** (`§x` = the section with its sub-sections, `fig:N` = the
   caption paragraph only, `page:` = up to the next page, `img:N` = the image's caption, `frame:mm:ss` = the key
@@ -1045,7 +1082,9 @@ after the frontmatter, so a review decision never makes findings stale.
   doubted and nobody confirmed or corrected).
 - **Semantic pass** (`check-test` skill; rethought on 2026-11-10): `unsupported`, `contradicted`, smart column not
   as described, `wrong-object`, `negative-missing`, `case-missing`, `not-simulated-unsourced`, `vague-result`,
-  `documents-conflict` (an amendment wins, a validated document wins over a draft), `figure-not-embedded`, `other`.
+  `documents-conflict` (an amendment wins, a validated document wins over a draft), `figure-not-embedded`,
+  `description-mismatch` (a warning: the summary or description says what the steps do not test, or what no passage
+  states), `other`.
   A `fig:` source's image must be `Read` before it is accepted. `check.run` decides the semantic pass itself (Claude
   there or not); the page never does.
   - **One request checks up to four tests** (`CHECK_LIMITS`, `claude/parts.ts`): they share the passages they have
@@ -1104,10 +1143,14 @@ nothing**: it records proposals and the team decides each one.
   `leave`. A change to a `keep` column that drops or rewords an item is refused at record.
 - Proposals: `source` (lines added to a step — backing its expected result or one item of a column), `change` (one
   cell's whole new text, with its sources; the core stores the cell as it was), `step` (a new step after a step, 0 =
-  first), `remove`. Items no document holds are listed under `unfound` and stay as they are.
+  first), `remove`, and `describe` (2026-11-12, `WORKLOAD.md` F: `field` summary or description, its whole new text
+  in `value`, with the sources of what it states; the core stores the field as it was in `before`, a summary is one
+  line; accepting rewrites the field, a field changed since is out of date, one back to `before` is open again). The
+  skill reads the summary and description last, against the steps and the passages. Items no document holds are
+  listed under `unfound` and stay as they are.
 - `tests/<id>/analysis.json` (managed by `lib/analysis.ts` alone, shared with the test): `{ at, testHash, summary,
   columns: [{ name, role, why }], unfound: [{ step, column, item, why? }], steps: [{ id?, print, was?, gone?, twins?
-  }], proposals: [{ id: p1…, kind, title, why, step?, after?, column?, before?, value?, fields?, sources: ["<line>"],
+  }], proposals: [{ id: p1…, kind, title, why, step?, after?, column?, field?, before?, value?, fields?, sources: ["<line>"],
   state: open | accepted | rejected, decidedBy?, decidedAt?, undone?: { by?, at? } }], earlier?: [rejected proposals of
   the analyses before], run?: { runId, model, effort, note? } }`. A new analysis replaces it.
 - **Where a proposal lands now**: a step is found again by its Xray id, else by its fields as analysed (`steps[].print`,
@@ -1272,8 +1315,8 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   17 to 26 tools; chat: a wide set, a question may be about anything; triage: all of them — a problem of the app may
   be anywhere), `EXTRA` what a kind answers with or may change (check `check_record`; analyze `analysis_record`;
   generation `tests_create/edit/save/addImage`, `check_run`; fix and `claude.run` `tests_edit/save/addImage`;
-  triage and study `actions_propose`; chat the three proposals below; learn `contexts_learn`); `action` keeps the whole
-  set minus another Claude run, Jira writes and the machine. A name in `READS` that is not a read-only command fails a test. Everything else goes to
+  triage and study `actions_propose`; chat the three proposals below; learn `contexts_learn`; picture `media_keep`, its answer a block); `action` keeps the whole
+  set minus another Claude run (`tests.findImage` included), Jira writes and the machine. A name in `READS` that is not a read-only command fails a test. Everything else goes to
   `--disallowedTools`, with `Edit`/`Write` refused on
   `docs/**`, `index/**`, `.testimus/**`, `contexts/**`, `.claude/**`, `project.json`, `xray.json`, `columns.json`,
   `.mcp.json`, `CLAUDE.md`, `test-runs/**`; the writes of `runs.*` are off every run kind, `action` included (§9b).

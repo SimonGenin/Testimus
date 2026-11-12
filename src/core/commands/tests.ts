@@ -80,6 +80,7 @@ const folds = z.object({
 });
 
 function mustExist(dir: string, testId: string): void {
+  testDir(dir, testId);
   if (!testExists(dir, testId))
     throw new UserError(`No test ${testId} in this project.`, "testimus tests list shows the tests.");
 }
@@ -179,13 +180,25 @@ export const commands = [
   }),
   command({
     name: "tests.create",
-    summary: "Create a local test (local-<8hex>) with one empty step, review draft.",
+    summary:
+      "Create a local test (local-<8hex>), review draft — with its content in the same call (summary, description, steps with their sources), or with one empty step when no step is given.",
     input: z.object({
       summary: z.string().optional().describe("Test summary (default: New test)"),
       folder: z.string().optional().describe("Xray folder path (default: /)"),
       description: z.string().optional().describe("Test description"),
       labels: z.array(z.string()).optional().describe("Jira labels"),
       covers: z.array(z.string()).optional().describe("Issue keys the test is linked to in Jira (« Test » links)"),
+      steps: z
+        .array(
+          z.object({
+            fields: z
+              .record(z.string(), z.string())
+              .describe("The step's fields by name: Action, Data, Expected Result and the smart columns"),
+            sources: sourceLines.default([]),
+          }),
+        )
+        .optional()
+        .describe("The steps, in order (default: one empty step) — the test is written whole in one call"),
     }),
     output: z.object({ id: z.string().describe("The new test's id (local-<8hex>)") }),
     mutates: true,
@@ -196,6 +209,14 @@ export const commands = [
       if (input.description !== undefined) t.description = input.description;
       if (input.labels) t.labels = input.labels;
       if (input.covers) t.covers = input.covers;
+      if (input.steps?.length) {
+        t.steps = [];
+        applyOps(
+          t,
+          input.steps.map((s) => ({ op: "add" as const, fields: s.fields, sources: s.sources })),
+          readXray(dir).fields.map((f) => f.name),
+        );
+      }
       return { id: createLocalTest(dir, t, fieldOrder(dir)) };
     },
   }),

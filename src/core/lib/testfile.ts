@@ -515,10 +515,12 @@ export function serializeTest(test: Test, fieldOrder: readonly string[] = []): s
 export const sameTestMd = (a: string, b: string): boolean =>
   a === b || serializeTest(parseTest(a).test) === serializeTest(parseTest(b).test);
 
+export const NEW_SUMMARY = "New test";
+
 export function newTest(project: string, folder: string, fieldNames: readonly string[] = []): Test {
   return {
     project,
-    summary: "New test",
+    summary: NEW_SUMMARY,
     folder,
     labels: [],
     description: "",
@@ -529,6 +531,12 @@ export function newTest(project: string, folder: string, fieldNames: readonly st
     extra: {},
   };
 }
+
+// ponytail: a test as tests.create leaves it and nobody wrote — no step holds a word, and its summary is the default or
+// its description is empty; a test with any step written is never one
+export const isSkeleton = (t: Test): boolean =>
+  t.steps.every((s) => !Object.values(s.fields).some((v) => v.trim())) &&
+  (t.summary.trim() === NEW_SUMMARY || !t.description.trim());
 
 export function blankStep(fieldNames: readonly string[] = []): Step {
   return { fields: Object.fromEntries(fieldNames.map((n) => [n, ""])), sources: [], images: [] };

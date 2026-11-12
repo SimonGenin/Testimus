@@ -74,7 +74,7 @@ describe("gen.tests checks what it wrote, inside its job", () => {
               mkdirSync(join(s.cwd, "tests", id), { recursive: true });
               writeFileSync(
                 join(s.cwd, "tests", id, "test.md"),
-                "---\nsummary: x\n---\n\n## Step 1\n\n### Action\n\nA\n",
+                "---\nsummary: x\n---\n\n## Description\n\nD\n\n## Step 1\n\n### Action\n\nA\n",
               );
             },
             lines: () => [tool("Write", { file_path: `tests/${id}/test.md` }), result(report([id]))],

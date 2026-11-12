@@ -162,6 +162,7 @@ describe("the mechanical check of a video source", () => {
   const step = (sources: Source[]) =>
     ({
       summary: "s",
+      description: "d",
       steps: [{ fields: { Action: "Clic droit.", "Expected Result": "Seul Propriétés." }, sources, images: [] }],
     }) as unknown as Test;
   const QUOTE = "on voit que seul Propriétés est proposé";

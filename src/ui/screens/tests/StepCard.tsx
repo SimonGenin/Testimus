@@ -64,6 +64,7 @@ export function StepCard({
   onMove,
   onInsert,
   onDelete,
+  pictureTool,
   onAsk,
   onRestore,
   onRestoreClaude,
@@ -105,6 +106,8 @@ export function StepCard({
   onMove?: (dir: -1 | 1) => void;
   onInsert?: () => void;
   onDelete?: () => void;
+  /** the step's Find a picture */
+  pictureTool?: React.ReactNode;
   onAsk?: () => void;
   onRestore?: (before: Step) => void;
   onRestoreClaude?: (before: Step) => void;
@@ -291,6 +294,7 @@ export function StepCard({
           jira={before ? { open: wasOpen, toggle: () => setWasOpen(!wasOpen) } : undefined}
           claudeWas={claudeBefore ? { open: claudeOpen, toggle: () => setClaudeOpen(!claudeOpen) } : undefined}
           readOnly={readOnly}
+          tool={pictureTool}
           onAsk={onAsk}
           onMove={onMove}
           onInsert={onInsert}

@@ -16,7 +16,7 @@ src/core/shell.ts     which shell runs the core (TESTIMUS_SHELL), loopback NO_PR
 src/core/lib/         the domain modules (analysis: a test's analysis, its proof and its decisions):
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
                         agents (the adaptive pool of the generation and the conversions), proposals (a change the chat proposed,
-                        applied by the user), atomic (every owned
+                        applied by the user), pictures (a step's picture by its anchor), atomic (every owned
                         write; a user's file copied by stream, hashed as it passes), sharp (loaded once, a quarter of
                         the cores), changed, file-memo (reads per file version), natural (the one collator), creds,
                         project (+ project-info, project-init), doctor (+ doctor-row,
@@ -53,7 +53,8 @@ src/core/claude/      run (claude -p), access (the tools of each kind of run), g
                       chat, learn (what a conversation taught, kept in the conversations context), generate (+ gen-prompt, gen-reply: the report and what is left without a test, gen-review:
                       the second look and the suggestions that ride in the check request), check (several tests per
                       request, a verdict per step, the fix action), analyze (a test against the documents: its prompt
-                      and run), fix, review, columns, actions, figures, headers,
+                      and run), fix, review, columns, actions, figures, headers, picture (Find a picture: a
+                      step's pictures proposed, tests.findImage),
                       prompt, limits, ledger, schemas, media, study, comment, overview (how the documents fit
                       together: its prompt and run; overview-scope: what its run may write, undone after), scoped
                       (claude.run), catalog (everything

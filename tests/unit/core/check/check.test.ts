@@ -146,7 +146,7 @@ describe("mechanical check — steps", () => {
   it("a test with no step", () => {
     writeFileSync(
       testFile("LFRPS12-1398"),
-      "---\nproject: LFRPS12\nsummary: x\nreview: draft\n---\n\n## Description\n",
+      "---\nproject: LFRPS12\nsummary: x\nreview: draft\n---\n\n## Description\n\nVide.\n",
     );
     expect(kinds(check1398())).toEqual(["-:empty-field:error"]);
   });

@@ -4,6 +4,7 @@ import { FIGURES_MARKER, FIGURES_TAG } from "../claude/figures.ts";
 import { GEN_MARKER, PLAN_MARKER } from "../claude/gen-prompt.ts";
 import { PLAN_TAG, REPORT_TAG } from "../claude/gen-reply.ts";
 import { HEADERS_MARKER, HEADERS_TAG } from "../claude/headers.ts";
+import { PICTURE_MARKER, PICTURES_TAG } from "../claude/picture.ts";
 import { attachImage } from "../commands/images.ts";
 import type { ClaudeSpawn } from "../env.ts";
 import { newLocalId } from "../lib/store.ts";
@@ -212,7 +213,7 @@ registerMockScript(
         },
         {
           name: "mcp__testimus__tests_create",
-          input: { summary: "Sectionneur sans TK" },
+          input: { summary: "Sectionneur sans TK", description: "Vérifie…", steps: ["…"] },
           does: () => writeTest(spawn, ids, 0, 2),
         },
         { name: "mcp__testimus__tests_save", input: { id: ids[0], test: "…" } },
@@ -228,7 +229,7 @@ registerMockScript(
         },
         {
           name: "mcp__testimus__tests_create",
-          input: { summary: "Sectionneur avec TK" },
+          input: { summary: "Sectionneur avec TK", description: "Vérifie…", steps: ["…"] },
           does: () => writeTest(spawn, ids, 1, 1),
         },
         { name: "Write", input: { file_path: file(ids[1]), content: "…" }, does: () => writeTest(spawn, ids, 1) },
@@ -296,6 +297,31 @@ registerMockScript(
       texts: [reply],
       result: reply,
       costUsd: 0.0311,
+      delayMs: 40,
+    });
+  },
+);
+
+// ponytail: the picture search finds the sectionneur's figure for any step, as a Claude that read §5.6.6 would
+registerMockScript(
+  (prompt) => prompt.startsWith(PICTURE_MARKER),
+  (spawn) => {
+    const pictures = [
+      {
+        figure: `${DOC}#fig:40`,
+        field: "Action",
+        why: "La Figure 40 montre le symbole du sectionneur sur la schématique de traction, là où le testeur agit.",
+      },
+    ];
+    const reply = `Une figure montre l'écran du step.\n\n\`\`\`${PICTURES_TAG}\n${JSON.stringify({ pictures })}\n\`\`\``;
+    return mockStream(spawn, {
+      tools: [
+        { name: "mcp__testimus__rag_passage", input: { ref: `${DOC}#§5.6.6` } },
+        { name: "mcp__testimus__rag_figure", input: { docId: DOC, n: "40" } },
+      ],
+      texts: [reply],
+      result: reply,
+      costUsd: 0.0094,
       delayMs: 40,
     });
   },

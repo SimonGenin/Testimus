@@ -4,7 +4,11 @@ import { api, expect, mockServer, openTest, shoot, test } from "./helpers.ts";
 const server = mockServer(4341);
 
 type Shown = {
-  test: { summary: string; review: string; steps: { id?: string; fields: Record<string, string> }[] };
+  test: {
+    summary: string;
+    review: string;
+    steps: { id?: string; fields: Record<string, string>; images: { file: string; figure?: string }[] }[];
+  };
 };
 
 const show = (id: string) => api<Shown>(server.url, "tests.show", { id });
@@ -147,4 +151,18 @@ test("a test in sync with Jira has nothing to push", async ({ page }) => {
   const push = main(page).getByRole("button", { name: "Push to Jira" });
   await expect(push).toBeDisabled();
   await expect(push).toHaveAccessibleDescription("No local change since the last sync — nothing to push");
+});
+
+// ponytail: last, the test it changes stays changed for the specs after it on this server
+test("Find a picture on a step proposes the screen's figure, and Add puts it in the step", async ({ page }) => {
+  await openTest(page, "LFRPS12-1420");
+  await step(page, 2).getByRole("button", { name: "Find a picture" }).click();
+  const dialog = page.getByRole("dialog", { name: "A picture for step 2" });
+  await expect(dialog.getByText(/La Figure 40 montre le symbole du sectionneur/)).toBeVisible({ timeout: 15000 });
+  await dialog.getByRole("button", { name: "Add to step 2" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect
+    .poll(async () => (await show("LFRPS12-1420")).test.steps[1].images.map((i) => i.figure))
+    .toEqual(["SOSIE_211_D401-1_3#fig:40"]);
+  await expect(step(page, 2).getByRole("img")).toHaveCount(1);
 });

@@ -10,7 +10,7 @@ import { useApp } from "../../lib/app.ts";
 import { columnsOf, projectModes } from "../../lib/columns.ts";
 import { pendingAutosaves } from "../../lib/data/autosave.ts";
 import { fileUrl } from "../../lib/data/client.ts";
-import { key, useRead } from "../../lib/data/query.ts";
+import { execute, key, useRead } from "../../lib/data/query.ts";
 import { differs, diffLocal, diffRun, type Gone, lossOf, restoreRunStep, restoreStep } from "../../lib/diff.ts";
 import { DEFAULT_LAYOUT } from "../../lib/fields.ts";
 import { uploadImage } from "../../lib/files.ts";
@@ -590,6 +590,12 @@ export function TestEditor({
               setFocusStep(i);
               setFocus({ testId, key: test.key, summary: test.summary, step: i + 1 });
               app.askClaude("step");
+            }}
+            onAddPicture={async (i, p) => {
+              await doc.doc.saveNow();
+              doc.expect("picture");
+              await execute(client, "tests.addImage", { id: testId, step: i + 1, figure: p.figure, field: p.field });
+              await doc.reload("picture");
             }}
             onDraft={() =>
               app.askClaude("test", "Draft the steps of this test from its description and the documents it cites.")

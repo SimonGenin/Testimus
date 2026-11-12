@@ -76,6 +76,15 @@ export function mockAnalysis(project: string, test: Test): RecordIn {
       },
       sources: [`${DOC}#§5.6.6 "${TK_QUOTE}"`],
     });
+  if (!test.description.trim())
+    proposals.push({
+      kind: "describe",
+      field: "description",
+      title: "Dire ce que le test vérifie",
+      why: "La description est vide ; les steps vérifient le menu contextuel du sectionneur.",
+      value: `Vérifie ${test.summary.trim() || "le comportement"} : ${test.steps.length} step(s) d'après le ${DOC}#§5.6.6.`,
+      sources: [`${DOC}#§5.6.6 "Selon le type de sectionneur, le menu contextuel diffère"`],
+    });
   const columns = kept
     .filter((c) => test.steps.some((s) => (s.fields[c.name] ?? "").trim()))
     .map((c) => ({ name: c.name, role: "keep" as const, why: "Codes d'exigence saisis par l'équipe." }));

@@ -60,7 +60,10 @@ export const scopeDocs = (i: Pick<GenInput, "docs" | "sections">): string[] => [
   ...new Set([...clean(i.docs), ...clean(i.sections).map((s) => s.split("#")[0])]),
 ];
 
-export type PlanPart = { n: number; of: number; request: string };
+// ponytail: another test of the same plan, as a planned run is told it — its number, what it is about, the sections it
+// is written from, and its test once a run created it
+export type PlanSibling = { n: number; summary: string; sections: string[]; ids?: string[] };
+export type PlanPart = { n: number; of: number; request: string; others?: PlanSibling[] };
 
 // ponytail: what a run that adds to an earlier generation is told (gen.revise add) — the generation's first request,
 // the tests it has (never written again) and the items it left without a test (written now when the request covers
@@ -150,7 +153,12 @@ export const reportShape = (covered: boolean): string =>
 export function genText(
   i: Pick<GenInput, "request" | "sections" | "docs" | "folder">,
   facts: { size: number | string; columns: string[]; folders: string; language: string; context: string[] },
-  part?: { n: number | string; of: number | string; request: string },
+  part?: {
+    n: number | string;
+    of: number | string;
+    request: string;
+    others?: (Omit<PlanSibling, "n"> & { n: number | string })[];
+  },
   more: GenMore = {},
 ): string {
   const sections = clean(i.sections);
@@ -163,6 +171,14 @@ export function genText(
   if (part)
     lines.push(
       `This is test ${part.n} of ${part.of} of a plan${part.request ? ` for: ${part.request}` : ""}. Write exactly this one test. What the other tests of the plan take is theirs: it is not left out, never report it.`,
+    );
+  if (part?.others?.length)
+    lines.push(
+      "The other tests of the plan — what one of them covers is neither written here nor reported; if you must name one (already-tested), give its test id, else plan:<its number>:",
+      ...part.others.map(
+        (o) =>
+          `- plan:${o.n} ${o.summary}${o.sections.length ? ` — ${o.sections.join(", ")}` : ""}${o.ids?.length ? ` (${o.ids.join(", ")})` : ""}`,
+      ),
     );
   const add = more.add;
   if (add) {
@@ -253,6 +269,14 @@ export const prompts: PromptTemplate[] = [
         n: "{k}",
         of: "{n}",
         request: "{request}",
+        others: [
+          {
+            n: "{j}",
+            summary: "{another planned test}",
+            sections: ["{its sections}"],
+            ids: ["{its test, once written}"],
+          },
+        ],
       }),
   },
   {
@@ -277,6 +301,19 @@ export const prompts: PromptTemplate[] = [
       ),
   },
 ];
+
+// ponytail: what a person reads of a generation in the jobs — how many tests once a plan says it, else the words of the
+// request without the preamble that only says « write tests for », else its documents and sections
+const PREAMBLE =
+  /^(?:please\s+|merci de\s+)?(?:g[ée]n[èe]re[rz]?|generate|write|[ée]cri(?:re|s|vez)|r[ée]dige[rz]?|cr[ée]e[rz]?|create|draft)\s+(?:(?:les|des|un|une|le|the|a|some)\s+)?(?:tests?|cas de tests?|test cases?)\b[\s:,]*(?:(?:pour|sur|de|du|des|d'|for|on|of|about|covering)\s*)?/i;
+
+export function genLabel(i: Pick<GenInput, "request" | "docs" | "sections">, planned?: number): string {
+  if (planned) return `Generate ${planned} test${planned === 1 ? "" : "s"}`;
+  const words = i.request.trim().replace(PREAMBLE, "").trim();
+  const s = words ? words[0].toUpperCase() + words.slice(1) : [...clean(i.docs), ...clean(i.sections)].join(", ");
+  if (!s) return "";
+  return `Generate: ${s.length > 80 ? `${s.slice(0, 77)}...` : s}`;
+}
 
 export function plannedInput(i: GenInput, t: PlannedTest): GenInput {
   return {

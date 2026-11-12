@@ -46,7 +46,8 @@ export type RunKind =
   | "study"
   | "media"
   | "overview"
-  | "learn";
+  | "learn"
+  | "picture";
 
 export const TOOLS: Record<RunKind, string[]> = {
   chat: READ_TOOLS,
@@ -64,6 +65,7 @@ export const TOOLS: Record<RunKind, string[]> = {
   study: READ_TOOLS,
   overview: EDIT_TOOLS,
   learn: ["Read"],
+  picture: ["Read"],
 };
 
 const TEST_WRITES = ["tests.edit", "tests.save", "tests.addImage"];
@@ -92,6 +94,7 @@ const EXTRA: Record<RunKind, string[]> = {
   study: ["actions.propose"],
   overview: [],
   learn: ["contexts.learn"],
+  picture: [KEEP_FRAME],
 };
 
 const DOCS = [
@@ -158,6 +161,17 @@ export const READS: Record<Exclude<RunKind, "action">, readonly string[] | "all"
     "rag.figure",
   ],
   learn: [],
+  picture: [
+    "tests.show",
+    "rag.search",
+    "rag.mentions",
+    "rag.passage",
+    "rag.figure",
+    "docs.list",
+    "docs.show",
+    "media.show",
+    "media.frame",
+  ],
 };
 
 export type CommandInfo = { name: string; mutates: boolean; job?: string };
@@ -191,7 +205,7 @@ export function readOnlyCommands(): string[] {
 // project is open, a test run's results (a tester's findings: Claude reads runs, never marks one) and the overview of the
 // documents (written by its own run only)
 const NOT_IN_ACTION =
-  /^runs\.(?!list$|show$|history$)|^(claude\.run|analysis\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|media\.propose|chat\.(ask|learn|apply|ignore)|contexts\.learn|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|pullWhisper|remove|setDir|use|usePack|useSpeech)$/;
+  /^runs\.(?!list$|show$|history$)|^(claude\.run|analysis\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|tests\.findImage|media\.propose|chat\.(ask|learn|apply|ignore)|contexts\.learn|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|pullWhisper|remove|setDir|use|usePack|useSpeech)$/;
 
 export function runCommands(kind: RunKind): string[] {
   const all = commandList().map((c) => c.name);
