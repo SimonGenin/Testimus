@@ -17,8 +17,11 @@ import { fieldName, formatSource, parseSource, testMdHash } from "./testfile.ts"
 
 export type ColumnRole = "keep" | "open" | "leave";
 export const COLUMN_ROLES: [ColumnRole, ...ColumnRole[]] = ["keep", "open", "leave"];
-export type ProposalKind = "source" | "change" | "step" | "remove";
-export const PROPOSAL_KINDS: [ProposalKind, ...ProposalKind[]] = ["source", "change", "step", "remove"];
+export type ProposalKind = "source" | "change" | "step" | "remove" | "describe";
+export const PROPOSAL_KINDS: [ProposalKind, ...ProposalKind[]] = ["source", "change", "step", "remove", "describe"];
+// ponytail: what a describe proposal rewrites — the test's own words, not a step
+export type DescribedField = "summary" | "description";
+export const DESCRIBED_FIELDS: [DescribedField, ...DescribedField[]] = ["summary", "description"];
 export type ProposalState = "open" | "accepted" | "rejected";
 
 export type Proposal = {
@@ -29,6 +32,7 @@ export type Proposal = {
   step?: number;
   after?: number;
   column?: string;
+  field?: DescribedField;
   before?: string;
   value?: string;
   fields?: Record<string, string>;
@@ -46,7 +50,7 @@ export type Unfound = { step: number; column: string; item: string; why?: string
 export type BaseStep = { id?: string; print: string; was?: string[]; gone?: boolean; twins?: number };
 export type Earlier = Pick<
   Proposal,
-  "kind" | "title" | "why" | "column" | "value" | "fields" | "sources" | "decidedBy" | "decidedAt"
+  "kind" | "title" | "why" | "column" | "field" | "value" | "fields" | "sources" | "decidedBy" | "decidedAt"
 >;
 
 export type AnalysisFile = {
@@ -68,6 +72,7 @@ export type ProposalIn = {
   step?: number;
   after?: number;
   column?: string;
+  field?: DescribedField;
   value?: string;
   fields?: Record<string, string>;
   sources?: string[];
@@ -213,6 +218,22 @@ export function recordAnalysis(project: string, id: string, input: RecordIn): An
     const sources = (p.sources ?? []).map((s) => s.trim()).filter(Boolean);
     const out: Proposal = { id: `p${i + 1}`, kind: p.kind, title: p.title, why: p.why, sources, state: "open" };
     const parsed = parseLines(where, sources, errors);
+    if (p.kind === "describe") {
+      const field = p.field;
+      if (field !== "summary" && field !== "description") {
+        errors.push(`${where}: field must be summary or description.`);
+        return out;
+      }
+      const before = test[field];
+      const value = field === "summary" ? (p.value ?? "").trim() : (p.value ?? "").trimEnd();
+      if (!value.trim()) errors.push(`${where}: give the ${field}'s whole new text.`);
+      else if (flat(value) === flat(before))
+        errors.push(`${where}: the ${field} already says this — nothing to change.`);
+      if (field === "summary" && value.includes("\n")) errors.push(`${where}: a summary is one line.`);
+      if (parsed.length)
+        errors.push(...sourceErrors(where, { fields: {}, sources: parsed, images: [] }, corpus, linked));
+      return { ...out, field, before, value };
+    }
     if (p.kind === "step") {
       const after = p.after ?? steps;
       if (after < 0 || after > steps) errors.push(`${where}: after must be 0…${steps} (0 = before step 1).`);
@@ -303,8 +324,8 @@ function earlierOf(test: Test, prev: AnalysisFile | null): Earlier[] {
   const out = [...(prev.earlier ?? [])];
   for (const p of settle(test, prev).proposals) {
     if (p.state !== "rejected" || out.some((e) => e.kind === p.kind && e.title === p.title)) continue;
-    const { kind, title, why, column, value, fields, sources, decidedBy, decidedAt } = p;
-    out.push({ kind, title, why, sources, ...defined({ column, value, fields, decidedBy, decidedAt }) });
+    const { kind, title, why, column, field, value, fields, sources, decidedBy, decidedAt } = p;
+    out.push({ kind, title, why, sources, ...defined({ column, field, value, fields, decidedBy, decidedAt }) });
   }
   return out;
 }
@@ -325,6 +346,10 @@ const withSources = (s: Step, add: Source[]) => [
 
 // ponytail: why a proposal can no longer be applied to the test as it is now, or null; its step's place when it can
 function placeOf(test: Test, a: AnalysisFile, p: Proposal): { at: number } | { stale: string } {
+  if (p.kind === "describe")
+    return p.field && flat(test[p.field]) === flat(p.before ?? "")
+      ? { at: -1 }
+      : { stale: `The ${p.field ?? "description"} changed since the analysis.` };
   if (p.kind === "step") {
     if (!p.after) return { at: 0 };
     const i = locate(test, a.steps, p.after);
@@ -351,6 +376,8 @@ const citesOf = (p: Proposal) =>
 // ponytail: an accepted proposal whose edit is no longer in the test — the test reverted from Jira, the step undone, the
 // source taken out — is not decided any more: what it would write is not there
 function isUndone(test: Test, a: AnalysisFile, p: Proposal): boolean {
+  if (p.kind === "describe")
+    return !!p.field && flat(test[p.field]) === flat(p.before ?? "") && flat(p.before ?? "") !== flat(p.value ?? "");
   if (p.kind === "remove") {
     const b = a.steps[(p.step ?? 0) - 1];
     if (!b?.gone) return false;
@@ -407,6 +434,7 @@ export function viewOf(project: string, id: string, a: AnalysisFile): AnalysisVi
       if (p.state !== "open") return { ...p, cites };
       const at = placeOf(test, a, p);
       if ("stale" in at) return { ...p, cites, stale: at.stale };
+      if (p.kind === "describe") return { ...p, cites };
       const drops = p.kind === "remove" ? dropsOf(test.steps[at.at]) : [];
       return { ...p, cites, now: p.kind === "step" ? at.at : at.at + 1, ...(drops.length ? { drops } : {}) };
     }),
@@ -417,6 +445,10 @@ function apply(test: Test, a: AnalysisFile, p: Proposal): void {
   const at = placeOf(test, a, p);
   if ("stale" in at)
     throw new UserError(at.stale, "Analyze the test again to get proposals for it as it is now.", "stale");
+  if (p.kind === "describe") {
+    if (p.field) test[p.field] = p.value ?? "";
+    return;
+  }
   const sources = toSources(p.sources);
   if (p.kind === "step") {
     test.steps.splice(at.at, 0, { fields: { ...(p.fields ?? {}) }, sources, images: [] });

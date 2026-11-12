@@ -23,6 +23,10 @@ the reviewer.
    - `figure-not-embedded` — `Read` the picture, embed it with `tests_addImage { id, step, figure,
      field }` (`Action` when it shows where to act, `Expected Result` when it shows what to see) and
      cite it in that step.
+   - a step you change where the tester does or sees something on a screen: look for a picture of that
+     screen — a document figure (`fig:`), then a photo (`img:`), then a video key frame (`frame:`,
+     `media_keep` to keep the right instant) — and embed it only when it truly shows that screen.
+     Finding none is fine.
    - `observed-only` — the result rests on a photo or a video of the real system, which says how a
      step is done, never what is expected. Cite the written passage that specifies it and keep the
      picture's line for the gesture; when no written document says it, remove the claim.

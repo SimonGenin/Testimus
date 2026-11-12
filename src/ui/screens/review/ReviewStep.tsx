@@ -7,6 +7,7 @@ import { type } from "../../components/ui/type.ts";
 import { fieldViews, itemLinks, stepSources } from "../../lib/fields.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { FieldBlocks } from "../tests/FieldBlocks.tsx";
+import { FindPicture } from "../tests/step/FindPicture.tsx";
 import { FieldRow } from "../tests/step/StepFields.tsx";
 import { StepFrame, StepSourcesRow } from "../tests/step/StepFrame.tsx";
 import { WasToggle } from "../tests/step/WasToggle.tsx";
@@ -56,6 +57,8 @@ const styles = stylex.create({
 
 export type ReviewStepProps = {
   n: number;
+  /** the test, when its steps may get a picture (Find a picture) */
+  testId?: string;
   step: Step;
   xray: ColumnLayout;
   findings: Finding[];
@@ -131,6 +134,7 @@ export function ReviewStep(p: ReviewStepProps) {
         <>
           {p.claudeBefore && <WasToggle from="claude" open={wasOpen} onToggle={() => setWasOpen(!wasOpen)} />}
           <span {...stylex.props(styles.grow)} />
+          {p.testId && <FindPicture testId={p.testId} step={n} />}
           <Button
             size="sm"
             variant="quiet"

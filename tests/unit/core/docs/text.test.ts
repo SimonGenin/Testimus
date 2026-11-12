@@ -65,6 +65,7 @@ describe("a text file", () => {
     expect(md(d.id)).toContain("<!-- § compte-rendu-reunion -->");
     const test = {
       summary: "s",
+      description: "d",
       steps: [
         {
           fields: { Action: "a", "Expected Result": "b" },

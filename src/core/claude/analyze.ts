@@ -71,7 +71,9 @@ function told(test: Test, a: AnalysisFile, p: Earlier & Partial<Proposal>): stri
         ? ` — ${short(p.fields?.Action ?? "")}`
         : p.kind === "source"
           ? ` — ${p.sources.map(short).join(" · ")}`
-          : "";
+          : p.kind === "describe" && p.field
+            ? ` — ${p.field}: « ${short(p.value ?? "")} »`
+            : "";
   return `- ${p.kind}${where}: ${p.title}${what}`;
 }
 

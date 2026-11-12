@@ -76,16 +76,27 @@ export type SkippedGroup = { category: string; items: Skipped[] };
 
 const strings = z.array(z.string().trim().min(1));
 
+// ponytail: an optional field a reply writes null means it is absent — Claude writes "test": null as often as it
+// leaves the key out, and a report is never asked again for that
+const absent = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === null ? undefined : v), schema);
+const list = () => absent(strings.default([]));
+const text = () => absent(z.string().trim().default(""));
+
+// ponytail: the test an already-tested item names — a local id, a Jira key, or plan:<n> for a test of the same plan
+// (one written by another run of this generation, which may have no id yet); never a description
+export const TEST_NAMED = /^(local-[0-9a-f]{8}|[A-Z][A-Z0-9_]*-\d+|plan:\d+)$/i;
+export const isPlanRef = (test: string) => /^plan:\d+$/i.test(test);
+
 const SKIP = z
   .object({
     item: z.string().trim().min(3).describe("The behavior, in a few words"),
     reason: z.enum(SKIP_REASONS.filter((r) => r !== "stopped" && r !== "other") as [SkipReason, ...SkipReason[]]),
     why: z.string().trim().min(20).describe("One or two concrete sentences for this item"),
-    sources: strings.default([]).describe('The passages that ask for it: docId#anchor "quote"'),
-    searched: strings.default([]).describe("What you searched before giving up: the terms"),
-    read: strings.default([]).describe("The docId#anchor you opened for it"),
-    unblock: z.string().trim().default("").describe("What would let the test be written, and who can bring it"),
-    test: z.string().trim().default("").describe("already-tested: the id of the test that verifies it"),
+    sources: list().describe('The passages that ask for it: docId#anchor "quote"'),
+    searched: list().describe("What you searched before giving up: the terms"),
+    read: list().describe("The docId#anchor you opened for it"),
+    unblock: text().describe("What would let the test be written, and who can bring it"),
+    test: text().describe("already-tested: the id of the test that verifies it, or plan:<n> for a test of this plan"),
   })
   .superRefine((s, ctx) => {
     const need = (ok: boolean, path: string, message: string) => {
@@ -96,29 +107,36 @@ const SKIP = z
       need(s.unblock.length >= 10, "unblock", `${s.reason}: say what would let the test be written`);
     }
     if (s.reason === "already-tested") need(!!s.test, "test", "already-tested: name the test that verifies it");
+    if (s.test && !TEST_NAMED.test(s.test))
+      need(
+        false,
+        "test",
+        `${JSON.stringify(s.test.slice(0, 60))} is not a test id: give local-<8 hex> or a Jira key, or plan:<n> for test n of this plan — never a description`,
+      );
     if (s.reason !== "already-tested")
       need(s.sources.length > 0, "sources", 'give the passage that asks for it: docId#anchor "quote"');
     if (s.reason === "documents-disagree")
-      need(s.sources.length > 1, "sources", "documents-disagree: cite the two passages");
+      need(s.sources.length > 1, "sources", "documents-disagree: cite the two passages, each in sources");
   });
 
 export const REPORT = z.object({
-  tests: strings.default([]).describe("The folders (local-…) of the tests written"),
-  skipped: z.array(SKIP).default([]).describe("Every behavior of the request no step was written for"),
-  covered: strings.default([]).describe("Items not written before, written now"),
+  tests: list().describe("The folders (local-…) of the tests written"),
+  skipped: absent(z.array(SKIP).default([])).describe("Every behavior of the request no step was written for"),
+  covered: list().describe("Items not written before, written now"),
 });
 
 export const PLAN = z.object({
   tests: z
     .array(
       z.object({
-        summary: z.string().trim().min(3),
-        technique: z.string().trim().default(""),
-        sections: strings.default([]),
+        summary: z.string().trim().min(3).describe("The test's summary, as it will appear in Xray"),
+        technique: text().describe("The test technique, in a few words"),
+        sections: list().describe("The docId#§x.y the test is written from"),
       }),
     )
-    .min(1),
-  skipped: z.array(SKIP).default([]),
+    .min(1)
+    .describe("The planned tests"),
+  skipped: absent(z.array(SKIP).default([])).describe("Every behavior of the scope no planned test verifies"),
 });
 
 const told = (s: z.output<typeof SKIP>): Skipped => ({
@@ -244,13 +262,13 @@ const anchorsOf = (s: Skipped) =>
 
 // ponytail: the plan and each run of a generation report on their own, so the same behavior comes back several times
 // under other words — one is kept when the reason is the same and the items share their words or the passage that
-// asks for them (the fuller report wins). An item a run says another test of this generation takes is not left out at
-// all: it is dropped
+// asks for them (the fuller report wins). An item a run says another test of this generation takes (its id, or
+// plan:<n>) is not left out at all: it is dropped
 export function dedupeSkipped(skipped: Skipped[], written: string[] = []): Skipped[] {
   const out: Skipped[] = [];
   const size = (s: Skipped) => s.why.length + (s.searched?.length ?? 0) * 40 + (s.read?.length ?? 0) * 40;
   for (const s of skipped) {
-    if (s.reason === "already-tested" && s.test && written.includes(s.test)) continue;
+    if (s.reason === "already-tested" && s.test && (written.includes(s.test) || isPlanRef(s.test))) continue;
     const mine = new Set(anchorsOf(s));
     const lines = new Set((s.sources ?? []).map(key));
     const at = out.findIndex(
@@ -277,7 +295,7 @@ export function skipDoubts(project: string, s: Skipped, corpus: Corpus, ledger: 
     if (problem) out.push(`Its source does not hold: ${problem}.`);
   }
   if (s.reason === "already-tested" && s.test && !testExists(project, s.test))
-    out.push(`It names the test ${s.test}, which is not in this project.`);
+    out.push(`It names "${s.test}", which is not a test of this project.`);
   const unopened = (s.read ?? []).filter((r) => !wasOpened(project, ledger.consulted, r));
   if (unopened.length)
     out.push(`The run says it read ${unopened.join(", ")}, and never opened ${unopened.length === 1 ? "it" : "them"}.`);

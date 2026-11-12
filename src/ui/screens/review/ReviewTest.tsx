@@ -194,6 +194,7 @@ export function ReviewTest(p: ReviewTestProps) {
               <ReviewStep
                 key={s.id ?? i}
                 n={n}
+                testId={p.testId}
                 step={s}
                 xray={p.xray}
                 findings={own.map(({ f }) => f)}

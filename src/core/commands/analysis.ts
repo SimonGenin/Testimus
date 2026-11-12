@@ -2,7 +2,15 @@ import { z } from "zod";
 import { analyzeTest } from "../claude/analyze.ts";
 import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TEST_REF, WITHOUT } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { COLUMN_ROLES, decide, PROPOSAL_KINDS, readAnalysis, recordAnalysis, viewOf } from "../lib/analysis.ts";
+import {
+  COLUMN_ROLES,
+  DESCRIBED_FIELDS,
+  decide,
+  PROPOSAL_KINDS,
+  readAnalysis,
+  recordAnalysis,
+  viewOf,
+} from "../lib/analysis.ts";
 import { testName } from "../lib/names.ts";
 import { testExists } from "../lib/store.ts";
 import { SOURCE } from "../schemas.ts";
@@ -37,13 +45,16 @@ const UNFOUND = z.object({
 
 const PROPOSAL = z.object({
   id: z.string().describe("p1, p2… in the order Claude proposed them"),
-  kind: z.enum(PROPOSAL_KINDS).describe("source, change, step (a new step) or remove"),
+  kind: z
+    .enum(PROPOSAL_KINDS)
+    .describe("source, change, step (a new step), remove, or describe (the test's summary or description)"),
   title: z.string().describe("What it does, in a few words"),
   why: z.string().describe("Why, in one sentence"),
   step: z.number().optional().describe("The step it is about, numbered as when analysed"),
   after: z.number().optional().describe("A new step goes after this step (0 = first), numbered as when analysed"),
   column: z.string().optional().describe("The column a change rewrites"),
-  before: z.string().optional().describe("That column's text when analysed"),
+  field: z.enum(DESCRIBED_FIELDS).optional().describe("describe: the field it rewrites, summary or description"),
+  before: z.string().optional().describe("That column's or field's text when analysed"),
   value: z.string().optional().describe("Its new text"),
   fields: z.record(z.string(), z.string()).optional().describe("A new step's columns"),
   sources: z.array(z.string()).describe("Source lines it adds"),
@@ -92,6 +103,7 @@ const ANALYSIS = z.object({
         title: true,
         why: true,
         column: true,
+        field: true,
         value: true,
         fields: true,
         sources: true,
@@ -116,7 +128,7 @@ export const commands = [
   command({
     name: "analysis.run",
     summary:
-      "Cross-check (a test's Cross-check tab): Claude reads the test against the project's documents (skill analyze-test) and records what it proposes: sources for what is right, changes, new steps, steps to remove — each decided one by one with analysis.decide. The test is never changed by the run. Run again on a test already analysed, Claude is told what the team accepted, rejected and left open, and the new analysis replaces the previous one, keeping its rejections.",
+      "Cross-check (a test's Cross-check tab): Claude reads the test against the project's documents (skill analyze-test) and records what it proposes: sources for what is right, changes, new steps, steps to remove, a summary or description that says what the steps test — each decided one by one with analysis.decide. The test is never changed by the run. Run again on a test already analysed, Claude is told what the team accepted, rejected and left open, and the new analysis replaces the previous one, keeping its rejections.",
     input: z.object({
       id: TEST_REF,
       note: NOTE.describe("What to look at especially, in plain words"),
@@ -166,7 +178,7 @@ export const commands = [
             kind: z
               .enum(PROPOSAL_KINDS)
               .describe(
-                "source: add source lines to a step (to back its expected result or one item of a column); change: rewrite one column of a step; step: a new step; remove: take a step out",
+                "source: add source lines to a step (to back its expected result or one item of a column); change: rewrite one column of a step; step: a new step; remove: take a step out; describe: rewrite the test's summary or description",
               ),
             title: z.string().min(1).max(120).describe("What it does, in a few words, project language"),
             why: z.string().min(1).describe("Why, in one sentence, project language"),
@@ -181,7 +193,14 @@ export const commands = [
               .optional()
               .describe("step: the new step goes after this step (0 = before step 1; default: at the end)"),
             column: z.string().optional().describe("change: the column to rewrite"),
-            value: z.string().optional().describe("change: the column's whole new text"),
+            field: z
+              .enum(DESCRIBED_FIELDS)
+              .optional()
+              .describe("describe: summary or description, the test's field to rewrite"),
+            value: z
+              .string()
+              .optional()
+              .describe("change: the column's whole new text; describe: the field's whole new text"),
             fields: z
               .record(z.string(), z.string())
               .optional()

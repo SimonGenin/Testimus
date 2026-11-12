@@ -24,7 +24,13 @@ const styles = stylex.create({
 });
 
 const whereOf = (p: ProposalView) =>
-  p.kind === "step" ? (p.after ? `after step ${p.after}` : "before step 1") : `step ${p.step}`;
+  p.kind === "describe"
+    ? `the ${p.field ?? "description"}`
+    : p.kind === "step"
+      ? p.after
+        ? `after step ${p.after}`
+        : "before step 1"
+      : `step ${p.step}`;
 
 // ponytail: what was decided, one line each — an accepted proposal is in the test now (an ordinary edit, undone in the
 // editor), a rejected one may be reconsidered

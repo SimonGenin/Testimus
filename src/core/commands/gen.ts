@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { scopeIndex } from "../claude/gen-prompt.ts";
+import { genLabel, scopeIndex } from "../claude/gen-prompt.ts";
 import { inCategoryOrder, SKIP_REASONS } from "../claude/gen-reply.ts";
 import { reviseGeneration } from "../claude/gen-revise.ts";
 import { discardable, generateTests } from "../claude/generate.ts";
@@ -146,6 +146,11 @@ export const commands = [
     subject: (i) => {
       const s = i.request.trim() || [...(i.docs ?? []), ...(i.sections ?? [])].join(", ");
       return s.length > 80 ? `${s.slice(0, 77)}...` : s;
+    },
+    label: (i, project) => {
+      const l = project && i.resume?.trim() ? readLedger(project, i.resume.trim()) : null;
+      const left = l?.plan?.tests ? l.plan.tests.length - new Set(l.done ?? []).size : 0;
+      return genLabel(l?.input ?? i, left > 0 ? left : undefined);
     },
     async run(ctx, input) {
       return await generateTests(projectOf(ctx), input, ctx);

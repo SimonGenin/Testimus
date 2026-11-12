@@ -6,6 +6,14 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+- Génération : un test écarté mal nommé (« autre test du plan ») ne fait plus échouer toute la génération ; un run qui plante compte comme un run en échec, et les tests déjà écrits sont quand même vérifiés.
+- Un test du plan qu'un run n'a pas écrit n'est plus compté comme écrit : la reprise de la génération l'écrit.
+- Chaque run d'un plan connaît les autres tests du plan (et leur id une fois écrits) : moins de doublons, et un écarté « déjà testé » nomme le test.
+- Claude crée chaque test avec tout son contenu d'un coup ; un brouillon vide laissé par un run arrêté ou en échec est supprimé. Le contrôle signale un test encore appelé « New test » ou sans description.
+- Après une génération en échec, le diagnostic propose de lui-même « Write the missed test » pour chaque test non écrit et « Check the N tests of the generation ».
+- Cross-check : Claude peut proposer de réécrire le résumé ou la description d'un test pour qu'ils disent ce que les étapes vérifient ; le check signale une description qui ne correspond pas aux étapes.
+- « Find a picture » sur une étape (dans Review et dans l'éditeur) : Claude cherche une image de l'écran (figure d'un document, photo, image d'une vidéo) et en propose jusqu'à trois ; on ajoute celle qu'on veut. En écrivant les tests, Claude cherche aussi ces images, sans en mettre une quand aucune ne montre vraiment l'écran.
+- Le job d'une génération porte un nom lisible : « Generate: » et les mots de la demande, ou « Generate N tests » pour une reprise.
 - Importer un dossier (même plein de vidéos) ne bloque plus : la fenêtre se ferme aussitôt, la copie, la conversion et l'indexation avancent dans un job en arrière-plan, et l'application reste utilisable pendant la copie.
 
 ## 0.0.9

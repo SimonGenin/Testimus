@@ -274,7 +274,7 @@ describe("gen-report parsing", () => {
       "skipped.0.test: already-tested: name the test that verifies it",
     ]);
     expect(errors({ reason: "documents-disagree", sources: B.sources })).toEqual([
-      "skipped.0.sources: documents-disagree: cite the two passages",
+      "skipped.0.sources: documents-disagree: cite the two passages, each in sources",
     ]);
     expect(errors({ reason: "not-observable" })).toEqual([
       'skipped.0.sources: give the passage that asks for it: docId#anchor "quote"',
@@ -796,7 +796,7 @@ describe("gen.tests", () => {
         m.includes("changed the existing test « Disjoncteur — ouverture à distance » — Revert puts it back"),
       ),
     ).toBe(true);
-    expect(logs).toContain("The reply of generate has no readable gen-report block: Claude is asked for it again.");
+    expect(logs).toContain("The reply of generate has no gen-report block: Claude is asked for it again.");
     expect(logs).toContain(
       "A run's report could not be read (no ```gen-report block in the reply): what it left without a test is not known. Ask the generation again for it.",
     );

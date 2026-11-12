@@ -1,14 +1,25 @@
+import { join } from "node:path";
 import { type Ctx, UserError } from "../command.ts";
 import { env } from "../env.ts";
 import { listJobs, showJob, startJob } from "../jobs.ts";
-import { allActions, type Listed, readAction, stampOf, suggestFor, writeAction } from "../lib/actions.ts";
+import {
+  allActions,
+  type Listed,
+  listed,
+  proposeAction,
+  readAction,
+  stampOf,
+  suggestFor,
+  writeAction,
+} from "../lib/actions.ts";
 import { findDoc, readDoc } from "../lib/docs.ts";
-import { readProject } from "../lib/project.ts";
+import { readJson, readProject } from "../lib/project.ts";
 import { readCheck, testExists } from "../lib/store.ts";
 import type { ActionLeft, ClaudeAction, ClaudeRun, Effort } from "../types.ts";
 import { checkOne, semanticPlan } from "./check.ts";
 import { docGiven, GIVEN_SLOT, type Given, given, subjectOf } from "./given.ts";
 import { languageName } from "./language.ts";
+import { readLedger } from "./ledger.ts";
 import { type PromptTemplate, scopeLines } from "./prompt.ts";
 import { newRunId, type RunResult, runClaude } from "./run.ts";
 import { readRun } from "./snapshot.ts";
@@ -283,6 +294,84 @@ function jobProblems(project: string, jobId: string): Problem[] {
   return out;
 }
 
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+
+// ponytail: the generation a generate job wrote — its own id, else the one it resumed or added to
+function generationOf(project: string, jobId: string): string | null {
+  if (readLedger(project, jobId)) return jobId;
+  const input = showJob(project, jobId)?.job.rerun?.input as { resume?: unknown; generation?: unknown } | undefined;
+  const id = [input?.resume, input?.generation].find((x): x is string => typeof x === "string" && !!x.trim());
+  return id && readLedger(project, id.trim()) ? id.trim() : null;
+}
+
+// ponytail: what a failed generation's ledger says it did not do — the planned tests not written, the check not run,
+// the items left out nobody looked at again — told to the triage, and the obvious actions proposed by Testimus itself,
+// without a model: write each missed test (what a resume does), check the tests written. The triage run only explains
+// the cause
+export function generationFacts(project: string, jobId: string): { problems: Problem[]; proposed: Listed[] } {
+  const gen = generationOf(project, jobId);
+  const l = gen ? readLedger(project, gen) : null;
+  if (!gen || !l) return { problems: [], proposed: [] };
+  const where = `gen:${gen}`;
+  const done = new Set(l.done ?? []);
+  const missed = (l.plan?.tests ?? []).filter((_, k) => !done.has(k));
+  const tests = (l.tests ?? []).filter((id) => testExists(project, id));
+  const { checks } = readJson<{ checks?: unknown }>(join(project, ".testimus", "gen", `${gen}.json`), {});
+  const unchecked = l.input?.check !== false && tests.length > 0 && !(Array.isArray(checks) && checks.length);
+  const unread = (l.skipped ?? []).filter(
+    (s) => !s.review && !["stopped", "other", "already-tested"].includes(s.reason),
+  );
+  const problems: Problem[] = [
+    ...missed.map((t) => ({ where, text: `Planned test not written: ${t.summary}` })),
+    ...(unchecked ? [{ where, text: `The check step did not run on the ${tests.length} test(s) written.` }] : []),
+    ...(unread.length
+      ? [{ where, text: `${unread.length} item(s) left without a test were not looked at again.` }]
+      : []),
+  ];
+  const by = { run: "triage", model: "", effort: "" as const, at: env.now().toISOString() };
+  const folder = l.input?.folder?.trim() || "the generation's folder";
+  const proposed: Listed[] = [];
+  const keep = (f: () => ClaudeAction) => {
+    try {
+      proposed.push(listed(project, f()));
+    } catch {}
+  };
+  const head = "Write the missed test: ";
+  for (const t of missed)
+    keep(() =>
+      proposeAction(project, {
+        title: `${head}${clip(t.summary, 80 - head.length)}`,
+        scope: { kind: "project" },
+        where,
+        problem: `Planned test not written: ${t.summary}`,
+        why: `The generation planned it and its run ended before writing it; resuming the generation (gen.tests --resume ${gen}) writes it the same way.`,
+        plan: [
+          t.sections.length
+            ? `Read ${t.sections.join(", ")} in full, and what they refer to`
+            : `Search the generation's scope for « ${t.summary} »`,
+          `Write the test « ${t.summary} »${t.technique ? ` (${t.technique})` : ""} with tests_create, its whole content in the call, in ${folder}`,
+          "Run check_run on the new test: no finding is left",
+        ],
+        proposedBy: by,
+        suggest: { model: "opus", effort: "high" },
+      }),
+    );
+  if (unchecked)
+    keep(() =>
+      proposeAction(project, {
+        title: `Check the ${tests.length} test${tests.length === 1 ? "" : "s"} of the generation`,
+        scope: { kind: "tests", testIds: tests },
+        where,
+        problem: `The check step did not run on the ${tests.length} test(s) written.`,
+        why: "The tests are written; the generation stopped before checking them.",
+        plan: [`Run check_run on ${tests.join(", ")}`, "Change no test: the findings go to the review"],
+        proposedBy: by,
+        suggest: { model: "sonnet", effort: "medium" },
+      }),
+    );
+  return { problems, proposed };
+}
+
 const docProblems = (project: string, docId: string): Problem[] =>
   (readDoc(project, docId).converted?.warnings ?? []).map((text) => ({ where: `doc:${docId}`, text }));
 
@@ -302,15 +391,28 @@ export async function triageRun(ctx: Ctx, project: string, input: TriageInput) {
     );
   const problems = input.docId ? docProblems(project, input.docId) : jobProblems(project, input.jobId ?? "");
   const where = input.docId ? `the document ${input.docId}` : `the job ${input.jobId}`;
-  return await triage(
+  const job = input.jobId ? showJob(project, input.jobId)?.job : undefined;
+  const gen = job?.kind === "generate" && input.jobId ? generationFacts(project, input.jobId) : null;
+  const g = input.docId ? docGiven(project, "triage", input.docId, input) : given(project, "triage", { kind: "none" });
+  const r = await triage(
     ctx,
     project,
-    problems,
+    [...problems, ...(gen?.problems ?? [])],
     where,
     { model: input.model, effort: input.effort },
     input.docId ? "import" : "job",
-    input.docId ? docGiven(project, "triage", input.docId, input) : given(project, "triage", { kind: "none" }),
+    gen?.proposed.length
+      ? {
+          ...g,
+          lines: [
+            ...g.lines,
+            "",
+            `Testimus already proposed ${gen.proposed.map((a) => `« ${a.title} »`).join(", ")}: do not propose them again — say what caused the failure.`,
+          ],
+        }
+      : g,
   );
+  return gen?.proposed.length ? { ...r, proposed: [...gen.proposed, ...r.proposed] } : r;
 }
 
 // ponytail: a failed job of the documents, the index, the figures, a generation or a check is shown to Claude once,

@@ -12,7 +12,7 @@ import { natural } from "./natural.ts";
 import { writeJson } from "./project.ts";
 import { readCheck, readTest, testDir, testExists, testsDir } from "./store.ts";
 import { hasRawEmbed } from "./test-blocks.ts";
-import { formatSource, parseSource, testMdHash } from "./testfile.ts";
+import { formatSource, NEW_SUMMARY, parseSource, testMdHash } from "./testfile.ts";
 import { isTimed, momentText, resolveTimed, type Timed, type VideoText, videoText } from "./video/sources.ts";
 
 export type DocText = {
@@ -321,6 +321,20 @@ export function mechanicalFindings(test: Test, corpus: Corpus, linked: readonly 
       kind: "empty-field",
       severity: "error",
       message: "The test has no step: add at least one step with an action and an expected result.",
+      sources: [],
+    });
+  if ((test.summary ?? "").trim() === NEW_SUMMARY)
+    add({
+      kind: "empty-field",
+      severity: "warning",
+      message: `The test is still called « ${NEW_SUMMARY} »: give it a summary that says what it verifies.`,
+      sources: [],
+    });
+  if (!(test.description ?? "").trim())
+    add({
+      kind: "empty-field",
+      severity: "warning",
+      message: "The test has no description: say what it verifies and what the tester starts from.",
       sources: [],
     });
   const seen = new Map<string, number>();

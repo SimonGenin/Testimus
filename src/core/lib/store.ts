@@ -43,7 +43,9 @@ export function testDir(project: string, id: string): string {
 
 export const testsDir = (project: string) => join(project, "tests");
 
-export const testExists = (project: string, id: string) => existsSync(join(testDir(project, id), "test.md"));
+// ponytail: an id that is no folder name is a test that does not exist — only writing refuses it (testDir)
+export const testExists = (project: string, id: string) =>
+  /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id) && !id.includes("..") && existsSync(join(project, "tests", id, "test.md"));
 
 // ponytail: a running generation's tests are not there for anyone until it ends — not in the tests, the review,
 // the search or a count. It holds every local test that appears after it started, except one made in this

@@ -105,7 +105,7 @@ describe("a Word file without any heading style", () => {
   it("disappears when the document is converted again with real headings: a source citing it is source-missing", async () => {
     const id = "SECIB";
     const test = parseTest(
-      `---\nproject: P\nsummary: S\n---\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n- ${id}#§symplicy-secib "L'intégration est unidirectionnelle, allant de Symplicy vers SECIB."\n`,
+      `---\nproject: P\nsummary: S\n---\n\n## Description\n\nD\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n- ${id}#§symplicy-secib "L'intégration est unidirectionnelle, allant de Symplicy vers SECIB."\n`,
     ).test;
     expect(mechanicalFindings(test, loadCorpus(project))).toEqual([]);
     writeFileSync(join(dirOf(id), "source.docx"), plainDocx(PARAGRAPHS, ["Objectifs de l'intégration"]));

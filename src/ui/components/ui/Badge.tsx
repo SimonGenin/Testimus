@@ -305,6 +305,7 @@ export const PROPOSAL = {
   change: { label: "Change", tone: "warning", icon: "circle-dot", ink: "diffModified" },
   step: { label: "New step", tone: "success", icon: "plus", ink: "diffAdded" },
   remove: { label: "Remove", tone: "danger", icon: "trash", ink: "diffRemoved" },
+  describe: { label: "Description", tone: "warning", icon: "text", ink: "diffModified" },
   accepted: { label: "Accepted", tone: "success", icon: "check" },
   rejected: { label: "Rejected", tone: "neutral", icon: "close" },
   stale: { label: "Out of date", tone: "warning", icon: "alert-triangle" },

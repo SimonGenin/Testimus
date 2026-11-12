@@ -175,6 +175,7 @@ export type FindingKind =
   | "not-simulated-unsourced"
   | "vague-result"
   | "documents-conflict"
+  | "description-mismatch"
   | "empty-field"
   | "raw-embed"
   | "duplicate-step"

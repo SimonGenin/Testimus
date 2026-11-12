@@ -47,7 +47,11 @@ column that holds text in this test, say how you treat it, in `columns`:
    test checks is not missing), is a `step` proposal placed where it belongs (`after`), with its
    sources. A step that repeats another, or tests what no document describes and the team did not
    mean, is a `remove` — rarely, with a why that says which step it repeats.
-5. A `fig:` source: `rag_figure`, then `Read` the image before you rely on it.
+5. **Its summary and description**, once the steps are read: they must say what the steps test —
+   no more, no less — and what they state of the system must be what a passage states. A description
+   that promises a check no step makes, leaves out what the steps verify, or claims what no passage
+   says gets a `describe` proposal: the whole new text, with the sources of what it states.
+6. A `fig:` source: `rag_figure`, then `Read` the image before you rely on it.
 
 ## Proposals
 
@@ -57,6 +61,7 @@ column that holds text in this test, say how you treat it, in `columns`:
 | `change` | `step`, `column`, `value`, `sources` | one column of a step says what the passages do not; `value` is the whole new text of that cell |
 | `step` | `after`, `fields`, `sources` | a case the documents require of this test is missing |
 | `remove` | `step` | the step repeats another or tests nothing the documents describe |
+| `describe` | `field` (`summary` or `description`), `value`, `sources` | the summary or the description does not say what the steps test, or states what no passage says; `value` is the field's whole new text |
 
 - One proposal is one decision. Two changes the team could want separately are two proposals; two
   sources of one step that prove the same claim are one.

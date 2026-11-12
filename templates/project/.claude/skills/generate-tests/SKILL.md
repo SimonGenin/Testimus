@@ -16,8 +16,8 @@ goes with the run: what to read first, what the team knows about the documents i
 left out. Read that first. The format of `test.md` and the rules of `### Sources` are in the project
 `CLAUDE.md`; this skill is how to get there.
 
-When the request says the scope is large and names the plan-tests skill, and testing it takes more
-than 3 tests: follow plan-tests and write no test — Testimus runs this skill once per planned test.
+When the request names the plan-tests skill and testing the scope takes more than one test: follow
+plan-tests and write no test — Testimus runs this skill once per planned test.
 
 ## 1. Know the scope before you design
 
@@ -67,9 +67,10 @@ side of each gesture was searched. When two documents disagree, apply the preced
 
 ## 3. Write
 
-- `tests_create` (summary, folder, description) allocates `tests/local-<8 hex>/` with a valid file,
-  `review: draft`. Then `Write` the whole file. Only new tests: never change, rename or delete an
-  existing one.
+- `tests_create` with the whole test in one call — summary, folder, description, and `steps`, each
+  with its `fields` and its `sources` — writes `tests/local-<8 hex>/test.md`, `review: draft`. Then
+  `tests_edit` (or `Write`) only to correct it. A test left as an empty draft when the run ends is
+  removed and counted not written. Only new tests: never change, rename or delete an existing one.
 - **Action**: one gesture and the object it acts on — which screen, which object, which menu
   entry, which value. One gesture and its visible effect is one step; when several roles act, name
   the role first.
@@ -92,15 +93,26 @@ side of each gesture was searched. When two documents disagree, apply the preced
 ### Pictures — as important as the sources
 
 The tester works in front of the product, not the specification: a picture is how they know where
-to click and what they should see. Every document picture that shows what a step is about goes in
-that step, once per test, at the first step that needs it:
+to click and what they should see. For each step where the tester **does** or **sees** something on
+a screen, look for a picture of that screen, in this order:
 
-- `tests_addImage { id, step, figure: "<docId>#fig:<n>", field }` after the file is written — `field`
-  `Action` when it shows where to act, `Expected Result` when it shows what to see. Cite the figure in
-  that step's sources too.
+1. **A figure of the documents** — `rag_passage` lists the figures of a section; `rag_figure` says
+   `picture: true` when it has an image: `Read` it.
+2. **A photo of the interface** — a picture of an images document (`<docId>#img:<n>`): `rag_search`
+   the screen's name, `media_show` the document.
+3. **A key frame of a video** — `<docId>#frame:<mm:ss>`: `media_show` lists them, `media_frame` shows
+   any moment, `media_keep { doc, at }` keeps the right instant as a key frame.
+
+Put it in the step only when it **truly shows that screen**, in the state the step is about:
+`tests_addImage { id, step, figure, field }` after the test is created — `figure` the anchor above,
+`field` `Action` when it shows where to act, `Expected Result` when it shows what to see. Once per
+test, at the first step that needs it; a document figure is cited in that step's sources too.
+
+- Finding none is normal and needs no justification: a rule in text, a value, a message, a screen
+  nobody photographed. An approximate picture — another screen, another state, another object — is
+  worse than none.
 - If you rewrite the file afterwards, keep the `![](images/…)` lines and `### Attachments` as they are.
-- No picture is fine: a rule in text, a value, a message. Never one that does not show what the step
-  is about. A figure written as text (`picture: false`) is cited, not embedded.
+- A figure written as text (`picture: false`) is cited, not embedded.
 
 ## 4. Before you finish
 
@@ -110,7 +122,7 @@ that step, once per test, at the first step that needs it:
    report the gap. Again, until nothing you can fix is left.
 2. Re-read each test with `tests_show` as the tester: could you run it without the specification?
    Every result observable, every state prepared before the step that checks it, every column as its
-   description says, every picture the document has for a screen the step looks at?
+   description says, a picture wherever one truly shows the screen the step looks at?
 
 ## 5. The report
 
@@ -123,16 +135,19 @@ Then end the reply with the block the request gives, valid JSON, nothing after i
 
 `skipped` is every behavior of the request you wrote no step for — `[]` when there is none. Leaving
 a behavior out takes coverage away, so it is said like a step: with its proof. A behavior another
-test of the same plan takes is not left out: do not report it.
+test of the same plan takes is not left out: do not report it (the request lists them). A field you
+have nothing for is left out, not `null`.
 
 - `item`: the behavior, in a few words, once. Codes and document names go in the quote, not here.
 - `reason`, one of:
   - `no-source` — the documents ask for it and no passage states what the tester must see, after
     you searched;
   - `not-observable` — internal logic, a design deliverable, a capacity no screen shows;
-  - `already-tested` — an existing test of the project verifies it (`test`: its id);
+  - `already-tested` — an existing test verifies it; `test` is its id (`local-<8 hex>` or a Jira
+    key), or `plan:<n>` for test n of the same plan — never a description;
   - `out-of-scope` — the scope touches it and the request did not ask for it;
-  - `documents-disagree` — two passages say otherwise and precedence does not settle it (cite both);
+  - `documents-disagree` — two passages say otherwise and precedence does not settle it: both
+    passages go in `sources`;
   - `missing-material` — what would state it is not in the project: a figure lost in conversion, a
     document only referred to, a definition left to a later phase.
 - `why`: one or two concrete sentences for this item — what is missing, what the documents say

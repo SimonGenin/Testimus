@@ -19,6 +19,7 @@ import { prompts as glossary } from "./glossary.ts";
 import { prompts as headers } from "./headers.ts";
 import { prompts as media } from "./media.ts";
 import { prompts as overview } from "./overview.ts";
+import { prompts as picture } from "./picture.ts";
 import { contextDir, isShared, type PromptTemplate, readContextFile } from "./prompt.ts";
 import { prompts as scoped } from "./scoped.ts";
 import { prompts as status } from "./status.ts";
@@ -74,6 +75,7 @@ export const BUILT: PromptTemplate[] = [
   ...chat,
   ...columns,
   ...comment,
+  ...picture,
   ...actions,
   ...status,
   ...doctor,

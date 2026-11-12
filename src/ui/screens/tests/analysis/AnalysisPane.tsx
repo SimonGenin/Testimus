@@ -46,11 +46,18 @@ const styles = stylex.create({
 type Tab = "open" | "accepted" | "rejected";
 
 const groupOf = (p: ProposalView) =>
-  p.kind === "step" ? (p.after ? `After step ${p.after}` : "Before step 1") : `Step ${p.step}`;
+  p.kind === "describe"
+    ? "The test"
+    : p.kind === "step"
+      ? p.after
+        ? `After step ${p.after}`
+        : "Before step 1"
+      : `Step ${p.step}`;
 
 function byPlace(list: ProposalView[]): [string, ProposalView[]][] {
   const out = new Map<string, ProposalView[]>();
-  const order = (p: ProposalView) => (p.kind === "step" ? (p.after ?? 0) + 0.5 : (p.step ?? 0));
+  const order = (p: ProposalView) =>
+    p.kind === "describe" ? -1 : p.kind === "step" ? (p.after ?? 0) + 0.5 : (p.step ?? 0);
   for (const p of [...list].sort((a, b) => order(a) - order(b))) {
     const k = groupOf(p);
     out.set(k, [...(out.get(k) ?? []), p]);

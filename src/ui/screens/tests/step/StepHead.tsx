@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 import { Badge, DIFF } from "../../../components/ui/Badge.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Icon } from "../../../components/ui/Icon.tsx";
@@ -142,6 +143,7 @@ export function StepHead({
   jira,
   claudeWas,
   readOnly,
+  tool,
   onAsk,
   onMove,
   onInsert,
@@ -155,6 +157,8 @@ export function StepHead({
   /** the step as it was before the Claude run that changed it */
   claudeWas?: { open: boolean; toggle: () => void };
   readOnly?: boolean;
+  /** a tool of the step before Ask Claude: Find a picture */
+  tool?: ReactNode;
   onAsk?: () => void;
   onMove?: (dir: -1 | 1) => void;
   onInsert?: () => void;
@@ -169,6 +173,7 @@ export function StepHead({
       <span {...stylex.props(styles.tools)}>
         {!readOnly && (
           <>
+            {tool}
             {onAsk && (
               <Button
                 variant="claude-quiet"

@@ -9,7 +9,7 @@ const DOC = "SOSIE_211_D401-1_3";
 const findings = (...sources: string[]) =>
   mechanicalFindings(
     parseTest(
-      `---\nproject: LFRPS12\nsummary: S\n---\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n${sources.map((s) => `- ${DOC}#${s}`).join("\n")}\n`,
+      `---\nproject: LFRPS12\nsummary: S\n---\n\n## Description\n\nD\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n${sources.map((s) => `- ${DOC}#${s}`).join("\n")}\n`,
     ).test,
     corpus,
   )
@@ -70,7 +70,7 @@ const EVID = loadCorpus(resolve(import.meta.dirname, "..", "..", "..", "fixtures
 const evid = (...sources: string[]) =>
   mechanicalFindings(
     parseTest(
-      `---\nproject: EVID\nsummary: S\n---\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n${sources.map((s) => `- SPEC_A#${s}`).join("\n")}\n`,
+      `---\nproject: EVID\nsummary: S\n---\n\n## Description\n\nD\n\n## Step 1\n\n### Action\n\nOuvrir\n\n### Expected Result\n\nVu\n\n### Sources\n\n${sources.map((s) => `- SPEC_A#${s}`).join("\n")}\n`,
     ).test,
     EVID,
   )

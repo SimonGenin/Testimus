@@ -40,16 +40,20 @@ every passage they cite at once — tests of one request often share their passa
 5. **The step columns** (`columns_list`): each column of each step holds what its description asks
    for, and nothing in a column whose description leaves it empty. A source ending
    `@<column> "<item>"` backs that item: its passage must state it.
-6. **The test as a whole.** A missing case or refusal is a finding only when a passage states it for
+6. **Its description.** The summary and the description say what the test verifies: it must be what
+   the steps test, and what it states of the system must be what a passage you opened states. A
+   description that promises what no step checks, or says what no passage supports, is
+   `description-mismatch`.
+7. **The test as a whole.** A missing case or refusal is a finding only when a passage states it for
    the very object and situation the test is about, and the test's own scope — its summary and
    description — includes it. A test is a scenario, often one of a series: `Grep` the object in
    `tests/*/test.md` before you call a case missing — what another test verifies is not missing.
-7. **Pictures.** `rag_passage` lists the figures of a section. A step that acts on or looks at a
+8. **Pictures.** `rag_passage` lists the figures of a section. A step that acts on or looks at a
    screen, a menu, a symbol or a colour which a document picture shows, where the tester needs that
    picture to find where to act or to decide, and which the test does not embed, is
    `figure-not-embedded`. No picture in the document, or a picture of something the step does not
    look at, is not a finding.
-8. **Contradictions.** `rag_mentions` on each object and screen of the test, once per term, and
+9. **Contradictions.** `rag_mentions` on each object and screen of the test, once per term, and
    `rag_related` on the sections it cites (the documents that amend them come first). A
    contradiction is a passage that says otherwise about the same object in the same situation — not
    one that is more general, adds a detail, or describes another mode, type or state. When a passage
@@ -96,6 +100,7 @@ One problem, one finding: the same gap across several steps is one finding about
 | `not-simulated-unsourced` | « not implemented », « not simulated » or the like written without a source saying so |
 | `vague-result` | a tester cannot decide pass or fail from the expected result |
 | `documents-conflict` | two documents disagree and precedence does not settle it |
+| `description-mismatch` | the summary or the description says what the steps do not test, or what no passage states (a `warning`, no `step`) |
 | `figure-not-embedded` | a step acts on or looks at a screen, a menu, a symbol or a colour that a document picture shows, the tester needs it, and it is not in the test |
 | `other` | a column not filled as its description says, or a defect that would mislead a tester and fits no other kind |
 

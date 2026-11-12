@@ -15,7 +15,7 @@ src/core/types.ts     shared types; schemas.ts the zod pieces several groups sha
 src/core/shell.ts     which shell runs the core (TESTIMUS_SHELL), loopback NO_PROXY, clean shutdown
 src/core/lib/         the domain modules (analysis: a test's analysis, its proof and its decisions):
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
-                        agents, atomic (every owned write), changed, file-memo (reads per file version), natural (the
+                        agents, atomic (every owned write), pictures (a step's picture by its anchor), changed, file-memo (reads per file version), natural (the
                         one collator), creds, project (+ project-info, project-init), doctor (+ doctor-row,
                         doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
                         exported as pages and imported back);
@@ -50,7 +50,8 @@ src/core/claude/      run (claude -p), access (the tools of each kind of run), g
                       chat, generate (+ gen-prompt, gen-reply: the report and what is left without a test, gen-review:
                       the second look and the suggestions that ride in the check request), check (several tests per
                       request, a verdict per step, the fix action), analyze (a test against the documents: its prompt
-                      and run), fix, review, columns, actions, figures, headers,
+                      and run), fix, review, columns, actions, figures, headers, picture (Find a picture: a
+                      step's pictures proposed, tests.findImage),
                       prompt, limits, ledger, schemas, media, study, comment, overview (how the documents fit
                       together: its prompt and run; overview-scope: what its run may write, undone after), scoped
                       (claude.run), catalog (everything
