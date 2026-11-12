@@ -927,6 +927,18 @@ export type JobStep = {
   message?: string;
   jobId?: string;
 };
+// ponytail: what a job's file keeps of a Claude run — its detail (Claude's words, its tool calls) went live to the page
+// and stays in .testimus/runs/<id>/activity.jsonl (jobs.activity)
+export type ClaudeRunSummary = {
+  id: string;
+  model?: string;
+  effort?: string;
+  durationMs?: number;
+  costUsd?: number;
+  tokens?: Tokens;
+  tests?: string[];
+  error?: string;
+};
 export type JobProcess = {
   id: string;
   label: string;
@@ -936,6 +948,7 @@ export type JobProcess = {
   startedAt: string;
   endedAt?: string;
   exit?: number | null;
+  run?: ClaudeRunSummary;
 };
 export type Job = {
   id: string;
@@ -961,6 +974,10 @@ export type Job = {
   rerun?: { name: string; input: unknown };
   // the tests and documents whose files it changed, as their folders (tests/<id>, docs/<id>)
   touched?: string[];
+  // a running job, worked out when read: when it last gave a sign (an event, a progress line), and whether it has been
+  // silent for 10 min with no program of its alive
+  lastEventAt?: string;
+  stuck?: true;
 };
 export type PullStage =
   | {
@@ -1000,8 +1017,19 @@ export type JobEvent = (
   | { jobId: string; at: string; type: "log"; level: "info" | "warn" | "error"; message: string; step?: string }
   | { jobId: string; at: string; type: "claude"; event: ClaudeEvent; step?: string; process?: string }
   | { jobId: string; at: string; type: "steps"; steps: JobStep[] }
+  | { jobId: string; at: string; type: "step"; step: JobStep }
   | { jobId: string; at: string; type: "process"; process: JobProcess }
-  | { jobId: string; at: string; type: "changed"; paths: string[]; added?: string[]; removed?: string[] }
+  | {
+      jobId: string;
+      at: string;
+      type: "changed";
+      paths: string[];
+      added?: string[];
+      removed?: string[];
+      // ponytail: a job's file keeps at most 200 paths — beyond, how many and the folders they are in
+      count?: number;
+      folders?: { path: string; files: number }[];
+    }
   | { jobId: ""; at: string; type: "notice"; message: string }
 ) & { project?: string | null };
 

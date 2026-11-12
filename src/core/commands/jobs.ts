@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { command, UserError } from "../command.ts";
-import { cancelJob, clearJobs, isAbout, listJobs, showJob } from "../jobs.ts";
+import { cancelJob, clearJobs, isAbout, jobActivity, listJobs, showJob } from "../jobs.ts";
 
 const STATUS = z.enum(["running", "done", "failed", "cancelled"]).describe("Where the job is");
 
@@ -25,6 +25,22 @@ const proc = z.object({
   startedAt: z.string().describe("When it started (ISO)"),
   endedAt: z.string().optional().describe("When it ended (ISO)"),
   exit: z.number().nullable().optional().describe("Its exit code (null: killed)"),
+  run: z
+    .object({
+      id: z.string().describe("The run's id: its folder .testimus/runs/<id> holds what Claude said and did"),
+      model: z.string().optional().describe("The model asked for"),
+      effort: z.string().optional().describe("The effort asked for"),
+      durationMs: z.number().optional().describe("How long it ran"),
+      costUsd: z.number().optional().describe("What it cost, as Claude reported it"),
+      tokens: z
+        .object({ input: z.number().describe("Tokens read"), output: z.number().describe("Tokens written") })
+        .optional()
+        .describe("Tokens used"),
+      tests: z.array(z.string()).optional().describe("The tests it wrote"),
+      error: z.string().optional().describe("Why it failed"),
+    })
+    .optional()
+    .describe("A Claude run: its summary (jobs.activity gives what it said and did)"),
 });
 
 const job = z.object({
@@ -70,6 +86,14 @@ const job = z.object({
     .array(z.string())
     .optional()
     .describe("The tests and documents whose files it changed, as their folders (tests/<id>, docs/<id>)"),
+  lastEventAt: z
+    .string()
+    .optional()
+    .describe("A running job: when it, or a job running inside it, last gave a sign (ISO)"),
+  stuck: z
+    .literal(true)
+    .optional()
+    .describe("A running job silent for 10 minutes with no program of its alive, and not waiting its turn"),
 });
 
 const base = {
@@ -140,6 +164,7 @@ const event = z.discriminatedUnion("type", [
     process: z.string().optional().describe("The Claude run it came from"),
   }),
   z.object({ ...base, type: z.literal("steps"), steps: z.array(step).describe("The job's steps, declared") }),
+  z.object({ ...base, type: z.literal("step"), step: step.describe("One step that moved") }),
   z.object({ ...base, type: z.literal("process"), process: proc.describe("A program started or ended") }),
   z.object({
     ...base,
@@ -147,6 +172,16 @@ const event = z.discriminatedUnion("type", [
     paths: z.array(z.string()).describe("Project files it changed"),
     added: z.array(z.string()).optional().describe("Those of the paths it created"),
     removed: z.array(z.string()).optional().describe("Those of the paths it deleted"),
+    count: z.number().optional().describe("How many paths, when the log kept only their folders (over 200)"),
+    folders: z
+      .array(
+        z.object({
+          path: z.string().describe("A folder (tests/<id>, docs/<id>, or another folder of the project)"),
+          files: z.number().describe("How many of the paths are in it"),
+        }),
+      )
+      .optional()
+      .describe("The folders of the paths, when the log kept only those (over 200 paths)"),
   }),
   z.object({ ...base, type: z.literal("notice"), message: z.string().describe("A notice for every page") }),
 ]);
@@ -184,6 +219,23 @@ export const commands = [
       const j = showJob(ctx.project, input.id);
       if (!j) throw new UserError(`No job ${input.id}.`, "testimus jobs list shows the jobs of the open project.");
       return j;
+    },
+  }),
+  command({
+    name: "jobs.activity",
+    summary:
+      "What Claude said and did in a job's runs (or one run), read from each run's folder once it ended; the job's log keeps only each run's summary.",
+    input: z.object({
+      id: JOB_ID,
+      process: z.string().optional().describe("Only this run, by its process id in the job (p1, p2…)"),
+    }),
+    output: z.object({ events: z.array(event).describe("Claude's events, run by run, oldest first") }),
+    mutates: false,
+    positional: ["id"],
+    async run(ctx, input) {
+      const events = jobActivity(ctx.project, input.id, input.process);
+      if (!events) throw new UserError(`No job ${input.id}.`, "testimus jobs list shows the jobs of the open project.");
+      return { events };
     },
   }),
   command({

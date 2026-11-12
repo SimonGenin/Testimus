@@ -76,7 +76,9 @@ describe("jobs.show and jobs.cancel through the registry, each output against it
       p,
     );
     expect(shown.job).toMatchObject({ status: "done", result: { n: 1 } });
-    expect(new Set(shown.events.map((e) => e.type))).toEqual(new Set(["status", "steps", "progress", "log", "claude"]));
+    expect(new Set(shown.events.map((e) => e.type))).toEqual(
+      new Set(["status", "steps", "step", "progress", "log", "claude"]),
+    );
     expect(shown.events.filter((e) => e.type === "progress").map((e) => (e as { test?: string }).test)).toEqual([
       undefined,
       "local-0000000a",

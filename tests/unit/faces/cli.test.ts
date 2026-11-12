@@ -326,7 +326,7 @@ describe("CLI face", () => {
     expect(r.err).toContain("warn: careful\n");
     expect(r.err).toContain("said ");
     expect(r.err).toContain("[1/4] job step\n");
-    expect(r.err).toContain("job plain\n");
+    expect(r.err, "a line moved past within the second is not printed").not.toContain("job plain\n");
     expect(r.err).toContain("[0/2] job zero\n");
     expect(r.err).toContain("info: job log\n");
     expect(r.err).toContain("job text ");

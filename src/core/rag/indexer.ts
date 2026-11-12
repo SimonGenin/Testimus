@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { CancelledError, isCancelled, type Semaphore, semaphore } from "../../shared/run/work.ts";
 import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
+import { jobWrote, nameJob } from "../jobs.ts";
 import { docDir, docIds, readDoc, readDocMd, readFigures } from "../lib/docs.ts";
 import { sha256 } from "../lib/hash.ts";
 import { withPerfScope } from "../lib/models-perf.ts";
@@ -302,6 +303,10 @@ async function runIndex(
     // row, so the other spaces keep their vectors (activating a model never destroys another space)
     if (opts.force) db.exec("delete from docs");
     const docs = projectDocs(project);
+    if (live) {
+      nameJob("rag-index", `Index: ${docs.length === 1 ? "1 document" : `${docs.length} documents`}`);
+      jobWrote(["index"], "rag-index");
+    }
     const report: IndexReport["docs"] = [];
     ctx.step?.("chunk");
     for (const [i, d] of docs.entries()) {

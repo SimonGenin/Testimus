@@ -78,7 +78,7 @@ describe("live jobs", () => {
     const file = join(root, "a-file");
     writeFileSync(file, "x");
     const { job, done } = startJob("chatty", "s", file, async (ctx) => {
-      for (let i = 0; i < 2005; i++) ctx.progress({ message: `m${i}` });
+      for (let i = 0; i < 2005; i++) ctx.log("info", `m${i}`);
       throw "text failure";
     });
     await expect(done).rejects.toBe("text failure");
@@ -196,7 +196,7 @@ describe("jobs commands", () => {
     const running = (await run("jobs.list", { running: true }, project)) as Job[];
     expect(running.map((j) => j.id)).toContain(job.id);
     expect(running.map((j) => j.id)).not.toContain(finished.job.id);
-    expect(((await run("jobs.show", { id: job.id }, project)) as { job: Job }).job.id).toBe(job.id);
+    expect(((await run("jobs.show", { id: job.id }, project)) as unknown as { job: Job }).job.id).toBe(job.id);
     await expect(run("jobs.show", { id: "missing-1" }, project)).rejects.toThrow("No job missing-1.");
     expect(await run("jobs.cancel", { id: job.id }, project)).toEqual({ cancelled: true });
     release();

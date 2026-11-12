@@ -191,4 +191,25 @@ describe("Activity", () => {
     act(() => FakeES.emit({ jobId: "", at: "", type: "notice", message: "" } as never));
     await waitFor(() => expect(screen.queryByText(/Jira asks/)).toBeNull());
   });
+  it("counts the jobs inside a batch on its row, opening on the running ones; a silent job says its last sign", async () => {
+    const kid = (id: string, o: Partial<Job> = {}) =>
+      job({ id, kind: "docs.convert", subject: id, parentId: "imp", startedAt: "2026-11-02T10:00:01.000Z", ...o });
+    jobs = [
+      job({ id: "imp", kind: "docs.add", subject: "D401-1", label: "D401-1" }),
+      kid("k1"),
+      kid("k2", { message: "Waiting to convert (5 at a time)" }),
+      kid("k3", { status: "done" }),
+      job({ id: "q", kind: "pull", subject: "LFRPS12", lastEventAt: new Date(Date.now() - 4 * 60_000).toISOString() }),
+    ];
+    net.routes["jobs.list"] = (i) => (i.running ? jobs.filter((j) => j.status === "running") : jobs);
+    withData(<Activity />);
+    fireEvent.click(await screen.findByRole("button", { name: "4 jobs running" }));
+    const dialog = screen.getByRole("dialog", { name: /^Running/ });
+    const fold = await within(dialog).findByRole("button", { name: /3 conversions: 1 done, 1 running, 1 queued/ });
+    expect(within(dialog).queryByRole("button", { name: /k1/ })).toBeNull();
+    fireEvent.click(fold);
+    expect(await within(dialog).findByRole("button", { name: "Convert document · k1" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Convert document · k2" })).toBeNull();
+    expect(within(dialog).getByText("Last sign 4 min ago")).toBeInTheDocument();
+  });
 });

@@ -116,6 +116,25 @@ export function logLines(events: JobEvent[]): LogLine[] {
   return out;
 }
 
+// ponytail: a running job's silence, on the page's own clock (nothing comes from a silent job to read it again): « last
+// sign N min ago » past 2 min, « may be stuck » past 10 min with no program of its running — the core's rule (jobs.ts
+// signed), which also says stuck when read. A job waiting its turn (a conversion queued behind the others) is not silent
+const QUIET_MS = 2 * 60_000;
+const STUCK_MS = 10 * 60_000;
+
+export function quietOf(job: Job, now: number): { minutes: number; stuck: boolean } | null {
+  if (job.status !== "running" || !job.lastEventAt) return null;
+  if (job.steps?.find((s) => s.status === "running")?.id === "queue" || /^Waiting\b/.test(job.message ?? ""))
+    return null;
+  const ms = now - Date.parse(job.lastEventAt);
+  if (!(ms > QUIET_MS)) return null;
+  const busy = (job.processes ?? []).some((p) => !p.endedAt);
+  return { minutes: Math.floor(ms / 60_000), stuck: !!job.stuck || (ms > STUCK_MS && !busy) };
+}
+
+export const quietLine = (q: { minutes: number; stuck: boolean }) =>
+  `${q.stuck ? "May be stuck · last" : "Last"} sign ${q.minutes} min ago`;
+
 export const percent = (job: Job) =>
   job.progress && job.progress.total > 0 ? Math.round((job.progress.done / job.progress.total) * 100) : null;
 

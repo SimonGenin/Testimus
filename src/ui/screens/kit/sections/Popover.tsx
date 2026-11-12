@@ -90,6 +90,23 @@ export const section: KitSection = {
           <Select label="Exigence" showLabel value="open" options={shows} onChange={() => {}} block />
         </Popover>
       </Cell>
+      <Cell
+        label="sm · a long list: anchored, it is never taller than the room left in the window and its body scrolls (drawn whole here)"
+        wide
+        column
+      >
+        <Popover
+          trigger={<Button variant="quiet" icon="jobs" label="12 running" />}
+          title="Running"
+          count={12}
+          width="sm"
+          debugState="open"
+        >
+          {Array.from({ length: 12 }, (_, i) => (
+            <span key={i}>Convert document · SOSIE_211_D401-1_{i + 1}</span>
+          ))}
+        </Popover>
+      </Cell>
       <Cell label="auto width · end aligned · long text" wide column>
         <Popover trigger={<Button variant="quiet" icon="jobs" label="2 running" />} title="Activity" debugState="open">
           Indexing SOSIE_211_D401-1_3 — 4 of 6 passages, then the figures of Signalisation (about one minute left).

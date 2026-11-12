@@ -20,6 +20,7 @@ import "./claude-media.ts";
 import "./claude-overview.ts";
 import "./claude-study.ts";
 import { mockHttp } from "./jira.ts";
+import { mockBatch } from "./jobs.ts";
 import { mockModelsOptions, seedChoice, setupModelsMock } from "./models.ts";
 import { setupUpdatesMock } from "./updates.ts";
 import { setupVideoMock } from "./video.ts";
@@ -110,6 +111,7 @@ export async function setupMock(): Promise<string | null> {
   mockPace.embedMs = Math.max(0, Number(process.env.TESTIMUS_MOCK_INDEX_MS) || 0);
   const slow = readPace(process.env.TESTIMUS_MOCK_READ_MS ?? "");
   env.readMs = (name) => slow.get(name) ?? 0;
+  mockBatch(project, Number(process.env.TESTIMUS_MOCK_JOBS) || 0);
   return project;
 }
 

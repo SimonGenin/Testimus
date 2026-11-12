@@ -2,14 +2,16 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useState } from "react";
 import type { Job, JobEvent } from "../../../core/types.ts";
 import { type Screen, useApp } from "../../lib/app.ts";
-import { percent, resultLine } from "../../lib/jobs.ts";
+import { percent, quietOf, resultLine } from "../../lib/jobs.ts";
 import { nameTests, useTestNames } from "../../lib/labels.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { askedOf, ClaudeActivity } from "../claude/ClaudeActivity.tsx";
+import { askedOf } from "../claude/ClaudeActivity.tsx";
+import { Banner } from "../ui/Banner.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Disclosure } from "../ui/Disclosure.tsx";
 import { Progress } from "../ui/Progress.tsx";
 import { type } from "../ui/type.ts";
+import { JobClaude } from "./JobClaude.tsx";
 import { JobFiles } from "./JobFiles.tsx";
 import { FullLog } from "./JobFullLog.tsx";
 import { JobHead } from "./JobHead.tsx";
@@ -98,6 +100,7 @@ export function JobView({
   const running = job.status === "running";
   const pct = percent(job);
   const rest = resultLine(job).split(" · ").slice(1).join(" · ");
+  const quiet = quietOf(job, now);
   return (
     <div {...stylex.props(styles.view)}>
       <JobHead
@@ -108,6 +111,13 @@ export function JobView({
         onAgain={job.status === "failed" || job.interrupted ? undefined : onAgain}
         onOpen={onOpen}
       />
+
+      {quiet?.stuck && (
+        <Banner tone="warning" title="This job may be stuck">
+          Nothing came from it for {quiet.minutes} min and no program of its is running. Cancel it if it does not move
+          again.
+        </Banner>
+      )}
 
       {running && !job.steps?.length && (
         <div {...stylex.props(styles.sect)}>
@@ -140,7 +150,7 @@ export function JobView({
         </Section>
       )}
 
-      {claude && <ClaudeActivity events={events} running={running} now={now} model={model} effort={effort} />}
+      {claude && <JobClaude job={job} events={events} now={now} model={model} effort={effort} />}
 
       <JobFiles events={events} onGo={onGo} />
 

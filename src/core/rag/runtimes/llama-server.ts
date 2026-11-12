@@ -5,6 +5,7 @@ import { killChildrenOnExit, killTree, run, start as startProcess } from "../../
 import { every, sleep } from "../../../shared/run/work.ts";
 import { UserError } from "../../command.ts";
 import { env } from "../../env.ts";
+import { withProcess } from "../../jobs.ts";
 import {
   currentOp,
   isMemoryError,
@@ -235,6 +236,15 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
     s.exitCode = code;
     if (running.get(id) === s) running.delete(id);
   });
+  void withProcess(
+    `llama-server · ${basename(o.model)}`,
+    "llama-server",
+    (pid) => {
+      pid(s.proc.pid);
+      return s.proc.exited;
+    },
+    (code) => code,
+  ).catch(() => {});
   killChildrenOnExit();
   for (;;) {
     if (s.exitCode !== undefined) {

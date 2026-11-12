@@ -7,6 +7,7 @@ import { killChildrenOnExit, run, start } from "../../../shared/run/process.ts";
 import { awake, sleep, TimeoutError, watch } from "../../../shared/run/work.ts";
 import { UserError } from "../../command.ts";
 import { env } from "../../env.ts";
+import { withProcess } from "../../jobs.ts";
 import { writeAtomic } from "../atomic.ts";
 import { ffmpegOrFail } from "../ffmpeg.ts";
 import { whisperOrFail } from "../whisper.ts";
@@ -83,19 +84,26 @@ type FfOptions = {
 async function ff(args: string[], signal: AbortSignal, o: FfOptions = {}) {
   const w = watch(QUIET_MS, signal);
   try {
-    const r = await run({
-      exe: ffmpegOrFail().ffmpeg,
-      args: ["-hide_banner", "-nostats", "-y", "-progress", "pipe:1", ...args],
-      signal: w.signal,
-      priority: "low",
-      onLine: (line, stream) => {
-        w.beat();
-        if (stream === "stdout") {
-          const m = /^out_time_us=(\d+)/.exec(line);
-          if (m) o.onSeconds?.(Number(m[1]) / 1e6);
-        } else o.onLine?.(line);
-      },
-    });
+    const r = await withProcess(
+      "ffmpeg",
+      "ffmpeg",
+      (pid) =>
+        run({
+          exe: ffmpegOrFail().ffmpeg,
+          args: ["-hide_banner", "-nostats", "-y", "-progress", "pipe:1", ...args],
+          signal: w.signal,
+          priority: "low",
+          onSpawn: pid,
+          onLine: (line, stream) => {
+            w.beat();
+            if (stream === "stdout") {
+              const m = /^out_time_us=(\d+)/.exec(line);
+              if (m) o.onSeconds?.(Number(m[1]) / 1e6);
+            } else o.onLine?.(line);
+          },
+        }),
+      (e) => e.code,
+    );
     if (signal.aborted) throw cancelled();
     if (r.timedOut)
       throw new UserError(
@@ -438,12 +446,19 @@ export const videoIo = {
       voicesLimitMs(seconds),
       "The voice detector did not finish",
       async (s) => {
-        const exit = await run({
-          exe: w.vad,
-          args: ["-f", wav, "-vm", w.vadModel, "-vsd", "300", "-vmsd", "15", "-t", String(speechThreads()), "-np"],
-          signal: s,
-          priority: "low",
-        });
+        const exit = await withProcess(
+          "whisper · voice detector",
+          "whisper-vad-speech-segments",
+          (pid) =>
+            run({
+              exe: w.vad,
+              args: ["-f", wav, "-vm", w.vadModel, "-vsd", "300", "-vmsd", "15", "-t", String(speechThreads()), "-np"],
+              signal: s,
+              priority: "low",
+              onSpawn: pid,
+            }),
+          (e) => e.code,
+        );
         if (signal.aborted) throw cancelled();
         if (exit.code !== 0)
           throw new UserError(
@@ -489,6 +504,15 @@ export const videoIo = {
         if (log.length > 40) log.shift();
       },
     });
+    void withProcess(
+      "whisper-server",
+      "whisper-server",
+      (pid) => {
+        pid(proc.pid);
+        return proc.exited;
+      },
+      (e) => e.code,
+    ).catch(() => {});
     let exit: number | null | undefined;
     void proc.exited.then((e) => {
       exit = e.code;

@@ -119,8 +119,8 @@ describe("MCP face in process", () => {
       }),
     );
     expect(JSON.parse(r?.content[0].text ?? "")).toEqual({ ok: true, llm: true });
-    expect(sent.map((n) => n.params?.message)).toEqual(["working [1/2]", "later", "counted [0/3]"]);
-    expect(sent.map((n) => n.params?.progress)).toEqual([1, 2, 3]);
+    expect(sent.map((n) => n.params?.message)).toEqual(["working [1/2]", "counted [0/3]"]);
+    expect(sent.map((n) => n.params?.progress)).toEqual([1, 2]);
     expect(sent[0].params?.progressToken).toBe("tok");
   });
 

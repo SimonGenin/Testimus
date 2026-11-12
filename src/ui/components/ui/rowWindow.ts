@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 // ponytail: a list this long draws only the rows near what is seen — hundreds of tests, a long review queue, a document
 // with a thousand sections; a shorter one draws every row, as before
@@ -119,4 +119,34 @@ export function useRowWindow(
     if (pins.has(k)) on[i] = 1;
   });
   return { all: false, shown: (i) => on[i] === 1, room };
+}
+
+// ponytail: the rows of a long list drawn through its window — the rows not drawn are one room each run of them, as
+// high as they were (the Timeline of a job, the actions of a Claude run; List draws its own, with its groups)
+export function windowed<T>(
+  win: RowWindow,
+  rows: T[],
+  keyOf: (row: T, index: number) => string,
+  draw: (row: T, index: number) => ReactNode,
+  room: (key: string, height: number) => ReactNode,
+): ReactNode[] {
+  if (win.all) return rows.map(draw);
+  const out: ReactNode[] = [];
+  let gap = 0;
+  let from = "";
+  const flush = () => {
+    if (gap > 0) out.push(room(from, gap));
+    gap = 0;
+  };
+  rows.forEach((r, i) => {
+    if (win.shown(i)) {
+      flush();
+      out.push(draw(r, i));
+    } else {
+      if (!gap) from = keyOf(r, i);
+      gap += win.room(keyOf(r, i));
+    }
+  });
+  flush();
+  return out;
 }
