@@ -19,7 +19,9 @@ import { pipeline } from "node:stream/promises";
 import { inflateRawSync } from "node:zlib";
 import { run } from "../../../shared/run/process.ts";
 import { UserError } from "../../command.ts";
+import { embedThreads, llamaOnGpu } from "../../lib/fit/placement.ts";
 import { usableGpus } from "../../lib/machine/gpus.ts";
+import { knownMachine, machineProfile } from "../../lib/machine/profile.ts";
 import { registryFile } from "../../lib/models-catalog.ts";
 import { freeMB } from "../../lib/models-download.ts";
 import { addTokens, perfFields } from "../../lib/models-perf.ts";
@@ -337,7 +339,7 @@ function llamaBuild(): LlamaRuntime {
   return b;
 }
 
-function serverFor(m: ResolvedModel, kind: ServerKind): Promise<LlamaServer> {
+async function serverFor(m: ResolvedModel, kind: ServerKind): Promise<LlamaServer> {
   const model = m.install.path;
   if (!model || !/\.gguf$/i.test(model) || !existsSync(model))
     throw new UserError(
@@ -345,7 +347,8 @@ function serverFor(m: ResolvedModel, kind: ServerKind): Promise<LlamaServer> {
       `Download it again: testimus models pull ${m.entry.id}.`,
     );
   const b = llamaBuild();
-  const onGpu = b.backend !== "cpu";
+  const machine = knownMachine() ?? (await machineProfile().catch(() => null));
+  const onGpu = llamaOnGpu(m.entry, machine, b.backend);
   return ensureServer({
     exe: b.exe,
     build: b.build,
@@ -354,6 +357,7 @@ function serverFor(m: ResolvedModel, kind: ServerKind): Promise<LlamaServer> {
     catalogId: m.entry.id,
     sizeMB: Math.round(statSync(model).size / MB),
     onGpu,
+    ...(onGpu ? {} : { threads: embedThreads(machine) }),
     perf: { ...perfFields(m), device: onGpu ? "gpu" : "cpu" },
   });
 }

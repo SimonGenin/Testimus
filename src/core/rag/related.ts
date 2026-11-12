@@ -5,7 +5,7 @@ import type { Edge, EdgeKind } from "../types.ts";
 import { normalizeRef } from "./anchors.ts";
 import { docFigures, markerLine, parseSections, sectionAt } from "./chunk.ts";
 import { edgesOf, indexedContents, withIndex } from "./db.ts";
-import { docEdges } from "./graph.ts";
+import { type CorpusDoc, corpusOf, docEdges } from "./graph.ts";
 import { corpusKey, projectDocs } from "./indexer.ts";
 
 type Neighbour = {
@@ -61,9 +61,16 @@ function graphOf(project: string): Graph {
   const read = (db: DatabaseSync | null): Graph => {
     const g: Graph = { docs: new Map(), out: new Map(), in: new Map() };
     const indexed = db ? indexedContents(db) : new Map<string, string>();
+    let corpus: CorpusDoc[] | undefined;
+    const corpusOnce = () => {
+      corpus ??= corpusOf(project);
+      return corpus;
+    };
     for (const d of docs) {
       const edges =
-        db && indexed.get(d.doc.id) === d.content ? edgesOf(db, d.doc.id) : docEdges(project, d.doc, d.md, d.figures);
+        db && indexed.get(d.doc.id) === d.content
+          ? edgesOf(db, d.doc.id)
+          : docEdges(project, d.doc, d.md, d.figures, corpusOnce());
       for (const e of edges) {
         push(g.out, e.from, e);
         push(g.in, e.to, e);

@@ -2,6 +2,7 @@ import { existsSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { catalogEntry } from "../../../../../src/core/lib/models-catalog.ts";
+import { installDeps } from "../../../../../src/core/lib/models-install.ts";
 import { journalFile, readPerf, withPerfScope } from "../../../../../src/core/lib/models-perf.ts";
 import { embedWith, probeWith, runtimes } from "../../../../../src/core/rag/embed.ts";
 import {
@@ -187,5 +188,21 @@ describe("the embed worker, seen from the core", () => {
     expect(rerank).toHaveBeenCalledWith(r, "q", ["t"]);
     expect(liveWorkers()).toEqual([]);
     vi.restoreAllMocks();
+  });
+});
+
+describe("the install probe", () => {
+  it("stops the embed worker it started, as it does the llama-servers", async () => {
+    const p = await installDeps.probe(model());
+    expect(p.dims).toBe(fakeVector("probe").length);
+    expect(liveWorkers()).toEqual([]);
+  });
+
+  it("leaves a worker that was already running for the index or a search", async () => {
+    await embedWith(model(), ["déjà là"], "doc");
+    const [running] = liveWorkers();
+    await installDeps.probe(model());
+    expect(liveWorkers()).toEqual([running]);
+    expect(running.exitCode).toBeUndefined();
   });
 });

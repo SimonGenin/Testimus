@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { env } from "../env.ts";
-import { machineProfile } from "../lib/machine/profile.ts";
+import { knownMachine, machineProfile } from "../lib/machine/profile.ts";
 import { catalogEntry, pack as packOf } from "../lib/models-catalog.ts";
 import { DEFAULT_QUERY_TASK, resolveChoice, resolveInstalled, runsHere } from "../lib/models-resolve.ts";
 import { readProject, readSettings, writeSettings } from "../lib/project.ts";
@@ -97,6 +97,9 @@ async function resolveAny(choice: ActiveChoice, queryTask: string): Promise<Reso
 // are not here — never those of a fallback (a project on Quality is never told to install Light's model), never one
 // resolveModel finds on this PC
 export async function activeModels(project: string): Promise<ActiveModels> {
+  // ponytail: the device a model is given (the card or the processor) is read from this PC's profile; a process that
+  // has not profiled it yet would put a model found on disk on the processor, so the first resolution profiles it
+  if (!env.mock && !knownMachine()) await machineProfile().catch(() => null);
   const rag = readProject(project).rag;
   const queryTask = queryTaskOf(project);
   const steps: [ActivationSource, ActiveChoice | null][] = [

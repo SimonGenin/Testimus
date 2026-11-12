@@ -31,12 +31,16 @@ const MB = 1024 * 1024;
 export const installDeps = {
   probe: async (m: ResolvedModel): Promise<{ dims: number; maxTokens: number }> => {
     if (m.entry.kind === "speech") return speechProbe(m);
+    // ponytail: the model processes the probe started (a llama-server, an embed worker) go with it; those already
+    // running for the index or a search stay
     const servers = await import("../rag/runtimes/llama-server.ts");
-    const before = new Set(servers.liveServers());
+    const workers = await import("../rag/runtimes/embed-process.ts");
+    const before = new Set<unknown>([...servers.liveServers(), ...workers.liveWorkers()]);
     try {
       return await (await import("../rag/embed.ts")).probeWith(m);
     } finally {
       for (const s of servers.liveServers()) if (!before.has(s)) await servers.stopServer(s).catch(() => {});
+      for (const w of workers.liveWorkers()) if (!before.has(w)) await workers.stopWorker(w).catch(() => {});
     }
   },
   findLlamaBuild: async (dir: string): Promise<LlamaRuntime | null> =>

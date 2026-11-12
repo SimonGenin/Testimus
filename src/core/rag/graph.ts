@@ -4,7 +4,7 @@ import { findDoc } from "../lib/docs.ts";
 import type { DocJson, Edge, EdgeKind, FigureEntry } from "../types.ts";
 import { parseSections, type Section, stripComments } from "./chunk.ts";
 
-type OtherDoc = { id: string; names: string[]; sections: Set<string> };
+export type CorpusDoc = { id: string; names: string[]; sections: Set<string> };
 
 const NUM = String.raw`(\d+(?:\.\d+)*)`;
 const KEYWORD = "(?:chapitres?|paragraphes?|sections?)";
@@ -17,12 +17,14 @@ const SAME_DOC: RegExp[] = [
 const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const trimNum = (n: string) => n.replace(/\.+$/, "");
 
-function otherDocs(project: string, self: string): OtherDoc[] {
+// ponytail: every document's names and section numbers, read once per index run — reading them again for each
+// document made the graph quadratic (9 s of a blocked core for 125 documents)
+export function corpusOf(project: string): CorpusDoc[] {
   const root = join(project, "docs");
   if (!existsSync(root)) return [];
-  const out: OtherDoc[] = [];
+  const out: CorpusDoc[] = [];
   for (const e of readdirSync(root, { withFileTypes: true })) {
-    if (!e.isDirectory() || e.name === self || !existsSync(join(root, e.name, "doc.md"))) continue;
+    if (!e.isDirectory() || !existsSync(join(root, e.name, "doc.md"))) continue;
     const doc: Partial<DocJson> = findDoc(project, e.name) ?? {};
     const md = readFileSync(join(root, e.name, "doc.md"), "utf8");
     const sections = new Set([...md.matchAll(/<!--\s*§\s*(\S+?)\s*-->/g)].map((m) => m[1]));
@@ -39,7 +41,13 @@ const ownText = (s: Section) => `${s.title}\n${stripComments(s.body)}`.replace(/
 
 // ponytail: the graph is model-independent and rebuilt with the chunks; a reference is full (docId#anchor), a
 // document-level amendment is the bare docId
-export function docEdges(project: string, doc: DocJson, md: string, _figures: FigureEntry[]): Edge[] {
+export function docEdges(
+  project: string,
+  doc: DocJson,
+  md: string,
+  _figures: FigureEntry[],
+  corpus: CorpusDoc[] = corpusOf(project),
+): Edge[] {
   const sections = parseSections(md);
   const numbered = new Map(sections.filter((s) => s.number).map((s) => [s.number, s]));
   const has = (n: string) => numbered.has(n);
@@ -53,7 +61,7 @@ export function docEdges(project: string, doc: DocJson, md: string, _figures: Fi
     out.push({ from, to, kind, docId: doc.id });
   };
 
-  const others = otherDocs(project, doc.id);
+  const others = corpus.filter((o) => o.names[0] !== doc.id);
   const amended = others.filter(
     (o) => (doc.amends ?? []).includes(o.id) || o.names.some((n) => doc.amends?.includes(n)),
   );

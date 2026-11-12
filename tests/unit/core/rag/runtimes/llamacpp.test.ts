@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env, type HttpReq, type HttpRes } from "../../../../../src/core/env.ts";
 import { sha256 } from "../../../../../src/core/lib/hash.ts";
+import { pinMachineProfile } from "../../../../../src/core/lib/machine/profile.ts";
 import { catalogEntry, registryFile } from "../../../../../src/core/lib/models-catalog.ts";
-import { withPerfScope } from "../../../../../src/core/lib/models-perf.ts";
+import { readPerf, withPerfScope } from "../../../../../src/core/lib/models-perf.ts";
 import { writeZip } from "../../../../../src/core/lib/zip.ts";
 import { embedWith } from "../../../../../src/core/rag/embed.ts";
 import { serverIo } from "../../../../../src/core/rag/runtimes/llama-server.ts";
@@ -36,6 +37,7 @@ afterEach(async () => {
   llamaIo.download = saved.download;
   LLAMA_ASSETS.cpu = saved.cpu;
   llamacppConfig.build = null;
+  pinMachineProfile(null);
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -190,6 +192,7 @@ describe("downloading a build (path B)", () => {
 
 describe("runtime", () => {
   let calls: HttpReq[] = [];
+  let spawned: { args: string[]; low: boolean }[] = [];
 
   function json(status: number, body: unknown): HttpRes {
     return { status, headers: {}, text: JSON.stringify(body) };
@@ -200,8 +203,13 @@ describe("runtime", () => {
     const exe = join(tmp, "llama-server.exe");
     writeFileSync(exe, "");
     llamacppConfig.build = { exe, build: "b12032", backend: "cuda", via: "path" };
+    pinMachineProfile(machine([{ vendor: "nvidia", driver: "591.44", vramTotalMB: 16303, vramUsedMB: 0 }]));
     for (const f of ["e.gguf", "r.gguf"]) writeFileSync(join(tmp, f), "gguf");
-    serverIo.spawn = () => ({ pid: 7, onOutput: () => {}, exited: new Promise(() => {}) });
+    spawned = [];
+    serverIo.spawn = (_exe, args, low = false) => {
+      spawned.push({ args, low });
+      return { pid: 7, onOutput: () => {}, exited: new Promise(() => {}) };
+    };
     serverIo.freePort = async () => 51000;
     serverIo.kill = async () => {};
     serverIo.randomKey = () => "secret";
@@ -254,6 +262,37 @@ describe("runtime", () => {
     expect(posts.map((p) => p.input.length)).toEqual([16, 4]);
     expect(posts[0].input[0]).toBe("Instruct: Find passages\nQuery: t0");
     expect(calls[0].url).toBe("http://127.0.0.1:51000/health");
+  });
+
+  it("on a PC with a card its CUDA build places the layers; on a PC without one the same build runs on the processor, low priority, with the PC's threads less two", async () => {
+    const { emb, rr } = setup();
+    await llamacppRuntime.embed(emb, ["a"], "doc");
+    expect(spawned[0].low).toBe(false);
+    expect(spawned[0].args).toEqual(expect.arrayContaining(["-ngl", "auto"]));
+    await stopAllServers();
+    pinMachineProfile(machine([]));
+    await llamacppRuntime.embed(emb, ["a"], "doc");
+    await llamacppRuntime.rerank(rr, "q", ["a"]);
+    for (const s of spawned.slice(1)) {
+      expect(s.low).toBe(true);
+      expect(s.args).toEqual(expect.arrayContaining(["-dev", "none", "-t", "22", "-tb", "22"]));
+      expect(s.args).not.toContain("-ngl");
+    }
+    expect(spawned).toHaveLength(3);
+    expect(
+      readPerf()
+        .filter((l) => l.op === "model.load")
+        .map((l) => l.device)
+        .slice(-3),
+    ).toEqual(["gpu", "cpu", "cpu"]);
+  });
+
+  it("a processor build runs on the processor even on a PC with a card", async () => {
+    const { emb } = setup();
+    llamacppConfig.build = { ...(llamacppConfig.build as NonNullable<typeof llamacppConfig.build>), backend: "cpu" };
+    await llamacppRuntime.embed(emb, ["a"], "doc");
+    expect(spawned[0]).toMatchObject({ low: true });
+    expect(spawned[0].args).toEqual(expect.arrayContaining(["-dev", "none", "-t", "22"]));
   });
 
   it("puts the rerank scores back in the order of the passages", async () => {

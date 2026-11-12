@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { CancelledError, isCancelled, type Semaphore, semaphore } from "../../shared/run/work.ts";
+import { CancelledError, isCancelled, type Semaphore, semaphore, sleep } from "../../shared/run/work.ts";
 import type { Ctx } from "../command.ts";
 import { env } from "../env.ts";
 import { jobWrote, nameJob } from "../jobs.ts";
@@ -34,7 +34,7 @@ import {
 } from "./db.ts";
 import { embedWith } from "./embed.ts";
 import { fingerprintOf, spaceOf } from "./fingerprint.ts";
-import { docEdges } from "./graph.ts";
+import { type CorpusDoc, corpusOf, docEdges } from "./graph.ts";
 
 type DocIndexStatus = "indexed" | "unchanged" | "removed";
 // ponytail: the index builds the words (FTS5 and the graph) once, then the active embedding's vectors; it never reranks
@@ -158,12 +158,13 @@ async function indexDoc(
   project: string,
   force: boolean,
   h: Headers,
+  corpus: CorpusDoc[],
 ): Promise<DocIndexStatus> {
   const row = db.prepare("select content from docs where doc_id = ?").get(d.doc.id) as { content: string } | undefined;
   if (row?.content === d.content) {
     transaction(db, () => {
       db.prepare("update docs set sha256 = ? where doc_id = ?").run(d.doc.source?.sha256 ?? "", d.doc.id);
-      replaceEdges(db, d.doc.id, docEdges(project, d.doc, d.md, d.figures));
+      replaceEdges(db, d.doc.id, docEdges(project, d.doc, d.md, d.figures, corpus));
     });
     return "unchanged";
   }
@@ -185,7 +186,7 @@ async function indexDoc(
     fresh.forEach((c, i) => {
       insertChunk(db, { ...c, header: headers[i] }, chunkHash(c));
     });
-    replaceEdges(db, d.doc.id, docEdges(project, d.doc, d.md, d.figures));
+    replaceEdges(db, d.doc.id, docEdges(project, d.doc, d.md, d.figures, corpus));
     db.prepare(
       `insert into docs(doc_id, sha256, content) values (?, ?, ?)
        on conflict(doc_id) do update set sha256 = excluded.sha256, content = excluded.content`,
@@ -309,11 +310,14 @@ async function runIndex(
     }
     const report: IndexReport["docs"] = [];
     ctx.step?.("chunk");
+    const corpus = corpusOf(project);
     for (const [i, d] of docs.entries()) {
+      // ponytail: chunking runs in the core; it lets the page's requests through between two documents
+      await sleep(0, ctx.signal).catch(() => {});
       if (ctx.signal.aborted) throw cancelled();
       tally.current = d.doc.id;
       ctx.progress({ message: `Chunking ${d.doc.id}`, done: i, total: docs.length });
-      const status = await indexDoc(db, d, ctx, project, !!opts.force, h);
+      const status = await indexDoc(db, d, ctx, project, !!opts.force, h, corpus);
       report.push({ docId: d.doc.id, status, chunks: chunksOf(db, d.doc.id).length });
     }
     if (opts.force) rebuildFts(db);

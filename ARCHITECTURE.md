@@ -71,7 +71,7 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
                                            ├──► claude -p (cwd = project folder)
                                            │     └──► calls back through `testimus mcp`
                                            ├──► embed worker (node, low priority, JSON lines)
-                                           └──► llama-server.exe (127.0.0.1, one per GGUF model)
+                                           └──► llama-server.exe (127.0.0.1, one per GGUF model; low priority on the processor)
   Electron shell ──spawns──► serve ; talks to /api only
 ```
 
@@ -162,7 +162,11 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   by side (a query is not held behind an index batch), a cancel stops a batch between two onnxruntime runs, a worker
   that dies fails what it was doing with the end of its stderr and the next call starts another. Ten minutes without
   work and it is killed, as llama-server, so its memory goes back to the system (`TESTIMUS_EMBED_IDLE_MS` shortens
-  it). A GGUF model runs in its llama-server. Only a reranker's few candidates per query still run in the core.
+  it). A GGUF model runs in its llama-server: on the card when the llama.cpp build has one and the PC gives the model
+  the card (`llamaOnGpu`), else on the processor — `-dev none -t <n> -tb <n>` with the worker's thread rule
+  (`embedThreads`) and low priority, so a CUDA build on a PC judged without a usable card computes on the processor
+  too. The install probe stops the llama-server and the embed worker it started (one already serving the index or a
+  search stays). Only a reranker's few candidates per query still run in the core.
 - **Stopping is clean.** On stdin closing (`--exit-with-stdin`) or a stop signal, `serve` answers 503 to new requests,
   cancels every job (each ends `cancelled` in its log), kills every `claude -p` tree and stops its llama.cpp servers and embed workers,
   then exits 0 (a stuck step is cut at 6 s; a second signal exits at once). `testimus mcp` ends when its stdin closes.
@@ -837,7 +841,10 @@ above) and by naming only the wanted choice's models.
   never for the conversions (§5 « Several conversions at once »): a document is searchable minutes after its own
   conversion, not after the batch's last; `rag.index` asked by hand joins the same queue (`lib/docs-index.ts`
   `queueIndex`). Each pass reads every document then ready, so a large import makes a few passes, each an unchanged
-  document's « unchanged » for the others.
+  document's « unchanged » for the others. Chunking and the graph run in the core, so they stay short and let the page
+  through: every document's names and section numbers are read once per pass (`rag/graph.ts` `corpusOf`; read again
+  for each document, they made the edges quadratic — 9 s of a blocked core for 125 documents, `jobs.list` answering
+  in 14 s at the start of a 4 151-passage index), and the pass yields between two documents (2026-11-12).
 - **An index run's work in progress is not a problem.** While a run is under way or waiting its turn
   (`lib/docs-index.ts` knows: one queue per project, in this process), every document that is not fresh carries
   `docs.list.indexing` (`running` with its percent and passages embedded, or `waiting`) and `rag.status.indexing`
@@ -901,10 +908,15 @@ above) and by naming only the wanted choice's models.
   downloaded by `models pullRuntime`, SHA-256 pinned in the code, CUDA/Vulkan/CPU chosen from the PC).
 - **Where the embeddings run, per PC** (2026-11-12, `lib/fit/placement.ts` `embedPlace`; `rag.status.embeddingPlace`,
   said under Settings › Models › Embeddings): « the best solution for the machine » — a usable card computes them
-  when the model installed runs there (a GGUF model in llama-server, CUDA or Vulkan; an ONNX model with a DirectML
-  form in the embed worker on `dml`: « Embedding: graphics card… »); otherwise the processor, in the embed worker with
-  onnxruntime `intraOpNumThreads` = the PC's threads less two and `interOpNumThreads` = 1 (« Embedding: processor, N
-  cores, separate process »). **A card never changes the model installed**: BGE-M3 8-bit (the Light pack) has no
+  when the model installed runs there (a GGUF model in llama-server when the llama.cpp build has CUDA or Vulkan:
+  « Embedding: graphics card (CUDA), llama.cpp »; an ONNX model with a DirectML form in the embed worker on `dml`:
+  « Embedding: graphics card (DirectML), separate process »); otherwise the processor, with the PC's threads less two
+  — in the embed worker as onnxruntime `intraOpNumThreads` (`interOpNumThreads` = 1: « Embedding: processor, N cores,
+  separate process »), in llama-server as `-t`/`-tb` with no device (« Embedding: processor, N cores, llama.cpp »),
+  both at low priority. The device is read from this PC's profile, so the first resolution of a process profiles the
+  PC (`activeModels`, ~350 ms once): before 2026-11-12 a model found on disk and not registered (16-bit BGE-M3 in
+  `TESTIMUS_MODELS` or a shared folder) went to the processor when an index started before anything had profiled
+  the PC. **A card never changes the model installed**: BGE-M3 8-bit (the Light pack) has no
   DirectML form, so on a PC with a card it stays on the processor, in the worker; moving to the card is choosing a
   model that runs there (bge-m3 16-bit, Qwen3 0.6B 16-bit, a GGUF), through the packs or Settings › Models, which index
   again with it. The device is not part of a space's fingerprint (above), and the worker's vectors are the core's to

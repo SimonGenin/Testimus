@@ -53,6 +53,8 @@ export type ServerStart = {
   onGpu?: boolean;
   signal?: AbortSignal;
   perf?: PerfFields;
+  /** set when it runs on the processor: its threads (embedThreads), and it starts at low priority */
+  threads?: number;
 };
 
 export const IDLE_MS = 10 * 60 * 1000;
@@ -62,11 +64,12 @@ export const LLAMA_CTX = 8192;
 export const serverTimeouts = { readyMs: 180000, pollMs: 250, sweepMs: 60000 };
 
 export const serverIo = {
-  spawn(exe: string, args: string[]): Proc {
+  spawn(exe: string, args: string[], low = false): Proc {
     const listeners: ((t: string) => void)[] = [];
     const proc = startProcess({
       exe,
       args,
+      ...(low ? { priority: "low" as const } : {}),
       onLine: (line) => {
         for (const l of listeners) l(`${line}\n`);
       },
@@ -145,16 +148,30 @@ export function memoryReport(log: string): MemoryReport | null {
   };
 }
 
-export function serverArgs(model: string, kind: ServerKind, port: number, apiKey: string, build?: string): string[] {
+// ponytail: on the processor llama-server offloads to no device (a CUDA build would still take the card) and keeps
+// two threads for the rest of the PC, as the embed worker does; on the card it places its layers
+export function serverArgs(
+  model: string,
+  kind: ServerKind,
+  port: number,
+  apiKey: string,
+  build?: string,
+  threads?: number,
+): string[] {
   if (!apiKey) throw new UserError("llama-server is never started without an API key.");
+  const where = threads
+    ? ["-dev", "none", "-t", String(threads), "-tb", String(threads)]
+    : // ponytail: llama.cpp prints what it allocated (memoryReport) only from verbosity 4 on (b12032 defaults to 3)
+      autoLayers(build)
+      ? ["-ngl", "auto", "-lv", "4"]
+      : ["-ngl", "99"];
   return [
     "-m",
     model,
     ...(kind === "rerank"
       ? ["--reranking", "--pooling", "rank"]
       : ["--embedding", "--pooling", "last", "-ub", String(LLAMA_CTX)]),
-    // ponytail: llama.cpp prints what it allocated (memoryReport) only from verbosity 4 on (b12032 defaults to 3)
-    ...(autoLayers(build) ? ["-ngl", "auto", "-lv", "4"] : ["-ngl", "99"]),
+    ...where,
     "--host",
     "127.0.0.1",
     "--port",
@@ -201,7 +218,7 @@ function cancelled(model: string): UserError {
 async function start(o: ServerStart, id: string): Promise<LlamaServer> {
   const port = await serverIo.freePort();
   const apiKey = serverIo.randomKey();
-  const args = serverArgs(o.model, o.kind, port, apiKey, o.build);
+  const args = serverArgs(o.model, o.kind, port, apiKey, o.build, o.threads);
   const target = currentOp();
   const tStart = serverIo.now();
   const vramBefore = o.perf && (o.onGpu ?? true) ? await serverIo.vramUsedMB().catch(() => null) : null;
@@ -216,7 +233,7 @@ async function start(o: ServerStart, id: string): Promise<LlamaServer> {
     port,
     apiKey,
     url: `http://127.0.0.1:${port}`,
-    proc: serverIo.spawn(o.exe, args),
+    proc: serverIo.spawn(o.exe, args, o.threads !== undefined),
     startedAt: t0,
     readyMs: 0,
     lastUsed: t0,
