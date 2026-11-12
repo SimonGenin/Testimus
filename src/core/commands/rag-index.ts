@@ -4,6 +4,8 @@ import { claudeHeaders } from "../claude/headers.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { docsFreshness, indexAfterConversions, indexRunOf } from "../lib/docs-index.ts";
+import { embedPlace, embedPlaceText } from "../lib/fit/placement.ts";
+import { machineProfile } from "../lib/machine/profile.ts";
 import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, listSpaces, vectorCount, withIndex } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
@@ -86,6 +88,22 @@ export const commands = [
       embedding: z.string().describe("Catalog id of the embedding model active on this PC, or none"),
       reranker: z.string().nullable().describe("Catalog id of the active reranker, or null"),
       dims: z.number().describe("Dimension of the active model, 0 without one"),
+      embeddingPlace: z
+        .object({
+          where: z.enum(["gpu", "cpu"]).describe("gpu: the graphics card computes the vectors; cpu: the processor"),
+          engine: z
+            .enum(["onnxruntime", "llama.cpp"])
+            .describe("onnxruntime: in the embed worker, a Node process of its own; llama.cpp: in its llama-server"),
+          threads: z
+            .number()
+            .nullable()
+            .describe("Processor threads the embed worker uses (the PC's less two), null on the card or in llama.cpp"),
+          text: z
+            .string()
+            .describe("What Settings › Models says, e.g. Embedding: processor, 22 cores, separate process"),
+        })
+        .nullable()
+        .describe("Where the active embedding model runs on this PC, null without one"),
       activation: z
         .enum(["machine", "reference", "light", "none"])
         .describe(
@@ -157,10 +175,12 @@ export const commands = [
             : null;
       const state = readState(project);
       const docs = await docsFreshness(project);
+      const place = m ? embedPlace(m, await machineProfile().catch(() => null)) : null;
       return {
         embedding: m?.entry.id ?? "none",
         reranker: active.reranker?.entry.id ?? null,
         dims: m ? dimsOf(m) : 0,
+        embeddingPlace: place ? { ...place, text: embedPlaceText(place) } : null,
         activation: active.source,
         missing: active.missing,
         exists: found !== null,

@@ -23,7 +23,7 @@ import { indexProject } from "../../../../src/core/rag/indexer.ts";
 import { ensureServer, serverIo, stopAllServers } from "../../../../src/core/rag/runtimes/llama-server.ts";
 import { llamacppConfig } from "../../../../src/core/rag/runtimes/llamacpp.ts";
 import { mockRuntime } from "../../../../src/core/rag/runtimes/mock.ts";
-import { transformersIo } from "../../../../src/core/rag/runtimes/transformers.ts";
+import { transformersIo, transformersRuntime } from "../../../../src/core/rag/runtimes/transformers.ts";
 import type { PerfLine, ResolvedModel, RuntimeId } from "../../../../src/core/types.ts";
 
 const FIXTURE = join(import.meta.dirname, "..", "..", "..", "fixtures", "project");
@@ -139,7 +139,12 @@ describe("every model operation writes its line, without any text (§7.9)", () =
   });
 });
 
+// ponytail: transformers.js in this process — the rerankers' path, and the same computation the embed worker runs;
+// the worker's own lines are in tests/unit/core/rag/runtimes/embed-process.test.ts
 describe("transformers.js: model.load with peak memory; a load that fails for memory is logged", () => {
+  beforeEach(() => {
+    runtimes.transformers = transformersRuntime;
+  });
   type T = { type: string; dims: number[]; data: Float32Array };
   const tensor = (dims: number[]): T & Record<string, unknown> => {
     const t = {

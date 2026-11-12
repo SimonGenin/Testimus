@@ -1,4 +1,5 @@
-import type { CatalogEntry, Device, GpuInfo, MachineProfile, RuntimeId } from "../../types.ts";
+import { availableParallelism } from "node:os";
+import type { CatalogEntry, Device, GpuInfo, MachineProfile, ResolvedModel, RuntimeId } from "../../types.ts";
 import { integrated, usableGpus } from "../machine/gpus.ts";
 import { mainGpu } from "../machine/profile.ts";
 
@@ -34,6 +35,34 @@ export function deviceFor(entry: CatalogEntry, machine: MachineProfile | null): 
 export function deviceOf(entry: CatalogEntry, machine: MachineProfile | null): Device {
   if (deviceFor(entry, machine) === "cpu") return "cpu";
   return isGguf(entry) ? "gpu" : "dml";
+}
+
+// ponytail: the embed worker leaves two of the processor's threads to the rest of the PC (the page, a conversion)
+export function embedThreads(machine: MachineProfile | null): number {
+  return Math.max(1, (machine?.cpu.threads ?? availableParallelism()) - 2);
+}
+
+export type EmbedPlace = { where: "gpu" | "cpu"; engine: "onnxruntime" | "llama.cpp"; threads: number | null };
+
+// Where the embeddings of a model run on this PC — always outside the core: an ONNX model in the embed worker (on the
+// card through DirectML when its install runs there, else on the processor with embedThreads), a GGUF one in its
+// llama-server. The model installed is never changed for a card: an ONNX model without a DirectML form (BGE-M3 8-bit)
+// stays on the processor, the packs offer the card's models
+export function embedPlace(m: ResolvedModel, machine: MachineProfile | null): EmbedPlace {
+  // ponytail: --mock runs every model with its fake runtime; the place said is the one the catalog gives this machine
+  const runtime = m.runtime === "mock" ? runtimeFor(m.entry) : m.runtime;
+  const device = m.runtime === "mock" ? deviceOf(m.entry, machine) : m.device;
+  const where = device === "cpu" ? "cpu" : "gpu";
+  if (runtime === "llamacpp") return { where, engine: "llama.cpp", threads: null };
+  return { where, engine: "onnxruntime", threads: where === "cpu" ? embedThreads(machine) : null };
+}
+
+export function embedPlaceText(p: EmbedPlace): string {
+  if (p.engine === "llama.cpp")
+    return p.where === "gpu" ? "Embedding: graphics card, llama.cpp" : "Embedding: processor, llama.cpp";
+  return p.where === "gpu"
+    ? "Embedding: graphics card (DirectML), separate process"
+    : `Embedding: processor, ${p.threads} cores, separate process`;
 }
 
 export function onIntegratedGpu(entry: CatalogEntry, machine: MachineProfile): boolean {

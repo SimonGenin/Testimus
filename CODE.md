@@ -198,7 +198,8 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_FFMPEG` | `found` (default: a fake ffmpeg is registered), `absent`: videos are kept unread |
 | `TESTIMUS_MOCK_WHISPER` | `found` (default: a made-up engine and its model — a sentence every 15 s, one the engine doubts, one in German), `absent`: no engine, no transcript |
 
-Other variables: `TESTIMUS_MODELS` (dev models folder, `D:/Projects/Testimus/.models`), `TESTIMUS_MACHINE` (impose a
+Other variables: `TESTIMUS_MODELS` (dev models folder, `D:/Projects/Testimus/.models`), `TESTIMUS_EMBED_IDLE_MS` (ms
+without an embedding before the embed worker stops, default 600000 — shortened to watch it go), `TESTIMUS_MACHINE` (impose a
 machine profile), `TESTIMUS_FFMPEG_ANY_OS` and `TESTIMUS_WHISPER_ANY_OS` (`1`: `models.pullFfmpeg` / `models.pullWhisper` download the win64 build on any system — tests), `TESTIMUS_SHELL`, `TESTIMUS_NODE`, `TESTIMUS_API_TARGET` (Vite proxy in `--ui-dev`),
 `TESTIMUS_JIRA_TOKEN` / `TESTIMUS_XRAY_SECRET` (secrets for `system.setCredentials` without the command line).
 

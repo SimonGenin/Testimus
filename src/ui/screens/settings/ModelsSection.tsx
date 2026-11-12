@@ -88,6 +88,7 @@ export function ModelsSection() {
             kind="embedding"
             rows={rows("embedding")}
             inUse={hasProject && st ? embedding : undefined}
+            place={hasProject ? st?.embeddingPlace : null}
           />
           <SearchGroup
             {...search}

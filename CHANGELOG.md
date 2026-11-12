@@ -6,6 +6,7 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+- L'indexation ne ralentit plus l'application : les vecteurs sont calculés dans un programme à part (sur la carte graphique si le modèle y tourne, sinon sur le processeur en laissant deux cœurs libres), qui rend sa mémoire après 10 minutes sans travail. Settings › Models dit où ils sont calculés.
 - Importer un dossier (même plein de vidéos) ne bloque plus : la fenêtre se ferme aussitôt, la copie, la conversion et l'indexation avancent dans un job en arrière-plan, et l'application reste utilisable pendant la copie.
 
 ## 0.0.9
