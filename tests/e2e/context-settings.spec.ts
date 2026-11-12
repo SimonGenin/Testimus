@@ -17,7 +17,7 @@ test("Settings › Context lists what Claude is given; a skill opens in full, re
   await head("Team skills").click();
   await expect(list.getByRole("treeitem", { name: /^House style/ })).toBeVisible();
   await expect(list.getByRole("treeitem", { name: /^Project rules/ })).toBeVisible();
-  await expect(list.getByRole("treeitem", { name: /^Generation request/ })).toContainText("Run");
+  await expect(list.getByRole("treeitem", { name: /^Generation request(?!,)/ })).toContainText("Run");
   await expect(head("Check and fix")).toHaveAttribute("aria-expanded", "false");
   await expect(list.getByRole("treeitem", { name: /^Check test/ })).toHaveCount(0);
 

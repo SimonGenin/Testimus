@@ -5,8 +5,23 @@ pendant un import de 129 documents le 10/11, puis une génération de 111 tests 
 chemin). Chaque point a été relu contre le code de `master` au commit `9a0342f3` ; les références `fichier:ligne`
 sont celles de ce commit. Les choix marqués **Décidé** ont été tranchés avec l'utilisateur le 2026-11-12.
 
-Rien de ce qui suit n'est construit, sauf ce que « État » dit fait. Quand un lot est construit, ses décisions vont
-dans ARCHITECTURE.md (sections indiquées) et sa ligne dans CHANGELOG.md ; ce fichier peut alors disparaître.
+> **État au 2026-11-12 (soir) : les lots 0 à 7 sont construits**, en sept flux fusionnés sur `master`, chacun avec
+> ses tests ; les décisions sont écrites dans ARCHITECTURE.md (§3, §5, §6, §8, §9, §9c, §11, §12, §16) et le
+> CHANGELOG « Unreleased ». Écarts voulus ou restes, à connaître :
+> - **I3** : le tri des images vidéo reste dans le core, mais `sharp` y est bridé (un quart des cœurs, sans cache) et
+>   ses lectures sont asynchrones ; un processus à part est noté ouvert (§16).
+> - **I4** : BGE-M3 8 bits n'a pas de forme DirectML : sur un PC à carte graphique il reste sur le processeur, dans
+>   le programme séparé (passer à la carte = changer de modèle par les packs). llama-server sur processeur n'est pas
+>   bridé. Mesuré sur 306 passages, pas 4 000 ; la voie DirectML n'est pas prouvée sur une vraie carte.
+> - **Import** : « Add documents » (quelques fichiers choisis) copie toujours aussitôt — seul l'import d'un dossier
+>   attend « Start » ; `docs.addFolder` en CLI/MCP démarre par défaut (`start: true`).
+> - **Prompts et skills** changés (generate-tests, plan-tests, analyze-test, check-test, fix-test, edit-test, chat,
+>   learn, picture) : **pas mesurés** sur Sonnet high / Opus high comme CODE.md le demande.
+> - **Pas rejoué** : la charge réelle (« Ce qui reste à mesurer », en bas) ; un PC de collègue à 16 Go.
+>
+> Ce fichier peut être supprimé une fois ces restes tranchés.
+
+Ce qui suit est la spec telle qu'écrite le matin du 2026-11-12.
 
 ## En bref
 
