@@ -50,7 +50,7 @@ export function convertMedia(
       if (ctx.signal.aborted) break;
       ctx.progress({ message: `Preparing ${f.name}`, done: n, total: todo.length });
       try {
-        const got = await prepareImage(project, id, f);
+        const got = await prepareImage(project, id, f, ctx.signal);
         updateFile(project, id, f.n, (x) => {
           Object.assign(x, got, { state: x.state === "analysed" && !o.force ? "analysed" : "ready" });
           delete x.error;

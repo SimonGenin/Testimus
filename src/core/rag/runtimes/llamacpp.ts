@@ -19,6 +19,7 @@ import { pipeline } from "node:stream/promises";
 import { inflateRawSync } from "node:zlib";
 import { run } from "../../../shared/run/process.ts";
 import { UserError } from "../../command.ts";
+import { stopFramesWorker } from "../../lib/frames/frames-process.ts";
 import { usableGpus } from "../../lib/machine/gpus.ts";
 import { registryFile } from "../../lib/models-catalog.ts";
 import { freeMB } from "../../lib/models-download.ts";
@@ -38,9 +39,10 @@ import {
 } from "./llama-server.ts";
 import type { Runtime } from "./types.ts";
 
-// ponytail: every model process this one started — the llama-servers and the embed workers — on exit or a one-shot command
+// ponytail: every helper process this one started — the llama-servers, the embed workers and the frames worker — on exit
+// or a one-shot command
 export async function stopAllServers(): Promise<void> {
-  await Promise.all([stopLlamaServers(), stopEmbedWorkers()]);
+  await Promise.all([stopLlamaServers(), stopEmbedWorkers(), stopFramesWorker()]);
 }
 
 export const LLAMA_BUILD = "b12032";

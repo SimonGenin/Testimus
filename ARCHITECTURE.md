@@ -71,6 +71,7 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
                                            ├──► claude -p (cwd = project folder)
                                            │     └──► calls back through `testimus mcp`
                                            ├──► embed worker (node, low priority, JSON lines)
+                                           ├──► frames worker (node + sharp, low priority, JSON lines)
                                            └──► llama-server.exe (127.0.0.1, one per GGUF model)
   Electron shell ──spawns──► serve ; talks to /api only
 ```
@@ -164,7 +165,7 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   work and it is killed, as llama-server, so its memory goes back to the system (`TESTIMUS_EMBED_IDLE_MS` shortens
   it). A GGUF model runs in its llama-server. Only a reranker's few candidates per query still run in the core.
 - **Stopping is clean.** On stdin closing (`--exit-with-stdin`) or a stop signal, `serve` answers 503 to new requests,
-  cancels every job (each ends `cancelled` in its log), kills every `claude -p` tree and stops its llama.cpp servers and embed workers,
+  cancels every job (each ends `cancelled` in its log), kills every `claude -p` tree and stops its llama.cpp servers, embed workers and frames worker,
   then exits 0 (a stuck step is cut at 6 s; a second signal exits at once). `testimus mcp` ends when its stdin closes.
 - **Reads scale with the project** (2026-11-05). A test's row, a job's summary and the project counts are worked out
   once per *version* of the files they come from (size + mtime + inode, `lib/file-memo.ts`); each read only stats. The
@@ -201,12 +202,25 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   source, a PDF drawn, a picture prepared, a run's screenshots), folders are copied by `fs.promises.cp`. A guard (N7,
   `tests/unit/guards/scan.ts` `USER_FILES`) refuses `readFileSync` without an encoding, `copyFileSync` and `cpSync` in
   the modules that handle a user's files; a text read (`doc.json`, `test.md`, a template) is bounded and stays
-  synchronous. sharp works in the core with a quarter of the cores and no cache (`lib/sharp.ts`), reads its frames
-  asynchronously and draws a mosaic's tiles one after the other; moving it to a child process was not done: its
-  results are buffers compared in the core (a frame's grid against the one before), which a child would have to send
-  back, and the seam of `src/shared/run/` runs programs, not Node work (open, §16, with the index's worker). The room
+  synchronous. Pictures are not drawn in the core at all (next point). The room
   the videos take is walked again only for a video whose `doc.json` moved (it was every video folder for each video
   of a batch).
+- **No picture is drawn inside the core** (2026-11-12, WORKLOAD I3). All of sharp's work — a video's grids and their
+  comparison, the sharpness of the frames of a video filmed by hand, the crops, the mosaics, the key frames, and the
+  picture of an images document (`prepareImage`: a 48 Mpx photo decoded is the same weight as a frame, and one worker
+  for all of sharp leaves the core without it) — runs in the **frames worker** (`lib/frames/`: `draw.ts` the work,
+  `frames-worker.ts` its program, shipped as `app/frames-worker.mjs`, `frames-process.ts` the core's side): one Node
+  child the core starts through `src/shared/run/` at low priority, fed **paths** as JSON lines on stdin and
+  answering by id on stdout with a little — numbers, which frames are kept and where they changed, a size, a date:
+  the worker reads and writes the pictures itself, so no picture crosses the pipe (a frame's grid, compared with the
+  one before, stays in the worker). Two asks at a time (videos converting side by side queue there, not in the
+  core), sharp with a quarter of the cores and no cache. Each call follows its job's signal: a cancel rejects it at
+  once and the worker stops at its next picture; a worker that dies fails what it was doing with the end of its
+  stderr and the next call starts another; ten minutes without a picture and it is killed, as the embed worker
+  (`TESTIMUS_FRAMES_IDLE_MS` shortens it). A guard (N7) refuses `sharp` or `draw.ts` imported anywhere else in
+  `src/` — but the mock's made-up screens, which stand in for ffmpeg's frames. `--mock` goes through the worker too:
+  the fakes replace ffmpeg and whisper.cpp, not the picture work. The unit suite starts its workers at normal
+  priority: with every core taken by its forks, a worker below normal waited past the tests' timeouts (measured).
 - **A job's `changed` comes from the watcher** when one follows the project (2026-11-08, `lib/changed.ts`): the
   watcher keeps a stamp of the project's files (size, mtime) up to date from the paths it reports — a folder renamed
   into place is walked, a path gone takes what it held — made once at the project's first job; each job running
@@ -476,7 +490,7 @@ docs/<docId>/
   §9). Marking or unmarking re-checks the citing tests. `docs.list` and `docs.show` say each document's `type` (docx ·
   pdf · txt · images · video · mixed) and whether it is `observed`: the page reads them, never the rules behind them.
 - **Conversion of an images or video document** (`docs.convert`, `lib/media-pipeline.ts`, in a conversion slot like
-  any other): each image not prepared yet is normalised (sharp: jpg ≤ 2000 px, EXIF orientation applied, the EXIF date
+  any other): each image not prepared yet is normalised (in the frames worker, §3: jpg ≤ 2000 px, EXIF orientation applied, the EXIF date
   kept as `takenAt`, a transparent PNG laid on white); each video goes through the steps below; Claude reads the
   pictures not read yet, **20 a run** (`claude/media.ts`, read-only, effort low — a description, every visible text
   verbatim, a kind; a key frame is read with its chapter, what is said in the ten seconds around it and the frame
@@ -537,7 +551,7 @@ docs/<docId>/
     (below). A longer one is planned first (`survey.ts planChapters`): one Claude run, from all that is said — in
     the prompt itself (a file to Read is one more turn; only past 60 000 characters is it left in `said.txt`) —,
     before any frame is looked for; a silent video is planned from a few frames.
-  - **Candidate frames** (`frames.ts`): a light pass over the whole video (4 frames a second, small, never written;
+  - **Candidate frames** (`video/frames.ts` chooses the moments; the frames worker draws and compares, §3): a light pass over the whole video (4 frames a second, small, never written;
     `mpdecimate` keeps a frame when a block changed) says when the screen changes somewhere; a frame is taken once
     the screen has **settled** (nothing moved for half a second: a menu is caught open, a pointer on its way is
     skipped), again just before the next change when it stayed long, at the moments the speech points at, and on a
@@ -1842,7 +1856,7 @@ first-class: every screen works without the bridge.
   dependency without a win-x64 prebuild is refused.
 - `npm run release` → `dist/testimus-<version>-win-x64/`: `Testimus.exe` (Electron renamed with `rcedit`, icon,
   version info), `resources/app.asar`, `node/node.exe`, `app/` (`testimus.mjs`, one Rolldown bundle with the catalog
-  inlined; `embed-worker.mjs`, the embed worker's own bundle, which the core's URL to it is rewritten to; `ui/`, `templates/`, `node_modules/` holding only the externals: sqlite-vec, onnxruntime, transformers.js,
+  inlined; `embed-worker.mjs` and `frames-worker.mjs`, the workers' own bundles, which the core's URLs to them are rewritten to; `ui/`, `templates/`, `node_modules/` holding only the externals: sqlite-vec, onnxruntime, transformers.js,
   sharp, pdfjs-dist), `models/` (Light pack, so the first index needs no download), `testimus.cmd`, `install.ps1`,
   `release.json`. Electron's zip is downloaded once into `.build/cache/` and checked against its SHA-256 files; the
   build fails if the installed `electron` differs from the pin. Fuses: `RunAsNode`, `NODE_OPTIONS` and inspect flags
@@ -1882,10 +1896,30 @@ first-class: every screen works without the bridge.
   PCs reach Hugging Face and claude.ai through the company proxy (unchecked).
 - A document whose outline alone is longer than an answer of `docs.show` (≈ 2 000 headings) still gets it whole on
   the first page and with `brief`: paging the toc too waits for a real document that needs it.
-- A video's picture work (sharp: grids, sharpness, crops, mosaics) stays in the core, modest (§3 « Nothing
-  unbounded »): a child of its own, or the index's separate program, would take it out of the process that answers the
-  page, once a seam for Node work in a child exists. To measure on three real videos: `jobs.list` under 100 ms, the
-  core under one core.
+- **The frames worker, measured** (2026-11-12, §3 « No picture is drawn inside the core »; the dev PC, Core Ultra 9
+  285K, 24 threads, RTX 5080, shared with other sessions). Three real videos filmed by hand (110, 134 and 148 s,
+  0.28–0.67 GB, from the RATP checkpoint, copied) converted through a dev `serve` on a fresh project, without Claude
+  (`describeFigures: false`: the mosaics and crops, drawn only for Claude's survey, were not part of it); the
+  machine's slots ran two conversions at a time. `jobs.list` asked every 250 ms over HTTP; the core and its children
+  sampled every second. « Before » is master `78b8a349` (sharp in the core, a quarter of the cores, no cache, reads
+  asynchronous); « frame work » is the seconds a job said « Looking through » or « Taking the key frames ».
+
+  | | in the core (before) | frames worker (after) |
+  |---|---|---|
+  | Candidates (with where they changed), key frames, `shaky`, and the 24 key frame JPEGs | — | identical, byte for byte |
+  | The core's CPU during the frame work (mean / p95 / max) | 0.98 / 2.95 / 3.61 cores | 0.08 / 0.19 / 0.22 cores |
+  | The frames worker's CPU then (mean / max) | — | 0.81 / 2.70 cores, at low priority |
+  | `jobs.list` over the whole conversion (p50 / p95 / max) | 1.9 / 2.8 / 31 ms | 1.8 / 2.6 / 32 ms |
+  | The core's memory (max) / the worker's | 194 MB / — | 212 MB / 136 MB |
+  | The conversion of the three | 90 s | 90 s |
+
+  The spec's bar (`jobs.list` under 100 ms, the core under one core) is met after; before, the page stayed fast on
+  videos this short (two minutes each: a few dozen frames compared) but the core peaked at 3.6 cores — the
+  10 November import's hour-long videos are where those cores held the page. Not measured: long videos and a run with
+  Claude's survey (mosaics and crops — proven identical to the core's drawing by unit test only), three conversions
+  truly at once (the slots allowed two), and the idle stop on a real run (unit test, with the delay shortened). Under
+  a fully busy processor a worker below normal priority waits: the unit suite, which keeps every core busy, starts it
+  at normal priority.
 - Requirement coverage is computed **outside** the app, from the step column the team fills with requirement ids.
 - Not proven yet: signing and execution policy on a tester's PC (E0); live read-only checks of `xray.pull` and of the
   `issue` reads on the Windows PC; whether a custom field is cleared with `""` or `null`; the benchmark's gold set

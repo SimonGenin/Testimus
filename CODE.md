@@ -17,8 +17,8 @@ src/core/lib/         the domain modules (analysis: a test's analysis, its proof
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
                         agents (the adaptive pool of the generation and the conversions), proposals (a change the chat proposed,
                         applied by the user), pictures (a step's picture by its anchor), atomic (every owned
-                        write; a user's file copied by stream, hashed as it passes), sharp (loaded once, a quarter of
-                        the cores), changed, file-memo (reads per file version), natural (the one collator), creds,
+                        write; a user's file copied by stream, hashed as it passes), changed, file-memo (reads per
+                        file version), natural (the one collator), creds,
                         project (+ project-info, project-init), doctor (+ doctor-row,
                         doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
                         exported as pages and imported back);
@@ -32,7 +32,10 @@ src/core/lib/         the domain modules (analysis: a test's analysis, its proof
                         passages, lines, glossary, engine, speech — pieces, resume, one at a time —, frames, survey,
                         pipeline — a video's steps —, sources — a source held against time —, report, estimate,
                         measure + numbers — a model against a reference, numbers read alike —, disk — the room the
-                        videos take and its cap), ffmpeg and whisper (the pinned builds, models.pullFfmpeg,
+                        videos take and its cap); frames/ (all of sharp's picture work — grids, sharpness, crops,
+                        mosaics, key frames, an images document's pictures — in the frames worker, a Node child at low
+                        priority: draw the work, frames-protocol the JSON lines, frames-worker its program,
+                        frames-process the core's side; sharp is imported nowhere else, guard N7), ffmpeg and whisper (the pinned builds, models.pullFfmpeg,
                         models.pullWhisper; models-channel: the engine's files taken from the team's channel first, and
                         a publish keeps them there);
                         jira/ (http, read, steps, labels, push) and sync/ (connect, pull, push), ported from Xray Editor;
@@ -209,7 +212,8 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_WHISPER` | `found` (default: a made-up engine and its model — a sentence every 15 s, one the engine doubts, one in German), `absent`: no engine, no transcript |
 
 Other variables: `TESTIMUS_MODELS` (dev models folder, `D:/Projects/Testimus/.models`), `TESTIMUS_EMBED_IDLE_MS` (ms
-without an embedding before the embed worker stops, default 600000 — shortened to watch it go), `TESTIMUS_MACHINE` (impose a
+without an embedding before the embed worker stops, default 600000 — shortened to watch it go), `TESTIMUS_FRAMES_IDLE_MS` (the
+same for the frames worker, ms without a picture to draw), `TESTIMUS_MACHINE` (impose a
 machine profile), `TESTIMUS_FFMPEG_ANY_OS` and `TESTIMUS_WHISPER_ANY_OS` (`1`: `models.pullFfmpeg` / `models.pullWhisper` download the win64 build on any system — tests), `TESTIMUS_SHELL`, `TESTIMUS_NODE`, `TESTIMUS_API_TARGET` (Vite proxy in `--ui-dev`),
 `TESTIMUS_JIRA_TOKEN` / `TESTIMUS_XRAY_SECRET` (secrets for `system.setCredentials` without the command line).
 

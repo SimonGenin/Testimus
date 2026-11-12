@@ -192,6 +192,22 @@ export function n7SyncUserFileReads(): Violation[] {
   return grep(USER_FILES, /\b(?:readFileSync\([^\n]*|copyFileSync\(|cpSync\()/, (m) => !/["']utf-?8["']/.test(m[0]));
 }
 
+// ponytail: sharp works in the frames worker only (lib/frames/draw.ts, run by frames-worker.ts, a child at low
+// priority): a module of the core importing sharp, or draw.ts, puts the picture work back in the process that answers
+// the page (I3, 2026-11-12). The mock's made-up screens stand in for ffmpeg's frames, not for the core's work
+export const SHARP_ALLOWED = [
+  "src/core/lib/frames/draw.ts",
+  "src/core/lib/frames/frames-worker.ts",
+  "src/core/mock/video.ts",
+];
+
+export function n7SharpOutsideFramesWorker(): Violation[] {
+  return grep(
+    files("src").filter((f) => !SHARP_ALLOWED.includes(f)),
+    /\b(?:from\s*|import\s*\(\s*)["'](?:sharp|[^"'\n]*\/draw\.ts)["']/,
+  );
+}
+
 // ponytail: G8 — a value in tokens.stylex.ts that does not come from design/tokens.css is written by scripts/tokens.ts
 // (EXTRA, CONTAINERS, BREAKPOINTS); each is one to ask the design sessions for, so the list may only shrink
 function entries(text: string, name: string): { key: string; line: number }[] {
@@ -283,6 +299,7 @@ export const GUARDS = {
   "N7 child_process, process.kill or taskkill outside src/shared/run/process.ts": n7ProcessOutsideRunLayer,
   "N7 setTimeout or setInterval in src/core": n7WaitsOutsideWork,
   "N7 synchronous whole-file read or copy where the core handles the user's files": n7SyncUserFileReads,
+  "N7 sharp or the frames worker's drawing imported outside the frames worker": n7SharpOutsideFramesWorker,
   "G8 token values written by scripts/tokens.ts, not read from design/tokens.css": g8TokensOutsideDesign,
   "G8 vocabulary colour aliases of tokens.css never read in src/ui": g8AliasesNeverRead,
   "G1 font size, weight, line height, letter spacing or face picked outside the kit": g1TypeOutsideKit,

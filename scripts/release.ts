@@ -42,12 +42,14 @@ export const PATH_MAP: [string, string][] = [
   ["dist/ui", "ui"],
   [".models", "../models"],
   ["src/core/rag/runtimes/embed-worker.ts", "embed-worker.mjs"],
+  ["src/core/lib/frames/frames-worker.ts", "frames-worker.mjs"],
 ];
 
-// entry → file in app/: the core, and the embed worker it starts (PATH_MAP sends its URL there)
+// entry → file in app/: the core, and the workers it starts (PATH_MAP sends their URLs there)
 export const BUNDLES: [string, string][] = [
   ["src/faces/cli.ts", "testimus.mjs"],
   ["src/core/rag/runtimes/embed-worker.ts", "embed-worker.mjs"],
+  ["src/core/lib/frames/frames-worker.ts", "frames-worker.mjs"],
 ];
 
 export const LOCALES = ["en-US.pak", "fr.pak"];
@@ -74,6 +76,7 @@ export const LAYOUT = [
   "node/node.exe",
   "app/testimus.mjs",
   "app/embed-worker.mjs",
+  "app/frames-worker.mjs",
   "app/package.json",
   "app/CHANGELOG.md",
   "app/ui/index.html",

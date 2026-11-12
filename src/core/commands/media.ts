@@ -19,6 +19,7 @@ import {
   withIndex,
 } from "../lib/docs-pipeline.ts";
 import { ffmpegOrFail } from "../lib/ffmpeg.ts";
+import { normalizeFrame } from "../lib/frames/frames-process.ts";
 import {
   copyMediaFiles,
   dropMediaFile,
@@ -34,7 +35,6 @@ import { migrateMedia } from "../lib/media-migrate.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
 import { capMB, videosMB } from "../lib/video/disk.ts";
-import { normalizeFrame } from "../lib/video/frames.ts";
 import { videoIo } from "../lib/video/io.ts";
 import { frameContext, videoSummary } from "../lib/video/pipeline.ts";
 import { drawKeyFrames, keyMoments, syncFrameEntries } from "../lib/video/survey.ts";
@@ -337,7 +337,7 @@ export const commands = [
         const raw = `${out.slice(0, -4)}.raw.jpg`;
         try {
           await videoIo.frameAt(join(docDir(project, input.doc), f.file), secs, raw, { hdr: !!v?.hdr }, ctx.signal);
-          await normalizeFrame(raw, out);
+          await normalizeFrame(raw, out, ctx.signal);
         } finally {
           rmSync(raw, { force: true });
         }

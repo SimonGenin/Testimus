@@ -8,8 +8,9 @@ sont celles de ce commit. Les choix marqués **Décidé** ont été tranchés av
 > **État au 2026-11-12 (soir) : les lots 0 à 7 sont construits**, en sept flux fusionnés sur `master`, chacun avec
 > ses tests ; les décisions sont écrites dans ARCHITECTURE.md (§3, §5, §6, §8, §9, §9c, §11, §12, §16) et le
 > CHANGELOG « Unreleased ». Écarts voulus ou restes, à connaître :
-> - **I3** : le tri des images vidéo reste dans le core, mais `sharp` y est bridé (un quart des cœurs, sans cache) et
->   ses lectures sont asynchrones ; un processus à part est noté ouvert (§16).
+> - **I3** : fait le 2026-11-12 — tout le travail de `sharp` (tri des images vidéo, mosaïques, recadrages, images
+>   clés, photos) tourne dans le « frames worker », un processus Node à part en priorité basse (ARCHITECTURE.md §3,
+>   mesures en §16).
 > - **I4** : BGE-M3 8 bits n'a pas de forme DirectML : sur un PC à carte graphique il reste sur le processeur, dans
 >   le programme séparé (passer à la carte = changer de modèle par les packs). llama-server sur processeur n'est pas
 >   bridé. Mesuré sur 306 passages, pas 4 000 ; la voie DirectML n'est pas prouvée sur une vraie carte.

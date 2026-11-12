@@ -8,21 +8,11 @@ import { clock } from "../../rag/anchors.ts";
 import type { FigureEntry, MediaFile, SpokenLine, VideoData, VideoDensity, VideoFixes } from "../../types.ts";
 import { writeAtomic } from "../atomic.ts";
 import { docDir, readFigures, writeFigures } from "../docs.ts";
+import { crop, distinct, mosaic, normalizeFrame, sharpness } from "../frames/frames-process.ts";
+import { type Box, MOSAIC_SIDE } from "../frames/frames-protocol.ts";
 import { frameAnchor, frameFigure } from "../media-md.ts";
 import { readJson } from "../project.ts";
-import {
-  type Box,
-  candidatesOf,
-  crop,
-  distinct,
-  isShaky,
-  keyFrameBudget,
-  MOSAIC_SIDE,
-  mosaic,
-  normalizeFrame,
-  rankOf,
-  sharpness,
-} from "./frames.ts";
+import { candidatesOf, isShaky, keyFrameBudget, rankOf } from "./frames.ts";
 import { SCAN_FPS, shotFile, videoIo } from "./io.ts";
 
 const TILES = MOSAIC_SIDE * MOSAIC_SIDE;
@@ -135,16 +125,20 @@ export async function findCandidates(
   let picked = shots;
   if (shaky) {
     const best = new Map<number, { shot: (typeof shots)[number]; sharp: number }>();
-    for (const s of shots) {
+    const sharps = await sharpness(
+      shots.map((s) => s.file),
+      ctx.signal,
+    );
+    for (const [i, s] of shots.entries()) {
       const r = rankOf(s.at);
       const home = [r, r - 1, r + 1].find((x) => why.has(x)) ?? r;
-      const sharp = await sharpness(s.file);
+      const sharp = sharps[i];
       const had = best.get(home);
       if (!had || sharp > had.sharp) best.set(home, { shot: s, sharp });
     }
     picked = [...best.values()].map((b) => b.shot).sort((a, b) => a.at - b.at);
   }
-  const kept = await distinct(picked);
+  const kept = await distinct(picked, ctx.signal);
   const keep = new Set(kept.map((k) => k.file));
   if (existsSync(dir))
     for (const name of readdirSync(dir))
@@ -176,7 +170,14 @@ function writeSaid(root: string, n: number, text: string): string {
   return saidFile(n);
 }
 
-async function mosaics(root: string, n: number, name: string, cands: Cand[], first = 1): Promise<Mosaic[]> {
+async function mosaics(
+  root: string,
+  n: number,
+  name: string,
+  cands: Cand[],
+  first: number,
+  signal: AbortSignal,
+): Promise<Mosaic[]> {
   const out: Mosaic[] = [];
   for (let i = 0; i < cands.length; i += TILES) {
     const part = cands.slice(i, i + TILES);
@@ -185,6 +186,7 @@ async function mosaics(root: string, n: number, name: string, cands: Cand[], fir
       part.map((c) => ({ at: c.at, file: join(root, c.file), ...(c.box ? { box: c.box as Box } : {}) })),
       join(root, file),
       first + i,
+      signal,
     );
     out.push({ file, tiles: part.map((c, k) => ({ n: first + i + k, at: c.at })) });
   }
@@ -209,7 +211,7 @@ export async function planChapters(
   const present = v.candidates.filter((c) => existsSync(join(root, c.file)));
   if (!text && !present.length) return null;
   try {
-    const sparse = text ? [] : await mosaics(root, f.n, "plan", spread(present, PLAN_TILES));
+    const sparse = text ? [] : await mosaics(root, f.n, "plan", spread(present, PLAN_TILES), 1, ctx.signal);
     const r = await planVideo(
       project,
       docId,
@@ -298,7 +300,7 @@ export async function chooseMoments(
       continue;
     }
     try {
-      const sheets = await mosaics(root, f.n, `mosaic-${i + 1}`, shown, tile);
+      const sheets = await mosaics(root, f.n, `mosaic-${i + 1}`, shown, tile, ctx.signal);
       // ponytail: every tile shown whose place changed has that place on disk at its real size, named by the tile's
       // number (change-<tile>.jpg) so one line of the prompt can say where they all are; until the prompt says it
       // that way, it lists the first twelve only — a line a crop would be 54 lines a run
@@ -306,7 +308,8 @@ export async function chooseMoments(
       for (const [k, c] of shown.entries()) {
         if (!c.box) continue;
         const file = `video/${f.n}/change-${tile + k}.jpg`;
-        if (await crop(join(root, c.file), c.box as Box, join(root, file))) crops.push({ n: tile + k, at: c.at, file });
+        if (await crop(join(root, c.file), c.box as Box, join(root, file), ctx.signal))
+          crops.push({ n: tile + k, at: c.at, file });
       }
       tile += shown.length;
       const said = lines
@@ -382,7 +385,7 @@ export async function drawKeyFrames(
     const figure = frameFigure(f.n, k.at);
     const raw = join(dir, "video", String(f.n), "key.jpg");
     await videoIo.frameAt(src, k.at, raw, { hdr: !!v.hdr }, ctx.signal);
-    await normalizeFrame(raw, join(dir, figure));
+    await normalizeFrame(raw, join(dir, figure), ctx.signal);
     rmSync(raw, { force: true });
     frames[i] = { ...k, figure };
   }

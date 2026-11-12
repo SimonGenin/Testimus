@@ -1,12 +1,11 @@
 import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { UserError } from "../command.ts";
 import type { DocJson, DocKind, FigureEntry, MediaFile, SourceType } from "../types.ts";
 import { byteSteps, copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { docDir, readDoc, readFigures, writeDoc, writeFigures } from "./docs.ts";
+import { preparePicture } from "./frames/frames-process.ts";
 import { sha256 } from "./hash.ts";
-import { sharpOf } from "./sharp.ts";
 import { overCap, shortOfRoom } from "./video/disk.ts";
 
 export const IMAGE = /\.(jpe?g|png|webp)$/i;
@@ -18,7 +17,6 @@ export const TEXT = /\.(txt|md)$/i;
 // ponytail: what a later version reads (HEIC needs a decoder sharp does not ship): refused with that reason, never as
 // « not a document »
 export const LATER = /\.(heic|heif)$/i;
-const MAX_SIDE = 2000;
 
 export type Picked = { path?: string; name?: string; dataBase64?: string };
 export type Rejected = {
@@ -219,40 +217,21 @@ export function newMediaDoc(
   return doc;
 }
 
-// ponytail: the earliest date written in the EXIF block (the shot, before any later edit), as local time
-export function exifDate(exif: Uint8Array | undefined): string | undefined {
-  if (!exif) return undefined;
-  const text = Buffer.from(exif).toString("latin1");
-  const dates = [...text.matchAll(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/g)]
-    .map((m) => `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`)
-    .filter((d) => !d.startsWith("0000"))
-    .sort();
-  return dates[0];
-}
-
 export const imageFigure = (n: number) => `figures/img-${n}.jpg`;
 export const imageAnchor = (n: number) => `img:${n}`;
 
-// ponytail: the picture Claude and the tester see — a JPEG of at most 2000 px a side, turned as the camera held it
-// (EXIF orientation), a transparent PNG laid on white; the original stays as it was under files/
+// ponytail: the picture Claude and the tester see (frames/draw.ts preparePicture: ≤ 2000 px, EXIF orientation, on
+// white, the EXIF date), drawn by the frames worker like a video's frames — a photo of 48 Mpx decoded in the core
+// holds the page as a frame did; the original stays as it was under files/
 export async function prepareImage(
   project: string,
   docId: string,
   f: MediaFile,
+  signal?: AbortSignal,
 ): Promise<Pick<MediaFile, "figure" | "takenAt" | "width" | "height">> {
-  const sharp = await sharpOf();
-  const input = await readFile(join(docDir(project, docId), f.file));
-  const meta = await sharp(input, { failOn: "none" }).metadata();
-  const out = await sharp(input, { failOn: "none" })
-    .rotate()
-    .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: "inside", withoutEnlargement: true })
-    .flatten({ background: "#ffffff" })
-    .jpeg({ quality: 85 })
-    .toBuffer({ resolveWithObject: true });
   const figure = imageFigure(f.n);
-  writeAtomic(join(docDir(project, docId), figure), out.data);
-  const takenAt = exifDate(meta.exif);
-  return { figure, width: out.info.width, height: out.info.height, ...(takenAt ? { takenAt } : {}) };
+  const dir = docDir(project, docId);
+  return { figure, ...(await preparePicture(join(dir, f.file), join(dir, figure), signal)) };
 }
 
 // ponytail: the pictures read in the order they were taken; one without a date keeps its number's place after them

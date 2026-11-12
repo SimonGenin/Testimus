@@ -5,20 +5,14 @@ import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { changedBox, grid } from "../../../../src/core/lib/frames/draw.ts";
+import { distinct, sharpness } from "../../../../src/core/lib/frames/frames-process.ts";
 import { chapterTrack, subtitles } from "../../../../src/core/lib/media-md.ts";
 import { readPerf } from "../../../../src/core/lib/models-perf.ts";
 import { readRegistry, updateRegistry } from "../../../../src/core/lib/models-registry.ts";
 import { DEFAULT_SETTINGS, readProject, readSettings, writeSettings } from "../../../../src/core/lib/project.ts";
 import { speechSpeed } from "../../../../src/core/lib/video/engine.ts";
-import {
-  candidatesOf,
-  changedBox,
-  distinct,
-  grid,
-  isShaky,
-  keyFrameBudget,
-  sharpness,
-} from "../../../../src/core/lib/video/frames.ts";
+import { candidatesOf, isShaky, keyFrameBudget } from "../../../../src/core/lib/video/frames.ts";
 import { autoTerms, promptFor, promptOf } from "../../../../src/core/lib/video/glossary.ts";
 import { heardOf, speechThreads, videoIo } from "../../../../src/core/lib/video/io.ts";
 import {
@@ -428,7 +422,7 @@ describe("the frames of a video", () => {
     const kept = await distinct([{ file: plain }, { file: same }, { file: alarm }]);
     expect(kept.map((k) => k.file)).toEqual([plain, alarm]);
     expect(kept[1].box).toEqual(box);
-    expect(await sharpness(alarm)).toBeGreaterThan(0);
+    expect((await sharpness([alarm]))[0]).toBeGreaterThan(0);
   });
 
   it("gives a video as many key frames as its length is worth, shared between its parts", () => {
