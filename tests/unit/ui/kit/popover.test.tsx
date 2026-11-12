@@ -157,6 +157,26 @@ describe("Popover", () => {
     expect(screen.getByRole("button", { name: "Ask Claude" })).toHaveFocus();
   });
 
+  it("is never taller than the room on its side of the trigger: its body scrolls", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(5000);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      top: 40,
+      bottom: 68,
+      left: 10,
+      right: 38,
+      width: 28,
+      height: 28,
+      x: 10,
+      y: 40,
+    } as DOMRect);
+    render(<Ask align="start" />);
+    await user.click(screen.getByRole("button", { name: "Ask Claude" }));
+    const dialog = screen.getByRole("dialog", { name: "Ask Claude · Step 2" });
+    expect(dialog.style.maxHeight).toBe(`${window.innerHeight - 68 - 16}px`);
+    vi.restoreAllMocks();
+  });
+
   it("at the window's right edge, a start popover slides back in instead of jumping to the trigger's other edge", async () => {
     const user = userEvent.setup();
     const box = (left: number) =>

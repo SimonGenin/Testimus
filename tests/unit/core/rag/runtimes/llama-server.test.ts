@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env, type HttpReq, type HttpRes } from "../../../../../src/core/env.ts";
+import { startJob } from "../../../../../src/core/jobs.ts";
 import { withPerfScope } from "../../../../../src/core/lib/models-perf.ts";
 import {
   ensureServer,
@@ -291,5 +292,20 @@ describe("cancelling a load (#9)", () => {
     expect(s.exitCode).toBeUndefined();
     expect(procs.length).toBeGreaterThanOrEqual(2);
     expect(killed).toContain(procs[0].pid);
+  });
+});
+
+describe("a server started inside a job", () => {
+  it("is recorded as one of the job's programs, its end written when it stops", async () => {
+    const { job, done } = startJob("rag-index", "index", null, async () => {
+      await ensureServer({ exe: "llama-server.exe", model: "D:/m/emb.gguf", kind: "embedding" });
+      return {};
+    });
+    await done;
+    expect(job.processes?.[0]).toMatchObject({ label: "llama-server · emb.gguf", pid: procs[0].pid });
+    expect(job.processes?.[0].endedAt).toBeUndefined();
+    procs[0].exit(0);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(job.processes?.[0]).toMatchObject({ exit: 0, endedAt: expect.any(String) });
   });
 });

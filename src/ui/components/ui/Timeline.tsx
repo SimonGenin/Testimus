@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { border, color, fontSize, fontWeight, lineHeight, size, space } from "../../styles/tokens.stylex.ts";
 import { Icon, type IconName } from "./Icon.tsx";
+import { useRowWindow, windowed } from "./rowWindow.ts";
 import { Spinner } from "./Spinner.tsx";
 import { type } from "./type.ts";
 
@@ -91,52 +92,73 @@ const MARK: Record<TimelineState, { icon: IconName; word: string }> = {
 };
 
 // ponytail: the steps of a job or the phases of a Claude run, in order — each state is an icon whose word is read out,
-// the colour only repeats it
+// the colour only repeats it. From 150 items only those near what is seen are drawn (the kit's row window), the
+// running one always
 export function Timeline({ label, items, tone = "accent", compact = false }: TimelineProps) {
   const claude = tone === "claude";
+  const frame = useRef<HTMLOListElement>(null);
+  const rows = useRef(new Map<string, HTMLElement>());
+  const win = useRowWindow(
+    frame,
+    rows,
+    items.map((it) => it.key),
+    [items.find((it) => it.state === "running")?.key ?? null],
+  );
   return (
-    <ol aria-label={label} {...stylex.props(styles.list)}>
-      {items.map((it, i) => {
-        const last = i === items.length - 1;
-        const look = {
-          done: styles.done,
-          running: claude ? styles.runningClaude : styles.running,
-          failed: styles.failed,
-          skipped: styles.waiting,
-          waiting: styles.waiting,
-        }[it.state];
-        const titleLook = {
-          done: null,
-          running: claude ? styles.titleRunningClaude : styles.titleRunning,
-          failed: styles.titleFailed,
-          skipped: styles.titleWaiting,
-          waiting: styles.titleWaiting,
-        }[it.state];
-        return (
-          <li
-            key={it.key}
-            aria-current={it.state === "running" ? "step" : undefined}
-            {...stylex.props(styles.item, compact && styles.compactItem, last && styles.last)}
-          >
-            {!last && <span aria-hidden="true" {...stylex.props(styles.rail)} />}
-            <span {...stylex.props(styles.mark, look)}>
-              {it.state === "running" ? (
-                <Spinner size="sm" label={MARK.running.word} />
-              ) : (
-                <Icon name={MARK[it.state].icon} label={MARK[it.state].word} />
-              )}
-            </span>
-            <div {...stylex.props(styles.head)}>
-              <span {...stylex.props(type.titleSm, compact && [type.compact, type.medium], styles.title, titleLook)}>
-                {it.title}
+    <ol ref={frame} aria-label={label} {...stylex.props(styles.list)}>
+      {windowed(
+        win,
+        items,
+        (it) => it.key,
+        (it, i) => {
+          const last = i === items.length - 1;
+          const look = {
+            done: styles.done,
+            running: claude ? styles.runningClaude : styles.running,
+            failed: styles.failed,
+            skipped: styles.waiting,
+            waiting: styles.waiting,
+          }[it.state];
+          const titleLook = {
+            done: null,
+            running: claude ? styles.titleRunningClaude : styles.titleRunning,
+            failed: styles.titleFailed,
+            skipped: styles.titleWaiting,
+            waiting: styles.titleWaiting,
+          }[it.state];
+          return (
+            <li
+              key={it.key}
+              ref={(el) => {
+                if (el) rows.current.set(it.key, el);
+                else rows.current.delete(it.key);
+              }}
+              aria-current={it.state === "running" ? "step" : undefined}
+              {...stylex.props(styles.item, compact && styles.compactItem, last && styles.last)}
+            >
+              {!last && <span aria-hidden="true" {...stylex.props(styles.rail)} />}
+              <span {...stylex.props(styles.mark, look)}>
+                {it.state === "running" ? (
+                  <Spinner size="sm" label={MARK.running.word} />
+                ) : (
+                  <Icon name={MARK[it.state].icon} label={MARK[it.state].word} />
+                )}
               </span>
-              {it.time && <span {...stylex.props(styles.small)}>{it.time}</span>}
-              {it.note && <span {...stylex.props(styles.small, styles.note)}>{it.note}</span>}
-            </div>
-            {it.children && <div {...stylex.props(styles.body)}>{it.children}</div>}
-          </li>
-        );
-      })}
+              <div {...stylex.props(styles.head)}>
+                <span {...stylex.props(type.titleSm, compact && [type.compact, type.medium], styles.title, titleLook)}>
+                  {it.title}
+                </span>
+                {it.time && <span {...stylex.props(styles.small)}>{it.time}</span>}
+                {it.note && <span {...stylex.props(styles.small, styles.note)}>{it.note}</span>}
+              </div>
+              {it.children && <div {...stylex.props(styles.body)}>{it.children}</div>}
+            </li>
+          );
+        },
+        (key, height) => (
+          <li key={`room:${key}`} aria-hidden="true" style={{ height }} />
+        ),
+      )}
     </ol>
   );
 }

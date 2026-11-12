@@ -21,6 +21,8 @@ export type ActivityItem = {
   /** a job that failed: when it ended (its time stops there) and why, in its first line */
   endedAt?: string;
   error?: string;
+  /** a running job that has been silent: « Last sign 4 min ago », « May be stuck · … » */
+  quiet?: { text: string; stuck: boolean };
 };
 
 type Tone = "doc" | "claude" | "plain";
@@ -93,6 +95,7 @@ const styles = stylex.create({
   },
   detail: { color: color.textMuted },
   error: { color: color.danger },
+  quiet: { color: color.warning },
   bar: { marginInlineStart: `calc(${size.iconMd} + ${space.s3})` },
 });
 
@@ -104,11 +107,14 @@ export function ActivityRow({
   now,
   action,
   onOpen,
+  children,
 }: {
   item: ActivityItem;
   now: number;
   action?: ReactNode;
   onOpen?: () => void;
+  /** under the bar: the jobs running inside this one (a folder import's conversions) */
+  children?: ReactNode;
 }) {
   const [live, setLive] = useState<{ message?: string; progress?: { done: number; total: number } }>({});
   useJobEvents(item.id, (e) => {
@@ -141,6 +147,9 @@ export function ActivityRow({
             {onOpen ? <Button variant="link" label={title} onClick={onOpen} /> : title}
           </span>
           {detail && <span {...stylex.props(type.small, styles.detail, !!item.error && styles.error)}>{detail}</span>}
+          {item.quiet && (
+            <span {...stylex.props(type.small, item.quiet.stuck ? styles.error : styles.quiet)}>{item.quiet.text}</span>
+          )}
         </div>
         <span data-testid="elapsed" {...stylex.props(type.code, type.tabular, styles.time)}>
           {elapsed(item.startedAt, item.endedAt ? Date.parse(item.endedAt) : now)}
@@ -156,6 +165,7 @@ export function ActivityRow({
           />
         </div>
       )}
+      {children && <div {...stylex.props(styles.bar)}>{children}</div>}
     </li>
   );
 }

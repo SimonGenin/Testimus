@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Job } from "../../../core/types.ts";
-import { clock, duration, kindLabel } from "../../lib/jobs.ts";
+import { clock, duration, kindLabel, quietLine, quietOf } from "../../lib/jobs.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { type } from "../ui/type.ts";
@@ -19,6 +19,7 @@ const styles = stylex.create({
     color: color.textMuted,
   },
   mono: { color: color.text },
+  quiet: { color: color.warning },
   link: { display: "inline-flex", alignItems: "center", gap: space.s1 },
 });
 
@@ -47,6 +48,7 @@ export function JobHead({
   const origin = job.cause ? byId.get(job.cause.jobId) : undefined;
   const parent = job.parentId ? byId.get(job.parentId) : undefined;
   const running = job.status === "running";
+  const quiet = quietOf(job, now);
   return (
     <div {...stylex.props(styles.head)}>
       <div {...stylex.props(type.small, styles.meta)}>
@@ -57,6 +59,7 @@ export function JobHead({
           {clock(job.startedAt)}
           {job.endedAt ? ` → ${clock(job.endedAt)}` : ""}
         </span>
+        {quiet && !quiet.stuck && <span {...stylex.props(styles.quiet)}>{quietLine(quiet)}</span>}
         {origin && job.cause && (
           <span {...stylex.props(styles.link)}>
             {WHY[job.cause.why]}
@@ -71,7 +74,7 @@ export function JobHead({
         )}
       </div>
       {running ? (
-        <Button variant="quiet" icon="stop" label="Cancel" onClick={onCancel} />
+        <Button variant={quiet?.stuck ? "danger" : "quiet"} icon="stop" label="Cancel" onClick={onCancel} />
       ) : (
         onAgain && <Button icon="refresh" label="Run again" onClick={onAgain} />
       )}

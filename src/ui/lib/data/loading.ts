@@ -18,6 +18,7 @@ const WORDS = {
   "docs.show": "the document",
   "issue.comments": "the comments",
   "issue.people": "the people",
+  "jobs.activity": "what Claude did",
   "jobs.list": "the jobs",
   "jobs.show": "the job",
   "media.disk": "the room the videos take",

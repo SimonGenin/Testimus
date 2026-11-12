@@ -12,9 +12,11 @@ import { Button } from "../ui/Button.tsx";
 import { Card } from "../ui/Card.tsx";
 import { Disclosure } from "../ui/Disclosure.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { Loading } from "../ui/Loading.tsx";
 import { Timeline, type TimelineItem } from "../ui/Timeline.tsx";
 import { type } from "../ui/type.ts";
 import { DocMap, docsOf, type Go, Lookups, Ref, Searches, useGo } from "./ActivityParts.tsx";
+import { ActList } from "./ActList.tsx";
 import { kilo } from "./turns.ts";
 import { claudeSaid } from "./useClaudeStatus.ts";
 
@@ -233,22 +235,7 @@ function PhaseBody({ phase: p, live, names, go }: { phase: Phase; live: boolean;
             )
           }
         >
-          {grouped ? (
-            <Lookups p={p} />
-          ) : (
-            <ol {...stylex.props(type.small, styles.steps)}>
-              {p.acts.map((a, i) => (
-                <li
-                  key={i}
-                  data-level={a.level}
-                  {...stylex.props(a.level === "warn" && styles.warn, a.level === "error" && styles.error)}
-                >
-                  <span {...stylex.props(type.mono, styles.at)}>{clock(a.at)}</span>
-                  {a.text}
-                </li>
-              ))}
-            </ol>
-          )}
+          {grouped ? <Lookups p={p} /> : <ActList acts={p.acts} />}
         </Disclosure>
       )}
     </div>
@@ -265,9 +252,12 @@ export function ClaudeActivity({
   effort,
   open,
   onOpenChange,
+  reading = false,
 }: {
   events: JobEvent[];
   running: boolean;
+  /** a finished job's runs read from their folders (jobs.activity) while they come */
+  reading?: boolean;
   now: number;
   /** the run's model and effort, from the job's input: they open the head's line */
   model?: string;
@@ -327,7 +317,8 @@ export function ClaudeActivity({
   return (
     <Card density="compact">
       <Disclosure icon="claude" summary={label} open={shown} onOpenChange={setShown} meta={line}>
-        {!phases.length && (
+        {reading && <Loading read="jobs.activity" />}
+        {!phases.length && !reading && (
           <p {...stylex.props(type.compact, styles.muted)}>
             {running ? "Claude is starting." : "Nothing was recorded for this run."}
           </p>

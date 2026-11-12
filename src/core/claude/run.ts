@@ -5,12 +5,13 @@ import { fileURLToPath } from "node:url";
 import { resolveExe } from "../../shared/run/process.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { withProcess } from "../jobs.ts";
+import { jobWrote, withProcess } from "../jobs.ts";
 import { perfScope, recordPerf } from "../lib/models-perf.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { shipSkills } from "../lib/shipped.ts";
-import type { ClaudeEvent, ClaudeResult, ClaudeScope, Effort } from "../types.ts";
+import type { ClaudeEvent, ClaudeResult, ClaudeRunSummary, ClaudeScope, Effort } from "../types.ts";
 import { mcpAccess, protectedRules, type RunKind, TOOLS, WITHOUT_DOCS } from "./access.ts";
+import { type Said, writeActivity } from "./activity.ts";
 import { diagnose } from "./diagnose.ts";
 import type { Given } from "./given.ts";
 import { contextDir, readContexts } from "./prompt.ts";
@@ -226,8 +227,33 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     },
   });
   let result: Extract<ClaudeEvent, { type: "result" }> | undefined;
-  const live = streamParser((e) => o.onEvent?.(e));
+  const said: Said[] = [];
+  const heard = (e: ClaudeEvent) => {
+    said.push({ at: env.now().toISOString(), event: e });
+    o.onEvent?.(e);
+  };
+  const live = streamParser(heard);
   const started = Date.now();
+  let calls: ToolCall[] | null = null;
+  const asked: ClaudeRunSummary = { id: runId, model, effort };
+  const summed = (r: { code: number; stdout: string; stderr: string }): ClaudeRunSummary => {
+    calls = toolCalls(r.stdout);
+    const end = said.findLast((s) => s.event.type === "result")?.event as typeof result;
+    const ok = !o.signal?.aborted && !!end?.ok && r.code === 0;
+    const error = o.signal?.aborted
+      ? "Cancelled"
+      : ok
+        ? undefined
+        : (end?.text || tail(r.stderr) || `claude exited with code ${r.code}`).slice(0, 300);
+    return {
+      ...asked,
+      durationMs: Math.round(end?.durationMs || Date.now() - started),
+      ...(end?.costUsd !== undefined ? { costUsd: end.costUsd } : {}),
+      ...(end?.tokens ? { tokens: end.tokens } : {}),
+      tests: writtenTests(calls),
+      ...(error ? { error } : {}),
+    };
+  };
   const out = await withProcess(
     `Claude · ${o.title ?? o.label ?? o.kind}`,
     "claude -p",
@@ -242,20 +268,26 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
           onLine: (l) => live.push(`${l}\n`),
           onSpawn: pid,
         })
-        .catch((err: unknown) => ({ code: -1, stdout: "", stderr: err instanceof Error ? err.message : String(err) })),
+        .catch((err: unknown) => ({ code: -1, stdout: "", stderr: err instanceof Error ? err.message : String(err) }))
+        .finally(() => live.end()),
     (r) => r.code,
+    { start: { run: asked }, end: (r) => ({ run: summed(r) }) },
   );
-  live.end();
   const whole = streamParser((e) => {
     if (e.type === "result") result = e;
   });
   whole.push(out.stdout);
   whole.end();
-  if (out.stderr.trim()) o.onEvent?.({ type: "stderr", text: out.stderr.trim().slice(-2000) });
+  if (out.stderr.trim()) heard({ type: "stderr", text: out.stderr.trim().slice(-2000) });
+  writeActivity(project, runId, said);
 
-  const calls = toolCalls(out.stdout);
-  const written = writtenTests(calls);
+  const allCalls = calls ?? toolCalls(out.stdout);
+  const written = writtenTests(allCalls);
   const rec = o.scope ? finishSnapshot(project, runId, written) : null;
+  jobWrote([
+    ...new Set([...written, ...(rec?.changedTests ?? [])].map((id) => `tests/${id}`)),
+    ...(rec?.changedFiles ?? []),
+  ]);
   const stdout = out.stdout
     .split(/\r?\n/)
     .filter((l) => !l.startsWith('{"type":"system"'))
@@ -269,7 +301,7 @@ export async function runClaude(o: RunOpts): Promise<RunResult> {
     changedTests: rec?.changedTests ?? [],
     changedSteps: rec?.changedSteps ?? {},
     written,
-    calls,
+    calls: allCalls,
     raw,
     durationMs: result?.durationMs || Date.now() - started,
     costUsd: result?.costUsd,

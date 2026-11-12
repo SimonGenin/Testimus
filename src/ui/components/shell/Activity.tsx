@@ -8,7 +8,7 @@ import { project } from "../../lib/data/client.ts";
 import { onAnyEvent } from "../../lib/data/events.ts";
 import { useCommand, useFetching, useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { problemText, subjectLabel } from "../../lib/jobs.ts";
+import { problemText, quietLine, quietOf, subjectLabel } from "../../lib/jobs.ts";
 import { useNow } from "../../lib/now.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
@@ -16,6 +16,7 @@ import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { Popover } from "../ui/Popover.tsx";
 import { type } from "../ui/type.ts";
+import { ActivityGroup, queuedJob } from "./ActivityGroup.tsx";
 import { type ActivityItem, ActivityRow } from "./ActivityRow.tsx";
 
 export { elapsed } from "./ActivityRow.tsx";
@@ -33,7 +34,9 @@ const isRunning = (j: unknown): j is Job => !!j && typeof j === "object" && (j a
 // ponytail: the cache keeps each answer's unchanged parts as they were (structural sharing), so what is left of the jobs
 // without their moving parts stays the same list while they only move
 const stillOnly = (jobs: Job[]): Job[] =>
-  Array.isArray(jobs) ? jobs.map(({ message: _m, progress: _p, steps: _s, processes: _x, ...j }) => j) : jobs;
+  Array.isArray(jobs)
+    ? jobs.map(({ message: _m, progress: _p, steps: _s, processes: _x, lastEventAt: _l, stuck: _k, ...j }) => j)
+    : jobs;
 
 // ponytail: the running jobs of the open project, as the cache of jobs.list holds them (the event bridge reads it
 // again on every start and end); a first read still in the air when a job ends is answered from before that end, so
@@ -102,22 +105,46 @@ function LiveActivity() {
   const [open, setOpen] = useState(false);
   const now = useNow(1000, open);
   const cancel = useCommand("jobs.cancel", { invalidates: [["jobs.list"], ["jobs.show"]] });
-  const items: ActivityItem[] = [
+  // ponytail: a job running inside another running one is counted under its parent's row, not listed on its own
+  const ids = new Set(jobs.map((j) => j.id));
+  const top = jobs.filter((j) => !j.parentId || !ids.has(j.parentId));
+  const parents = new Set(jobs.flatMap((j) => (j.parentId && ids.has(j.parentId) ? [j.parentId] : [])));
+  const every = useRead("jobs.list", {}, { enabled: open && parents.size > 0 && !!project() });
+  const kidsOf = (id: string): Job[] => {
+    const byId = new Map<string, Job>();
+    for (const j of Array.isArray(every.data) ? every.data : []) if (j.parentId === id) byId.set(j.id, j);
+    for (const j of jobs) if (j.parentId === id) byId.set(j.id, j);
+    return [...byId.values()];
+  };
+  const itemOf = (j: Job): ActivityItem => {
+    const q = quietOf(j, now);
+    return {
+      key: j.id,
+      id: j.id,
+      kind: j.kind,
+      label: subjectLabel(j, new Map()) || j.kind,
+      message: j.message,
+      startedAt: j.startedAt,
+      progress: j.progress,
+      ...(q ? { quiet: { text: quietLine(q), stuck: q.stuck } } : {}),
+    };
+  };
+  const items: (ActivityItem & { job?: Job })[] = [
     ...local.map((w) => ({ key: w.key, kind: "jira", label: WAITED_LABEL[w.name] ?? w.name, startedAt: w.startedAt })),
-    ...[...jobs]
-      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-      .map((j) => ({
-        key: j.id,
-        id: j.id,
-        kind: j.kind,
-        label: subjectLabel(j, new Map()) || j.kind,
-        message: j.message,
-        startedAt: j.startedAt,
-        progress: j.progress,
-      })),
+    ...[...top].sort((a, b) => a.startedAt.localeCompare(b.startedAt)).map((j) => ({ ...itemOf(j), job: j })),
   ];
   const shown = failed.filter((j) => !jobs.some((r) => r.id === j.id));
-  const count = items.length;
+  const count = jobs.length + local.length;
+  const stop = (id: string) => (
+    <Button
+      variant="quiet"
+      size="xs"
+      iconOnly
+      icon="stop"
+      label="Cancel"
+      onClick={() => cancel.mutate({ id }, { onError: (e) => errorToast(e, "Could not cancel the job") })}
+    />
+  );
   const all = count + shown.length;
   const openJob = (id: string) => () => {
     setOpen(false);
@@ -170,31 +197,33 @@ function LiveActivity() {
           }
         >
           <ul {...stylex.props(styles.list)}>
-            {items.map((item) => (
-              <ActivityRow
-                key={item.key}
-                item={item}
-                now={now}
-                onOpen={app && item.id ? openJob(item.id) : undefined}
-                action={
-                  item.id && (
-                    <Button
-                      variant="quiet"
-                      size="xs"
-                      iconOnly
-                      icon="stop"
-                      label="Cancel"
-                      onClick={() =>
-                        cancel.mutate(
-                          { id: item.id as string },
-                          { onError: (e) => errorToast(e, "Could not cancel the job") },
-                        )
-                      }
-                    />
-                  )
-                }
-              />
-            ))}
+            {items.map(({ job, ...item }) => {
+              const kids = job && parents.has(job.id) ? kidsOf(job.id) : [];
+              const inside = kids.filter((k) => k.status === "running" && !queuedJob(k));
+              return (
+                <ActivityRow
+                  key={item.key}
+                  item={item}
+                  now={now}
+                  onOpen={app && item.id ? openJob(item.id) : undefined}
+                  action={item.id && stop(item.id)}
+                >
+                  {kids.length > 0 && (
+                    <ActivityGroup kids={kids} running={inside.length}>
+                      {inside.map((k) => (
+                        <ActivityRow
+                          key={k.id}
+                          item={itemOf(k)}
+                          now={now}
+                          onOpen={app ? openJob(k.id) : undefined}
+                          action={stop(k.id)}
+                        />
+                      ))}
+                    </ActivityGroup>
+                  )}
+                </ActivityRow>
+              );
+            })}
             {shown.map((j) => (
               <ActivityRow
                 key={j.id}

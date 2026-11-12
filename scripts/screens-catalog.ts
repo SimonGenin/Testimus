@@ -1576,6 +1576,46 @@ export function SCENARIOS(essai: string): Scenario[] {
       ],
     },
     {
+      id: "jobs-batch",
+      note: "A folder import of 81 conversions under way (TESTIMUS_MOCK_JOBS): the top bar's activity and the job panel at scale",
+      env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_JOBS: "81" },
+      shots: [
+        {
+          id: "activity-popover",
+          note: "Running: the import on one line, its conversions counted (done, running, queued)",
+          hash: "#/documents",
+          prep: async (p) => {
+            await tap(p, /\d+ jobs running/);
+            await see(p, /81 conversions: \d+ done, \d+ running, \d+ queued/);
+          },
+        },
+        {
+          id: "activity-popover-open",
+          note: "The import's running conversions unfolded; the popover scrolls within the window",
+          hash: "#/documents",
+          prep: async (p) => {
+            await tap(p, /\d+ jobs running/);
+            await tap(p, /81 conversions: /);
+            await see(p, /Convert document · SOSIE_211_D401-1_\d+/);
+          },
+        },
+        {
+          id: "job-panel",
+          note: "The import beside the screen: its steps and its conversions",
+          hash: "#/documents",
+          prep: async (p) => {
+            await tap(p, /\d+ jobs running/);
+            await p
+              .getByRole("dialog", { name: /^Running/ })
+              .getByRole("button", { name: /^Add document/ })
+              .first()
+              .click({ timeout: T });
+            await dialog(p, "Add document");
+          },
+        },
+      ],
+    },
+    {
       id: "loading-slow",
       note: "Reads that take long (TESTIMUS_MOCK_READ_MS): the skeleton's loading line, then « answering slowly »",
       env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_READ_MS: "tests.list=600000,docs.list=600000" },

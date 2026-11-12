@@ -6,6 +6,9 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+- Les jobs tiennent à grande échelle : un import de dossier montre ses conversions sur une seule ligne dans la barre du haut (« 81 conversions : 48 finies, 8 en cours, 25 en file »), dépliable ; la liste de la barre du haut ne dépasse plus la fenêtre et défile ; les fichiers changés d'un gros job sont regroupés par dossier.
+- Un job silencieux le dit : « Last sign N min ago » au-delà de 2 min, et « This job may be stuck » avec Annuler en rouge au-delà de 10 min sans rien de vivant. Les durées des programmes (ffmpeg, whisper, llama-server, Claude) ne sont plus faussées par une mise en veille du PC.
+- Les journaux de jobs sont beaucoup plus légers (deux fois moins de lignes pour une génération, le détail de Claude gardé avec chaque run et relu à l'ouverture), et un job ne liste plus les fichiers écrits par les autres jobs en même temps. Le job d'index s'appelle « Index: N documents ».
 - Importer un dossier (même plein de vidéos) ne bloque plus : la fenêtre se ferme aussitôt, la copie, la conversion et l'indexation avancent dans un job en arrière-plan, et l'application reste utilisable pendant la copie.
 
 ## 0.0.9

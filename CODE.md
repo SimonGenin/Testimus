@@ -193,6 +193,7 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_ADVICE` | `upgrade` (default), `downgrade`, `offload`, `none` |
 | `TESTIMUS_MOCK_INDEX` | `bm25`: start without vectors |
 | `TESTIMUS_MOCK_INDEX_MS` | ms the fake embedder takes per batch of passages once the sandbox is indexed: keeps an index run going |
+| `TESTIMUS_MOCK_JOBS` | `<n>`: a folder import of n conversions held under way at the start (about 60 % done, 10 % converting, the rest queued) — the activity and the job panel at scale |
 | `TESTIMUS_MOCK_READ_MS` | `tests.list=12000,docs.list=3000`: those reads answer that many ms late, every time (the loading line under a skeleton, « answering slowly », Try again) |
 | `TESTIMUS_MOCK_DOWNLOAD_MS`, `TESTIMUS_MOCK_UPDATES`, `TESTIMUS_MOCK_UPDATE_MS` | fake downloads and updates |
 | `TESTIMUS_MOCK_FFMPEG` | `found` (default: a fake ffmpeg is registered), `absent`: videos are kept unread |

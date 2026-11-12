@@ -64,14 +64,40 @@ export function readAgain(client: QueryClient, prefixes: Prefix[], p: string | n
   if (idle.length) void client.refetchQueries({ type: "active", predicate: (q) => idle.includes(q.queryHash) });
 }
 
+// ponytail: a running job's last sign moves with its events — at most every 15 s, so Claude's words do not draw the
+// jobs again at each of them (the page says « last sign N min ago » past 2 min)
+const SIGN_MS = 15_000;
+const signOf = (j: Job, at: string): string | undefined =>
+  j.status === "running" &&
+  Number.isFinite(Date.parse(at)) &&
+  (!j.lastEventAt || Date.parse(at) - Date.parse(j.lastEventAt) >= SIGN_MS)
+    ? at
+    : j.lastEventAt;
+
 // ponytail: one job event applied to a list of jobs — a status replaces the job (or adds it on top), the others patch
-// its bar, its steps or its processes
+// its bar, its steps (all of them declared, or the one that moved) or its processes, and its last sign
 export function applyJobEvent(jobs: Job[], e: JobEvent): Job[] {
   if (e.type === "status") {
     const i = jobs.findIndex((j) => j.id === e.job.id);
     return i < 0 ? [e.job, ...jobs] : jobs.map((j) => (j.id === e.job.id ? e.job : j));
   }
-  const patch = (f: (j: Job) => Job) => jobs.map((j) => (j.id === e.jobId ? f(j) : j));
+  const patch = (f: (j: Job) => Job) =>
+    jobs.map((j) => {
+      if (j.id !== e.jobId) return j;
+      const sign = signOf(j, e.at);
+      return sign ? { ...f(j), lastEventAt: sign } : f(j);
+    });
+  if (e.type === "log" || e.type === "claude") {
+    const j = jobs.find((x) => x.id === e.jobId);
+    return j && signOf(j, e.at) !== j.lastEventAt ? patch((x) => x) : jobs;
+  }
+  if (e.type === "step")
+    return patch((j) => ({
+      ...j,
+      steps: (j.steps ?? []).some((s) => s.id === e.step.id)
+        ? (j.steps ?? []).map((s) => (s.id === e.step.id ? e.step : s))
+        : [...(j.steps ?? []), e.step],
+    }));
   if (e.type === "progress")
     return patch((j) => ({
       ...j,

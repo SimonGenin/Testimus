@@ -63,6 +63,7 @@ const styles = stylex.create({
   sm: { width: `calc(${size.sidebar} + ${space.s10} * 2)` },
   md: { width: size.modalSm },
   head: {
+    flex: "none",
     display: "flex",
     alignItems: "center",
     gap: space.s3,
@@ -88,6 +89,7 @@ const styles = stylex.create({
   },
   flush: { gap: 0, paddingBlock: 0, paddingInline: 0 },
   foot: {
+    flex: "none",
     display: "flex",
     alignItems: "center",
     gap: space.s3,
@@ -135,7 +137,7 @@ export type PopoverProps = {
 // content: the focus goes into it, Tab moves through its fields, Escape or the close button shut it and give the focus
 // back to the trigger, a press outside or the focus leaving shut it too; at the window's edge it slides back in. It
 // shares the anchoring of layer.ts with Menu but not Menu's keyboard (roving focus over items), which would break the
-// fields inside
+// fields inside. It is never taller than the room on its side of the trigger: its body scrolls (a hundred jobs)
 export function Popover({
   trigger,
   title,
@@ -213,7 +215,11 @@ export function Popover({
           tabIndex={-1}
           onKeyDown={onKey}
           onBlur={onBlur}
-          style={inline ? undefined : placed.style}
+          style={
+            inline || !placed.style
+              ? undefined
+              : { ...placed.style, ...(placed.room === undefined ? {} : { maxHeight: Math.max(0, placed.room) }) }
+          }
           {...stylex.props(
             styles.pop,
             styles[width],

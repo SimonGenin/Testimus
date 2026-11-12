@@ -95,12 +95,49 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   it added, modified or removed (`changed`), and its last status names the tests and documents among them as their
   folders (`touched`: `tests/<id>`, `docs/<id>`; 2026-11-10). `jobs.list { about: "tests/<id>" }` is the history of one
   test or document: the jobs that touched it or were given its id. A finished job's log is kept 30 days: the first job of
-  a process deletes the older ones of its folder (`jobs.ts prune`; `jobs.clear` is still there for the CLI). The
-  watcher gives a job every change made while it ran, so two jobs at once may both claim a file. A job keeps two words for what it works on: `subject`, what the command
+  a process deletes the older ones of its folder (`jobs.ts prune`; `jobs.clear` is still there for the CLI). A job keeps two words for what it works on: `subject`, what the command
   was given (a test id, a document id — the page and the code key on it), and `label` (optional, added 2026-11-08; an
   older job has none), the name a person knows it by when it started — the test's summary, the document's title —
   from the command's `label(input, project)` (`src/core/lib/names.ts`). Messages the core writes for a person (progress,
   log, process titles) name a test by its summary the same way; a message the page parses (`Writing <id>`) keeps its id.
+  An index run names itself once it knows its documents (`Index: N documents`, `jobs.ts nameJob`, only a job of that
+  kind).
+- **A job's log stays small** (2026-11-12, after the load of 10–11 November: 648 progress lines in 5 min for one video,
+  9 MB and 8 500 events for one generation, +25 MB of `changed` in seconds at the end of an import):
+  - **Progress is gated**: a progress line is written (and sent to the pages, the CLI, MCP) only when its words, its
+    counts, a pull's or a generation's state changed, and at most once a second per job; one held back goes out at
+    most a second later (`debounce` of `src/shared/run/`), or before the job's next event — so a step's end and the
+    last status always follow its last line. Back to what was last written, the held one is dropped. Never held: a
+    check's verdict on one test, a generation's board that moved, a notice (`jobNotice`, a 429's wait).
+  - **Steps move one at a time**: `steps` is written once, when declared; each change is a `step` event with that step
+    alone (the summary read from the end of the log folds them).
+  - **Claude's words stay with the run**: `claude` events (text, tool calls, result) go live to the pages and stay in
+    the job's memory (`jobs.show` of a job this core runs or ran), not in its file. The run keeps them in
+    `.testimus/runs/<runId>/activity.jsonl` (`claude/activity.ts`, written once at the run's end); the job's file keeps
+    each run's summary on its process (`run`: id, model, effort, duration, cost, tokens, tests written, error). The
+    panel of a finished job reads a run's events with `jobs.activity { id, process? }` when « What Claude did » is
+    opened. A pid learnt after a start is sent live, not written (the end carries it). Measured on a mock generation of
+    10 tests (5 planned runs, the check): 242 events / 135 KB → 117 events / 78 KB.
+  - **`changed` is the job's own**: a job keeps only the paths under the folders it owns — its subject's
+    `docs/<id>` or `tests/<id>` (when the folder exists), what its Claude runs wrote (`jobWrote` from the run's
+    snapshot: tests written or changed, files changed), `index` for an index run, and its children's. A job that owns
+    nothing (a pull, a check of several tests, a run on the whole project) keeps every path but those another job
+    running meanwhile owns (outside its parents and children). A job inside a running parent (a conversion of a folder
+    import) hands its folders up and writes its `changed` to its own log only; the parent sends all of them once, at
+    its end. In a job's file, past 200 paths only their count and folders are kept (`count`, `folders`); the pages get
+    them all live. The watcher's own `changed` (§3 « Events name their project ») keeps every page fresh meanwhile.
+- **A running job says when it last gave a sign** (2026-11-12): `jobs.list` and `jobs.show` add `lastEventAt` — its
+  own last event, a progress line held back included, or a running child's — and `stuck` past 10 min of silence with
+  no program of its alive, unless it waits its turn (its running step is `queue`, or its line says « Waiting »).
+  Worked out when read (no timer in the core); a job another Testimus runs gave its last sign when its log was last
+  written. The page counts on its own clock (`lib/jobs.ts quietOf`, the same rule): « Last sign N min ago » past 2 min
+  in the panel's head and the activity row; « This job may be stuck » with Cancel in red past 10 min.
+- **The programs of a job are recorded**: `withProcess` for `claude -p`, ffmpeg (`video/io.ts ff`), whisper.cpp's voice
+  detector and server, and llama-server (recorded on the job that started it; it outlives it and its end is written
+  when it stops). Each program open is looked at every 5 s (`every` of `src/shared/run/`) and seen alive by its pid; a
+  core held still (a long synchronous read, a PC asleep) hears of an end only when it wakes, so an end heard more than
+  15 s after the program was last seen alive is put at that last sight, not at the wake (the « 3 h 30, exit 0 » runs
+  of 2026-11-10).
 - **Events name their project.** One `/api/events` SSE stream; every event carries `project` (null = the machine's own
   work). A recursive watcher per open project (`src/core/watch.ts`) emits one `changed` event per burst of writes (200 ms
   after the last, at most 1 s apart while writes go on), the project's `CLAUDE.md` included, `index/` and `.testimus/`
@@ -201,7 +238,7 @@ rebuilt; they are never hand-edited.
   eval/speech/<doc>-<n>.json derived: what each transcription model made of a video's reference (§5)
   index/rag.db         derived: chunks, full text, vectors per space, graph, last index state; per machine, not shared
   .testimus/           derived, not shared: jobs/, runs/<runId>/ (run.json: who, what was sent, the snapshots;
-                         mcp.json: the run's own MCP config, §11), gen/<generation>.json (ledger),
+                         mcp.json: the run's own MCP config, §11; activity.jsonl: what Claude said and did, §3), gen/<generation>.json (ledger),
                          chats/, actions/, eval/ (reports), pages/, frames/ (media.frame), uploads/, migrations/
                          (what a migration changed), overview/last.json (the last update's before and after),
                          shipped.json (above), jira-project.json
@@ -1514,6 +1551,16 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   pid or job id), from a toast, the activity, a screen that started it, or a **history** — a test's (a folded card
   under its steps, in the editor and in Review) and a document's (Documents › Details), `jobs.list about`, newest
   first, a job standing back for its own job inside.
+- **Jobs at scale** (2026-11-12, a folder import of 129 documents): the top bar's activity lists the jobs whose parent
+  is not running, and a parent's running children are one line under it — « 81 conversions: 48 done, 8 running, 25
+  queued » (counted from `jobs.list`, read while the popover is open), unfolding on the running ones
+  (`shell/ActivityGroup.tsx`). Every `Popover` takes at most the room left in the window on its side of the trigger
+  (`useAnchor`'s `room`) and its body scrolls. The panel's files are listed one by one up to 50, then by folder with
+  their count, each unfolding on its files (a log that kept only folders past 200 paths says them the same way).
+  « What Claude did » of a finished job is folded and read from the runs' folders when opened (`jobs/JobClaude.tsx`).
+  The kit's `Timeline` and a run's actions (`claude/ActList.tsx`) draw through the row window from 150 rows
+  (`rowWindow.ts windowed`). The mock holds such an import under way with `TESTIMUS_MOCK_JOBS=<n>` (screens scenario
+  `jobs-batch`, e2e `activity-batch.spec.ts`).
 - **Long lists stay light**: the kit's `List` draws only rows within 1 500 px of the visible frame from 150 rows on
   (`rowWindow.ts`), keyboard reaching every row. The shell redraws a screen only for what the screen reads (`memo`
   boundaries; a quiet running-jobs list).
