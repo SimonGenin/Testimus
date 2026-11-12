@@ -94,6 +94,9 @@ const toFix = (page: Page) =>
 
 const writing = (page: Page) => page.getByRole("region", { name: "Result" }).getByText("Claude is writing").first();
 
+// ponytail: a job opened anywhere is read in the Job tab of the screen shown
+const jobTab = (page: Page, name: string) => page.getByRole("complementary", { name }).first().waitFor({ timeout: T });
+
 const see = (page: Page, text: string | RegExp) => page.getByText(text).first().waitFor({ timeout: T });
 
 // ponytail: one index run for the whole scenario (TESTIMUS_MOCK_INDEX_MS keeps it going), started by the first shot
@@ -870,19 +873,6 @@ function fixtureShots(): Shot[] {
       },
     },
     {
-      id: "loading-history",
-      note: "A test's history loading",
-      hash: "#/review",
-      prep: async (p) => {
-        await delay(p, "**/api/jobs/list", 60_000);
-        await p
-          .getByRole("region", { name: "History of the test" })
-          .getByRole("button", { name: /History/ })
-          .click({ timeout: T });
-        await p.waitForTimeout(800);
-      },
-    },
-    {
       id: "loading-doctor",
       note: "System check running",
       hash: "#/tests",
@@ -1050,32 +1040,6 @@ function fixtureShots(): Shot[] {
       },
     },
     {
-      id: "review-history",
-      note: "A generated test's history unfolded under its steps",
-      hash: "#/review",
-      prep: async (p) => {
-        await p
-          .getByRole("region", { name: "History of the test" })
-          .getByRole("button", { name: /History/ })
-          .click({ timeout: T });
-        await see(p, "Generate tests");
-      },
-    },
-    {
-      id: "activity-job-panel",
-      note: "A job beside the screen, opened from a test's history",
-      hash: "#/review",
-      prep: async (p) => {
-        const card = p.getByRole("region", { name: "History of the test" });
-        await card.getByRole("button", { name: /History/ }).click({ timeout: T });
-        await card
-          .getByRole("option", { name: /Generate tests/ })
-          .first()
-          .click({ timeout: T });
-        await dialog(p, "Generate tests");
-      },
-    },
-    {
       id: "tests-list-review-waiting",
       note: "Local list after a generation (tests waiting for review)",
       hash: "#/tests",
@@ -1196,7 +1160,7 @@ function slowShots(): Shot[] {
           .getByRole("button", { name: /Generate tests/ })
           .first()
           .click({ timeout: T });
-        await dialog(p, "Generate tests");
+        await jobTab(p, "Generate tests");
       },
       settle: 1500,
     },
@@ -1731,7 +1695,7 @@ export function SCENARIOS(essai: string): Scenario[] {
               .getByRole("button", { name: /^Add document/ })
               .first()
               .click({ timeout: T });
-            await dialog(p, "Add document");
+            await jobTab(p, "Add document");
           },
         },
       ],

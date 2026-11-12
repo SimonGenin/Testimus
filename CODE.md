@@ -77,7 +77,7 @@ src/ui/
   components/ui/      the kit — one component per control, StyleX, tokens only; the only place that renders a bare
                       <button>/<input>/<select>/<textarea>; type.ts (text styles), halo.ts (focus halo), icons.ts,
                       rowWindow.ts (long lists)
-  components/         claude/, jobs/ (the job panel, a history), shell/, sources/ (a document's text, a source, a
+  components/         claude/, jobs/ (the job panel and its tab), shell/, sources/ (a document's text, a source, a
                       document's stage), tree/ (tests by folder: Tests and Generate) — composites shared by several screens
   screens/<screen>/   one folder per screen (documents, generate, tests, review, run, settings, setup, doctor);
                       screens/kit/ is the catalogue (#/kit under --mock)

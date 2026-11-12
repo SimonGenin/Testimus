@@ -9,7 +9,6 @@ import { type ClaudeBefore, diffRun } from "../../lib/diff.ts";
 import { plural } from "../../lib/format.ts";
 import { testLabel } from "../../lib/labels.ts";
 import { border, color, container, size, space } from "../../styles/tokens.stylex.ts";
-import { HistoryCard } from "../tests/editor/HistoryCard.tsx";
 import { GoneStep } from "../tests/WasView.tsx";
 import { FindingCard } from "./FindingCard.tsx";
 import { type BannersProps, type Marks, ReviewBanners, when } from "./ReviewBanners.tsx";
@@ -217,7 +216,6 @@ export function ReviewTest(p: ReviewTestProps) {
             ];
           })}
           {!test.steps.length && <p {...stylex.props(styles.none)}>This test has no steps yet.</p>}
-          {p.testId && <HistoryCard testId={p.testId} />}
         </div>
       </div>
     </>

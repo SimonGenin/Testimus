@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
-import { JobDrawer } from "../../../../src/ui/components/jobs/JobDrawer.tsx";
+import { JobPanel } from "../../../../src/ui/components/jobs/JobPanel.tsx";
 import { groupLine } from "../../../../src/ui/components/shell/ActivityGroup.tsx";
 import { setProject } from "../../../../src/ui/lib/data/client.ts";
 import { applyJobEvent } from "../../../../src/ui/lib/data/events.ts";
@@ -28,7 +28,7 @@ afterEach(() => {
   setProject(null);
 });
 
-const drawer = (id: string) => withApp(<JobDrawer id={id} onClose={vi.fn()} onGo={vi.fn()} />);
+const drawer = (id: string) => withApp(<JobPanel id={id} onClose={vi.fn()} onGo={vi.fn()} />);
 const panel = (name: string | RegExp) => screen.findByRole("dialog", { name });
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 

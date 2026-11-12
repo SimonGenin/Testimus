@@ -2,7 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { CommandOutput } from "../../../core/commands/index.ts";
 import type { DocJson } from "../../../core/types.ts";
-import { JobHistory } from "../../components/jobs/JobHistory.tsx";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
@@ -173,9 +172,6 @@ export function DocSide({
           )}
         </Section>
       )}
-      <Section title="History">
-        <JobHistory about={`docs/${d.id}`} label="What was done to this document" />
-      </Section>
     </aside>
   );
 }

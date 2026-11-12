@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { api, boot, expect, mockServer, test, waitForJob } from "./helpers.ts";
 
 const server = mockServer(4430);
@@ -49,33 +49,6 @@ test("no internal id on the main screens, once Claude has checked, fixed, edited
     await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
     await noLocalId(page, hash);
   }
-
-  // ponytail: each job opens from the history of a test it was about — the three runs on LOCAL, the generation from a
-  // test it wrote
-  const opened = async (where: string, kind: string, also?: (panel: Locator) => Promise<void>) => {
-    await page.goto(`/${where}`);
-    const card = page.getByRole("region", { name: "History of the test" });
-    const head = card.getByRole("button", { name: /History/ });
-    if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
-    await card
-      .getByRole("option", { name: new RegExp(kind) })
-      .first()
-      .click();
-    const panel = page.getByRole("dialog", { name: kind });
-    await expect(panel).toBeVisible();
-    await noLocalId(page, `the ${kind} job`);
-    await panel.getByRole("button", { name: "Show the full log" }).click();
-    await noLocalId(page, `the full log of the ${kind} job`);
-    await also?.(panel);
-    await page.keyboard.press("Escape");
-    await expect(panel).toBeHidden();
-  };
-  await opened(`#/review/${LOCAL}`, "Check tests");
-  await opened(`#/review/${LOCAL}`, "Claude fix", (fix) =>
-    expect(fix.getByText("Sectionneur avec TK — manœuvre régulière").first()).toBeVisible(),
-  );
-  await opened(`#/review/${LOCAL}`, "Claude request");
-  await opened(`#/review/${written[0]}`, "Generate tests");
 
   await page.goto(`/#/review/${LOCAL}`);
   await page.keyboard.press("Control+k");

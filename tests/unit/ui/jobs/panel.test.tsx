@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobEvent } from "../../../../src/core/types.ts";
-import { JobDrawer } from "../../../../src/ui/components/jobs/JobDrawer.tsx";
+import { JobPanel } from "../../../../src/ui/components/jobs/JobPanel.tsx";
 import { JobState } from "../../../../src/ui/components/jobs/JobState.tsx";
 import { kindIcon } from "../../../../src/ui/components/jobs/kinds.ts";
 import type { AppState } from "../../../../src/ui/lib/app.ts";
@@ -45,7 +45,7 @@ afterEach(() => {
 function drawer(id: string, over: Partial<AppState> = {}) {
   const onClose = vi.fn();
   const onGo = vi.fn();
-  const r = withApp(<JobDrawer id={id} onClose={onClose} onGo={onGo} />, over);
+  const r = withApp(<JobPanel id={id} onClose={onClose} onGo={onGo} />, over);
   return { ...r, onClose, onGo };
 }
 

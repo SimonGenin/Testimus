@@ -1796,11 +1796,12 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
 - **No Jobs screen** (removed 2026-11-10: a list of every job of the machine was plumbing nobody read). What is kept
   of it: the top bar's activity says what runs (Cancel) and, until each is opened or dismissed, the jobs that failed
   while the page was open (a parent's failure stands for its children's; Claude's triage is not one); one job opens
-  in the **job panel**, a drawer beside the screen (`components/jobs/JobDrawer.tsx`: where it is, the way to what it
-  made, what went wrong and what to do, its steps, What Claude did, the files it changed, the log folded; no process,
-  pid or job id), from a toast, the activity, a screen that started it, or a **history** — a test's (a folded card
-  under its steps, in the editor and in Review) and a document's (Documents › Details), `jobs.list about`, newest
-  first, a job standing back for its own job inside.
+  in the **Job tab** of the screen shown (`components/jobs/JobTab.tsx`, offered to its sections as the Source tab is;
+  a dialog only on a screen without sections; `JobPanel.tsx`: where it is, the way to what it made, what went wrong
+  and what to do, its steps, What Claude did, the files it changed, the log folded; no process, pid or job id), from a
+  toast, the activity or a screen that started it. **No history of a test or a document** (removed 2026-11-12: the
+  list of jobs under a test's steps and in Documents › Details was read by nobody, and the jobs logged before their
+  `changed` was scoped made it wrong); `jobs.list about` stays for Claude and the CLI.
 - **Jobs at scale** (2026-11-12, a folder import of 129 documents): the top bar's activity lists the jobs whose parent
   is not running, and a parent's running children are one line under it — « 81 conversions: 48 done, 8 running, 25
   queued » (counted from `jobs.list`, read while the popover is open), unfolding on the running ones

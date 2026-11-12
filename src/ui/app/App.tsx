@@ -6,7 +6,7 @@ import type { CommandName } from "../../core/commands/index.ts";
 import type { SearchMatch, Source } from "../../core/types.ts";
 import { ClaudeDock } from "../components/claude/ClaudeDock.tsx";
 import { ClaudeHolder } from "../components/claude/ClaudeTab.tsx";
-import { JobDrawer } from "../components/jobs/JobDrawer.tsx";
+import { JobTab } from "../components/jobs/JobTab.tsx";
 import { useRunningJobs } from "../components/shell/Activity.tsx";
 import { CommandForm, lossOf } from "../components/shell/CommandForm.tsx";
 import { DesktopBridge } from "../components/shell/DesktopBridge.tsx";
@@ -91,8 +91,8 @@ export function App() {
   const [palette, setPalette] = useState(false);
   const [form, setForm] = useState<CommandInfo | null>(null);
   const [byKey, setByKey] = useState(false);
-  const [job, setJob] = useState<string | null>(null);
-  const openJob = useCallback((id: string) => setJob(id), []);
+  const [job, setJob] = useState<{ id: string } | null>(null);
+  const openJob = useCallback((id: string) => setJob({ id }), []);
   const dock = useDock();
   const [holder] = useState(() => {
     const el = document.createElement("div");
@@ -287,7 +287,7 @@ export function App() {
         />
       )}
       {byKey && <OpenByKey onClose={() => setByKey(false)} />}
-      {job && <JobDrawer key={job} id={job} onClose={() => setJob(null)} onGo={navigate} />}
+      <JobTab opened={job} onClose={() => setJob(null)} onGo={navigate} />
       <SourceTab
         opened={source}
         onClose={() => setSource(null)}

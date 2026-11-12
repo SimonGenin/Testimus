@@ -56,18 +56,6 @@ export const clock = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-GB", { hour12: false });
 };
 
-// ponytail: when a job of a history started — the time today, « yesterday » and the time, else the day and the time
-export function whenLabel(iso: string, now = Date.now()): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const day = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
-  const diff = Math.round((day(new Date(now)) - day(d)) / 86400000);
-  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-  if (diff <= 0) return `Today ${time}`;
-  if (diff === 1) return `Yesterday ${time}`;
-  return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
-}
-
 export function resultLine(job: Job): string {
   if (job.status === "running") return "Running";
   if (job.interrupted) return "Interrupted";

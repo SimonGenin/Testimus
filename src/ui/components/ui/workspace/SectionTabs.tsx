@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { KeyboardEvent } from "react";
+import { type KeyboardEvent, useLayoutEffect, useRef } from "react";
 import { type Direction, locate, neighbor, type Section, type Target } from "../../../lib/workspace/layout.ts";
 import type { WorkspaceController } from "../../../lib/workspace/useWorkspace.ts";
 import { border, color, size, space } from "../../../styles/tokens.stylex.ts";
@@ -60,6 +60,18 @@ export function SectionTabs({
   fold: { icon: IconName; label: string };
 }) {
   const active = section.active ? ws.tab(section.active) : undefined;
+  const list = useRef<HTMLDivElement>(null);
+  // ponytail: the tab shown is in view in its strip — one offered beside the work (a job, a source) arrives last, past
+  // the edge of a narrow section
+  useLayoutEffect(() => {
+    const l = list.current;
+    const t = section.active ? document.getElementById(tabDomId(prefix, section.active)) : null;
+    if (!l || !t) return;
+    const lr = l.getBoundingClientRect();
+    const tr = t.getBoundingClientRect();
+    if (tr.right > lr.right) l.scrollLeft += tr.right - lr.right;
+    else if (tr.left < lr.left) l.scrollLeft -= lr.left - tr.left;
+  }, [section.active, prefix]);
   const send = (tab: string, to: Target | null) => to && ws.move(tab, to);
   const keys = (tab: string, e: KeyboardEvent<HTMLButtonElement>) => {
     const dir = ARROWS[e.key];
@@ -113,6 +125,7 @@ export function SectionTabs({
   return (
     <div data-ws-bar="" {...stylex.props(styles.bar)}>
       <div
+        ref={list}
         role="tablist"
         aria-label={`Section ${at ? at.column + 1 : ""}${active ? ` · ${active.label}` : ""}`}
         {...stylex.props(styles.tabs)}
