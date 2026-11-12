@@ -4,7 +4,16 @@ import { env } from "../env.ts";
 import type { DocJson, DocKind } from "../types.ts";
 import { docDir, readDoc } from "./docs.ts";
 import { idOf } from "./docs-folder.ts";
-import { copyMediaFiles, isImage, isVideo, nameOf, newMediaDoc, type Picked, type Rejected } from "./media.ts";
+import {
+  copyMediaFiles,
+  isImage,
+  isVideo,
+  nameOf,
+  newMediaDoc,
+  type OnCopy,
+  type Picked,
+  type Rejected,
+} from "./media.ts";
 
 // ponytail: a free id from a name — the code read from it, made a valid folder name, -2, -3… when taken
 export function freeId(project: string, name: string, taken = new Set<string>()): string {
@@ -25,6 +34,7 @@ export async function addMediaDocs(
   picked: Picked[],
   o: { images?: ImagesMode; title?: string; kind?: DocKind; uploaded?: boolean; id?: string },
   signal?: AbortSignal,
+  onCopy?: OnCopy,
 ): Promise<{ added: DocJson[]; rejected: Rejected[] }> {
   const taken = new Set<string>();
   const images = picked.filter((p) => isImage(nameOf(p)));
@@ -57,7 +67,7 @@ export async function addMediaDocs(
     });
     let r: Awaited<ReturnType<typeof copyMediaFiles>>;
     try {
-      r = await copyMediaFiles(project, id, g.files, signal);
+      r = await copyMediaFiles(project, id, g.files, signal, onCopy);
     } catch (e) {
       rmSync(docDir(project, id), { recursive: true, force: true });
       throw e;

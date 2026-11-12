@@ -174,7 +174,8 @@ export async function invoke(name: string, raw: unknown, opts: InvokeOpts): Prom
   const nested: NonNullable<Ctx["invoke"]> = (n, i, o) => invoke(n, i, { project: opts.project, ...llm, ...o });
   if (!c.global && !opts.project)
     throw new UserError("No project is open.", "Open or create a project first (testimus project init <dir>).");
-  if (opts.project && c.name !== "media.migrate") migrateOnOpen(opts.project);
+  const migrating = opts.project && c.name !== "media.migrate" ? migrateOnOpen(opts.project) : null;
+  if (migrating) await migrating;
   if (c.job) {
     const cause = c.cause?.(input as never) ?? opts.cause;
     // ponytail: a job remembers how to run it again unless its input is large (an upload) or a secret's (mcp: false)

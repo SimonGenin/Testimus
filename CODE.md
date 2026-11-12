@@ -15,8 +15,11 @@ src/core/types.ts     shared types; schemas.ts the zod pieces several groups sha
 src/core/shell.ts     which shell runs the core (TESTIMUS_SHELL), loopback NO_PROXY, clean shutdown
 src/core/lib/         the domain modules (analysis: a test's analysis, its proof and its decisions):
                         testfile, test-blocks, test-edit, table, adf, store, check, review, columns, contexts, actions,
-                        agents, proposals (a change the chat proposed, applied by the user), atomic (every owned write), changed, file-memo (reads per file version), natural (the
-                        one collator), creds, project (+ project-info, project-init), doctor (+ doctor-row,
+                        agents (the adaptive pool of the generation and the conversions), proposals (a change the chat proposed,
+                        applied by the user), atomic (every owned
+                        write; a user's file copied by stream, hashed as it passes), sharp (loaded once, a quarter of
+                        the cores), changed, file-memo (reads per file version), natural (the one collator), creds,
+                        project (+ project-info, project-init), doctor (+ doctor-row,
                         doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
                         exported as pages and imported back);
                         docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index; docs-folder: what

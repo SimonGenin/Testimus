@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { env } from "../../../../src/core/env.ts";
-import { listJobs, waitJob } from "../../../../src/core/jobs.ts";
+import { listJobs, showJob, waitJob } from "../../../../src/core/jobs.ts";
 import { FOLDER_MAX_FILES, idOf } from "../../../../src/core/lib/docs-folder.ts";
 import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 import { taggedPdf } from "../../../fixtures/pdf/tagged.ts";
@@ -197,6 +197,18 @@ describe("docs.addFolder", () => {
     await waitJob(jobId);
     expect(existsSync(join(P, "docs", "SPEC_J", "source.docx"))).toBe(true);
     expect(existsSync(join(P, "docs", "Essai", "files", "Essai.mp4"))).toBe(true);
+    const said = (showJob(P, jobId)?.events ?? []).flatMap((e) => (e.type === "progress" ? [e] : []));
+    const docx = sampleDocx().length;
+    expect(said).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringMatching(/^Copying SPEC_J_01_00\.docx — \d+ \/ \d+ KB \(file \d of 2\)$/),
+        done: docx,
+        total: docx,
+      }),
+    );
+    expect(said).toContainEqual(
+      expect.objectContaining({ message: expect.stringMatching(/^Copying Essai\.mp4 — .* \(file \d of 2\)$/) }),
+    );
   });
 
   it("makes the images of each folder one images document, each video and text file one document", async () => {

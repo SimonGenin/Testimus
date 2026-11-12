@@ -159,6 +159,39 @@ export function n7WaitsOutsideWork(): Violation[] {
   return grep(files("src/core"), /\bset(?:Timeout|Interval)\(/);
 }
 
+// ponytail: the modules that read, hash or copy a file of the user's — an original, a video, a picture, a run's
+// screenshots, a context's file: no size bounds it, so a synchronous whole-file read or copy there holds the server as
+// long as the file is big (3 h 31 on 2026-11-10). A text read (utf8: doc.json, test.md, a template) is bounded and stays
+export const USER_FILES = [
+  "src/core/commands/docs-folder.ts",
+  "src/core/commands/docs-read.ts",
+  "src/core/commands/docs.ts",
+  "src/core/commands/images.ts",
+  "src/core/commands/media.ts",
+  "src/core/lib/atomic.ts",
+  "src/core/lib/contexts.ts",
+  "src/core/lib/docs-convert.ts",
+  "src/core/lib/docs-folder.ts",
+  "src/core/lib/docs-pipeline.ts",
+  "src/core/lib/media-add.ts",
+  "src/core/lib/media-migrate.ts",
+  "src/core/lib/media-pipeline.ts",
+  "src/core/lib/media.ts",
+  "src/core/lib/models-dir.ts",
+  "src/core/lib/run-create.ts",
+  "src/core/lib/run-import.ts",
+  "src/core/lib/run-pages.ts",
+  "src/core/lib/run-results.ts",
+  "src/core/lib/store.ts",
+  "src/core/lib/sync/push.ts",
+  "src/core/lib/video/disk.ts",
+  "src/core/lib/video/frames.ts",
+];
+
+export function n7SyncUserFileReads(): Violation[] {
+  return grep(USER_FILES, /\b(?:readFileSync\([^\n]*|copyFileSync\(|cpSync\()/, (m) => !/["']utf-?8["']/.test(m[0]));
+}
+
 // ponytail: G8 — a value in tokens.stylex.ts that does not come from design/tokens.css is written by scripts/tokens.ts
 // (EXTRA, CONTAINERS, BREAKPOINTS); each is one to ask the design sessions for, so the list may only shrink
 function entries(text: string, name: string): { key: string; line: number }[] {
@@ -249,6 +282,7 @@ export const GUARDS = {
   "N4d inline styles with only constant values": n4StaticInlineStyles,
   "N7 child_process, process.kill or taskkill outside src/shared/run/process.ts": n7ProcessOutsideRunLayer,
   "N7 setTimeout or setInterval in src/core": n7WaitsOutsideWork,
+  "N7 synchronous whole-file read or copy where the core handles the user's files": n7SyncUserFileReads,
   "G8 token values written by scripts/tokens.ts, not read from design/tokens.css": g8TokensOutsideDesign,
   "G8 vocabulary colour aliases of tokens.css never read in src/ui": g8AliasesNeverRead,
   "G1 font size, weight, line height, letter spacing or face picked outside the kit": g1TypeOutsideKit,

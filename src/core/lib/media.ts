@@ -1,10 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { UserError } from "../command.ts";
 import type { DocJson, DocKind, FigureEntry, MediaFile, SourceType } from "../types.ts";
-import { copyFileAtomic, writeAtomic } from "./atomic.ts";
+import { byteSteps, copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { docDir, readDoc, readFigures, writeDoc, writeFigures } from "./docs.ts";
-import { sha256, sha256File } from "./hash.ts";
+import { sha256 } from "./hash.ts";
+import { sharpOf } from "./sharp.ts";
 import { overCap, shortOfRoom } from "./video/disk.ts";
 
 export const IMAGE = /\.(jpe?g|png|webp)$/i;
@@ -86,30 +88,20 @@ export const updateFile = (project: string, docId: string, n: number, change: (f
     if (f) change(f);
   });
 
-// ponytail: a file on this PC is hashed and copied as it streams, never held whole — a video passes 2 GiB, which a
-// Buffer cannot hold — and never holding the process: the server keeps answering while a folder of videos is copied
-async function bytesOf(
-  f: Picked,
-  name: string,
-  signal?: AbortSignal,
-): Promise<{ hash: string; size: number; write: (to: string) => Promise<void> }> {
-  if (f.dataBase64 !== undefined) {
-    const data = Buffer.from(f.dataBase64, "base64");
-    return { hash: sha256(data), size: data.length, write: async (to) => writeAtomic(to, data) };
-  }
-  const path = f.path;
-  if (!path || !existsSync(path)) throw new Error(`File not found: ${path ?? name}`);
-  return {
-    hash: await sha256File(path, signal),
-    size: statSync(path).size,
-    write: (to) => copyFileAtomic(path, to),
-  };
-}
+export type OnCopy = (name: string, done: number, total: number) => void;
 
 // ponytail: each file is copied as it is under files/ (its own name, made unique — never over a file already there)
 // and numbered after the highest number the document ever gave — a number is never reused, so an anchor img:<n>
-// stays the picture it was; the same file twice is refused, and what is neither an image nor a video is said why
-export async function copyMediaFiles(project: string, docId: string, picked: Picked[], signal?: AbortSignal) {
+// stays the picture it was; the same file twice is refused, and what is neither an image nor a video is said why.
+// A file is weighed before it is read (its size against the drive's room and, a video, the project's cap) and read
+// once: hashed as it streams into place, a copy found to be one the document has is taken away again
+export async function copyMediaFiles(
+  project: string,
+  docId: string,
+  picked: Picked[],
+  signal?: AbortSignal,
+  onCopy?: OnCopy,
+) {
   const doc = readDoc(project, docId);
   const dir = join(docDir(project, docId), "files");
   const files = filesOf(doc);
@@ -134,29 +126,25 @@ export async function copyMediaFiles(project: string, docId: string, picked: Pic
 
       continue;
     }
-    let data: Awaited<ReturnType<typeof bytesOf>>;
-    try {
-      data = await bytesOf(p, name, signal);
-    } catch (e) {
-      if (signal?.aborted) throw e;
-      rejected.push({ name, why: e instanceof Error ? e.message : String(e), code: "failed" });
+    const data = p.dataBase64 !== undefined ? Buffer.from(p.dataBase64, "base64") : null;
+    if (!data && (!p.path || !existsSync(p.path))) {
+      rejected.push({ name, why: `File not found: ${p.path ?? name}`, code: "failed" });
       continue;
     }
-    const hash = data.hash;
-    if (hashes.has(hash)) {
-      rejected.push({ name, why: "This file is already in the document.", code: "duplicate" });
-      continue;
-    }
-    const short = kind === "video" ? shortOfRoom(project, data.size) : null;
+    const size = data ? data.length : statSync(p.path as string).size;
+    const short = shortOfRoom(project, size, kind === "video");
     if (short) {
       rejected.push({
         name,
-        why: `Not enough room on the project's drive: ${name} needs about ${short.needMB} MB (the copy, its sound and its frames) and ${short.freeMB} MB are free.`,
+        why:
+          kind === "video"
+            ? `Not enough room on the project's drive: ${name} needs about ${short.needMB} MB (the copy, its sound and its frames) and ${short.freeMB} MB are free.`
+            : `Not enough room on the project's drive: ${name} needs about ${short.needMB} MB and ${short.freeMB} MB are free.`,
         code: "failed",
       });
       continue;
     }
-    const over = kind === "video" ? overCap(project, data.size) : null;
+    const over = kind === "video" ? overCap(project, size) : null;
     if (over) {
       rejected.push({
         name,
@@ -165,15 +153,34 @@ export async function copyMediaFiles(project: string, docId: string, picked: Pic
       });
       continue;
     }
-    hashes.add(hash);
-    const n = next++;
+    const n = next;
     const safe = name.replace(/[\\/:*?"<>|]/g, "_");
     let file = safe;
     for (let k = 1; names.has(file.toLowerCase()) || existsSync(join(dir, file)); k++)
       file = k === 1 ? `${n}-${safe}` : `${n}-${k}-${safe}`;
+    const to = join(dir, file);
+    let hash: string;
+    try {
+      if (data) {
+        writeAtomic(to, data);
+        hash = sha256(data);
+      } else {
+        const onBytes = onCopy ? byteSteps(size, (done) => onCopy(name, done, size)) : undefined;
+        hash = await copyFileAtomic(p.path as string, to, { signal, onBytes });
+      }
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      rejected.push({ name, why: e instanceof Error ? e.message : String(e), code: "failed" });
+      continue;
+    }
+    if (hashes.has(hash)) {
+      rmSync(to, { force: true });
+      rejected.push({ name, why: "This file is already in the document.", code: "duplicate" });
+      continue;
+    }
+    hashes.add(hash);
     names.add(file.toLowerCase());
-    mkdirSync(dir, { recursive: true });
-    await data.write(join(dir, file));
+    next++;
     added.push({ n, name, file: `files/${file}`, kind, sha256: hash, state: "new" });
   }
   if (added.length)
@@ -233,8 +240,8 @@ export async function prepareImage(
   docId: string,
   f: MediaFile,
 ): Promise<Pick<MediaFile, "figure" | "takenAt" | "width" | "height">> {
-  const { default: sharp } = await import("sharp");
-  const input = readFileSync(join(docDir(project, docId), f.file));
+  const sharp = await sharpOf();
+  const input = await readFile(join(docDir(project, docId), f.file));
   const meta = await sharp(input, { failOn: "none" }).metadata();
   const out = await sharp(input, { failOn: "none" })
     .rotate()

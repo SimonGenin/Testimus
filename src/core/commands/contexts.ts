@@ -203,7 +203,7 @@ export const commands = [
     positional: ["id", "file"],
     async run(ctx, input) {
       const project = projectOf(ctx);
-      const added = addContextFile(project, input.id, input);
+      const added = await addContextFile(project, input.id, input, ctx.signal);
       return { ...showContext(project, input.id), added };
     },
   }),

@@ -112,13 +112,13 @@ test("writeTest orders the fields by the order given", () => {
   expect(readFileSync(join(P, "tests/local-00000001/test.md"), "utf8")).toBe(md);
 });
 
-test("createLocalTest, cloneLocalTest and removeTest", () => {
+test("createLocalTest, cloneLocalTest and removeTest", async () => {
   expect(store.newLocalId()).toMatch(/^local-[0-9a-f]{8}$/);
   const id = store.createLocalTest(P, newTest("LFRPS12", "/Traction"));
   expect(id).toMatch(/^local-[0-9a-f]{8}$/);
   expect(store.readTest(P, id).test).toMatchObject({ project: "LFRPS12", folder: "/Traction", review: "draft" });
 
-  const c = store.cloneLocalTest(P, "LFRPS12-1420");
+  const c = await store.cloneLocalTest(P, "LFRPS12-1420");
   const { test: t, remoteMd } = store.readTest(P, c);
   expect(remoteMd).toBeUndefined();
   expect(t).toMatchObject({
@@ -137,7 +137,7 @@ test("createLocalTest, cloneLocalTest and removeTest", () => {
   expect(existsSync(join(P, "tests", c, "images/fig-40.png"))).toBe(true);
   expect(existsSync(join(P, "tests", c, "check.json"))).toBe(false);
 
-  const r = store.cloneLocalTest(P, "local-3f9a12c0");
+  const r = await store.cloneLocalTest(P, "local-3f9a12c0");
   expect(store.readTest(P, r).test).toMatchObject({ clonedFrom: undefined, reviewNote: undefined });
 
   store.removeTest(P, c);

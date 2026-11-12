@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { quietCtx } from "../../../../src/core/command.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { env } from "../../../../src/core/env.ts";
-import { indexAfterConversions } from "../../../../src/core/lib/docs-index.ts";
+import { queueIndex } from "../../../../src/core/lib/docs-index.ts";
 import { BUILDING, modelDeps } from "../../../../src/core/lib/doctor-models.ts";
 import { resolveModel } from "../../../../src/core/rag/activation.ts";
 import type { DescribeChunks } from "../../../../src/core/rag/chunk.ts";
@@ -60,7 +60,7 @@ describe("an index run under way, as docs.list and rag.status say it", () => {
     };
     expect((await list()).every((d) => d.indexed === "missing" && !d.indexing)).toBe(true);
     expect((await status()).indexing).toBeNull();
-    const run = indexAfterConversions(dir, () => indexProject(dir, quietCtx(dir), { model: null, describe }));
+    const run = queueIndex(dir, () => indexProject(dir, quietCtx(dir), { model: null, describe }));
     await g.at;
     const now = await byId();
     expect(now[D3].indexed).toBe("missing");
@@ -89,8 +89,8 @@ describe("an index run under way, as docs.list and rag.status say it", () => {
       },
     };
     const model = resolveModel("bge-m3-q8");
-    const run = indexAfterConversions(dir, () => indexProject(dir, quietCtx(dir), { model }));
-    const asked = indexAfterConversions(dir, async () => {
+    const run = queueIndex(dir, () => indexProject(dir, quietCtx(dir), { model }));
+    const asked = queueIndex(dir, async () => {
       throw new Error("a run asked for meanwhile shares the next one");
     });
     await g.at;
@@ -132,7 +132,7 @@ describe("an index run under way, as docs.list and rag.status say it", () => {
       },
     };
     const g = gate();
-    const run = indexAfterConversions(dir, () => g.opened);
+    const run = queueIndex(dir, () => g.opened);
     const logs: [string, string][] = [];
     await invoke("rag.search", { query: "sectionneur" }, { project: dir, onLog: (level, m) => logs.push([level, m]) });
     expect(logs).toEqual([["warn", expect.stringContaining("the model does not load")]]);

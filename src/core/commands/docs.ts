@@ -11,11 +11,13 @@ import {
   convertSteps,
   convertWith,
   copyIn,
+  copying,
   inSlot,
   inspect,
   nameOf,
   pairFiles,
   runOf,
+  weightOf,
   withUploads,
 } from "../lib/docs-pipeline.ts";
 import { filesOf, isImage, isMediaDoc, isVideo } from "../lib/media.ts";
@@ -102,6 +104,7 @@ export const commands = [
             [picked],
             { kind: input.kind, id: input.id },
             ctx.signal,
+            copying(ctx),
           );
           if (!added.length)
             throw new UserError(
@@ -115,12 +118,18 @@ export const commands = [
             study: true,
           });
           ctx.steps?.(steps);
-          return inSlot(ctx, project, steps, async () => {
-            ctx.step?.("convert");
-            const read = input.describeFigures ?? shouldDescribeFigures(project);
-            const d = await convertMedia(ctx, project, added[0].id, { read, run: runOf(input) });
-            return afterConversion(ctx, project, d, runOf(input), { ...input, describeFigures: false, study: true });
-          });
+          return inSlot(
+            ctx,
+            project,
+            steps,
+            async () => {
+              ctx.step?.("convert");
+              const read = input.describeFigures ?? shouldDescribeFigures(project);
+              const d = await convertMedia(ctx, project, added[0].id, { read, run: runOf(input) });
+              return afterConversion(ctx, project, d, runOf(input), { ...input, describeFigures: false, study: true });
+            },
+            weightOf(added[0]),
+          );
         }
         const studied = input.convert && (input.study || !!input.conversion);
         if (!input.convert) {
@@ -220,6 +229,7 @@ export const commands = [
             media,
             { images: input.images, title: input.title, kind: input.kind },
             ctx.signal,
+            copying(ctx),
           );
           if (input.video) chooseVideos(project, r.added, input.video);
           out.added.push(...r.added.map((d) => readDoc(project, d.id)));
@@ -271,18 +281,25 @@ export const commands = [
     label: (i, project) => docName(project, i.id),
     async run(ctx, input) {
       const project = projectOf(ctx);
-      if (isMediaDoc(readDoc(project, input.id))) {
+      const doc = readDoc(project, input.id);
+      if (isMediaDoc(doc)) {
         const steps = convertSteps(MEDIA_STEPS, { ...input, study: true });
         ctx.steps?.(steps);
-        return inSlot(ctx, project, steps, async () => {
-          ctx.step?.("convert");
-          const read = input.describeFigures ?? shouldDescribeFigures(project);
-          const d = await convertMedia(ctx, project, input.id, { read, force: input.force, run: runOf(input) });
-          return afterConversion(ctx, project, d, runOf(input), { ...input, describeFigures: false, study: true });
-        });
+        return inSlot(
+          ctx,
+          project,
+          steps,
+          async () => {
+            ctx.step?.("convert");
+            const read = input.describeFigures ?? shouldDescribeFigures(project);
+            const d = await convertMedia(ctx, project, input.id, { read, force: input.force, run: runOf(input) });
+            return afterConversion(ctx, project, d, runOf(input), { ...input, describeFigures: false, study: true });
+          },
+          weightOf(doc),
+        );
       }
-      if (input.pdf) attachPdf(project, input.id, input.pdf);
-      if (input.docx) attachDocx(project, input.id, input.docx);
+      if (input.pdf) await attachPdf(project, input.id, input.pdf, ctx.signal);
+      if (input.docx) await attachDocx(project, input.id, input.docx, ctx.signal);
       const steps = convertSteps(
         [{ id: "convert", label: input.study ? "Study and convert" : "Convert to text" }],
         input,

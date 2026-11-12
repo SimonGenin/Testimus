@@ -1,9 +1,6 @@
-import { createHash } from "node:crypto";
 import {
   accessSync,
   constants,
-  createReadStream,
-  createWriteStream,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -15,11 +12,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, parse, relative, resolve } from "node:path";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import { UserError } from "../command.ts";
 import { listJobs } from "../jobs.ts";
 import type { ModelsRegistry } from "../types.ts";
+import { copyFileAtomic } from "./atomic.ts";
 import { gb } from "./fit/verdict.ts";
 import { sha256File } from "./hash.ts";
 import { downloadDeps } from "./models-download.ts";
@@ -248,31 +244,6 @@ export function planSetDir(
   return plan;
 }
 
-async function copyChecked(from: string, to: string, signal: AbortSignal, onBytes: (n: number) => void): Promise<void> {
-  mkdirSync(dirname(to), { recursive: true });
-  const part = `${to}.part`;
-  const src = createHash("sha256");
-  await pipeline(
-    createReadStream(from),
-    new Transform({
-      transform(chunk: Buffer, _e, done) {
-        src.update(chunk);
-        onBytes(chunk.length);
-        done(null, chunk);
-      },
-    }),
-    createWriteStream(part),
-    { signal },
-  );
-  const a = src.digest("hex");
-  const b = await sha256File(part, signal);
-  if (a !== b) {
-    rmSync(part, { force: true });
-    throw new UserError(`The copy of ${from} differs from the original (SHA-256): nothing was changed.`, "Retry.");
-  }
-  renameSync(part, to);
-}
-
 export function pruneEmpty(dir: string, stop: string): void {
   for (let d = dir; inside(d, stop) && norm(d) !== norm(stop); d = dirname(d)) {
     try {
@@ -351,9 +322,13 @@ export async function applySetDir(
           done += s.bytes;
           opts.onProgress(done, total, it.what);
         } else {
-          await copyChecked(s.from, s.to, opts.signal, (n) => {
-            done += n;
-            opts.onProgress(done, total, it.what);
+          await copyFileAtomic(s.from, s.to, {
+            signal: opts.signal,
+            verify: true,
+            onBytes: (n) => {
+              done += n;
+              opts.onProgress(done, total, it.what);
+            },
           });
           written.push(s.to);
         }
@@ -371,7 +346,7 @@ export async function applySetDir(
     }
     for (const { steps } of work)
       for (const s of steps.filter((x) => !x.present)) {
-        rmSync(`${s.to}.part`, { force: true });
+        rmSync(`${s.to}.tmp`, { force: true });
         pruneEmpty(dirname(s.to), plan.dir);
       }
     if (opts.signal.aborted) return { cancelled: true };
@@ -402,12 +377,12 @@ export async function copyTree(
       const dest = statSync(from).isFile() ? to : join(target, relative(root, file));
       if (existsSync(dest))
         throw new UserError(`${dest} already exists: nothing was changed.`, "Remove it, or use --keep.");
-      await copyChecked(file, dest, signal, onBytes);
+      await copyFileAtomic(file, dest, { signal, onBytes, verify: true });
       written.push(dest);
     }
   } catch (e) {
     for (const f of written) rmSync(f, { force: true });
-    for (const f of walk(target)) if (f.endsWith(".part")) rmSync(f, { force: true });
+    for (const f of walk(target)) if (f.endsWith(".tmp")) rmSync(f, { force: true });
     pruneEmpty(target, dirname(target));
     throw e;
   }

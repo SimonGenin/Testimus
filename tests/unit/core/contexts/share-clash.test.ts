@@ -18,17 +18,17 @@ afterEach(() => {
 });
 
 describe("sharing a context whose id the library already holds", () => {
-  it("is refused, and the project's context stays where it is", () => {
+  it("is refused, and the project's context stays where it is", async () => {
     const mine = createContext(P, { name: "Positions", notes: "mine" });
     writeContextFile(join(sharedContexts(), mine.id), { name: "Someone else's", paths: [], notes: "theirs" });
-    expect(() => shareContext(P, mine.id, true)).toThrow(`A context ${mine.id} is already there.`);
+    await expect(shareContext(P, mine.id, true)).rejects.toThrow(`A context ${mine.id} is already there.`);
     expect(existsSync(join(P, "contexts", mine.id, "context.md"))).toBe(true);
     expect(showContext(P, mine.id)).toMatchObject({ name: "Positions", shared: false, notes: "mine" });
   });
 
-  it("asking for the state it already has changes nothing", () => {
+  it("asking for the state it already has changes nothing", async () => {
     const mine = createContext(P, { name: "Positions", notes: "mine" });
-    expect(shareContext(P, mine.id, false)).toMatchObject({ id: mine.id, shared: false });
+    expect(await shareContext(P, mine.id, false)).toMatchObject({ id: mine.id, shared: false });
     expect(existsSync(join(P, "contexts", mine.id))).toBe(true);
   });
 });

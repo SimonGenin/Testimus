@@ -30,7 +30,7 @@ export function refdocDir(): string {
   return join(env.localDir(), "reference", REFDOC.id);
 }
 
-function syncRefdoc(): string {
+async function syncRefdoc(): Promise<string> {
   const src = refdocSource();
   if (!existsSync(join(src, "eval", "behaviors.jsonl")))
     throw new UserError(`The reference document is missing from ${src}.`, "Reinstall Testimus.");
@@ -38,7 +38,7 @@ function syncRefdoc(): string {
   writeAtomic(join(dir, "project.json"), readFileSync(join(src, "project.json")));
   for (const part of ["docs", "eval"]) {
     rmSync(join(dir, part), { recursive: true, force: true });
-    copyDirAtomic(join(src, part), join(dir, part));
+    await copyDirAtomic(join(src, part), join(dir, part));
   }
   return dir;
 }
@@ -53,8 +53,8 @@ export async function measureRefdoc(ctx: Ctx, choice: RagChoice): Promise<EvalRe
   return measureVariant(ctx, r.variant, "pack" in choice ? pack(choice.pack)?.retrieval : undefined);
 }
 
-export function measureVariant(ctx: Ctx, v: PackVariant, retrieval?: RetrievalOverride): Promise<EvalReport> {
-  const dir = syncRefdoc();
+export async function measureVariant(ctx: Ctx, v: PackVariant, retrieval?: RetrievalOverride): Promise<EvalReport> {
+  const dir = await syncRefdoc();
   return runEval(
     dir,
     { ...ctx, project: dir },

@@ -4,7 +4,7 @@ import { createServer } from "node:net";
 import os from "node:os";
 import { basename, dirname, join } from "node:path";
 import { killChildrenOnExit, run, start } from "../../../shared/run/process.ts";
-import { awake, sleep, TimeoutError, watch } from "../../../shared/run/work.ts";
+import { awake, semaphore, sleep, TimeoutError, watch } from "../../../shared/run/work.ts";
 import { UserError } from "../../command.ts";
 import { env } from "../../env.ts";
 import { withProcess } from "../../jobs.ts";
@@ -79,9 +79,20 @@ type FfOptions = {
   onLine?: (line: string) => void;
 };
 
+// ponytail: at most two ffmpeg at once on this PC, whatever the conversions running — each reads a whole video and
+// draws its frames; the others wait their turn
+export const FFMPEG_AT_ONCE = 2;
+const ffmpegs = semaphore(FFMPEG_AT_ONCE);
+
+function ff(args: string[], signal: AbortSignal, o: FfOptions = {}) {
+  return ffmpegs(() => ffNow(args, signal, o), signal).catch((e) => {
+    throw signal.aborted ? cancelled() : e;
+  });
+}
+
 // ponytail: ffmpeg is given no fixed deadline — a three-hour video is not a failure. It says how far it is
 // (-progress), and it is stopped only when it has said nothing for two minutes; a PC that slept is not stuck (watch)
-async function ff(args: string[], signal: AbortSignal, o: FfOptions = {}) {
+async function ffNow(args: string[], signal: AbortSignal, o: FfOptions = {}) {
   const w = watch(QUIET_MS, signal);
   try {
     const r = await withProcess(

@@ -204,13 +204,14 @@ describe("planSetDir — the edges", () => {
 });
 
 describe("copyTree", () => {
-  it("a cancel in the middle of a file removes its .part", async () => {
+  it("a cancel in the middle of a file removes its .tmp", async () => {
     const from = join(base, "big");
     put(join(from, "big.bin"), Buffer.alloc(3 * 1024 * 1024, 5));
     const to = join(base, "bigdst");
     const ctl = new AbortController();
     await expect(copyTree(from, to, ctl.signal, () => ctl.abort())).rejects.toThrow();
-    expect(existsSync(join(to, "big.bin.part"))).toBe(false);
+    expect(existsSync(join(to, "big.bin.tmp"))).toBe(false);
+    expect(existsSync(join(to, "big.bin"))).toBe(false);
   });
 
   it("copies a folder, refuses an existing target file and rolls back", async () => {

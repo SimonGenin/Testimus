@@ -275,7 +275,11 @@ export function createLocalTest(project: string, test: Test, fieldOrder: readonl
   return id;
 }
 
-export function cloneLocalTest(project: string, fromId: string, fieldOrder: readonly string[] = []): string {
+export async function cloneLocalTest(
+  project: string,
+  fromId: string,
+  fieldOrder: readonly string[] = [],
+): Promise<string> {
   const { test } = readTest(project, fromId);
   const from = testDir(project, fromId);
   const id = createLocalTest(
@@ -301,7 +305,7 @@ export function cloneLocalTest(project: string, fromId: string, fieldOrder: read
     },
     fieldOrder,
   );
-  if (existsSync(join(from, "images"))) copyDirAtomic(join(from, "images"), join(testDir(project, id), "images"));
+  if (existsSync(join(from, "images"))) await copyDirAtomic(join(from, "images"), join(testDir(project, id), "images"));
   return id;
 }
 

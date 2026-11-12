@@ -2,7 +2,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSyn
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { writeAtomic } from "./atomic.ts";
+import { copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { osUser } from "./review.ts";
 import { type RunResult, readResult, readRunFile, resultFile, runDir } from "./runs.ts";
 
@@ -49,7 +49,7 @@ const embed = (data: unknown) => JSON.stringify(data).replace(/</g, "\\u003c");
 
 export type ExportInput = { run: string; dir: string; results?: boolean };
 
-export function exportRun(project: string, input: ExportInput) {
+export async function exportRun(project: string, input: ExportInput) {
   const dir = outsidePath(input.dir, "The export folder");
   if (existsSync(dir) && (!statSync(dir).isDirectory() || readdirSync(dir).length))
     throw new UserError(`${dir} is not empty.`, "Pick a new or empty folder: an export never writes over another.");
@@ -85,10 +85,13 @@ export function exportRun(project: string, input: ExportInput) {
     } else put(f, f.endsWith(".cmd") ? text.replace(/\r?\n/g, "\r\n") : text);
   }
   put("run.json", `${JSON.stringify(pages, null, 2)}\n`);
-  for (const rel of filesUnder(from, "images")) put(rel, readFileSync(join(from, rel)));
+  const copy = async (rel: string) => {
+    await copyFileAtomic(join(from, rel), join(dir, rel));
+    files++;
+  };
+  for (const rel of filesUnder(from, "images")) await copy(rel);
   if (withResults)
     for (const rel of filesUnder(from, "results"))
-      if (/^results\/[^/]+\.json$/.test(rel) ? results[basename(rel, ".json")] : true)
-        put(rel, readFileSync(join(from, rel)));
+      if (/^results\/[^/]+\.json$/.test(rel) ? results[basename(rel, ".json")] : true) await copy(rel);
   return { run: input.run, dir, files, tests: run.tests.length, results: Object.keys(results).length };
 }

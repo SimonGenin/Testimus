@@ -135,7 +135,7 @@ describe("a folder import", () => {
 });
 
 describe("several conversions at once", () => {
-  it("a conversion waiting for a slot says so, and the list says how many go, wait, and the one index run after", () => {
+  it("a conversion waiting for a slot says so, and the list says how many go, wait, and that each is indexed as it ends", () => {
     const step = (id: string, s: "running" | "done" | "waiting") => ({ id, label: id, status: s });
     const going = (id: string, at: number) =>
       job({ id, subject: id, startedAt: iso(at), steps: [step("convert", "running"), step("index", "waiting")] });
@@ -154,7 +154,7 @@ describe("several conversions at once", () => {
       ["C", "waiting", "Waiting to convert"],
       ["D", "waiting", "Waiting to convert"],
     ]);
-    expect(conversionsLine(rows)).toBe("Converting 2 at a time · 2 waiting · then one index run");
+    expect(conversionsLine(rows)).toBe("Converting 2 at a time · 2 waiting · indexed as they end");
     expect(conversionsLine(rows.slice(0, 1))).toBeNull();
     const noIndex = uploadsOf([job({ id: "X", subject: "X" }), job({ id: "Y", subject: "Y" })], [], view());
     expect(conversionsLine(noIndex)).toBe("Converting 2 at a time");

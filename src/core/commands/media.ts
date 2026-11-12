@@ -6,10 +6,29 @@ import { readPictures } from "../claude/media.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { claudeVersion } from "../claude/status.ts";
 import { command, projectOf, UserError } from "../command.ts";
+import { WEIGHT_MB } from "../lib/agents.ts";
 import { docDir, readDoc, readFigures, writeFigures } from "../lib/docs.ts";
-import { afterConversion, convertSteps, inSlot, recheckCiting, runOf, withIndex } from "../lib/docs-pipeline.ts";
+import {
+  afterConversion,
+  convertSteps,
+  copying,
+  inSlot,
+  recheckCiting,
+  runOf,
+  weightOf,
+  withIndex,
+} from "../lib/docs-pipeline.ts";
 import { ffmpegOrFail } from "../lib/ffmpeg.ts";
-import { copyMediaFiles, dropMediaFile, filesOf, imageAnchor, ordered, type Rejected } from "../lib/media.ts";
+import {
+  copyMediaFiles,
+  dropMediaFile,
+  filesOf,
+  imageAnchor,
+  isVideo,
+  nameOf,
+  ordered,
+  type Rejected,
+} from "../lib/media.ts";
 import { frameAnchor, readFixes, readVideo, transcriptLines, writeMediaMd, writeVideo } from "../lib/media-md.ts";
 import { migrateMedia } from "../lib/media-migrate.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
@@ -117,23 +136,32 @@ export const commands = [
       ctx.steps?.(steps);
       let added: MediaFile[] = [];
       let rejected: Rejected[] = [];
-      const r = await inSlot(ctx, project, steps, async () => {
-        ctx.step?.("copy");
-        ({ added, rejected } = await copyMediaFiles(project, input.doc, input.files, ctx.signal));
-        if (input.video)
-          for (const f of added.filter((x) => x.kind === "video")) applyChoices(project, input.doc, f.n, input.video);
-        if (!added.length) ctx.log("warn", `No file was added: ${rejected[0]?.why ?? "nothing given"}`);
-        ctx.step?.("convert");
-        const d = await convertMedia(ctx, project, input.doc, {
-          read: input.describeFigures ?? true,
-          run: runOf(input),
-        });
-        return afterConversion(ctx, project, d, runOf(input), {
-          describeFigures: false,
-          study: true,
-          index: input.index,
-        });
-      });
+      const weight = input.files.some((f) => isVideo(nameOf(f)))
+        ? WEIGHT_MB.video
+        : weightOf(readDoc(project, input.doc));
+      const r = await inSlot(
+        ctx,
+        project,
+        steps,
+        async () => {
+          ctx.step?.("copy");
+          ({ added, rejected } = await copyMediaFiles(project, input.doc, input.files, ctx.signal, copying(ctx)));
+          if (input.video)
+            for (const f of added.filter((x) => x.kind === "video")) applyChoices(project, input.doc, f.n, input.video);
+          if (!added.length) ctx.log("warn", `No file was added: ${rejected[0]?.why ?? "nothing given"}`);
+          ctx.step?.("convert");
+          const d = await convertMedia(ctx, project, input.doc, {
+            read: input.describeFigures ?? true,
+            run: runOf(input),
+          });
+          return afterConversion(ctx, project, d, runOf(input), {
+            describeFigures: false,
+            study: true,
+            index: input.index,
+          });
+        },
+        weight,
+      );
       return outOf(project, input.doc, {
         added: added.map((f) => f.n),
         rejected,
@@ -453,7 +481,7 @@ export const commands = [
     }),
     mutates: true,
     async run(ctx, input) {
-      return migrateMedia(projectOf(ctx), input.dryRun);
+      return await migrateMedia(projectOf(ctx), input.dryRun);
     },
   }),
 ];

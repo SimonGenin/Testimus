@@ -17,12 +17,26 @@ function bytesOf(dir: string): number {
   return sum;
 }
 
+// ponytail: a video document's folder is walked again only when its doc.json moved — every step of a video's
+// conversion writes it once its files are on disk — so a batch of 33 videos does not walk every video folder for each
+const sized = new Map<string, { mtime: number; bytes: number }>();
+
+function folderBytes(project: string, id: string): number {
+  const dir = docDir(project, id);
+  const mtime = statSync(join(dir, "doc.json")).mtimeMs;
+  const had = sized.get(dir);
+  if (had?.mtime === mtime) return had.bytes;
+  const bytes = bytesOf(dir);
+  sized.set(dir, { mtime, bytes });
+  return bytes;
+}
+
 // ponytail: the room the project's videos take — the folder of every document holding one (the original, the lighter
 // copy, the sound in pieces, the key frames); a written document or one of images alone is not counted
 export function videosMB(project: string): number {
   let sum = 0;
   for (const id of docIds(project))
-    if ((readDoc(project, id).source.files ?? []).some((f) => f.kind === "video")) sum += bytesOf(docDir(project, id));
+    if ((readDoc(project, id).source.files ?? []).some((f) => f.kind === "video")) sum += folderBytes(project, id);
 
   return Math.round(sum / MB);
 }
@@ -41,11 +55,16 @@ export function overCap(project: string, addBytes: number): { usedMB: number; ca
   return usedMB + addBytes / MB > cap ? { usedMB, capMB: cap } : null;
 }
 
-// ponytail: the drive is looked at before a video is copied in, never found full halfway — the copy, then about a
-// half more for the sound in pieces, the frames and a lighter copy, and 200 MB so the drive is not left full
-export function shortOfRoom(project: string, addBytes: number): { needMB: number; freeMB: number } | null {
+// ponytail: the drive is looked at before any file is copied in, from its size alone, never found full halfway — the
+// copy, about a half more for a video (the sound in pieces, the frames, a lighter copy), and 200 MB so the drive is not
+// left full
+export function shortOfRoom(
+  project: string,
+  addBytes: number,
+  video = false,
+): { needMB: number; freeMB: number } | null {
   const free = freeMB(project);
   if (free === null) return null;
-  const needMB = Math.ceil((addBytes * 1.5) / MB) + 200;
+  const needMB = Math.ceil((addBytes * (video ? 1.5 : 1)) / MB) + 200;
   return needMB > free ? { needMB, freeMB: free } : null;
 }

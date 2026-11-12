@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { resetProbe } from "../../../../src/core/claude/status.ts";
 import { type ClaudeOut, type ClaudeSpawn, env } from "../../../../src/core/env.ts";
 import { listJobs } from "../../../../src/core/jobs.ts";
-import { indexAfterConversions, whileConverting } from "../../../../src/core/lib/docs-index.ts";
+import { queueIndex, whileConverting } from "../../../../src/core/lib/docs-index.ts";
 import { pairFiles } from "../../../../src/core/lib/docs-pipeline.ts";
 import { sampleDocx } from "../../../fixtures/docx/sample.ts";
 import { taggedPdf } from "../../../fixtures/pdf/tagged.ts";
@@ -141,43 +141,90 @@ describe("the index queue", () => {
     return { p, open };
   };
 
-  it("runs at once when nothing is converting, waits for conversions, and shares a waiting run", async () => {
+  it("runs at once when no pass is running, never waits for a conversion, and shares a waiting pass", async () => {
     const P = fixtureCopy("queue");
     const order: string[] = [];
-    expect(await indexAfterConversions(P, async () => "now")).toBe("now");
+    expect(await queueIndex(P, async () => "now")).toBe("now");
     const conv = later();
     const converting = whileConverting(P, () => conv.p.then(() => order.push("converted")));
+    expect(await queueIndex(P, async () => order.push("indexed"))).toBe(1);
+    const first = later();
     const said: string[] = [];
     let runs = 0;
     const run = async () => {
       runs++;
-      order.push("indexed");
       return runs;
     };
-    const a = indexAfterConversions(P, run, { waiting: (m) => said.push(m) });
-    const b = indexAfterConversions(P, run);
-    conv.open();
-    await converting;
+    const going = queueIndex(P, () => first.p.then(() => 0));
+    const a = queueIndex(P, run, { waiting: (m) => said.push(m) });
+    const b = queueIndex(P, run, { waiting: (m) => said.push(m) });
+    first.open();
+    expect(await going).toBe(0);
     expect(await a).toBe(1);
     expect(await b).toBe(1);
     expect(runs).toBe(1);
-    expect(order).toEqual(["converted", "indexed"]);
-    expect(said).toEqual(["Waiting for the other conversions"]);
+    conv.open();
+    await converting;
+    expect(order).toEqual(["indexed", "converted"]);
+    expect(said).toEqual([
+      "Waiting for the running index (5 documents before)",
+      "Waiting for the running index (5 documents before)",
+    ]);
+  });
+
+  it("three conversions ending at different times make two passes, the first before the third conversion ends", async () => {
+    const P = fixtureCopy("queue-passes");
+    const ends = [later(), later(), later()];
+    const pass = [later(), later(), later()];
+    const order: string[] = [];
+    let n = 0;
+    const index = () => {
+      const k = n++;
+      order.push(`pass ${k + 1}`);
+      return pass[k].p.then(() => order.push(`pass ${k + 1} done`));
+    };
+    const conversions = ends.map((e, i) =>
+      whileConverting(P, async () => {
+        await e.p;
+        order.push(`converted ${i + 1}`);
+        return queueIndex(P, index);
+      }),
+    );
+    ends[0].open();
+    await new Promise((r) => setImmediate(r));
+    expect(order).toEqual(["converted 1", "pass 1"]);
+    ends[1].open();
+    await new Promise((r) => setImmediate(r));
+    ends[2].open();
+    await new Promise((r) => setImmediate(r));
+    pass[0].open();
+    pass[1].open();
+    await Promise.all(conversions);
+    expect(order).toEqual([
+      "converted 1",
+      "pass 1",
+      "converted 2",
+      "converted 3",
+      "pass 1 done",
+      "pass 2",
+      "pass 2 done",
+    ]);
+    expect(n).toBe(2);
   });
 
   it("waits for a run in progress, and a cancelled waiter stops waiting", async () => {
     const P = fixtureCopy("queue2");
     const first = later();
-    const running = indexAfterConversions(P, () => first.p.then(() => "first"));
+    const running = queueIndex(P, () => first.p.then(() => "first"));
     const said: string[] = [];
     const ctl = new AbortController();
-    const cancelled = indexAfterConversions(P, async () => "second", {
+    const cancelled = queueIndex(P, async () => "second", {
       signal: ctl.signal,
       waiting: (m) => said.push(m),
     });
     ctl.abort();
     await expect(cancelled).rejects.toThrow();
-    expect(said).toEqual(["Waiting for the index run"]);
+    expect(said).toEqual(["Waiting for the running index (5 documents before)"]);
     first.open();
     expect(await running).toBe("first");
   });
@@ -186,8 +233,8 @@ describe("the index queue", () => {
     const P = fixtureCopy("queue3");
     const first = later();
     const order: string[] = [];
-    const running = indexAfterConversions(P, () => first.p.then(() => order.push("first")));
-    const next = indexAfterConversions(P, async () => order.push("second"));
+    const running = queueIndex(P, () => first.p.then(() => order.push("first")));
+    const next = queueIndex(P, async () => order.push("second"));
     expect(order).toEqual([]);
     first.open();
     await Promise.all([running, next]);

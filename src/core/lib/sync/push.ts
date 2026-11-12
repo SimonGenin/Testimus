@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { scope } from "../../../shared/run/work.ts";
 import { type Ctx, UserError } from "../../command.ts";
@@ -68,7 +69,7 @@ export async function pushTest(project: string, id: string): Promise<Push> {
     readImage: async (file) => {
       const path = testFilePath(dir, file);
       if (!path) throw new Error(`${file} is outside the test folder`);
-      return new Uint8Array(readFileSync(path));
+      return new Uint8Array(await readFile(path));
     },
     fields: xray.fields,
     labelPrefix: settings.labelPrefix,

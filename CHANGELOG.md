@@ -13,6 +13,9 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 - Dans le chat, demander à Claude de corriger la vue d'ensemble, un contexte ou la description d'une colonne donne une proposition montrée en différences sous la réponse : « Apply » l'écrit, « Ignore » la laisse, « Revert » la défait.
 - Ce que les conversations ont tranché (décisions, vocabulaire, préférences d'écriture) est gardé par Claude après chaque réponse dans un contexte « Conversations », donné à tous les runs et décochable comme les autres ; « Don't remember this conversation » dans le chat l'en empêche.
 - Les réponses de Claude (chat, vue d'ensemble, diagnostics) s'affichent mises en forme : titres, listes, gras, tableaux, code et citations, au lieu du Markdown brut.
+- Une copie en cours (même une vidéo de plusieurs Go) s'annule pour de vrai et dit où elle en est en octets (« Copying VID.mp4 — 2.1 / 5.4 GB », et le fichier sur combien dans un import de dossier) ; chaque fichier n'est lu qu'une fois, et la place libre du disque est vérifiée avant de le lire, pour tous les fichiers (Word, PDF, images), plus seulement les vidéos.
+- Pendant un import, chaque document devient cherchable peu après sa propre conversion : l'index n'attend plus la fin de toutes les conversions, seulement le passage d'index en cours (« Waiting for the running index (N documents before) »).
+- Les conversions s'adaptent à la machine pendant l'import : une vidéo compte pour plus de mémoire qu'un Word (trois vidéos ne partent pas ensemble sur un PC à 16 Go), au plus deux ffmpeg à la fois, et le tri des images d'une vidéo prend moins de processeur.
 
 ## 0.0.9
 

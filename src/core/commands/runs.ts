@@ -113,7 +113,7 @@ export const commands = [
         return { id, ...(r?.key ? { key: r.key } : {}), summary: r?.summary ?? id };
       });
       if (input.dryRun) return { dryRun: true, tests };
-      const slug = createRun(project, { ...input, ids });
+      const slug = await createRun(project, { ...input, ids });
       return { slug, dryRun: false, tests };
     },
   }),
@@ -184,7 +184,7 @@ export const commands = [
     mutates: true,
     positional: ["run", "test"],
     subject: (i) => `${i.run} ${i.test}`,
-    run: async (ctx, input) => viewed(attachCapture(projectOf(ctx), input.run, input.test, input)),
+    run: async (ctx, input) => viewed(await attachCapture(projectOf(ctx), input.run, input.test, input)),
   }),
 
   command({
