@@ -40,6 +40,7 @@ const TONE: Record<string, Tone> = {
   columns: "claude",
   claude: "claude",
   chat: "claude",
+  learn: "claude",
   "actions.triage": "claude",
   "gen-bench": "claude",
 };
