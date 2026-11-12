@@ -14,7 +14,21 @@ import { mcpServer, runClaude } from "../../../../src/core/claude/run.ts";
 import { claudeVersion, forShell, resetProbe } from "../../../../src/core/claude/status.ts";
 import { invoke, registry } from "../../../../src/core/commands/index.ts";
 import { DEFAULT_SETTINGS, readProject, writeProject, writeSettings } from "../../../../src/core/lib/project.ts";
-import { allowed, argOf, checked, denied, dir, fake, isCheck, isGen, NEVER, reported, seen, win } from "./run-fakes.ts";
+import {
+  allowed,
+  argOf,
+  checked,
+  denied,
+  dir,
+  fake,
+  isCheck,
+  isGen,
+  NEVER,
+  probes,
+  reported,
+  seen,
+  win,
+} from "./run-fakes.ts";
 
 describe("each run kind gets its own MCP allow-list", () => {
   it("read-only = mutates:false, no job, nothing that starts Claude or touches the app", async () => {
@@ -210,7 +224,7 @@ describe("nothing unvalidated reaches cmd", () => {
     fake(() => ({ out: { stdout: "2.1.0 (Claude Code)\n" } }));
     resetProbe();
     expect(await claudeVersion(true)).toEqual({ ok: true, text: "2.1.0 (Claude Code)" });
-    expect(seen[0]).toMatchObject({ exe: `"${exe}"`, args: ["--version"] });
+    expect(probes[0]).toMatchObject({ exe: `"${exe}"`, args: ["--version"] });
     resetProbe();
   });
 });

@@ -19,6 +19,7 @@ export const win = process.platform === "win32";
 
 export let dir: string;
 export let seen: ClaudeSpawn[] = [];
+export let probes: ClaudeSpawn[] = [];
 
 export const tool = toolLine;
 export const toolResult = (id: string, text: string) =>
@@ -36,7 +37,10 @@ export type Script = {
 
 export function fake(pick: (s: ClaudeSpawn) => Script) {
   env.spawnClaude = async (s) => {
-    if (s.args.includes("--version")) return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
+    if (s.args.includes("--version")) {
+      probes.push(s);
+      return { code: 0, stdout: "2.1.0 (Claude Code)\n", stderr: "" };
+    }
     seen.push(s);
     const sc = pick(s);
     await sc.during?.(s);
@@ -75,6 +79,7 @@ beforeEach(() => {
   markIndexed(dir);
   writeSettings({ ...DEFAULT_SETTINGS, claude: { exe: "C:/bin/claude.exe" } });
   seen = [];
+  probes = [];
 });
 afterEach(() => {
   env.spawnClaude = real;
