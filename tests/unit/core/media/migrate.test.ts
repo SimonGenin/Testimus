@@ -90,13 +90,16 @@ describe("media.migrate", () => {
   });
 
   it("that fails when a project opens (a file held) is tried again by the next command", async () => {
-    chmodSync(join(P, "docs"), 0o555);
+    const win = process.platform === "win32";
+    const held = win ? join(P, "docs", PARENT, "doc.json") : join(P, "docs");
+    chmodSync(held, win ? 0o444 : 0o555);
     try {
       await call("docs.list", {}, P);
     } finally {
-      chmodSync(join(P, "docs"), 0o755);
+      chmodSync(held, win ? 0o644 : 0o755);
     }
-    expect(existsSync(join(P, "docs", NEW))).toBe(false);
+    if (!win) expect(existsSync(join(P, "docs", NEW))).toBe(false);
+    expect(doc(PARENT).media).toBeDefined();
     await call("docs.list", {}, P);
     expect(existsSync(join(P, "docs", NEW, "doc.json"))).toBe(true);
     expect(doc(PARENT).media).toBeUndefined();

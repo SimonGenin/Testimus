@@ -188,13 +188,24 @@ describe("runs.import", () => {
   });
 });
 
+// ponytail: a file link needs a privilege Windows gives only in developer mode; a folder link (junction) needs none
+function linkIfAllowed(target: string, path: string): boolean {
+  try {
+    symlinkSync(target, path);
+    return true;
+  } catch (e) {
+    if (process.platform === "win32" && (e as NodeJS.ErrnoException).code === "EPERM") return false;
+    throw e;
+  }
+}
+
 describe("runs.import reads what came from another PC as untrusted", () => {
   it("never follows a link: a screenshot that points elsewhere on this PC, or sits in a linked folder, is left out", async () => {
     await call("runs.export", { run: RUN, dir: out }, project);
     const secret = join(out, "..", "id_rsa");
     writeFileSync(secret, "SECRET-KEY-MATERIAL");
     mkdirSync(join(out, "results", "LFRPS12-1398"), { recursive: true });
-    symlinkSync(secret, join(out, "results", "LFRPS12-1398", "capture-1.png"));
+    const fileLink = linkIfAllowed(secret, join(out, "results", "LFRPS12-1398", "capture-1.png"));
     writeJson(join(out, "results", "LFRPS12-1398.json"), {
       status: "passed",
       steps: [{ ok: true }],
@@ -205,11 +216,12 @@ describe("runs.import reads what came from another PC as untrusted", () => {
     expect(plan).toMatchObject({ results: 1, attachments: 0 });
     await call("runs.import", { dir: out }, project);
     expect(existsSync(join(project, "test-runs", RUN, "results", "LFRPS12-1398", "capture-1.png"))).toBe(false);
+    if (!fileLink) expect(process.platform).toBe("win32");
 
     const elsewhere = join(out, "..", "elsewhere");
     mkdirSync(elsewhere, { recursive: true });
     writeFileSync(join(elsewhere, "capture-2.png"), "SECRET");
-    symlinkSync(elsewhere, join(out, "results", "LFRPS12-1420"));
+    symlinkSync(elsewhere, join(out, "results", "LFRPS12-1420"), "junction");
     writeJson(join(out, "results", "LFRPS12-1420.json"), {
       ...json(join(out, "results", "LFRPS12-1420.json")),
       attachments: [{ file: "capture-2.png" }],
