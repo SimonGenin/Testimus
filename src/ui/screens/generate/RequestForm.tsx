@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { DocRef, StepColumn } from "../../../core/types.ts";
 import { changed } from "../../components/claude/pieces.ts";
 import { Button } from "../../components/ui/Button.tsx";
+import { Checkbox } from "../../components/ui/Checkbox.tsx";
 import { Icon } from "../../components/ui/Icon.tsx";
 import { Menu } from "../../components/ui/Menu.tsx";
 import { Text } from "../../components/ui/Text.tsx";
@@ -152,6 +153,13 @@ export function RequestForm({
               />
             )
           }
+        />
+        <Checkbox
+          checked={form.review}
+          label="Review the plan before writing"
+          hint="Claude plans the tests first, with their themes and the questions to settle; nothing is written until you say so."
+          disabled={running ? "Claude is writing" : false}
+          onChange={form.setReview}
         />
       </div>
       <div {...stylex.props(styles.foot)}>

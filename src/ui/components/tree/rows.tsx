@@ -1,9 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
-import type { LocalTestRef, SyncState } from "../../../../core/types.ts";
-import { Avatar } from "../../../components/ui/Avatar.tsx";
-import { Badge, REVIEW, SYNC } from "../../../components/ui/Badge.tsx";
-import { type } from "../../../components/ui/type.ts";
-import { color, space } from "../../../styles/tokens.stylex.ts";
+import type { LocalTestRef, SyncState } from "../../../core/types.ts";
+import { testLabel } from "../../lib/labels.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
+import { Avatar } from "../ui/Avatar.tsx";
+import { Badge, REVIEW, SYNC } from "../ui/Badge.tsx";
+import { Button } from "../ui/Button.tsx";
+import type { ListItemProps } from "../ui/ListItem.tsx";
+import { type } from "../ui/type.ts";
 
 const styles = stylex.create({
   meta: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: space.s2, minWidth: 0 },
@@ -65,3 +68,25 @@ export function KeyText({ text }: { text: string }) {
 export function Where({ text }: { text: string }) {
   return <span {...stylex.props(styles.where)}>{text}</span>;
 }
+
+// a local test's row, in the tree or in the tests pane: its summary, its key and states, its trash
+export const testItem = (
+  r: LocalTestRef,
+  locked: ((id: string) => false | string) | undefined,
+  onDelete: (r: LocalTestRef) => void,
+): ListItemProps => ({
+  title: testLabel(r),
+  tooltip: testLabel(r),
+  meta: <TestMeta r={r} />,
+  actions: (
+    <Button
+      variant="quiet"
+      size="xs"
+      iconOnly
+      icon="trash"
+      label={`Delete the local copy of ${r.key ?? testLabel(r)}`}
+      disabled={locked?.(r.id) ?? false}
+      onClick={() => onDelete(r)}
+    />
+  ),
+});

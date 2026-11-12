@@ -6,13 +6,17 @@ test("a misplaced quote is not highlighted, and the panel lists no sources read"
   await boot(page, "#/generate");
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
+  await request.getByRole("checkbox", { name: "Review the plan before writing" }).uncheck();
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await request.getByRole("button", { name: /^Generate/ }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete and generate" }).click();
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await result
+    .getByRole("tree", { name: "Tests of the generation" })
+    .getByRole("treeitem", { name: /^Sectionneur avec TK/ })
+    .click();
+  await result
     .getByRole("region", { name: /^Sectionneur avec TK/ })
-    .first()
     .getByRole("button", { name: "Review", exact: true })
     .click();
   await expect(page).toHaveURL(/#\/(tests|review)\/local-[0-9a-f]{8}$/);

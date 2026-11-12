@@ -4,16 +4,18 @@ import { readFigures } from "../lib/docs.ts";
 import { readJson, writeJson } from "../lib/project.ts";
 import { normalizeRef, parseAnchor } from "../rag/anchors.ts";
 import { docFigures, parseSections, type Section } from "../rag/chunk.ts";
+import { asPlan, type Settled, type TestPlan } from "./gen-plan.ts";
 import type { GenInput } from "./gen-prompt.ts";
-import { asSkipped, type Skipped, type TestPlan } from "./gen-reply.ts";
+import { asSkipped, type Skipped } from "./gen-reply.ts";
 import type { ToolCall } from "./stream.ts";
 
 export type Searched = { tool: string; query: string };
 export type Ledger = { consulted: string[]; searched: Searched[] };
 
 // ponytail: .testimus/gen/<generation>.json — one per generation (named by its job, or the generation it resumes):
-// what was asked, the run, the tests written, what the run opened and searched, its plan; the full result is
-// added when the generation ends. Written by generate.ts, read here only
+// what was asked, the run, the tests written, what the run opened and searched, its plan (and while it waits for the
+// user's go, its state, the session to revise it in and the questions settled); the full result is added when the
+// generation ends. Written by generate.ts and gen-replan.ts, read here only
 export type GenLedger = Ledger & {
   at?: string;
   input?: GenInput;
@@ -21,6 +23,12 @@ export type GenLedger = Ledger & {
   tests?: string[];
   plan?: TestPlan;
   done?: number[];
+  /** planned: the plan waits for the user's go (gen.write) — nothing is written yet */
+  state?: "planned";
+  /** the Claude Code session of the plan's run: revising the plan resumes it */
+  session?: string;
+  /** the questions of the plan the user answered */
+  settled?: Settled[];
   reportedConsulted?: string[];
   skipped?: Skipped[];
   suggestions?: Suggestion[];
@@ -30,6 +38,8 @@ export type GenLedger = Ledger & {
 export type Suggestion = { label: string; prompt: string; scope?: "add" };
 
 const genLedgerFile = (project: string, generation: string) => join(project, ".testimus", "gen", `${generation}.json`);
+/** a generation's ledger, relative to the project */
+export const ledgerPath = (generation: string) => `.testimus/gen/${generation}.json`;
 
 export function writeLedger(project: string, generation: string, ledger: GenLedger & Record<string, unknown>): void {
   writeJson(genLedgerFile(project, generation), ledger);
@@ -126,6 +136,7 @@ export function readLedger(project: string, jobId: string | undefined): (GenLedg
   if (!jobId || !/^[\w.-]+$/.test(jobId)) return null;
   const l = readJson<Record<string, unknown> | null>(genLedgerFile(project, jobId), null);
   if (!l || !Array.isArray(l.consulted)) return null;
+  const plan = asPlan(l.plan, asSkipped((l.plan as { skipped?: unknown } | undefined)?.skipped));
   return {
     jobId,
     consulted: strings(l.consulted),
@@ -136,12 +147,24 @@ export function readLedger(project: string, jobId: string | undefined): (GenLedg
     ...(l.input && typeof l.input === "object" ? { input: l.input as GenInput } : {}),
     ...(typeof l.runId === "string" ? { runId: l.runId } : {}),
     ...(Array.isArray(l.tests) ? { tests: strings(l.tests) } : {}),
-    ...(l.plan && typeof l.plan === "object" ? { plan: l.plan as TestPlan } : {}),
+    ...(plan ? { plan } : {}),
+    ...(l.state === "planned" ? { state: "planned" as const } : {}),
+    ...(typeof l.session === "string" ? { session: l.session } : {}),
+    ...(Array.isArray(l.settled) ? { settled: asSettled(l.settled) } : {}),
     ...(Array.isArray(l.done) ? { done: l.done.filter((n): n is number => typeof n === "number") } : {}),
     ...(Array.isArray(l.reportedConsulted) ? { reportedConsulted: strings(l.reportedConsulted) } : {}),
     ...(Array.isArray(l.skipped) ? { skipped: asSkipped(l.skipped) } : {}),
     ...(Array.isArray(l.suggestions) ? { suggestions: asSuggestions(l.suggestions) } : {}),
   };
+}
+
+function asSettled(v: unknown[]): Settled[] {
+  return v.flatMap((u) => {
+    const o = (u ?? {}) as Record<string, unknown>;
+    return typeof o.text === "string" && typeof o.answer === "string" && o.text.trim() && o.answer.trim()
+      ? [{ id: typeof o.id === "string" ? o.id : "", text: o.text.trim(), answer: o.answer.trim() }]
+      : [];
+  });
 }
 
 function asSuggestions(v: unknown[]): Suggestion[] {

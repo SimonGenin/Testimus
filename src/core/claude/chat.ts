@@ -3,11 +3,14 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { generationName } from "../lib/names.ts";
 import { readJson, readProject, writeJson } from "../lib/project.ts";
 import { proposalsOf } from "../lib/proposals.ts";
 import type { ChatProblem, ChatSession, ClaudeEvent, Diagnosis, Effort, Proposal, Source, Tokens } from "../types.ts";
 import { proposeLines } from "./actions.ts";
+import { planText, settledLines } from "./gen-plan.ts";
 import { GIVEN_SLOT, given } from "./given.ts";
+import { readLedger } from "./ledger.ts";
 import { chatPrompt, type PromptTemplate, problemPrompt } from "./prompt.ts";
 import { newRunId, runClaude } from "./run.ts";
 
@@ -45,6 +48,21 @@ export function listChats(project: string): { id: string; title: string; updated
     .filter((c): c is ChatSession => !!c?.id)
     .map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, turns: c.turns.length }))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+// ponytail: the plan Generate shows while it waits for the user's go — the chat has it, may answer its questions in
+// words, and proposes a new plan (gen.planPropose) the user applies; it never writes it
+export function planLines(project: string, generation: string, runId: string): string[] {
+  const l = readLedger(project, generation);
+  if (l?.state !== "planned" || !l.plan) return [];
+  return [
+    "",
+    `The user is reviewing on Generate the plan of « ${generationName(project, generation)} » (generation ${generation}) before any test is written:`,
+    planText(l.plan),
+    ...(l.settled?.length ? ["Questions the user settled:", ...settledLines(l.settled)] : []),
+    `A change to this plan is never written by you: propose it with gen_planPropose { runId: "${runId}", generation: "${generation}", plan: { tests: [{ summary, technique, sections, theme, off? }], questions? }, why } — the whole plan, the current one changed only where the user asked. The user records the answers to its questions on Generate.`,
+    "",
+  ];
 }
 
 const PROBLEM_EXAMPLES =
@@ -90,6 +108,8 @@ export type AskOpts = {
   conversation?: string;
   /** a problem the app met: the conversation is about it, not the documents */
   problem?: ChatProblem;
+  /** a generation whose plan waits on Generate: the chat has it and may propose a new one */
+  generation?: string;
   signal?: AbortSignal;
   onEvent?(e: ClaudeEvent): void;
 };
@@ -131,7 +151,13 @@ export async function ask(o: AskOpts): Promise<AskResult> {
       project: o.project,
       prompt: problem
         ? problemPrompt(o.question, problem, p.language, proposeLines(runId, PROBLEM_EXAMPLES), g.lines)
-        : chatPrompt(o.question, p.language, g.lines, runId),
+        : chatPrompt(
+            o.question,
+            p.language,
+            g.lines,
+            runId,
+            o.generation ? planLines(o.project, o.generation, runId) : [],
+          ),
       model: o.model || p.claude.model,
       effort: o.effort || p.claude.effort,
       kind,

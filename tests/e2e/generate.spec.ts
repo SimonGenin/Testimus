@@ -3,14 +3,25 @@ import { api, boot, expect, mockServer, shoot, test } from "./helpers.ts";
 
 const server = mockServer(4348);
 
+// ponytail: these requests are written at once — the plan reviewed first is generate-plan.spec's
+const atOnce = (page: Page) =>
+  page
+    .getByRole("region", { name: "Request" })
+    .getByRole("checkbox", { name: "Review the plan before writing" })
+    .uncheck();
+
 test("a request runs live, the tests land, and « Review these tests » opens them", async ({ page }) => {
   const before = (await api<unknown[]>(server.url, "tests.list")).length;
   await boot(page, "#/generate");
   await expect(page.getByRole("heading", { level: 1, name: "Generate" })).toBeVisible();
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
+  await expect(request.getByText("All documents (5)")).toBeVisible();
+  await request.getByRole("button", { name: "Narrow…" }).click();
   const docs = request.getByRole("list", { name: "Documents in scope" });
-  await expect(docs.getByRole("checkbox")).toHaveCount(5);
+  await expect(docs.getByRole("checkbox")).toHaveCount(2);
+  for (let more = docs.getByRole("button", { name: /^Unfold/ }); await more.count(); ) await more.first().click();
+  await expect(docs.getByRole("checkbox")).toHaveCount(7);
   for (const box of await docs.getByRole("checkbox").all()) await expect(box).toBeChecked();
   await expect(request.getByRole("button", { name: "Generate" })).toBeEnabled();
   await request.getByRole("button", { name: "Select none" }).click();
@@ -23,6 +34,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await docs
     .getByRole("listitem")
     .filter({ hasText: "Traction" })
+    .last()
     .getByRole("button", { name: "Only some sections…" })
     .click();
   await request
@@ -39,6 +51,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(passage).toHaveCount(0);
   await request.getByRole("button", { name: "Back to the whole document" }).click();
 
+  await atOnce(page);
   await request
     .getByRole("textbox", { name: "What should be tested?" })
     .fill("Le menu contextuel du sectionneur sur la vue de traction");
@@ -60,10 +73,13 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await expect(groups.first()).toHaveAccessibleName("No source for the expected result");
   await expect(groups.first().getByRole("listitem")).toHaveCount(2);
   await expect(groups.nth(1)).toHaveAccessibleName("Outside the request");
-  const landed = result.getByRole("region", { name: /^Sectionneur (sans|avec) TK/ });
-  await expect(landed).toHaveCount(2);
-  for (const card of await landed.all())
-    await expect(card.getByRole("button", { name: "Review", exact: true })).toBeVisible();
+  const landed = result.getByRole("tree", { name: "Tests of the generation" });
+  await expect(landed.getByRole("treeitem", { name: /^Sectionneur (sans|avec) TK/ })).toHaveCount(2);
+  await expect(
+    result
+      .getByRole("region", { name: /^Sectionneur (sans|avec) TK/ })
+      .getByRole("button", { name: "Review", exact: true }),
+  ).toBeVisible();
   await expect.poll(async () => (await api<unknown[]>(server.url, "tests.list")).length).toBe(before - 1 + 2);
   await expect(result.getByText("1 test not validated yet was deleted before this run.")).toBeVisible();
   await shoot(page, "generate-done");
@@ -88,6 +104,7 @@ test("a landed test opens for review with its findings", async ({ page }) => {
   await newRequest(page);
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
+  await atOnce(page);
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await request.getByRole("button", { name: /^Generate/ }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete and generate" }).click();
@@ -95,8 +112,11 @@ test("a landed test opens for review with its findings", async ({ page }) => {
   await expect(result.getByText("Claude is writing")).toBeVisible();
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
   await result
+    .getByRole("tree", { name: "Tests of the generation" })
+    .getByRole("treeitem", { name: /^Sectionneur avec TK/ })
+    .click();
+  await result
     .getByRole("region", { name: /^Sectionneur avec TK/ })
-    .first()
     .getByRole("button", { name: "Review", exact: true })
     .click();
   await expect(page).toHaveURL(/#\/(tests|review)\/local-[0-9a-f]{8}$/);
@@ -111,6 +131,7 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
   await boot(page, "#/generate");
   await newRequest(page);
   const result = page.getByRole("region", { name: "Result" });
+  await atOnce(page);
   await page.getByRole("textbox", { name: "What should be tested?" }).fill("Le menu contextuel du sectionneur");
   await page
     .getByRole("region", { name: "Request" })
@@ -132,13 +153,13 @@ test("after a generation, Claude is asked for changes on its tests, and its resu
   await expect(proposes).toContainText(/\d+ fix(es)? on \d+ tests?, each on its test at the right/);
   const fixes = /Fix \d+ (error|warning)s? in « Sectionneur (sans|avec) TK/;
   await expect(ask.getByText(fixes)).toHaveCount(0);
-  const onCards = page
-    .getByRole("region", { name: "Tests written" })
-    .getByRole("list", { name: "Fixes Claude proposes" });
-  await expect(onCards).toHaveCount(2);
-  await expect(onCards.first().getByRole("listitem")).toHaveCount(1);
-  await expect(onCards.first()).toContainText(fixes);
-  await expect(onCards.first().getByRole("button", { name: "Fix", exact: true }).first()).toBeVisible();
+  const written = page.getByRole("region", { name: "Tests written" });
+  await expect(written.getByRole("treeitem").filter({ hasText: /\d+ fix(es)?/ })).toHaveCount(2);
+  const onCards = written.getByRole("list", { name: "Fixes Claude proposes" });
+  await expect(onCards).toHaveCount(1);
+  await expect(onCards.getByRole("listitem")).toHaveCount(1);
+  await expect(onCards).toContainText(fixes);
+  await expect(onCards.getByRole("button", { name: "Fix", exact: true }).first()).toBeVisible();
   await ask.getByRole("combobox", { name: "Scope" }).click();
   await expect(page.getByRole("option", { name: /^The \d+ with a fix$/ })).toBeVisible();
   await page.keyboard.press("Escape");

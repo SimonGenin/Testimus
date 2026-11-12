@@ -95,8 +95,11 @@ test("tests are generated from an images document like from any other", async ({
   await boot(page, "#/generate");
   const request = page.getByRole("region", { name: "Request" });
   const result = page.getByRole("region", { name: "Result" });
+  await request.getByRole("checkbox", { name: "Review the plan before writing" }).uncheck();
+  await request.getByRole("button", { name: "Narrow…" }).click();
   const docs = request.getByRole("list", { name: "Documents in scope" });
   await request.getByRole("button", { name: "Select none" }).click();
+  for (let more = docs.getByRole("button", { name: /^Unfold/ }); await more.count(); ) await more.first().click();
   await docs.getByRole("checkbox", { name: /Recette TCO 12\/10/ }).check();
   await request.getByRole("textbox", { name: "What should be tested?" }).fill("Le menu contextuel du sectionneur S12");
   await request.getByRole("button", { name: "Generate" }).click();

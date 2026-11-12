@@ -223,11 +223,18 @@ export function proposeChangeLines(runId: string): string[] {
   ];
 }
 
-export function chatPrompt(question: string, language: string, context: string[] = [], runId = "{runId}"): string {
+export function chatPrompt(
+  question: string,
+  language: string,
+  context: string[] = [],
+  runId = "{runId}",
+  about: string[] = [],
+): string {
   return [
     "Use the ask-docs skill to answer the question below from the project's documents, and only from them.",
     `Answer in the language of the question (the project's is ${languageName(language)}).`,
     ...proposeChangeLines(runId),
+    ...about,
     ...context,
     "",
     `Question: ${question.trim()}`,

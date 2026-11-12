@@ -68,6 +68,8 @@ export const PREFS = {
   jiraRowsShare: share(),
   localColumnsShare: share(),
   localRowsShare: share(),
+  generateColumnsShare: share(),
+  generateRowsShare: share(),
   editorWidth: width(560, 4000),
   docsTocWidth: width(180, 420),
   layoutReview: layout(),

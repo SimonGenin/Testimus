@@ -1,9 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { ResizeHandle } from "../../../components/ui/ResizeHandle.tsx";
-import { type } from "../../../components/ui/type.ts";
-import { usePaneShare } from "../../../lib/panes.ts";
-import { border, color, size, space } from "../../../styles/tokens.stylex.ts";
+import { usePaneShare } from "../../lib/panes.ts";
+import { border, color, size, space } from "../../styles/tokens.stylex.ts";
+import { ResizeHandle } from "../ui/ResizeHandle.tsx";
+import { type } from "../ui/type.ts";
 
 export type PanesLayout = "columns" | "rows";
 
@@ -44,14 +44,17 @@ const styles = stylex.create({
 export function FolderPanes({
   name,
   layout,
+  foldersTitle = "Folders",
   folders,
   title,
   code,
   meta,
   children,
 }: {
-  name: "jira" | "local";
+  name: "jira" | "local" | "generate";
   layout: PanesLayout;
+  /** the first pane's head: Folders by default */
+  foldersTitle?: string;
   /** the folders pane's body */
   folders: ReactNode;
   /** the tests pane's head: what it lists (a folder's path, a search) */
@@ -69,14 +72,18 @@ export function FolderPanes({
     <div ref={split.frame} {...stylex.props(styles.split, rowsLayout && styles.rows)}>
       <div {...stylex.props(styles.pane, styles.first)} style={{ flexBasis: `${split.share}%` }}>
         <div {...stylex.props(type.small, styles.head)}>
-          <span {...stylex.props(styles.path)}>Folders</span>
+          <span {...stylex.props(styles.path)}>{foldersTitle}</span>
         </div>
         <div data-testid={`${name}-folders`} {...stylex.props(styles.scroll)}>
           {folders}
         </div>
       </div>
       <ResizeHandle
-        label={rowsLayout ? "Resize the folders and the tests" : "Resize the folders"}
+        label={
+          rowsLayout
+            ? `Resize the ${foldersTitle.toLowerCase()} and the tests`
+            : `Resize the ${foldersTitle.toLowerCase()}`
+        }
         orientation={rowsLayout ? "horizontal" : "vertical"}
         {...split.handle}
       />

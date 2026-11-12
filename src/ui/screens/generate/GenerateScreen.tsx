@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { DocRef, Job, StepColumn } from "../../../core/types.ts";
 import { useClaudeTab } from "../../components/claude/ClaudeTab.tsx";
+import { setDockPlan } from "../../components/claude/dockPlan.ts";
 import { claudeSaid, noteRun, useClaudeStatus } from "../../components/claude/useClaudeStatus.ts";
 import { useNow } from "../../components/claude/useNow.ts";
 import { ScreenHeader } from "../../components/shell/ScreenHeader.tsx";
@@ -84,6 +85,8 @@ export function GenerateScreen() {
   const [replacing, setReplacing] = useState<string[] | null>(null);
   const [fresh, setFresh] = useState(0);
   const revise = useCommand("gen.revise", { invalidates: [["jobs.list"]] });
+  const replan = useCommand("gen.plan", { invalidates: [["jobs.list"]] });
+  const write = useCommand("gen.write", { invalidates: [["jobs.list"]] });
   // ponytail: once a generation is done its column asks for changes (« New request » brings the form back); a run
   // started from one column keeps that column while it runs
   const [mode, setMode] = useState<"form" | "ask">("ask");
@@ -94,7 +97,14 @@ export function GenerateScreen() {
     if (done) setLastGen(done);
   }, [done]);
   const generation = done ?? lastGen;
-  const asking = gen.running ? from === "ask" && !!generation : mode === "ask" && !!generation;
+  // ponytail: a plan waiting for the user's go is the work of the screen: the dock is told it, the request stays
+  const last = gen.running ? null : (gen.result ?? gen.stopped);
+  const planned = last?.state === "planned" ? (last.generation ?? null) : null;
+  useEffect(() => {
+    setDockPlan(planned);
+    return () => setDockPlan(null);
+  }, [planned]);
+  const asking = !planned && (gen.running ? from === "ask" && !!generation : mode === "ask" && !!generation);
   const now = useNow(asking && gen.running, 1000);
 
   const status = known ?? null;
@@ -161,6 +171,21 @@ export function GenerateScreen() {
       }
     } catch (e) {
       errorToast(e, "Could not ask Claude for the changes");
+    }
+  };
+
+  // ponytail: « Revise the plan » and « Write the N tests » are jobs of the same generation, followed like the first
+  const onPlan = async (run: () => Promise<unknown>, what: string) => {
+    try {
+      const r = (await run()) as { jobId?: string } | undefined;
+      if (r?.jobId) {
+        setFresh((n) => n + 1);
+        startedHere.current = r.jobId;
+        setFrom("form");
+        gen.follow(r.jobId);
+      }
+    } catch (e) {
+      errorToast(e, what);
     }
   };
 
@@ -257,6 +282,12 @@ export function GenerateScreen() {
             typeof start.mutateAsync
           >[0])
         }
+        plan={{
+          busy: gen.running || replan.isPending || write.isPending,
+          unavailable: offline ? "Claude is not connected" : undefined,
+          onRevise: (input) => void onPlan(() => replan.mutateAsync(input), "Could not ask Claude to revise the plan"),
+          onWrite: (input) => void onPlan(() => write.mutateAsync(input), "Could not start writing the plan"),
+        }}
       />
     </section>
   );
@@ -267,7 +298,7 @@ export function GenerateScreen() {
     defaults: LAYOUT,
     tabs: [
       { id: "request", label: asking ? "Ask for changes" : "Request", icon: "generate", content: request },
-      { id: "result", label: "Tests written", icon: "tests", main: true, content: result },
+      { id: "result", label: planned ? "Plan" : "Tests written", icon: "tests", main: true, content: result },
       claudeTab,
     ],
   });

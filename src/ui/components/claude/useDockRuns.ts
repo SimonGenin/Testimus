@@ -266,6 +266,7 @@ export function useDockRuns(app: AppState) {
           {
             question: a.text,
             ...(a.problem ? { problem: a.problem } : { chatId }),
+            ...(a.generation ? { generation: a.generation } : {}),
             model: a.model || undefined,
             effort: a.effort,
             ...extra,

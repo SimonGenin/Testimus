@@ -138,7 +138,9 @@ describe("claude.preview: a request before it is sent, piece by piece", () => {
     for (const use of ["nope", "given", "sign-in", "skill:check-test"]) {
       const refused = preview({ use });
       await expect(refused).rejects.toThrow(`No run sends « ${use} ».`);
-      await expect(refused).rejects.toMatchObject({ fix: expect.stringContaining("generate, generate-planned,") });
+      await expect(refused).rejects.toMatchObject({
+        fix: expect.stringContaining("generate, generate-review, generate-planned,"),
+      });
     }
   });
 

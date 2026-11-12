@@ -31,6 +31,8 @@ export type Again = {
   effort: Effort;
   /** a problem the app met: Claude is asked about it, in a conversation of its own */
   problem?: ChatProblem;
+  /** a generation whose plan waits on Generate: the question is asked with it, and may propose a new plan */
+  generation?: string;
 };
 
 export type RunCard = {

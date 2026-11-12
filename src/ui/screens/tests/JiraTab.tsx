@@ -2,6 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
+import { FolderPanes, type PanesLayout } from "../../components/tree/FolderPanes.tsx";
+import { KeyText, SYNC_OF, SYNC_TIP } from "../../components/tree/rows.tsx";
+import { findFolder, flattenFolders, folderName } from "../../components/tree/tree.ts";
 import { Badge, jiraStatus } from "../../components/ui/Badge.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
@@ -14,9 +17,6 @@ import { read } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
 import { errorToast } from "../../lib/toast.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
-import { FolderPanes, type PanesLayout } from "./list/FolderPanes.tsx";
-import { KeyText, SYNC_OF, SYNC_TIP } from "./list/rows.tsx";
-import { findFolder, flattenFolders, folderName } from "./list/tree.ts";
 
 export { findFolder, folderName };
 

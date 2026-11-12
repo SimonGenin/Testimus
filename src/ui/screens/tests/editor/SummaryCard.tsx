@@ -1,13 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { SyncState, Test } from "../../../../core/types.ts";
+import { shownReview } from "../../../components/tree/rows.tsx";
 import { Badge, SYNC } from "../../../components/ui/Badge.tsx";
 import { Card } from "../../../components/ui/Card.tsx";
 import { Chip } from "../../../components/ui/Chip.tsx";
 import { type FieldAutosave, Text } from "../../../components/ui/Text.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
-import { shownReview } from "../list/rows.tsx";
 import { cardFlush } from "../step/StepFrame.tsx";
 
 const styles = stylex.create({

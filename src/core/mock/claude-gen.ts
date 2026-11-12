@@ -10,7 +10,7 @@ import type { ClaudeSpawn } from "../env.ts";
 import { newLocalId } from "../lib/store.ts";
 import { mockStream, registerMockScript } from "./claude.ts";
 
-const DOC = "SOSIE_211_D401-1_3";
+export const DOC = "SOSIE_211_D401-1_3";
 
 const menuTest = (folder: string) => `---
 project: LFRPS12
@@ -128,11 +128,11 @@ ${
     : ""
 }`;
 
-const TK = 'SOSIE_211_D401-1_3#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"';
+export const TK = 'SOSIE_211_D401-1_3#§5.6.6 "un sectionneur avec TK manœuvré régulièrement ne propose que Propriétés"';
 
 // ponytail: what the scripted Claude leaves without a test, said the way the report asks — a reason of the list, what
 // it searched and read, the passage that asks for it, what would let it be written
-const SKIPPED = [
+export const SKIPPED = [
   {
     item: "Manœuvre à distance d'un sectionneur avec TK",
     reason: "no-source",
@@ -164,11 +164,29 @@ const SKIPPED = [
 // one, names it under « covered », and reports the others again
 const coveredItem = (prompt: string) => prompt.match(/^Left without a test before[^\n]*\n- (.+?) \(/m)?.[1];
 
+// ponytail: a planned run writes its one test under the plan's summary, and says in its description the answers the
+// user settled on the plan (the e2e reads them there)
+const plannedOf = (prompt: string) => {
+  const n = Number(prompt.match(/^This is test (\d+) of \d+ of a plan/m)?.[1] ?? 0);
+  if (!n) return null;
+  const summary = prompt.match(/^Request: (.+?)(?: \([^)]*\))?$/m)?.[1] ?? "";
+  const settled = [...prompt.matchAll(/^- (.+) → (.+)$/gm)].map((m) => m[2].trim());
+  return { n, summary, settled };
+};
+
+function asPlanned(body: string, prompt: string): string {
+  const p = plannedOf(prompt);
+  if (!p) return body;
+  const out = p.summary ? body.replace(/^summary: .*$/m, `summary: ${p.summary}`) : body;
+  if (!p.settled.length) return out;
+  return out.replace(/^(## Description\n\n.*)$/m, `$1 Réponses prises en compte : ${p.settled.join(" ; ")}.`);
+}
+
 // ponytail: test i of the run as Claude saves it — its first steps, then the whole test — so the Generate page sees a
 // test grow while it is written
 function writeTest(spawn: ClaudeSpawn, ids: string[], i: number, steps?: number): void {
-  const folder = spawn.stdin.match(/^Xray folder of the tests: (\/\S*)\s*$/m)?.[1] ?? "/Traction/Sectionneurs";
-  const body = [menuTest(folder), tkTest(folder, partialRead(spawn.stdin))][i];
+  const folder = spawn.stdin.match(/^Xray folder of the tests: (\/.*?)\s*$/m)?.[1] ?? "/Traction/Sectionneurs";
+  const body = asPlanned([menuTest(folder), tkTest(folder, partialRead(spawn.stdin))][i], spawn.stdin);
   const cut = steps === undefined ? -1 : body.indexOf(`## Step ${steps + 1}\n`);
   mkdirSync(join(spawn.cwd, "tests", ids[i]), { recursive: true });
   writeFileSync(join(spawn.cwd, "tests", ids[i], "test.md"), cut < 0 ? body : body.slice(0, cut), "utf8");
@@ -187,6 +205,8 @@ registerMockScript(
     const ids = [newLocalId(), newLocalId()];
     const file = (id: string) => join(spawn.cwd, "tests", id, "test.md");
     const covered = coveredItem(spawn.stdin);
+    const planned = plannedOf(spawn.stdin);
+    if (planned) return writeOne(spawn, planned.n % 2 ? 0 : 1);
     const report = {
       tests: ids,
       skipped: SKIPPED.filter((s) => s.item !== covered),
@@ -245,6 +265,29 @@ registerMockScript(
     });
   },
 );
+
+// ponytail: one test of a plan — the n-th's body (odd: the sectionneur without TK, even: with TK), created whole
+function writeOne(spawn: ClaudeSpawn, i: number) {
+  const ids = [newLocalId(), newLocalId()];
+  const id = ids[i];
+  const report = { tests: [id], skipped: [] };
+  const reply = `Test écrit : ${id}.\n\n\`\`\`${REPORT_TAG}\n${JSON.stringify(report)}\n\`\`\``;
+  return mockStream(spawn, {
+    tools: [
+      { name: "Skill", input: { skill: "generate-tests" } },
+      { name: "mcp__testimus__rag_passage", input: { ref: `${DOC}#§5.6.6` } },
+      {
+        name: "mcp__testimus__tests_create",
+        input: { summary: "…", description: "…", steps: ["…"] },
+        does: () => writeTest(spawn, ids, i),
+      },
+      { name: "mcp__testimus__tests_save", input: { id, test: "…" } },
+    ],
+    texts: [reply],
+    result: reply,
+    costUsd: 0.2105,
+  });
+}
 
 // ponytail: a scope past 15 sections gets a two-test plan, each planned run being the script above; a smaller one is
 // written in one run, as a Claude that read it whole would — the fixture's requests keep their one-run story

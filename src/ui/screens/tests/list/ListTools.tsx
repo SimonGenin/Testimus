@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useRef, useState } from "react";
+import type { PanesLayout } from "../../../components/tree/FolderPanes.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
 import { Segmented, type SegmentedOption } from "../../../components/ui/Segmented.tsx";
@@ -7,7 +8,6 @@ import { Text } from "../../../components/ui/Text.tsx";
 import { Tooltip } from "../../../components/ui/Tooltip.tsx";
 import { border, color, space } from "../../../styles/tokens.stylex.ts";
 import { type Assignees, assigneesIn, toggleAssignee } from "./assignee.ts";
-import type { PanesLayout } from "./FolderPanes.tsx";
 
 // ponytail: who the local tests are assigned to, as a menu of ticks that write assignee: words in the filter box
 function AssigneeFilter({

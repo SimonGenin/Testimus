@@ -7,15 +7,8 @@ import { readProject } from "../lib/project.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import { readState } from "../rag/indexer.ts";
 import type { Effort } from "../types.ts";
-import {
-  isSection,
-  PLAN_TAG,
-  type PlannedTest,
-  REASON_HELP,
-  REASON_LABEL,
-  REPORT_TAG,
-  type Skipped,
-} from "./gen-reply.ts";
+import { type PlannedTest, replanText, type Settled, settledLines, themeFolder } from "./gen-plan.ts";
+import { isSection, PLAN_TAG, REASON_HELP, REASON_LABEL, REPORT_TAG, type Skipped } from "./gen-reply.ts";
 import { GIVEN_SLOT } from "./given.ts";
 import { languageName } from "./language.ts";
 import type { PromptTemplate } from "./prompt.ts";
@@ -26,6 +19,7 @@ import type { PromptTemplate } from "./prompt.ts";
 
 export const GEN_MARKER = "Use the generate-tests skill";
 export const PLAN_MARKER = "use the plan-tests skill";
+export const REVIEW_MARKER = "The user reviews the plan before any test is written";
 // ponytail: the length of a test is a preference, never a limit — said in the prompt too, so it holds over a
 // generate-tests skill the team edited before this rule shipped
 export const STEPS_LINE =
@@ -46,6 +40,10 @@ export type GenInput = {
   note?: string;
   discard?: boolean;
   resume?: string;
+  /** stop after the plan: the user reviews it, answers its questions, then writes it (gen.write) */
+  review?: boolean;
+  /** reindex the documents of the scope first (gen.write, when the index is not up to date) */
+  reindex?: boolean;
 };
 
 const clean = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim()).filter(Boolean))];
@@ -62,8 +60,8 @@ export const scopeDocs = (i: Pick<GenInput, "docs" | "sections">): string[] => [
 
 // ponytail: another test of the same plan, as a planned run is told it — its number, what it is about, the sections it
 // is written from, and its test once a run created it
-export type PlanSibling = { n: number; summary: string; sections: string[]; ids?: string[] };
-export type PlanPart = { n: number; of: number; request: string; others?: PlanSibling[] };
+export type PlanSibling = { n: number; summary: string; sections: string[]; theme?: string; ids?: string[] };
+export type PlanPart = { n: number; of: number; request: string; others?: PlanSibling[]; settled?: Settled[] };
 
 // ponytail: what a run that adds to an earlier generation is told (gen.revise add) — the generation's first request,
 // the tests it has (never written again) and the items it left without a test (written now when the request covers
@@ -151,13 +149,14 @@ export const reportShape = (covered: boolean): string =>
 
 // ponytail: what a generation run is told, from what the project says — the run and Settings › Context both call it
 export function genText(
-  i: Pick<GenInput, "request" | "sections" | "docs" | "folder">,
+  i: Pick<GenInput, "request" | "sections" | "docs" | "folder" | "review">,
   facts: { size: number | string; columns: string[]; folders: string; language: string; context: string[] },
   part?: {
     n: number | string;
     of: number | string;
     request: string;
     others?: (Omit<PlanSibling, "n"> & { n: number | string })[];
+    settled?: Settled[];
   },
   more: GenMore = {},
 ): string {
@@ -177,8 +176,15 @@ export function genText(
       "The other tests of the plan — what one of them covers is neither written here nor reported; if you must name one (already-tested), give its test id, else plan:<its number>:",
       ...part.others.map(
         (o) =>
-          `- plan:${o.n} ${o.summary}${o.sections.length ? ` — ${o.sections.join(", ")}` : ""}${o.ids?.length ? ` (${o.ids.join(", ")})` : ""}`,
+          `- plan:${o.n} ${o.theme ? `${o.theme}: ` : ""}${o.summary}${o.sections.length ? ` — ${o.sections.join(", ")}` : ""}${o.ids?.length ? ` (${o.ids.join(", ")})` : ""}`,
       ),
+    );
+  // ponytail: what the user settled on the plan holds over the documents' doubt — a run never asks it again nor leaves
+  // a behavior out for it
+  if (part?.settled?.length)
+    lines.push(
+      "Questions the user settled on the plan — hold to these answers; never ask them again, never leave a behavior out for them:",
+      ...settledLines(part.settled),
     );
   const add = more.add;
   if (add) {
@@ -193,7 +199,11 @@ export function genText(
       );
   }
   const size = facts.size;
-  if (!part)
+  if (!part && i.review)
+    lines.push(
+      `${REVIEW_MARKER}: ${PLAN_MARKER} now, whatever the size of the scope (${size} section${size === 1 ? "" : "s"}) — write no test, give each test its theme, ask the questions the user must settle, and end your reply with its ${PLAN_TAG} block.`,
+    );
+  else if (!part)
     lines.push(
       `The scope holds ${size} section${size === 1 ? "" : "s"}. When it takes more than one test, ${PLAN_MARKER} instead: write no test and end your reply with its ${PLAN_TAG} block.`,
     );
@@ -258,6 +268,20 @@ export const prompts: PromptTemplate[] = [
       genText({ request: "{request}", docs: ["{documents}"], sections: ["{sections}"], folder: "{folder}" }, FACTS),
   },
   {
+    id: "generate-review",
+    name: "Generation request, plan first",
+    group: "Generation",
+    kind: "generate",
+    usedBy: ["Generate › Review the plan before writing", "gen.tests (review)"],
+    answers:
+      "A plan of tests, each with its theme, what it leaves out and the questions the user settles before writing",
+    text: () =>
+      genText(
+        { request: "{request}", docs: ["{documents}"], sections: ["{sections}"], folder: "{folder}", review: true },
+        FACTS,
+      ),
+  },
+  {
     id: "generate-planned",
     name: "One test of a plan",
     group: "Generation",
@@ -272,11 +296,13 @@ export const prompts: PromptTemplate[] = [
         others: [
           {
             n: "{j}",
+            theme: "{its theme}",
             summary: "{another planned test}",
             sections: ["{its sections}"],
             ids: ["{its test, once written}"],
           },
         ],
+        settled: [{ id: "{q}", text: "{a question of the plan}", answer: "{the user's answer}" }],
       }),
   },
   {
@@ -300,6 +326,23 @@ export const prompts: PromptTemplate[] = [
         },
       ),
   },
+  {
+    id: "generate-replan",
+    name: "Revise a plan",
+    group: "Generation",
+    kind: "generate",
+    usedBy: ["Generate › Revise the plan", "gen.plan"],
+    answers: "The whole plan again, with the user's answers and changes kept and only the questions still open",
+    text: () =>
+      replanText({
+        settled: [{ id: "{q}", text: "{a question of the plan}", answer: "{the user's answer}" }],
+        plan: {
+          tests: [{ summary: "{planned test}", technique: "{technique}", sections: ["{sections}"], theme: "{theme}" }],
+          questions: [],
+        },
+        request: "{what the user asks}",
+      }),
+  },
 ];
 
 // ponytail: what a person reads of a generation in the jobs — how many tests once a plan says it, else the words of the
@@ -315,11 +358,13 @@ export function genLabel(i: Pick<GenInput, "request" | "docs" | "sections">, pla
   return `Generate: ${s.length > 80 ? `${s.slice(0, 77)}...` : s}`;
 }
 
+// ponytail: a planned test with a theme is written to its sub-folder of the folder asked (decision 5 of WORKLOAD.md)
 export function plannedInput(i: GenInput, t: PlannedTest): GenInput {
   return {
     ...i,
     request: t.technique ? `${t.summary} (${t.technique})` : t.summary,
     sections: t.sections,
     docs: t.sections.length ? [] : i.docs,
+    ...(t.theme ? { folder: themeFolder(i.folder, t.theme) } : {}),
   };
 }

@@ -31,8 +31,10 @@ export function genBoard(publish: (tests: GenTestProgress[]) => void) {
   });
   return {
     tests: () => tests.map((t) => ({ ...t })),
-    plan(summaries: string[]): number[] {
-      const at = summaries.map((summary) => tests.push({ summary, state: "waiting" }) - 1);
+    plan(planned: (string | { summary: string; folder?: string })[]): number[] {
+      const at = planned.map(
+        (p) => tests.push({ ...(typeof p === "string" ? { summary: p } : p), state: "waiting" }) - 1,
+      );
       if (at.length) say();
       return at;
     },

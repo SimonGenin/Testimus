@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import type { LocalTestRef, SearchMatch } from "../../../../core/types.ts";
+import { TestMeta, Where } from "../../../components/tree/rows.tsx";
 import { List } from "../../../components/ui/List.tsx";
 import { Marked } from "../../../components/ui/Marked.tsx";
 import { type } from "../../../components/ui/type.ts";
 import { plural } from "../../../lib/format.ts";
 import { color, space } from "../../../styles/tokens.stylex.ts";
-import { TestMeta, Where } from "./rows.tsx";
 
 const styles = stylex.create({
   snip: { display: "flex", flexDirection: "column", gap: space.s1, minWidth: 0 },

@@ -1,92 +1,15 @@
 import { z } from "zod";
 import { genLabel, scopeIndex } from "../claude/gen-prompt.ts";
-import { inCategoryOrder, SKIP_REASONS } from "../claude/gen-reply.ts";
+import { planView } from "../claude/gen-replan.ts";
+import { inCategoryOrder } from "../claude/gen-reply.ts";
 import { reviseGeneration } from "../claude/gen-revise.ts";
 import { discardable, generateTests } from "../claude/generate.ts";
 import { readLedger } from "../claude/ledger.ts";
-import { CONTEXT_IDS, DIAGNOSIS, EFFORT, MODEL, NOTE, TOKENS, WITHOUT } from "../claude/schemas.ts";
+import { CONTEXT_IDS, EFFORT, MODEL, NOTE, WITHOUT } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { generationName } from "../lib/names.ts";
 import { testExists } from "../lib/store.ts";
-
-const SKIPPED = z.object({
-  item: z.string().describe("The behavior left without a test"),
-  reason: z
-    .enum(SKIP_REASONS)
-    .describe(
-      "Why, from a closed list: no-source (no passage states what the tester must see), not-observable, already-tested, out-of-scope, documents-disagree, missing-material (what would state it is not in the project), stopped (the run was cut short); other for a report older than the list",
-    ),
-  category: z
-    .string()
-    .describe("The words the items are grouped under: the reason's, or Claude's own in an older report"),
-  why: z.string().describe("Why no test for this item, concretely"),
-  sources: z.array(z.string()).optional().describe('The passages that ask for it, docId#anchor "quote"'),
-  searched: z.array(z.string()).optional().describe("What the run searched before giving up, as it said"),
-  read: z.array(z.string()).optional().describe("The passages it opened for the item, docId#anchor"),
-  unblock: z.string().optional().describe("What would let the test be written, and who can bring it"),
-  test: z.string().optional().describe("already-tested: the test that verifies it"),
-  doubts: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "What Testimus could not confirm about it, without a model: a source that does not hold its quote, a passage said read and never opened, no search before giving up, a test that does not exist",
-    ),
-  review: z
-    .object({
-      verdict: z
-        .enum(["confirmed", "writable", "unsure"])
-        .describe("confirmed: the reason holds · writable: a passage states what the tester must see · unsure"),
-      why: z.string().describe("Why, in one sentence"),
-      sources: z.array(z.string()).optional().describe("writable: the passage found, checked by Testimus"),
-    })
-    .optional()
-    .describe("The second look Claude took at the item while checking the tests; absent when none was taken"),
-});
-
-const GEN_RESULT = z.object({
-  runId: z.string().describe("Claude run id — claude.revert removes the tests it wrote"),
-  ok: z.boolean().describe("Whether the generation finished"),
-  summary: z.string().describe("Claude's final reply"),
-  tests: z.array(z.string()).describe("Ids of the new tests (review: draft, generated_by: this job)"),
-  checks: z
-    .array(
-      z.object({
-        id: z.string().describe("Test id"),
-        ok: z.boolean().describe("False when its semantic check did not finish"),
-        review: z.string().describe("Its review state after the check"),
-        errors: z.number().describe("Errors found"),
-        warnings: z.number().describe("Warnings found"),
-      }),
-    )
-    .describe("The check of each new test (empty with check: false)"),
-  changed: z.array(z.string()).describe("Existing tests the run changed although it should not have"),
-  discarded: z.array(z.string()).describe("Tests deleted before the run (discard: true)"),
-  skipped: z.array(SKIPPED).describe("What the request asked for that no test was written for, and why"),
-  reportFound: z
-    .boolean()
-    .describe("Whether every run's report could be read; false: what a run left without a test is not known"),
-  reportErrors: z.array(z.string()).optional().describe("Why a report could not be read, when one could not"),
-  consulted: z
-    .number()
-    .describe(
-      "How many passages (docId#anchor) the run actually opened, read from its tool calls; the list is in .testimus/gen/<job>.json",
-    ),
-  planned: z
-    .number()
-    .describe(
-      "Tests written from a plan (plan-tests skill), one Claude run each, several at a time, when the request took more than one test; 0 otherwise",
-    ),
-  generation: z
-    .string()
-    .describe("The generation id: generated_by of its tests, its ledger .testimus/gen/<id>.json, what resume takes"),
-  remaining: z
-    .number()
-    .describe("Planned tests not written (cancelled, or a failed run), also listed in skipped: resume writes them"),
-  costUsd: z.number().optional().describe("What the runs cost"),
-  tokens: TOKENS.optional(),
-  durationMs: z.number().describe("How long the generation took"),
-  diagnosis: DIAGNOSIS.optional(),
-});
+import { GEN_RESULT, PLANNED_TEST, QUESTION, SETTLED, SKIPPED } from "./gen-schemas.ts";
 
 export const commands = [
   command({
@@ -132,6 +55,12 @@ export const commands = [
         .default(false)
         .describe(
           "Delete first the generated tests not validated yet (the review queue, except tests already in Jira): the new generation replaces them; this cannot be reverted",
+        ),
+      review: z
+        .boolean()
+        .default(false)
+        .describe(
+          "Stop after the plan (plan-tests, whatever the size of the scope): the job ends with the plan in the ledger, its themes and the questions to settle; nothing is written until gen.write (gen.plan revises it, gen.planSet edits it)",
         ),
       resume: z
         .string()
@@ -206,6 +135,37 @@ export const commands = [
         .describe(
           "What Claude proposed to ask next about this generation, written at the end of its last run (empty: none yet)",
         ),
+      state: z
+        .literal("planned")
+        .optional()
+        .describe("planned: its plan waits for the user's go (gen.write); nothing is written yet"),
+      plan: z
+        .object({
+          tests: z.array(PLANNED_TEST).describe("The planned tests, in order"),
+          questions: z.array(QUESTION).describe("The questions still open"),
+        })
+        .optional()
+        .describe("Its plan, when it was planned"),
+      settled: z.array(SETTLED).describe("The plan's questions the user answered"),
+      overlaps: z
+        .array(
+          z.object({
+            tests: z.tuple([z.number(), z.number()]).describe("The two planned tests, by index in plan.tests"),
+            sections: z.array(z.string()).describe("The sections both read"),
+          }),
+        )
+        .describe("Planned tests that read the same sections (or one inside the other): they may write the same steps"),
+      cost: z
+        .object({
+          runs: z.number().describe("Claude runs the writing takes: one per ticked test"),
+          seconds: z.number().describe("Estimated duration: about 3 min 20 per test, as many at a time as the agents"),
+          agents: z.number().describe("Agents at a time (Settings › Claude Code)"),
+        })
+        .optional()
+        .describe("What writing the plan costs"),
+      stale: z.array(z.string()).describe("Documents in scope changed since their last index, while the plan waits"),
+      reindexSeconds: z.number().describe("About how long reindexing them takes (0: nothing to reindex)"),
+      mtime: z.number().describe("The ledger's mtime: gen.planSet's ifMtime"),
     }),
     mutates: false,
     positional: ["generation"],
@@ -225,6 +185,7 @@ export const commands = [
         tests: (l.tests ?? []).filter((id) => testExists(project, id)),
         skipped: inCategoryOrder(l.skipped ?? []),
         suggestions: l.suggestions ?? [],
+        ...planView(project, l),
       };
     },
   }),

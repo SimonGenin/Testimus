@@ -20,6 +20,7 @@ import { commands as docsOverview } from "./docs-overview.ts";
 import { commands as docsRead } from "./docs-read.ts";
 import { commands as docsStart } from "./docs-start.ts";
 import { commands as gen } from "./gen.ts";
+import { commands as genPlan } from "./gen-plan.ts";
 import { commands as images } from "./images.ts";
 import { commands as issue } from "./issue.ts";
 import { commands as jobs } from "./jobs.ts";
@@ -62,6 +63,7 @@ type Defined =
   | (typeof tests)[number]
   | (typeof images)[number]
   | (typeof gen)[number]
+  | (typeof genPlan)[number]
   | (typeof check)[number]
   | (typeof analysis)[number]
   | (typeof review)[number]
@@ -104,6 +106,7 @@ export const registry: Command[] = [
   ...tests,
   ...images,
   ...gen,
+  ...genPlan,
   ...check,
   ...analysis,
   ...review,

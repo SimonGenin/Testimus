@@ -76,10 +76,10 @@ const KEEP_FRAME = "media.keep";
 
 // ponytail: what a run answers with, and what it may change — each a command of the app, so a refused answer says what
 // to fix and Claude corrects it in the same run
-// ponytail: the chat proposes a change to the overview, a context or a column — a proposal the user applies, never a
-// write; the learning run's one write is the conversations context
+// ponytail: the chat proposes a change to the overview, a context, a column or a plan waiting for the user's go — a
+// proposal the user applies, never a write; the learning run's one write is the conversations context
 const EXTRA: Record<RunKind, string[]> = {
-  chat: ["docs.overviewPropose", "contexts.propose", "columns.propose"],
+  chat: ["docs.overviewPropose", "contexts.propose", "columns.propose", "gen.planPropose"],
   figures: [],
   media: [],
   headers: [],
@@ -205,7 +205,7 @@ export function readOnlyCommands(): string[] {
 // project is open, a test run's results (a tester's findings: Claude reads runs, never marks one) and the overview of the
 // documents (written by its own run only)
 const NOT_IN_ACTION =
-  /^runs\.(?!list$|show$|history$)|^(claude\.run|analysis\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise)|tests\.findImage|media\.propose|chat\.(ask|learn|apply|ignore)|contexts\.learn|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|pullWhisper|remove|setDir|use|usePack|useSpeech)$/;
+  /^runs\.(?!list$|show$|history$)|^(claude\.run|analysis\.run|actions\.(run|triage|triageFailed)|gen\.(tests|bench|revise|plan|write)|tests\.findImage|media\.propose|chat\.(ask|learn|apply|ignore)|contexts\.learn|review\.fix|rag\.eval|jobs\.(cancel|rerun)|docs\.(overview|overviewSave))$|^xray\.(push|connect|disconnect)$|^issue\.(transition|assign|comment|editComment|deleteComment)$|^system\.(setCredentials|set|secrets)$|^project\.(init|open|openKey|delete)$|^models\.(add|pull|pullRuntime|pullWhisper|remove|setDir|use|usePack|useSpeech)$/;
 
 export function runCommands(kind: RunKind): string[] {
   const all = commandList().map((c) => c.name);

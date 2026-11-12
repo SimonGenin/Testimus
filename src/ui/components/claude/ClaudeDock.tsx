@@ -12,6 +12,7 @@ import { DockActions, useActionChoices } from "./DockActions.tsx";
 import { DockComposer } from "./DockComposer.tsx";
 import { DockLog } from "./DockLog.tsx";
 import { DockScope } from "./DockScope.tsx";
+import { useDockPlan } from "./dockPlan.ts";
 import { setDockState } from "./dockState.ts";
 import { type Again, docOfRoute } from "./turns.ts";
 import { useClaudeStatus } from "./useClaudeStatus.ts";
@@ -79,6 +80,7 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
   const now = useNow(runs.started !== null);
   const [prompt, setPrompt] = useDraft([project(), "dock.prompt"]);
   const [focusAsk, setFocusAsk] = useState(0);
+  const plan = useDockPlan();
 
   const { status } = useClaudeStatus();
   const offline = !!status && (!status.installed || status.signedIn === false);
@@ -119,7 +121,15 @@ export function ClaudeDock({ request }: { request?: DockRequest | null }) {
     ...ctx.run,
     note: onDoc ? `The question is about the document ${docId}: answer from docs/${docId}/doc.md first.` : undefined,
     label: onDoc && docId ? docId : undefined,
+    ...(plan && onGenerate ? { generation: plan } : {}),
   });
+
+  // ponytail: a plan shown on Generate is talked about with the documents — the chat has it and may propose another
+  const onGenerate = app.route.screen === "generate";
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per plan shown, not on each draw of the scope
+  useEffect(() => {
+    if (plan && onGenerate) where.pickTab("docs");
+  }, [plan, onGenerate]);
 
   const seen = useRef(0);
   useEffect(() => {

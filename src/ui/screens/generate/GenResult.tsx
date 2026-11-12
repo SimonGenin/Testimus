@@ -37,6 +37,8 @@ export type GenOutput = {
   remaining?: number;
   /** gen.revise in mode change: the tests of the generation it changed */
   revised?: string[];
+  /** planned: the job ended with the plan, nothing written (review) */
+  state?: "planned";
 };
 
 const styles = stylex.create({

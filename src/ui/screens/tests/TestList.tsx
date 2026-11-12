@@ -2,6 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
+import { LocalTree } from "../../components/tree/LocalTree.tsx";
+import { testItem } from "../../components/tree/rows.tsx";
+import { ancestors, isKeyQuery, type Listed, localTree, matches } from "../../components/tree/tree.ts";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
@@ -24,9 +27,7 @@ import { assigneesOf } from "./list/assignee.ts";
 import { FoundList } from "./list/FoundList.tsx";
 import { type ListLayout, ListTools } from "./list/ListTools.tsx";
 import { LocalPanes } from "./list/LocalPanes.tsx";
-import { LocalTree } from "./list/LocalTree.tsx";
 import { useNewTest } from "./list/newTest.ts";
-import { ancestors, isKeyQuery, type Listed, localTree, matches } from "./list/tree.ts";
 import { useListView } from "./list/useListView.ts";
 import { claudeLock } from "./lock.ts";
 import { useReplaceWithJira } from "./replace.tsx";
@@ -326,10 +327,10 @@ export function TestList({
         shut={v.shut}
         forceOpen={!!v.filter}
         activeId={activeId}
+        getKey={(r) => r.id}
+        renderTest={(r) => testItem(r, lockOf, (x) => void askDelete(x))}
         onOpen={onOpen}
         onToggle={toggle}
-        locked={lockOf}
-        onDelete={(r) => void askDelete(r)}
       />
     );
   };
