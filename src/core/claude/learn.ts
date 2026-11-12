@@ -2,8 +2,10 @@ import { CONVERSATIONS, CONVERSATIONS_FILE, LEARN_MAX } from "../lib/contexts.ts
 import { readProject } from "../lib/project.ts";
 import type { ChatSession, ClaudeEvent, Diagnosis, Effort } from "../types.ts";
 import { showChat } from "./chat.ts";
+import { settledLines } from "./gen-plan.ts";
 import { GIVEN_SLOT, given } from "./given.ts";
 import { languageName } from "./language.ts";
+import { readLedger } from "./ledger.ts";
 import { type PromptTemplate, readContexts } from "./prompt.ts";
 import { runClaude } from "./run.ts";
 import { readRun } from "./snapshot.ts";
@@ -25,12 +27,26 @@ export function lastExchange(chat: ChatSession): { question: string; answer: str
   return null;
 }
 
-export function learnPrompt(
-  current: string,
-  exchange: { question: string; answer: string },
-  language: string,
-  context: string[] = [],
-): string {
+// ponytail: the questions Claude asked about a generation's plan and what the team answered — what lasts of them is
+// learned like a chat turn, Claude asking and the team answering
+export function planExchange(project: string, generation: string): Exchange | null {
+  const l = readLedger(project, generation);
+  const settled = l?.settled ?? [];
+  if (!settled.length) return null;
+  const request = l?.input?.request?.trim();
+  return {
+    asked: "claude",
+    question: [
+      `Before writing the tests${request ? ` of « ${request} »` : ""}, I ask about the plan:`,
+      ...settled.map((s) => `- ${s.text}`),
+    ].join("\n"),
+    answer: ["The team answers:", ...settledLines(settled)].join("\n"),
+  };
+}
+
+export type Exchange = { question: string; answer: string; asked?: "user" | "claude" };
+
+export function learnPrompt(current: string, exchange: Exchange, language: string, context: string[] = []): string {
   return [
     `${LEARN_MARKER}. The saved context « Conversations » (${CONVERSATIONS_FILE}) is given to every Claude run of the project: it holds what the team settled while talking with Claude.`,
     "Rewrite it with what the exchange below adds, and save the whole new text with contexts_learn { text }, once. Change nothing else; do not search the documents.",
@@ -49,8 +65,9 @@ export function learnPrompt(
     current.trim() || "(empty: this is its first lesson)",
     "",
     "The last exchange:",
-    `User: ${cut(exchange.question.trim())}`,
-    `Claude: ${cut(exchange.answer.trim())}`,
+    ...(exchange.asked === "claude"
+      ? [`Claude: ${cut(exchange.question.trim())}`, `User: ${cut(exchange.answer.trim())}`]
+      : [`User: ${cut(exchange.question.trim())}`, `Claude: ${cut(exchange.answer.trim())}`]),
     "",
     "Reply in one line: what you kept, or « Nothing to keep ».",
     "",
@@ -72,7 +89,8 @@ export const prompts: PromptTemplate[] = [
 
 export type LearnOpts = {
   project: string;
-  chatId: string;
+  chatId?: string;
+  generation?: string;
   model?: string;
   effort?: Effort;
   contexts?: string[];
@@ -92,8 +110,17 @@ export type LearnResult = {
 };
 
 export async function learn(o: LearnOpts): Promise<LearnResult> {
-  const exchange = lastExchange(showChat(o.project, o.chatId));
-  if (!exchange) return { ok: true, learned: false, summary: "The conversation has no answer yet." };
+  const exchange = o.generation
+    ? planExchange(o.project, o.generation)
+    : o.chatId
+      ? lastExchange(showChat(o.project, o.chatId))
+      : null;
+  if (!exchange)
+    return {
+      ok: true,
+      learned: false,
+      summary: o.generation ? "No question of the plan was answered." : "The conversation has no answer yet.",
+    };
   const [now] = readContexts(o.project, [CONVERSATIONS]);
   const current = now?.text ?? "";
   // ponytail: the context the run rewrites is in its prompt as the thing to rewrite, never again as reference

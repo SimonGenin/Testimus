@@ -14,8 +14,10 @@ import {
 } from "../../../../src/core/claude/gen-plan.ts";
 import { genPrompt, REVIEW_MARKER } from "../../../../src/core/claude/gen-prompt.ts";
 import { stampTest } from "../../../../src/core/claude/generate.ts";
+import { LEARN_MARKER } from "../../../../src/core/claude/learn.ts";
 import { invoke } from "../../../../src/core/commands/index.ts";
 import { type ClaudeSpawn, env } from "../../../../src/core/env.ts";
+import { listJobs, waitJob } from "../../../../src/core/jobs.ts";
 import { DEFAULT_SETTINGS, writeSettings } from "../../../../src/core/lib/project.ts";
 import { readTest, writeTest } from "../../../../src/core/lib/store.ts";
 import { newTest } from "../../../../src/core/lib/testfile.ts";
@@ -216,7 +218,15 @@ describe("a generation in two times, through the registry", () => {
     expect(written.ok).toBe(true);
     expect(written.state).toBeUndefined();
     expect(written.tests).toHaveLength(3);
-    const runs = seen.slice(2);
+    const learning = listJobs(dir).filter((j) => j.kind === "learn");
+    expect(learning).toHaveLength(1);
+    await waitJob(learning[0].id);
+    const taught = seen.filter((r) => r.stdin.includes(LEARN_MARKER));
+    expect(taught).toHaveLength(1);
+    expect(taught[0].stdin).toContain("Claude: Before writing the tests of « Le menu contextuel du sectionneur »");
+    expect(taught[0].stdin).toContain(`User: The team answers:`);
+    expect(taught[0].stdin).toContain(`→ ${answer}`);
+    const runs = seen.slice(2).filter((r) => !r.stdin.includes(LEARN_MARKER));
     expect(runs).toHaveLength(3);
     for (const r of runs) {
       expect(r.stdin).toContain("Questions the user settled on the plan");

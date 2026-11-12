@@ -126,6 +126,9 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       settleForWriting(project, input.generation, input.answers);
+      // ponytail: what the team settled about the plan is kept for the next runs, like a chat turn — in the background
+      if (readLedger(project, input.generation)?.settled?.length)
+        void ctx.invoke?.("chat.learn", { generation: input.generation }, { wait: false })?.catch(() => {});
       return await generateTests(
         project,
         {

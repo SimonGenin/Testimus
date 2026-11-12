@@ -207,9 +207,16 @@ export const commands = [
   }),
   command({
     name: "chat.learn",
-    summary: `After a chat turn: a short Claude run (${LEARN_MODEL}, effort ${LEARN_EFFORT} by default) keeps what the last exchange taught in the conversations context (contexts/conversations/context.md) — rewritten whole through contexts.learn, without asking; nothing when it taught nothing. Snapshotted: claude.revert takes it back.`,
+    summary: `After a chat turn: a short Claude run (${LEARN_MODEL}, effort ${LEARN_EFFORT} by default) keeps what the last exchange taught in the conversations context (contexts/conversations/context.md) — rewritten whole through contexts.learn, without asking; nothing when it taught nothing. With generation instead of chatId, what is learned is the plan's questions and the team's answers (gen.write starts it). Snapshotted: claude.revert takes it back.`,
     input: z.object({
-      chatId: z.string().describe("The conversation (from chat.list): its last question and answer are read"),
+      chatId: z
+        .string()
+        .optional()
+        .describe("The conversation (from chat.list): its last question and answer are read"),
+      generation: z
+        .string()
+        .optional()
+        .describe("A generation whose plan questions were answered (gen.write): those answers are read instead"),
       model: MODEL.optional().describe(`Model alias or name (default: ${LEARN_MODEL})`),
       effort: EFFORT.optional().describe(`Effort level (default: ${LEARN_EFFORT})`),
       contexts: CONTEXT_IDS.optional().describe(
@@ -228,12 +235,15 @@ export const commands = [
     mutates: true,
     job: "learn",
     positional: ["chatId"],
-    subject: (i) => i.chatId,
+    subject: (i) => i.chatId ?? i.generation ?? "",
     label: () => "Remember the conversation",
     async run(ctx, input) {
+      if (!input.chatId && !input.generation)
+        throw new UserError("Nothing to learn from.", "Give chatId (a conversation) or generation (a plan answered).");
       return await learn({
         project: projectOf(ctx),
         chatId: input.chatId,
+        generation: input.generation,
         model: input.model,
         effort: input.effort,
         contexts: input.contexts,

@@ -1438,6 +1438,9 @@ Everything Xray Editor does (pull with images, folders, preconditions, covers li
   is snapshotted on that one file (`takeSnapshot` takes a list of files), so `claude.revert` puts the last version back.
   It is never its own reference: the context is in its prompt as the text to rewrite. The dock's « Don't remember this
   conversation » starts no learning run until Start over; a conversation about a problem of the app teaches nothing.
+  The questions of a generation's plan teach the same way: `gen.write`, when the ledger holds settled questions, starts
+  `chat.learn { generation }` in the background, its exchange the questions Claude asked and the team's answers
+  (`planExchange`, Claude asking and the user answering in the prompt).
 - **What goes with a run is decided in one place** (`claude/given.ts`, 2026-11-10; before, seventeen modules each
   built their own context lines with four inheritance rules, the overview was appended by the runner, and the check
   opened the contexts' folders without ever naming them). `given(project, kind, subject, pick)` gives the **pieces**
