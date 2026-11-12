@@ -85,6 +85,8 @@ const modal = (page: Page | Locator, name?: string | RegExp) =>
   page.getByRole("dialog", name ? { name } : {}).or(page.getByRole("alertdialog", name ? { name } : {}));
 const dialog = (page: Page, name?: string | RegExp) => modal(page, name).first().waitFor({ timeout: T });
 
+const writing = (page: Page) => page.getByRole("region", { name: "Result" }).getByText("Claude is writing").first();
+
 const see = (page: Page, text: string | RegExp) => page.getByText(text).first().waitFor({ timeout: T });
 
 // ponytail: one index run for the whole scenario (TESTIMUS_MOCK_INDEX_MS keeps it going), started by the first shot
@@ -149,7 +151,7 @@ async function generate(page: Page, plan = false): Promise<void> {
   await page.getByRole("textbox", { name: "What should be tested?" }).fill("Le sectionneur avec TK");
   await tap(page.getByRole("region", { name: "Request" }), /^Generate/);
   const replace = modal(page).first();
-  await replace.or(page.getByText("Claude is writing")).first().waitFor({ timeout: T });
+  await replace.or(writing(page)).first().waitFor({ timeout: T });
   if (await replace.isVisible()) await tap(replace, /^Delete and generate/);
 }
 
@@ -1150,7 +1152,7 @@ function slowShots(): Shot[] {
       hash: "#/generate",
       prep: async (p) => {
         await generate(p);
-        await see(p, "Claude is writing");
+        await writing(p).waitFor({ timeout: T });
       },
     },
     {
