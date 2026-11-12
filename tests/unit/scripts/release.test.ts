@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  BUNDLES,
   dependencyClosure,
   download,
   EXTERNALS,
@@ -49,6 +50,18 @@ describe("release: paths next to the bundle", () => {
     const rel = "$" + "{rel}";
     const fx = "new URL(`../../../tests/fixtures/" + rel + "`, import.meta.url)";
     expect(rewriteUrls(fx, src("core", "mock", "jira.ts"))).toBe("new URL(`./fixtures/" + rel + "`, import.meta.url)");
+  });
+
+  it("bundles the embed worker beside the core, and the core starts it there", () => {
+    expect(BUNDLES).toEqual([
+      ["src/faces/cli.ts", "testimus.mjs"],
+      ["src/core/rag/runtimes/embed-worker.ts", "embed-worker.mjs"],
+    ]);
+    for (const [input] of BUNDLES) expect(existsSync(join(ROOT, ...input.split("/")))).toBe(true);
+    const file = src("core", "rag", "runtimes", "embed-process.ts");
+    const code = readFileSync(file, "utf8");
+    expect(code).toContain('new URL("./embed-worker.ts", import.meta.url)');
+    expect(rewriteUrls(code, file)).toContain('new URL("./embed-worker.mjs", import.meta.url)');
   });
 
   it("leaves other URLs alone", () => {
@@ -265,6 +278,7 @@ describe("release: layout", () => {
       "locales/fr.pak",
       "node/node.exe",
       "app/testimus.mjs",
+      "app/embed-worker.mjs",
       "models",
       "testimus.cmd",
       "install.ps1",

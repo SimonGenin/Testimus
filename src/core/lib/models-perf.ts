@@ -194,6 +194,22 @@ export function loadMsSoFar(): number {
   return loadTotal;
 }
 
+// ponytail: a load another process timed (the embed worker) counts as if it had run here
+export function loadTimed(
+  f: PerfFields,
+  ms: number,
+  outcome: { extra?: Partial<PerfLine> } | { error: unknown },
+  target: OpState | undefined = ops.getStore(),
+): void {
+  loadTotal += ms;
+  if (target) target.loadMs += ms;
+  if ("error" in outcome) {
+    if (isMemoryError(outcome.error)) loadFailedForMemory(f, ms, target);
+    return;
+  }
+  recordPerf(line("model.load", f, 1, ms, { loadMs: Math.round(ms), ...outcome.extra }));
+}
+
 export async function timeLoad<T>(
   f: PerfFields,
   fn: () => Promise<T>,

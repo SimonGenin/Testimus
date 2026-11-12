@@ -41,6 +41,13 @@ export const PATH_MAP: [string, string][] = [
   ["tests/fixtures", "fixtures"],
   ["dist/ui", "ui"],
   [".models", "../models"],
+  ["src/core/rag/runtimes/embed-worker.ts", "embed-worker.mjs"],
+];
+
+// entry → file in app/: the core, and the embed worker it starts (PATH_MAP sends its URL there)
+export const BUNDLES: [string, string][] = [
+  ["src/faces/cli.ts", "testimus.mjs"],
+  ["src/core/rag/runtimes/embed-worker.ts", "embed-worker.mjs"],
 ];
 
 export const LOCALES = ["en-US.pak", "fr.pak"];
@@ -66,6 +73,7 @@ export const LAYOUT = [
   "LICENSE",
   "node/node.exe",
   "app/testimus.mjs",
+  "app/embed-worker.mjs",
   "app/package.json",
   "app/CHANGELOG.md",
   "app/ui/index.html",
@@ -604,23 +612,25 @@ export async function release(opts: { reuseUi: boolean; skipNode: boolean; notes
   mkdirSync(app, { recursive: true });
 
   const { rolldown } = await import("rolldown");
-  const bundle = await rolldown({
-    input: join(ROOT, "src", "faces", "cli.ts"),
-    platform: "node",
-    external: (id) => EXTERNALS.some((e) => id === e || id.startsWith(`${e}/`)),
-    plugins: [
-      {
-        name: "testimus-paths",
-        transform(code, id) {
-          if (id.includes("node_modules") || !/\.tsx?$/.test(id) || !code.includes("import.meta.url")) return null;
-          const next = rewriteUrls(code, id);
-          return next === code ? null : { code: next };
+  for (const [input, file] of BUNDLES) {
+    const bundle = await rolldown({
+      input: join(ROOT, ...input.split("/")),
+      platform: "node",
+      external: (id) => EXTERNALS.some((e) => id === e || id.startsWith(`${e}/`)),
+      plugins: [
+        {
+          name: "testimus-paths",
+          transform(code, id) {
+            if (id.includes("node_modules") || !/\.tsx?$/.test(id) || !code.includes("import.meta.url")) return null;
+            const next = rewriteUrls(code, id);
+            return next === code ? null : { code: next };
+          },
         },
-      },
-    ],
-  });
-  await bundle.write({ file: join(app, "testimus.mjs"), format: "esm", codeSplitting: false, minify: false });
-  await bundle.close();
+      ],
+    });
+    await bundle.write({ file: join(app, file), format: "esm", codeSplitting: false, minify: false });
+    await bundle.close();
+  }
 
   writeFileSync(
     join(app, "package.json"),

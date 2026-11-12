@@ -44,6 +44,8 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await expect(emb).toContainText("Qwen3 Embedding 8B (4-bit)");
     await expect(row(models, "Embedding models", "BGE-M3 (8-bit, CPU)")).toContainText("In use");
     await expect(emb).toContainText("the vectors of a model already used are kept");
+    // the 16 GB card does not move BGE-M3 8-bit (no DirectML form): it runs on the processor, in its own process
+    await expect(emb).toContainText("Embedding: processor, 22 cores, separate process");
 
     const rr = group(models, "Reranker");
     await expect(rr).toContainText("Qwen3 Reranker 4B (8-bit, GGUF)");
@@ -74,6 +76,7 @@ test.describe("default PC: a 16 GB GPU, a models folder", () => {
     await shoot(page, "models-download-e2e");
     await expect(row(models, "Embedding models", name)).toContainText("In use", { timeout: 30_000 });
     await expect(row(models, "Embedding models", "BGE-M3 (8-bit, CPU)")).not.toContainText("In use");
+    await expect(group(models, "Embeddings")).toContainText("Embedding: graphics card (DirectML), separate process");
   });
 });
 
@@ -109,6 +112,7 @@ test.describe("no GPU and 6 GB of memory", () => {
     const models = await openModels(page);
     const rr = group(models, "Reranker");
     await expect(rr).toContainText("With the embedding advised on the processor, a reranker would slow every query");
+    await expect(group(models, "Embeddings")).toContainText("Embedding: processor, 6 cores, separate process");
     await expect(
       row(models, "Reranker models", "Qwen3 Reranker 0.6B (8-bit, GGUF)").getByRole("button", {
         name: "Use",

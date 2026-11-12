@@ -18,6 +18,9 @@ export type RunSpec = {
   // ponytail: heavy work that may take an hour (a transcription, a video read frame by frame) runs below the normal
   // priority, so the PC stays usable; Windows grants it without admin rights
   priority?: "low";
+  // ponytail: a child that lives long and answers on stdout (the embed worker) gives its lines only — kept whole, its
+  // output would grow the parent's memory with every answer
+  keepStdout?: false;
   onLine?(line: string, stream: Stream): void;
   onSpawn?(pid: number): void;
 };
@@ -201,7 +204,7 @@ export function start(spec: RunSpec): Proc {
   };
   stopSignal?.addEventListener("abort", onStop, { once: true });
   child.stdout?.setEncoding("utf8").on("data", (d: string) => {
-    stdout += d;
+    if (spec.keepStdout !== false) stdout += d;
     out.push(d);
   });
   child.stderr?.setEncoding("utf8").on("data", (d: string) => {

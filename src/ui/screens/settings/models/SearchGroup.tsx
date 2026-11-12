@@ -36,6 +36,12 @@ const KIND = {
   },
 } as const;
 
+const PLACE = {
+  cpu: "A process of its own, at low priority, leaves two threads to the rest of the PC and closes after 10 minutes without work.",
+  gpu: "The card computes the vectors in a process of its own, which closes after 10 minutes without work.",
+  "llama.cpp": "llama-server computes the vectors and closes after 10 minutes without work.",
+} as const;
+
 const CANNOT = ["ram-too-small", "unsupported"];
 
 // ponytail: the search models of one kind, one by one — the one advised for this PC first, then every other one; the
@@ -54,6 +60,7 @@ export function SearchGroup({
   onCheck,
   onRemove,
   onLlama,
+  place,
 }: {
   kind: "embedding" | "reranker";
   rows: CatalogRow[] | undefined;
@@ -69,6 +76,8 @@ export function SearchGroup({
   onCheck: (r: CatalogRow) => void;
   onRemove: (r: CatalogRow, inst: Installed) => void;
   onLlama?: () => void;
+  /** where the embedding in use runs on this PC (rag.status) */
+  place?: { where: "gpu" | "cpu"; engine: string; text: string } | null;
 }) {
   const k = KIND[kind];
   const rr = kind === "reranker";
@@ -140,24 +149,31 @@ export function SearchGroup({
         )
       }
       footer={
-        rr &&
-        llama !== undefined && (
+        place ? (
           <div {...stylex.props(type.small, styles.foot)}>
-            {llama ? (
-              <Badge label={`llama.cpp ${llama.build}, ${llama.backend}`} tone="success" icon="check" size="sm" />
-            ) : (
-              <Badge label="llama.cpp not installed" icon="download" size="sm" />
-            )}
-            <span>Runs the GGUF models. A model marked CPU or DirectML does not need it.</span>
-            {llamaOp ? (
-              <OpLine op={llamaOp} />
-            ) : (
-              !llama &&
-              onLlama && (
-                <Button size="sm" icon="download" label="Download llama.cpp" disabled={busy} onClick={onLlama} />
-              )
-            )}
+            <Badge label={place.text} icon={place.where === "gpu" ? "monitor" : "cpu"} size="sm" />
+            <span>{PLACE[place.engine === "llama.cpp" ? "llama.cpp" : place.where]}</span>
           </div>
+        ) : (
+          rr &&
+          llama !== undefined && (
+            <div {...stylex.props(type.small, styles.foot)}>
+              {llama ? (
+                <Badge label={`llama.cpp ${llama.build}, ${llama.backend}`} tone="success" icon="check" size="sm" />
+              ) : (
+                <Badge label="llama.cpp not installed" icon="download" size="sm" />
+              )}
+              <span>Runs the GGUF models. A model marked CPU or DirectML does not need it.</span>
+              {llamaOp ? (
+                <OpLine op={llamaOp} />
+              ) : (
+                !llama &&
+                onLlama && (
+                  <Button size="sm" icon="download" label="Download llama.cpp" disabled={busy} onClick={onLlama} />
+                )
+              )}
+            </div>
+          )
         )
       }
     >

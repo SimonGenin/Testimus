@@ -27,10 +27,21 @@ import { readJson } from "../../lib/project.ts";
 import { crc32 } from "../../lib/zip.ts";
 import type { LlamaBackend, LlamaRuntime, MachineProfile, ModelsRegistry, ResolvedModel } from "../../types.ts";
 import { instruction } from "../fingerprint.ts";
-import { ensureServer, LLAMA_CTX, type LlamaServer, type ServerKind, serverPost } from "./llama-server.ts";
+import { stopEmbedWorkers } from "./embed-process.ts";
+import {
+  ensureServer,
+  LLAMA_CTX,
+  type LlamaServer,
+  type ServerKind,
+  serverPost,
+  stopAllServers as stopLlamaServers,
+} from "./llama-server.ts";
 import type { Runtime } from "./types.ts";
 
-export { stopAllServers } from "./llama-server.ts";
+// ponytail: every model process this one started — the llama-servers and the embed workers — on exit or a one-shot command
+export async function stopAllServers(): Promise<void> {
+  await Promise.all([stopLlamaServers(), stopEmbedWorkers()]);
+}
 
 export const LLAMA_BUILD = "b12032";
 const LLAMA_CUDA = "13.4";

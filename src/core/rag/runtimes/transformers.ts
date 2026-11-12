@@ -1,31 +1,23 @@
-import { basename, dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { semaphore } from "../../../shared/run/work.ts";
 import { UserError } from "../../command.ts";
 import { addTokens, currentOp, peakRssMB, perfFields, timeLoad } from "../../lib/models-perf.ts";
 import { findModel } from "../../lib/models-store.ts";
 import type { Device, Dtype, EmbedMode, ResolvedModel } from "../../types.ts";
 import { instruction } from "../fingerprint.ts";
-import "./ort.ts";
+import {
+  type EmbedSpec,
+  embedLoaded,
+  f32,
+  type Kind,
+  type Loaded,
+  loadModel,
+  maxTokensOf,
+  type Tensor,
+} from "./transformers-engine.ts";
 import type { Runtime } from "./types.ts";
 
-type Tensor = {
-  type: string;
-  dims: number[];
-  data: ArrayLike<number>;
-  to(type: string): Tensor;
-  slice(...s: (number | null)[]): Tensor;
-  normalize(p: number, dim: number): Tensor;
-};
-type Inputs = { input_ids: Tensor; attention_mask: Tensor };
-type Tokenizer = {
-  (texts: string[], opts: object): Inputs;
-  encode(text: string, opts?: object): number[];
-  padding_side: string;
-  model_max_length: number;
-};
-type Model = (inputs: Inputs) => Promise<{ last_hidden_state?: Tensor; logits?: Tensor }>;
-type Loaded = { tokenizer: Tokenizer; model: Model; meanPooling(h: Tensor, mask: Tensor): Tensor };
-type Kind = "embedding" | "cross-encoder" | "yes-no-lm";
+export { batches, transformersIo } from "./transformers-engine.ts";
 
 const loading = semaphore(1);
 const loaded = new Map<string, Promise<Loaded>>();
@@ -39,8 +31,8 @@ export function dtypeOf(m: ResolvedModel): Dtype | undefined {
   return m.dtype ?? by[deviceOf(m)] ?? by.cpu;
 }
 
-function modelPath(m: ResolvedModel): string {
-  if (m.install.path) return m.install.path;
+export function modelPath(m: ResolvedModel): string {
+  if (m.install.path) return resolve(m.install.path);
   const repo = m.entry.source.hf?.repo;
   const hit = repo ? findModel(repo, dtypeOf(m)) : null;
   if (!hit)
@@ -48,11 +40,28 @@ function modelPath(m: ResolvedModel): string {
       `${m.entry.label} is not on this PC.`,
       `Install it from Settings › Models (testimus models pull ${m.entry.id}).`,
     );
-  return hit.dir;
+  return resolve(hit.dir);
+}
+
+export function embedSpec(m: ResolvedModel): EmbedSpec {
+  const dtype = dtypeOf(m);
+  return {
+    path: modelPath(m),
+    ...(dtype ? { dtype } : {}),
+    device: deviceOf(m),
+    pooling: m.entry.pooling ?? "cls",
+    normalize: m.entry.normalize ?? true,
+    maxInputTokens: m.entry.maxInputTokens,
+  };
+}
+
+export function embedInputs(m: ResolvedModel, texts: string[], mode: EmbedMode): string[] {
+  const prefix = instruction(mode === "query" ? m.entry.queryInstruction : m.entry.docInstruction, m);
+  return texts.map((t) => prefix + t);
 }
 
 function load(m: ResolvedModel, kind: Kind): Promise<Loaded> {
-  const path = resolve(modelPath(m));
+  const path = modelPath(m);
   const device = deviceOf(m);
   const dtype = dtypeOf(m);
   const key = [m.entry.id, path, device, dtype].join("|");
@@ -73,99 +82,15 @@ function load(m: ResolvedModel, kind: Kind): Promise<Loaded> {
   return p;
 }
 
-export const transformersIo = {
-  import: () => import("@huggingface/transformers"),
-};
-
-async function loadModel(
-  path: string,
-  kind: Kind,
-  dtype: Dtype | undefined,
-  device: Exclude<Device, "gpu">,
-): Promise<Loaded> {
-  const t = await transformersIo.import();
-  // ponytail: transformers.js reads <localModelPath>/<org>/<name>; the folder is the installation, wherever it is
-  const id = `${basename(dirname(path))}/${basename(path)}`;
-  t.env.allowLocalModels = true;
-  t.env.allowRemoteModels = false;
-  t.env.localModelPath = dirname(dirname(path));
-  t.env.cacheDir = dirname(dirname(path));
-  const options = { dtype, device } as { dtype: "fp32"; device: "cpu" };
-  const tokenizer = (await t.AutoTokenizer.from_pretrained(id)) as unknown as Tokenizer;
-  // ponytail: the yes/no export of Qwen3-Reranker (onnx/model_yesno_*.onnx) returns the last position's [no, yes]
-  // logits only, [batch, 2], instead of the whole vocabulary
-  const model = (kind === "cross-encoder"
-    ? await t.AutoModelForSequenceClassification.from_pretrained(id, options)
-    : await t.AutoModel.from_pretrained(
-        id,
-        kind === "yes-no-lm" ? { ...options, model_file_name: "model_yesno" } : options,
-      )) as unknown as Model;
-  return { tokenizer, model, meanPooling: t.mean_pooling as unknown as Loaded["meanPooling"] };
-}
-
-function maxTokens(m: ResolvedModel, tokenizer: Tokenizer): number {
-  return Math.min(m.entry.maxInputTokens || Infinity, tokenizer.model_max_length || Infinity);
-}
-
-function f32(t: Tensor): Tensor {
-  return t.type === "float32" ? t : t.to("float32");
-}
-
-// ponytail: a batch is padded to its longest text and attention grows with its square; texts are sorted by token
-// length and grouped under a token budget, so a long section is embedded alone
-const BATCH_TOKENS = 4096;
-const BATCH_MAX = 8;
-
-export function batches(lengths: number[], most = BATCH_MAX): number[][] {
-  const order = lengths.map((_, i) => i).sort((a, b) => lengths[a] - lengths[b]);
-  const out: number[][] = [];
-  let cur: number[] = [];
-  for (const i of order) {
-    if (cur.length && (cur.length >= most || (cur.length + 1) * lengths[i] > BATCH_TOKENS)) {
-      out.push(cur);
-      cur = [];
-    }
-    cur.push(i);
-  }
-  if (cur.length) out.push(cur);
-  return out;
+function maxTokens(m: ResolvedModel, tokenizer: Loaded["tokenizer"]): number {
+  return maxTokensOf(m.entry.maxInputTokens, tokenizer);
 }
 
 async function embed(m: ResolvedModel, texts: string[], mode: EmbedMode): Promise<Float32Array[]> {
-  const { tokenizer, model, meanPooling } = await load(m, "embedding");
-  const pooling = m.entry.pooling ?? "cls";
-  // ponytail: last-token pooling reads the last position; left padding puts every text's last token there
-  if (pooling === "last") tokenizer.padding_side = "left";
-  const prefix = instruction(mode === "query" ? m.entry.queryInstruction : m.entry.docInstruction, m);
-  const inputs = texts.map((t) => prefix + t);
-  const max = maxTokens(m, tokenizer);
-  const lengths = inputs.map((t) => Math.min(tokenizer.encode(t).length, max));
-  addTokens(lengths.reduce((a, n) => a + n, 0));
-  const out: Float32Array[] = new Array(inputs.length);
-  // ponytail: q8 models quantize activations per call, padding included, so a text's vector would depend on its
-  // batch-mates (cos 0.93 measured on Qwen3 q8): dynamically quantized models embed one text per call
-  const dynamic = ["q8", "int8", "uint8"].includes(dtypeOf(m) ?? "");
-  for (const idx of batches(lengths, dynamic ? 1 : BATCH_MAX)) {
-    const enc = tokenizer(
-      idx.map((i) => inputs[i]),
-      { padding: true, truncation: true, max_length: max },
-    );
-    const res = await model(enc);
-    const hidden = f32(res.last_hidden_state ?? (res.logits as Tensor));
-    let pooled =
-      pooling === "mean"
-        ? meanPooling(hidden, enc.attention_mask)
-        : pooling === "last"
-          ? hidden.slice(null, -1)
-          : hidden.slice(null, 0);
-    if (m.entry.normalize ?? true) pooled = pooled.normalize(2, -1);
-    const d = pooled.dims[pooled.dims.length - 1];
-    const data = pooled.data as Float32Array;
-    idx.forEach((i, j) => {
-      out[i] = Float32Array.from(data.subarray(j * d, (j + 1) * d));
-    });
-  }
-  return out;
+  const l = await load(m, "embedding");
+  const { vectors, tokens } = await embedLoaded(l, embedSpec(m), embedInputs(m, texts, mode));
+  addTokens(tokens);
+  return vectors;
 }
 
 export const YES_NO_SYSTEM =
@@ -254,4 +179,6 @@ async function probe(m: ResolvedModel): Promise<{ dims: number; maxTokens: numbe
   return { dims: v.length, maxTokens: maxTokens(m, tokenizer) };
 }
 
+// ponytail: transformers.js inside this process — the rerankers (a query's few candidates) and the tests; the
+// embeddings of the app go through the embed worker (embed-process.ts), which runs this same computation
 export const transformersRuntime: Runtime = { probe, embed, rerank };

@@ -5,16 +5,16 @@ import type { EmbedMode, ResolvedModel, RuntimeId } from "../types.ts";
 import { activeModels } from "./activation.ts";
 import { spaceId } from "./db.ts";
 import { fingerprintOf } from "./fingerprint.ts";
+import { transformersProcessRuntime } from "./runtimes/embed-process.ts";
 import { llamacppRuntime } from "./runtimes/llamacpp.ts";
 import { mockRuntime } from "./runtimes/mock.ts";
-import { transformersRuntime } from "./runtimes/transformers.ts";
 import type { Runtime } from "./runtimes/types.ts";
 import type { SearchOpts } from "./search/filter.ts";
 
 // ponytail: the runtime of each kind of model; tests put a counting or failing runtime here (no real model runs in a
 // unit test, and env has no seam for it), --mock serves every model from the mock one
 export const runtimes: Record<Exclude<RuntimeId, "whispercpp">, Runtime> = {
-  transformers: transformersRuntime,
+  transformers: transformersProcessRuntime,
   llamacpp: llamacppRuntime,
   mock: mockRuntime,
 };

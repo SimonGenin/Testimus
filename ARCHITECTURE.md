@@ -68,8 +68,10 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   MCP ──────►                          gen · check · review│──► index/rag.db (SQLite)
             │                          xray · claude       │──► Jira REST + Xray GraphQL
             └──────────────────────────────┬───────────────┘
-                                           └──► claude -p (cwd = project folder)
-                                                 └──► calls back through `testimus mcp`
+                                           ├──► claude -p (cwd = project folder)
+                                           │     └──► calls back through `testimus mcp`
+                                           ├──► embed worker (node, low priority, JSON lines)
+                                           └──► llama-server.exe (127.0.0.1, one per GGUF model)
   Electron shell ──spawns──► serve ; talks to /api only
 ```
 
@@ -152,8 +154,17 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   `maxMs`). `process.ts`: start a program directly or through a `.cmd` shim (cmd metacharacters refused), the registry of
   live children, kill **the whole tree** (`taskkill /T /F` on Windows, process groups elsewhere), lines of stdout/stderr,
   every child killed when the parent goes. Nothing else in `src/` spawns, kills or waits (guard).
+- **No model computes vectors inside the core** (2026-11-12). The embeddings of an ONNX model run in the **embed
+  worker** (`rag/runtimes/embed-worker.ts`, shipped as `app/embed-worker.mjs`): a Node child the core starts through
+  `src/shared/run/` at low priority (`node embed-worker.* --threads <n>`), one per model in use, fed batches of
+  texts as JSON lines on stdin and answering by id on stdout — vectors as the base64 of their float32 bytes, the tokens,
+  the load's time and peak memory, which the core writes into its timings journal (`embed-protocol.ts`). Asks run side
+  by side (a query is not held behind an index batch), a cancel stops a batch between two onnxruntime runs, a worker
+  that dies fails what it was doing with the end of its stderr and the next call starts another. Ten minutes without
+  work and it is killed, as llama-server, so its memory goes back to the system (`TESTIMUS_EMBED_IDLE_MS` shortens
+  it). A GGUF model runs in its llama-server. Only a reranker's few candidates per query still run in the core.
 - **Stopping is clean.** On stdin closing (`--exit-with-stdin`) or a stop signal, `serve` answers 503 to new requests,
-  cancels every job (each ends `cancelled` in its log), kills every `claude -p` tree and stops its llama.cpp servers,
+  cancels every job (each ends `cancelled` in its log), kills every `claude -p` tree and stops its llama.cpp servers and embed workers,
   then exits 0 (a stuck step is cut at 6 s; a second signal exits at once). `testimus mcp` ends when its stdin closes.
 - **Reads scale with the project** (2026-11-05). A test's row, a job's summary and the project counts are worked out
   once per *version* of the files they come from (size + mtime + inode, `lib/file-memo.ts`); each read only stats. The
@@ -851,11 +862,23 @@ above) and by naming only the wanted choice's models.
   (`llamacpp`). A choice is `models.use`, for the open project on this PC. The first launch keeps the pack this PC chose for the project picked; the core's `suggested` is only a badge
   until nothing is chosen. A unit test proves every pack resolves with transformers.js and llama.cpp alone, and
   Light/Performance with transformers.js alone; `tests/unit/core/models/pack-notes.test.ts` checks every sentence.
-- **Runtimes** behind one seam (`probe`, `embed`, `rerank`): **transformers.js** in-process (CPU, DirectML; q8 models
+- **Runtimes** behind one seam (`probe`, `embed`, `rerank`): **transformers.js** (CPU, DirectML; q8 models
   embed one text per call because their dynamic quantization makes a vector depend on its batch-mates; Qwen3-Reranker
-  through the `yes-no-lm` export), and **llama.cpp** for GGUF (`llama-server.exe` per loaded model on 127.0.0.1 with a
+  through the `yes-no-lm` export) — its embeddings in the embed worker (§3), its rerankers in the core — and **llama.cpp** for GGUF (`llama-server.exe` per loaded model on 127.0.0.1 with a
   random `--api-key`, shared by callers, stopped after 10 idle minutes and on exit; the official ggml-org build is
   downloaded by `models pullRuntime`, SHA-256 pinned in the code, CUDA/Vulkan/CPU chosen from the PC).
+- **Where the embeddings run, per PC** (2026-11-12, `lib/fit/placement.ts` `embedPlace`; `rag.status.embeddingPlace`,
+  said under Settings › Models › Embeddings): « the best solution for the machine » — a usable card computes them
+  when the model installed runs there (a GGUF model in llama-server, CUDA or Vulkan; an ONNX model with a DirectML
+  form in the embed worker on `dml`: « Embedding: graphics card… »); otherwise the processor, in the embed worker with
+  onnxruntime `intraOpNumThreads` = the PC's threads less two and `interOpNumThreads` = 1 (« Embedding: processor, N
+  cores, separate process »). **A card never changes the model installed**: BGE-M3 8-bit (the Light pack) has no
+  DirectML form, so on a PC with a card it stays on the processor, in the worker; moving to the card is choosing a
+  model that runs there (bge-m3 16-bit, Qwen3 0.6B 16-bit, a GGUF), through the packs or Settings › Models, which index
+  again with it. The device is not part of a space's fingerprint (above), and the worker's vectors are the core's to
+  the bit (same `transformers-engine.ts` computation; measured below). **A query is embedded in the worker too**:
+  starting it costs ~150 ms (Node 70 ms + transformers.js 80 ms) against ~2.5 s to load BGE-M3 8-bit, which the core
+  would have to pay as well, and while it lives (10 min after the last work) a query costs what it did in the core.
 - **Downloads** (`models pull`): only the dtype's files, through Node `fetch` (never `curl.exe`, never without
   certificate checks), `<name>.part` with Range resume, SHA-256 checked before the rename. Refused before the folder is
   chosen (`models-dir-unset`) and when the drive lacks 1.2 × what is left. `allowRemote` is the one switch.
@@ -1730,7 +1753,7 @@ first-class: every screen works without the bridge.
   dependency without a win-x64 prebuild is refused.
 - `npm run release` → `dist/testimus-<version>-win-x64/`: `Testimus.exe` (Electron renamed with `rcedit`, icon,
   version info), `resources/app.asar`, `node/node.exe`, `app/` (`testimus.mjs`, one Rolldown bundle with the catalog
-  inlined, `ui/`, `templates/`, `node_modules/` holding only the externals: sqlite-vec, onnxruntime, transformers.js,
+  inlined; `embed-worker.mjs`, the embed worker's own bundle, which the core's URL to it is rewritten to; `ui/`, `templates/`, `node_modules/` holding only the externals: sqlite-vec, onnxruntime, transformers.js,
   sharp, pdfjs-dist), `models/` (Light pack, so the first index needs no download), `testimus.cmd`, `install.ps1`,
   `release.json`. Electron's zip is downloaded once into `.build/cache/` and checked against its SHA-256 files; the
   build fails if the installed `electron` differs from the pin. Fuses: `RunAsNode`, `NODE_OPTIONS` and inspect flags
@@ -1891,3 +1914,26 @@ first-class: every screen works without the bridge.
   Windows' and macOS' recursive watch; on Linux, where Node watches each folder apart, a write reported after the
   fence would be missed by that job's `changed` (the watcher's own event still reaches the page). Measured on macOS
   only; the Windows PC is to check. The first `tests.list` of a big project (600 `test.md` parsed) is left synchronous.
+- **The embed worker, measured** (2026-11-12, §3 and §6 « Where the embeddings run »; the dev PC, Core Ultra 9 285K,
+  24 threads, so the worker ran with 22; BGE-M3 8-bit on the processor, as on a colleague's PC with the Light pack;
+  the PC was shared with other sessions' builds and tests, 50 % busy on average, so read the ratios). « Before » is
+  the same code with the embeddings put back in the core (`runtimes.transformers = transformersRuntime`, the
+  computation of 0.0.9):
+
+  | | in the core (before) | embed worker (after) |
+  |---|---|---|
+  | Vectors, 4 passages + a query, compared bit for bit | — | identical (max difference 0), from the `.ts` and from the bundled `embed-worker.mjs` |
+  | `rag.eval` on the Syntec reference (100 questions, 97 passages) | search @10 0.960, @20 0.990, MRR 0.748, nDCG@10 0.800; search+graph 1.000 | the same to the last digit |
+  | `serve` indexing 306 passages (the fixture project + Syntec three times): `jobs.list` over HTTP | p50 188 ms, p95 615 ms, max 991 ms | p50 2 ms, p95 3 ms, max 325 ms |
+  | The core's memory during that index / after it | 1 147 MB / 1 564 MB, kept until the core closes | 209 MB / 199 MB (the worker holds 1 622 MB) |
+  | The worker after the idle delay (shortened to 30 s) | — | gone 32 s after its last batch; the core stays at 193 MB |
+  | A query | 38–63 ms warm | 37–115 ms while the worker lives; 1.9 s when it must start again (Node + transformers.js ≈ 150 ms, the rest the model's load, which the core paid too) |
+
+  The index's own duration moved with the PC's load more than with the change: 97 passages took 18–78 s in the core
+  and 21–125 s in the worker over eight runs, and 41 · 39 · 40 · 31 s in four runs back to back (core, worker, core,
+  worker); the 306 passages above took 118 s in the core and 227 s in the worker under heavier load; 30 long texts
+  alone, 9.7 s in the core and 2.7–3.0 s in the worker, at normal or low priority, with 12 or 22 threads alike. No
+  steady cost of the worker shows. At low priority the
+  worker gives way to whatever else runs, which is the point. Not measured: the 4 000 passages of the spec's proof
+  (the shape holds — the core's memory no longer grows with the model), a PC with only the processor and 8 threads,
+  the DirectML path (`dml` in the worker) on a real card.

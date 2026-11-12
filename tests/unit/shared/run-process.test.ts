@@ -125,6 +125,22 @@ describe("process: input, output and refusals", () => {
     expect(exit.stdout).toContain("echo:two");
   });
 
+  it("a long-lived child can give its lines only, its stdout not kept whole", async () => {
+    const lines: string[] = [];
+    const p = start({
+      exe: process.execPath,
+      args: tree("echo"),
+      keepStdin: true,
+      keepStdout: false,
+      onLine: (l) => lines.push(l),
+    });
+    p.write("one\n");
+    p.end();
+    const exit = await p.exited;
+    expect(lines.slice(1)).toEqual(["echo:one"]);
+    expect(exit.stdout).toBe("");
+  });
+
   it("passes the prompt on stdin and closes it", async () => {
     const exit = await run({
       exe: process.execPath,
