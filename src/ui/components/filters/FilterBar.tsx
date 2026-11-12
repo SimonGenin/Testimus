@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { Button } from "../ui/Button.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -26,6 +27,8 @@ export type FilterBarProps = {
   total: number;
   /** every filter off */
   onClear: () => void;
+  /** a control at the end of the menus' row (Review: how the queue is laid out) */
+  end?: ReactNode;
 };
 
 // ponytail: the one filter bar above a list that narrows (New run's tests, Review's queue, the runs): words, a menu per
@@ -45,11 +48,17 @@ export function FilterBar(p: FilterBarProps) {
         value={p.words}
         onChange={p.onWords}
       />
-      {menus.length > 0 && (
+      {(menus.length > 0 || p.end) && (
         <div {...stylex.props(styles.menus)}>
           {menus.map(({ key, ...m }) => (
             <FilterMenu key={key} {...m} />
           ))}
+          {p.end && (
+            <>
+              <span {...stylex.props(styles.grow)} />
+              {p.end}
+            </>
+          )}
         </div>
       )}
       {on && (

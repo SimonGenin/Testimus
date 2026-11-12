@@ -76,6 +76,8 @@ const key = (k: string, extra: Record<string, unknown> = {}) => fireEvent.keyDow
 
 const step = (n: number) => screen.getByRole("article", { name: `Step ${n}` });
 const queue = () => screen.getByRole("complementary", { name: "Review queue" });
+// the tests of the folder picked in the queue (its folders are a tree beside them)
+const testRows = (el: HTMLElement) => within(el).getAllByRole("option");
 const kept = () => JSON.parse(localStorage.getItem("testimus.layoutReview") ?? "null");
 const position = () => screen.getByTestId("queue-position");
 const toast = (title: string) =>
@@ -286,9 +288,7 @@ describe("Review screen", () => {
     const asked = named("review.queue").length;
     fireEvent.click(within(queue()).getByRole("button", { name: "Folder" }));
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /^\/G/ }));
-    await waitFor(() =>
-      expect(within(screen.getByRole("listbox", { name: "Tests to review" })).getAllByRole("option")).toHaveLength(1),
-    );
+    await waitFor(() => expect(testRows(queue())).toHaveLength(1));
     expect(within(queue()).getByRole("status")).toHaveTextContent("1 of 3 shown");
     fireEvent.change(within(queue()).getByRole("searchbox", { name: "Filter the queue" }), {
       target: { value: "zzz" },
@@ -360,13 +360,12 @@ describe("Review screen", () => {
     const { app: a } = show({ route: { screen: "review", arg: "L-3" } });
     await screen.findByRole("heading", { name: "Summary L-3" });
     const latest = await within(queue()).findByRole("group", { name: /^Generated 31 Oct/ });
-    expect(
-      within(latest)
-        .getAllByRole("option")
-        .map((o) => o.textContent),
-    ).toEqual([expect.stringContaining("Summary K-2"), expect.stringContaining("Summary L-3")]);
+    expect(testRows(latest).map((o) => o.textContent)).toEqual([
+      expect.stringContaining("Summary K-2"),
+      expect.stringContaining("Summary L-3"),
+    ]);
     const earlier = within(queue()).getByRole("group", { name: "Earlier" });
-    expect(within(earlier).getAllByRole("option")).toHaveLength(1);
+    expect(testRows(earlier)).toHaveLength(1);
     expect(within(earlier).getByText("Summary K-1")).toBeInTheDocument();
     await waitFor(() => expect(position()).toHaveTextContent("2 / 3"));
     key("j");

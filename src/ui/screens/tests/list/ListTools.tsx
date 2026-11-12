@@ -1,9 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useRef, useState } from "react";
-import type { PanesLayout } from "../../../components/tree/FolderPanes.tsx";
+import { LAYOUTS, type ListLayout } from "../../../components/tree/FolderPanes.tsx";
 import { Button } from "../../../components/ui/Button.tsx";
 import { Menu, type MenuEntry } from "../../../components/ui/Menu.tsx";
-import { Segmented, type SegmentedOption } from "../../../components/ui/Segmented.tsx";
+import { Segmented } from "../../../components/ui/Segmented.tsx";
 import { Text } from "../../../components/ui/Text.tsx";
 import { Tooltip } from "../../../components/ui/Tooltip.tsx";
 import { border, color, space } from "../../../styles/tokens.stylex.ts";
@@ -58,16 +58,10 @@ function AssigneeFilter({
   );
 }
 
-export type ListLayout = PanesLayout | "tree";
+export type { ListLayout };
 
 // 1: the assignee count instead of the names · 2: New test as its icon too — past that the row wraps
 const FOLDS = 2;
-
-const LAYOUTS: SegmentedOption<ListLayout>[] = [
-  { value: "tree", label: "One tree", icon: "tree", iconOnly: true },
-  { value: "columns", label: "Side by side", icon: "layout-split", iconOnly: true },
-  { value: "rows", label: "One above the other", icon: "layout-stacked", iconOnly: true },
-];
 
 const styles = stylex.create({
   tools: {

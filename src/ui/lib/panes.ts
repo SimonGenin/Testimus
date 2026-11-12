@@ -59,6 +59,23 @@ export type PaneShare = {
   handle: PaneHandle;
 };
 
+// ponytail: whether a frame is at least this wide, measured as it resizes — wide until measured (a page without layout)
+export function useWide(min: number): { frame: RefObject<HTMLElement | null>; wide: boolean } {
+  const frame = useRef<HTMLElement | null>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = frame.current;
+    if (!el) return;
+    const measure = () => setWidth(el.clientWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { frame, wide: !width || width >= min };
+}
+
 // ponytail: two panes splitting one frame (side by side: its width, one above the other: its height) — the first one's
 // share follows the drag, is kept in lib/prefs once the gesture ends, and a double-click (or Home) brings back half
 export function usePaneShare(name: SharePref, axis: "width" | "height"): PaneShare {

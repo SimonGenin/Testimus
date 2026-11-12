@@ -38,6 +38,9 @@ export function localTree<T extends Filed = LocalTestRef>(refs: T[], sorted = tr
   return root;
 }
 
+// the tests of a tree in the order it draws them: each folder's sub-folders, then its own tests
+export const treeOrder = <T extends Filed>(n: Node<T>): T[] => [...n.folders.flatMap(treeOrder), ...n.tests];
+
 export const matches = (r: LocalTestRef, q: string) =>
   !q || `${r.key ?? ""} ${r.summary} ${r.id}`.toLowerCase().includes(q.toLowerCase());
 

@@ -1,17 +1,24 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { Review } from "../../../core/types.ts";
 import { FilterBar } from "../../components/filters/FilterBar.tsx";
+import { LAYOUTS, type ListLayout } from "../../components/tree/FolderPanes.tsx";
+import { LocalTree } from "../../components/tree/LocalTree.tsx";
+import { TreePanes } from "../../components/tree/TreePanes.tsx";
+import { ancestors, localTree } from "../../components/tree/tree.ts";
 import { Badge, ReviewBadge } from "../../components/ui/Badge.tsx";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Kbd } from "../../components/ui/Kbd.tsx";
 import { List } from "../../components/ui/List.tsx";
 import { Pane } from "../../components/ui/Pane.tsx";
+import { Segmented } from "../../components/ui/Segmented.tsx";
 import { Select } from "../../components/ui/Select.tsx";
 import { type } from "../../components/ui/type.ts";
 import { plural } from "../../lib/format.ts";
 import { testLabel } from "../../lib/labels.ts";
+import { usePref } from "../../lib/prefs.ts";
 import { border, color, space } from "../../styles/tokens.stylex.ts";
 import { filtered, type QueueFilters, queueOptions } from "./queueFilters.ts";
 import type { QueueGroup } from "./queueGroups.ts";
@@ -40,7 +47,6 @@ export type QueueSort = "anomalies" | "state" | "folder" | "recent";
 const SORTS: { value: QueueSort; label: string }[] = [
   { value: "anomalies", label: "Most issues" },
   { value: "state", label: "State" },
-  { value: "folder", label: "Folder" },
   { value: "recent", label: "Recent" },
 ];
 
@@ -68,6 +74,7 @@ const styles = stylex.create({
   none: { margin: 0, padding: space.s5, color: color.textMuted },
   notice: { paddingTop: space.s3, paddingInline: space.s3 },
   body: { boxSizing: "border-box", flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: space.s5 },
+  panes: { display: "flex", flexDirection: "column", overflowY: "hidden", paddingBottom: 0 },
   foot: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: space.s3, color: color.textMuted },
   grow: { flex: 1 },
   keys: { display: "inline-flex", alignItems: "center", gap: space.s2, whiteSpace: "nowrap" },
@@ -133,11 +140,55 @@ export type ReviewQueueProps = {
 };
 
 // ponytail: the generated tests waiting for a person — the filter bar (words, review state, what the check found,
-// folder) over the list by generation; the sort is the pane's own. Validated tests leave the queue: Tests holds them
+// folder) over the tests filed by folder as Tests files them — one tree, or the folders and the tests of the folder
+// picked in two panes (the layout is kept), by generation; the sort is the pane's own and orders the tests inside a
+// folder. The folder of the test opened (J/K, a decision) is unfolded and picked. Validated tests leave the queue
 export function ReviewQueue(p: ReviewQueueProps) {
   const all = p.counts ? p.counts.toFix + p.counts.draft : undefined;
   const narrowed = filtered(p.filters);
   const options = queueOptions(p.queued, p.filters);
+  const [kept, setLayout] = usePref("reviewLayout");
+  const layout = kept as ListLayout;
+  const [shut, setShut] = useState<Set<string>>(new Set());
+  const [folder, setFolder] = useState("/");
+  const activeFolder = (p.items?.find((t) => t.id === p.activeId) ?? p.items?.[0])?.folder;
+  useEffect(() => {
+    if (activeFolder === undefined) return;
+    setFolder(activeFolder || "/");
+    const up = ancestors(activeFolder);
+    setShut((s) => {
+      const kept = [...s].filter((k) => !up.includes(k.slice(k.indexOf("|") + 1)));
+      return kept.length === s.size ? s : new Set(kept);
+    });
+  }, [activeFolder]);
+  const toggle = (fold: string) =>
+    setShut((s) => {
+      const n = new Set(s);
+      if (!n.delete(fold)) n.add(fold);
+      return n;
+    });
+  const items = p.items ?? [];
+  const row = (t: QueueItem) => ({
+    title: testLabel(t),
+    tooltip: tip(t),
+    meta: (
+      <>
+        <ReviewBadge state={t.review} size="sm" />
+        <Counts item={t} />
+      </>
+    ),
+  });
+  const panes = layout !== "tree" && items.length > 0;
+  const root = p.groups
+    ? p.groups.map((g) => ({
+        label: g.label,
+        meta: g.meta,
+        root: localTree(
+          items.filter((t) => g.keys.includes(t.id)),
+          false,
+        ),
+      }))
+    : localTree(items, false);
   return (
     <div {...stylex.props(styles.queue)}>
       <Pane
@@ -168,6 +219,15 @@ export function ReviewQueue(p: ReviewQueueProps) {
             shown={p.items?.length ?? 0}
             total={p.queued.length}
             onClear={() => p.onClearFilters?.()}
+            end={
+              <Segmented<ListLayout>
+                size="sm"
+                label="Folders and tests"
+                value={layout}
+                onChange={setLayout}
+                options={LAYOUTS}
+              />
+            }
             menus={[
               {
                 key: "state",
@@ -208,35 +268,65 @@ export function ReviewQueue(p: ReviewQueueProps) {
           </div>
         )}
         {p.notice && <div {...stylex.props(styles.notice)}>{p.notice}</div>}
-        <div {...stylex.props(styles.body)}>
-          <List
-            label="Tests to review"
-            density="two-line"
-            items={p.items ?? []}
-            groups={p.groups}
-            loading={p.items === null ? 5 : false}
-            reading="review.queue"
-            getKey={(t) => t.id}
-            selected={p.activeId}
-            onSelect={p.onOpen}
-            renderItem={(t) => ({
-              title: testLabel(t),
-              tooltip: tip(t),
-              meta: (
-                <>
-                  <ReviewBadge state={t.review} size="sm" />
-                  <Counts item={t} />
-                </>
-              ),
-            })}
-            empty={
-              !narrowed ? (
-                <p {...stylex.props(type.small, styles.none)}>The queue is empty.</p>
-              ) : (
-                <FilteredEmpty compact onClear={p.onClearFilters} />
-              )
-            }
-          />
+        <div {...stylex.props(styles.body, panes && styles.panes)}>
+          {panes ? (
+            <TreePanes<QueueItem>
+              name="review"
+              label="Queue"
+              layout={layout === "columns" ? "columns" : "rows"}
+              root={localTree(items, false)}
+              folder={folder}
+              shut={shut}
+              activeId={p.activeId}
+              getKey={(t) => t.id}
+              renderTest={row}
+              groups={(tests) =>
+                p.groups?.map((g) => {
+                  const keys = g.keys.filter((k) => tests.some((t) => t.id === k));
+                  return { label: g.label, meta: String(keys.length), keys };
+                })
+              }
+              empty={(picked) => (
+                <EmptyState
+                  icon="folder"
+                  compact
+                  title="No test directly in this folder"
+                  text={`${plural(picked.total, "test")} in its sub-folders.`}
+                />
+              )}
+              onPickFolder={setFolder}
+              onToggle={toggle}
+              onOpen={p.onOpen}
+            />
+          ) : p.items?.length ? (
+            <LocalTree<QueueItem>
+              label="Tests to review"
+              root={root}
+              shut={shut}
+              forceOpen={false}
+              activeId={p.activeId}
+              getKey={(t) => t.id}
+              onOpen={p.onOpen}
+              onToggle={toggle}
+              renderTest={row}
+            />
+          ) : (
+            <List
+              label="Tests to review"
+              items={[]}
+              loading={p.items === null ? 5 : false}
+              reading="review.queue"
+              getKey={(t: QueueItem) => t.id}
+              renderItem={() => ({ title: "" })}
+              empty={
+                !narrowed ? (
+                  <p {...stylex.props(type.small, styles.none)}>The queue is empty.</p>
+                ) : (
+                  <FilteredEmpty compact onClear={p.onClearFilters} />
+                )
+              }
+            />
+          )}
         </div>
       </Pane>
     </div>

@@ -486,7 +486,7 @@ function fixtureShots(): Shot[] {
         await p.getByRole("menuitemcheckbox", { name: /^To fix/ }).click({ timeout: T });
         await p.keyboard.press("Escape");
         await queue
-          .getByRole("listbox", { name: "Tests to review" })
+          .getByRole("listbox", { name: /^Queue tests in/ })
           .getByRole("option")
           .first()
           .waitFor({ timeout: T });

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Folder, LocalTestRef, RemoteTestRef } from "../../../core/types.ts";
 import { LocalTree } from "../../components/tree/LocalTree.tsx";
 import { testItem } from "../../components/tree/rows.tsx";
+import { TreePanes } from "../../components/tree/TreePanes.tsx";
 import { ancestors, isKeyQuery, type Listed, localTree, matches } from "../../components/tree/tree.ts";
 import { Banner } from "../../components/ui/Banner.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -26,7 +27,7 @@ import { type JiraLayout, JiraTab } from "./JiraTab.tsx";
 import { assigneesOf } from "./list/assignee.ts";
 import { FoundList } from "./list/FoundList.tsx";
 import { type ListLayout, ListTools } from "./list/ListTools.tsx";
-import { LocalPanes } from "./list/LocalPanes.tsx";
+
 import { useNewTest } from "./list/newTest.ts";
 import { useListView } from "./list/useListView.ts";
 import { claudeLock } from "./lock.ts";
@@ -307,18 +308,28 @@ export function TestList({
       });
     if (localPanes)
       return (
-        <LocalPanes
+        <TreePanes<LocalTestRef>
+          name="local"
+          label="Local"
           layout={localKept as JiraLayout}
           root={shown}
           folder={v.localFolder}
           shut={v.shut}
           activeId={activeId}
+          getKey={(r) => r.id}
+          renderTest={(r) => testItem(r, lockOf, (x) => void askDelete(x))}
+          empty={(picked) => (
+            <EmptyState
+              icon="folder"
+              compact
+              title="No test directly in this folder"
+              text={`${plural(picked.total, "test")} in its sub-folders.`}
+              actions={<Button size="sm" icon="plus" label="New test" onClick={() => void create()} />}
+            />
+          )}
           onPickFolder={v.setLocalFolder}
           onToggle={toggle}
           onOpen={onOpen}
-          locked={lockOf}
-          onDelete={(r) => void askDelete(r)}
-          onNew={() => void create()}
         />
       );
     return (

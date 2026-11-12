@@ -115,8 +115,15 @@ describe("Review screen on the sample project", () => {
     routes();
     const { app } = mountReview(<ReviewScreen />, { route: { screen: "review" } });
     const queue = await screen.findByRole("complementary", { name: "Review queue" });
-    const list = within(queue).getByRole("listbox", { name: "Tests to review" });
-    await waitFor(() => expect(within(list).getAllByRole("option", { name: /Sectionneur/ })).toHaveLength(2));
+    const list = await within(queue).findByRole("listbox", { name: "Queue tests in /Traction/Sectionneurs" });
+    await waitFor(() =>
+      expect(within(list).getAllByRole("option", { name: /^Sectionneur (sans|avec)/ })).toHaveLength(2),
+    );
+    expect(
+      within(within(queue).getByRole("tree", { name: "Queue folders" })).getByRole("treeitem", {
+        name: /^Sectionneurs/,
+      }),
+    ).toHaveAttribute("aria-selected", "true");
     expect(within(list).getAllByRole("tooltip", { hidden: true })[1]).toHaveTextContent(/^Not in Jira yet/);
     expect(within(list).getByText("Not checked yet")).toBeInTheDocument();
 

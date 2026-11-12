@@ -146,7 +146,48 @@ describe("ReviewQueue", () => {
     ...over,
   });
 
-  it("shows its rows with their counts, and sorts from the pane's head", () => {
+  const testRows = () =>
+    within(screen.getByRole("tree", { name: "Tests to review" }))
+      .getAllByRole("treeitem")
+      .filter((r) => !r.hasAttribute("aria-expanded"));
+
+  it("shows the folders above the tests of the folder picked by default, groups them by generation, and keeps a layout", () => {
+    localStorage.removeItem("testimus.reviewLayout");
+    const items = [
+      item("a", { folder: "/F/x", generatedBy: "new", generatedAt: "2026-10-31T15:02:00.000Z" }),
+      item("b", { folder: "/F/x", generatedBy: "old", generatedAt: "2026-10-30T09:00:00.000Z" }),
+      item("c", { folder: "/G" }),
+    ];
+    const p = props({
+      items,
+      queued: items,
+      activeId: "a",
+      groups: [
+        { label: "Generated 31 Oct", meta: "2", keys: ["a", "c"] },
+        { label: "Earlier", meta: "1", keys: ["b"] },
+      ],
+    });
+    render(<ReviewQueue {...p} />);
+    const folders = screen.getByRole("tree", { name: "Queue folders" });
+    expect(within(folders).getByRole("treeitem", { name: /^x/ })).toHaveAttribute("aria-selected", "true");
+    const tests = screen.getByRole("listbox", { name: "Queue tests in /F/x" });
+    expect(within(within(tests).getByRole("group", { name: "Generated 31 Oct" })).getAllByRole("option")).toHaveLength(
+      1,
+    );
+    expect(within(within(tests).getByRole("group", { name: "Earlier" })).getByRole("option")).toHaveTextContent("b");
+    fireEvent.click(within(folders).getByRole("treeitem", { name: /^G/ }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Queue tests in /G" })).getByRole("option"));
+    expect(p.onOpen).toHaveBeenCalledWith("c");
+    fireEvent.click(screen.getByRole("radio", { name: "Side by side" }));
+    expect(localStorage.getItem("testimus.reviewLayout")).toBe("columns");
+    fireEvent.click(screen.getByRole("radio", { name: "One tree" }));
+    expect(screen.getByRole("tree", { name: "Tests to review" })).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Queue folders" })).toBeNull();
+    localStorage.removeItem("testimus.reviewLayout");
+  });
+
+  it("as one tree, files its rows by folder with their counts, folds a folder, and sorts from the pane's head", () => {
+    localStorage.setItem("testimus.reviewLayout", "tree");
     const items = [
       item("a", { key: "K-1", errors: 1, warnings: 2, infos: 3 }),
       item("b", { summary: "", folder: "", errors: 1, warnings: 1, infos: 1, stale: true, edited: true }),
@@ -164,23 +205,31 @@ describe("ReviewQueue", () => {
     expect(screen.queryByRole("radiogroup", { name: "Filter by review state" })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: "Only with findings" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Check all" })).toBeNull();
-    const rows = within(screen.getByRole("listbox", { name: "Tests to review" })).getAllByRole("option");
+    const folder = screen.getByRole("treeitem", { name: /^F/ });
+    expect(folder).toHaveAttribute("aria-expanded", "true");
+    expect(folder).toHaveTextContent("3");
+    const rows = testRows();
+    expect(rows.map((r) => r.getAttribute("aria-level"))).toEqual(["2", "2", "2", "1"]);
     expect(rows[0]).toHaveTextContent("1 error");
     expect(rows[0]).toHaveTextContent("2 warnings");
     expect(rows[0]).toHaveTextContent("3 info");
     expect(within(rows[0]).getByRole("tooltip", { hidden: true })).toHaveTextContent("K-1 — a — /F");
-    expect(rows[1]).toHaveTextContent("Untitled test");
-    expect(rows[1]).toHaveTextContent("Changed since its check");
-    expect(within(rows[1]).getByRole("tooltip", { hidden: true })).toHaveTextContent(
+    expect(rows[1]).toHaveTextContent("No findings");
+    fireEvent.click(rows[1]);
+    expect(p.onOpen).toHaveBeenCalledWith("c");
+    expect(rows[2]).toHaveTextContent("Not checked yet");
+    expect(rows[3]).toHaveTextContent("Untitled test");
+    expect(rows[3]).toHaveTextContent("Changed since its check");
+    expect(within(rows[3]).getByRole("tooltip", { hidden: true })).toHaveTextContent(
       "Not in Jira yet — Untitled test — / · edited since it was generated",
     );
-    expect(rows[1]).toHaveAttribute("aria-selected", "true");
-    expect(rows[2]).toHaveTextContent("No findings");
-    fireEvent.click(rows[2]);
-    expect(p.onOpen).toHaveBeenCalledWith("c");
-    expect(rows[3]).toHaveTextContent("Not checked yet");
-    choose(screen.getByRole("combobox", { name: "Sort the queue" }), "Folder");
-    expect(p.onSort).toHaveBeenCalledWith("folder");
+    expect(rows[3]).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(folder);
+    expect(screen.getByRole("treeitem", { name: /^F/ })).toHaveAttribute("aria-expanded", "false");
+    expect(testRows()).toHaveLength(1);
+    choose(screen.getByRole("combobox", { name: "Sort the queue" }), "Recent");
+    expect(p.onSort).toHaveBeenCalledWith("recent");
+    localStorage.removeItem("testimus.reviewLayout");
   });
 
   it("filters by words, state, what the check found and folder, each tick counted", () => {

@@ -3,9 +3,18 @@ import type { ReactNode } from "react";
 import { usePaneShare } from "../../lib/panes.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { ResizeHandle } from "../ui/ResizeHandle.tsx";
+import type { SegmentedOption } from "../ui/Segmented.tsx";
 import { type } from "../ui/type.ts";
 
 export type PanesLayout = "columns" | "rows";
+/** how a list of tests in folders is laid out: one tree, or the folders and the tests in two panes */
+export type ListLayout = PanesLayout | "tree";
+
+export const LAYOUTS: SegmentedOption<ListLayout>[] = [
+  { value: "tree", label: "One tree", icon: "tree", iconOnly: true },
+  { value: "columns", label: "Side by side", icon: "layout-split", iconOnly: true },
+  { value: "rows", label: "One above the other", icon: "layout-stacked", iconOnly: true },
+];
 
 const styles = stylex.create({
   split: { flex: 1, minHeight: 0, minWidth: 0, display: "flex" },
@@ -51,7 +60,7 @@ export function FolderPanes({
   meta,
   children,
 }: {
-  name: "jira" | "local" | "generate";
+  name: "jira" | "local" | "generate" | "review";
   layout: PanesLayout;
   /** the first pane's head: Folders by default */
   foldersTitle?: string;

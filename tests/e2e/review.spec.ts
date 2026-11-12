@@ -17,7 +17,10 @@ test("the queue lists what awaits review and its filter bar narrows it by state"
     "aria-current",
     "page",
   );
-  const items = queue(page).getByRole("listbox", { name: "Tests to review" }).getByRole("option");
+  await expect(queue(page).getByRole("tree", { name: "Queue folders" })).toBeVisible();
+  const items = queue(page)
+    .getByRole("listbox", { name: /^Queue tests in/ })
+    .getByRole("option");
   await expect(items).toHaveCount(2);
   await expect(items.first()).toContainText("2 errors");
   const state = (name: RegExp) => page.getByRole("menuitemcheckbox", { name });
@@ -94,5 +97,9 @@ test("V validates the open test and the queue moves on", async ({ page }) => {
   await expect(page.getByRole("status").filter({ hasText: "Validated" }).first()).toBeVisible();
   await expect.poll(() => review("LFRPS12-1420")).toBe("validated");
   await expect(under(page).getByRole("heading", { level: 2 })).toHaveText(SUMMARY_LOCAL);
-  await expect(queue(page).getByRole("listbox", { name: "Tests to review" }).getByRole("option")).toHaveCount(1);
+  await expect(
+    queue(page)
+      .getByRole("listbox", { name: /^Queue tests in/ })
+      .getByRole("option"),
+  ).toHaveCount(1);
 });

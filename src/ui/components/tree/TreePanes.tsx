@@ -1,23 +1,20 @@
 import * as stylex from "@stylexjs/stylex";
-import type { LocalTestRef } from "../../../../core/types.ts";
-import { FolderPanes, type PanesLayout } from "../../../components/tree/FolderPanes.tsx";
-import { testItem } from "../../../components/tree/rows.tsx";
-import { folderName, type Node } from "../../../components/tree/tree.ts";
-import { Button } from "../../../components/ui/Button.tsx";
-import { EmptyState } from "../../../components/ui/EmptyState.tsx";
-import { Icon } from "../../../components/ui/Icon.tsx";
-import { List } from "../../../components/ui/List.tsx";
-import { type } from "../../../components/ui/type.ts";
-import { plural } from "../../../lib/format.ts";
-import { color } from "../../../styles/tokens.stylex.ts";
+import type { ReactNode } from "react";
+import { color } from "../../styles/tokens.stylex.ts";
+import { Icon } from "../ui/Icon.tsx";
+import { List } from "../ui/List.tsx";
+import type { ListItemProps } from "../ui/ListItem.tsx";
+import { type } from "../ui/type.ts";
+import { FolderPanes, type PanesLayout } from "./FolderPanes.tsx";
+import { type Filed, folderName, type Node } from "./tree.ts";
 
 const styles = stylex.create({
   count: { color: color.textMuted },
 });
 
-type Row = { node: Node; depth: number };
+type Row<T extends Filed> = { node: Node<T>; depth: number };
 
-const findNode = (n: Node, path: string): Node | null => {
+export const findNode = <T extends Filed>(n: Node<T>, path: string): Node<T> | null => {
   if (n.path === path) return n;
   for (const c of n.folders) {
     const hit = findNode(c, path);
@@ -26,52 +23,62 @@ const findNode = (n: Node, path: string): Node | null => {
   return null;
 };
 
-// ponytail: the local tests as Jira's side shows its own — the folders the tests sit in, and the tests directly in the
-// folder picked; a folder that is gone (its last test moved or deleted) leaves the root picked
-export function LocalPanes({
+// ponytail: tests as Jira's side shows its own — the folders the tests sit in, and the tests directly in the folder
+// picked; a folder that is gone (its last test moved or deleted) leaves the root picked. How a test's row reads is the
+// screen's (Tests: its key, states and trash; Review: what the check found), and the tests pane may group its rows
+export function TreePanes<T extends Filed>({
+  name,
+  label,
   layout,
   root,
   folder,
   shut,
   activeId,
+  getKey,
+  renderTest,
+  groups,
+  empty,
   onPickFolder,
   onToggle,
   onOpen,
-  locked,
-  onDelete,
-  onNew,
 }: {
+  name: "local" | "review";
+  /** whose tests (« Local »): the lists are « <label> folders » and « <label> tests in <folder> » */
+  label: string;
   layout: PanesLayout;
-  root: Node;
+  root: Node<T>;
   folder: string;
   shut: Set<string>;
   activeId: string;
+  getKey: (t: T) => string;
+  renderTest: (t: T) => ListItemProps;
+  /** heads over the tests of the folder picked (Review: the latest generation, then « Earlier ») */
+  groups?: (tests: T[]) => { label: string; meta?: string; keys: string[] }[] | undefined;
+  /** the folder picked holds no test directly: its count under its sub-folders */
+  empty: (picked: Node<T>) => ReactNode;
   onPickFolder: (path: string) => void;
   onToggle: (path: string) => void;
-  onOpen: (id: string) => void;
-  /** why a test's row cannot be deleted now (Claude's lock), or false */
-  locked?: (id: string) => false | string;
-  onDelete: (r: LocalTestRef) => void;
-  onNew: () => void;
+  onOpen: (key: string) => void;
 }) {
   const picked = findNode(root, folder) ?? root;
-  const rows: Row[] = [];
-  const walk = (n: Node, depth: number) => {
+  const rows: Row<T>[] = [];
+  const walk = (n: Node<T>, depth: number) => {
     rows.push({ node: n, depth });
     if (n.path === "/" || !shut.has(n.path)) for (const f of n.folders) walk(f, depth + 1);
   };
   walk(root, 0);
   const tests = picked.tests;
+  const heads = groups?.(tests);
   return (
     <FolderPanes
-      name="local"
+      name={name}
       layout={layout}
       title={folderName(picked.path)}
       code={picked.path !== "/"}
       meta={String(tests.length)}
       folders={
-        <List<Row>
-          label="Local folders"
+        <List<Row<T>>
+          label={`${label} folders`}
           tree
           items={rows}
           selected={picked.path}
@@ -98,23 +105,16 @@ export function LocalPanes({
         />
       }
     >
-      <List<LocalTestRef>
-        label={`Local tests in ${folderName(picked.path)}`}
+      <List<T>
+        label={`${label} tests in ${folderName(picked.path)}`}
         items={tests}
-        getKey={(r) => r.id}
+        {...(heads ? { groups: heads } : {})}
+        getKey={getKey}
         selected={activeId}
         density="two-line"
         onSelect={onOpen}
-        empty={
-          <EmptyState
-            icon="folder"
-            compact
-            title="No test directly in this folder"
-            text={`${plural(picked.total, "test")} in its sub-folders.`}
-            actions={<Button size="sm" icon="plus" label="New test" onClick={onNew} />}
-          />
-        }
-        renderItem={(r) => testItem(r, locked, onDelete)}
+        empty={empty(picked)}
+        renderItem={renderTest}
       />
     </FolderPanes>
   );

@@ -71,7 +71,7 @@ const queue = (over: Partial<ReviewQueueProps> = {}): ReviewQueueProps => ({
 describe("Review › the design's icons", () => {
   it("a row without findings says so in words, without a badge (n° 79)", () => {
     render(<ReviewQueue {...queue()} />);
-    const row = within(screen.getByRole("listbox", { name: "Tests to review" })).getByRole("option");
+    const row = within(screen.getByRole("listbox", { name: /^Queue tests in/ })).getByRole("option");
     expect(within(row).getByText("No findings")).toBeInTheDocument();
     expect(iconOf(within(row).getByText("No findings"))).toBeUndefined();
   });
