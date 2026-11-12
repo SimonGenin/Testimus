@@ -10,6 +10,7 @@ import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, listSpaces, vectorCount, withIndex } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
 import { indexProject, readState } from "../rag/indexer.ts";
+import { installedLlama } from "../rag/runtimes/llamacpp.ts";
 import type { VectorSpace } from "../types.ts";
 
 const space = z.object({
@@ -93,7 +94,13 @@ export const commands = [
           threads: z
             .number()
             .nullable()
-            .describe("Processor threads the embed worker uses (the PC's less two), null on the card or in llama.cpp"),
+            .describe("Processor threads the embed worker or llama-server uses (the PC's less two), null on the card"),
+          card: z
+            .enum(["DirectML", "CUDA", "Vulkan"])
+            .nullable()
+            .describe(
+              "How the card is reached: DirectML (embed worker), CUDA or Vulkan (llama.cpp build); null on the processor",
+            ),
           text: z
             .string()
             .describe("What Settings › Models says, e.g. Embedding: processor, 22 cores, separate process"),
@@ -171,7 +178,9 @@ export const commands = [
             : null;
       const state = readState(project);
       const docs = await docsFreshness(project);
-      const place = m ? embedPlace(m, await machineProfile().catch(() => null)) : null;
+      const place = m
+        ? embedPlace(m, await machineProfile().catch(() => null), installedLlama()?.backend ?? null)
+        : null;
       return {
         embedding: m?.entry.id ?? "none",
         reranker: active.reranker?.entry.id ?? null,

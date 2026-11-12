@@ -72,7 +72,7 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
                                            │     └──► calls back through `testimus mcp`
                                            ├──► embed worker (node, low priority, JSON lines)
                                            ├──► frames worker (node + sharp, low priority, JSON lines)
-                                           └──► llama-server.exe (127.0.0.1, one per GGUF model)
+                                           └──► llama-server.exe (127.0.0.1, one per GGUF model; low priority on the processor)
   Electron shell ──spawns──► serve ; talks to /api only
 ```
 
@@ -163,7 +163,11 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   by side (a query is not held behind an index batch), a cancel stops a batch between two onnxruntime runs, a worker
   that dies fails what it was doing with the end of its stderr and the next call starts another. Ten minutes without
   work and it is killed, as llama-server, so its memory goes back to the system (`TESTIMUS_EMBED_IDLE_MS` shortens
-  it). A GGUF model runs in its llama-server. Only a reranker's few candidates per query still run in the core.
+  it). A GGUF model runs in its llama-server: on the card when the llama.cpp build has one and the PC gives the model
+  the card (`llamaOnGpu`), else on the processor — `-dev none -t <n> -tb <n>` with the worker's thread rule
+  (`embedThreads`) and low priority, so a CUDA build on a PC judged without a usable card computes on the processor
+  too. The install probe stops the llama-server and the embed worker it started (one already serving the index or a
+  search stays). Only a reranker's few candidates per query still run in the core.
 - **Stopping is clean.** On stdin closing (`--exit-with-stdin`) or a stop signal, `serve` answers 503 to new requests,
   cancels every job (each ends `cancelled` in its log), kills every `claude -p` tree and stops its llama.cpp servers, embed workers and frames worker,
   then exits 0 (a stuck step is cut at 6 s; a second signal exits at once). `testimus mcp` ends when its stdin closes.
@@ -851,7 +855,10 @@ above) and by naming only the wanted choice's models.
   never for the conversions (§5 « Several conversions at once »): a document is searchable minutes after its own
   conversion, not after the batch's last; `rag.index` asked by hand joins the same queue (`lib/docs-index.ts`
   `queueIndex`). Each pass reads every document then ready, so a large import makes a few passes, each an unchanged
-  document's « unchanged » for the others.
+  document's « unchanged » for the others. Chunking and the graph run in the core, so they stay short and let the page
+  through: every document's names and section numbers are read once per pass (`rag/graph.ts` `corpusOf`; read again
+  for each document, they made the edges quadratic — 9 s of a blocked core for 125 documents, `jobs.list` answering
+  in 14 s at the start of a 4 151-passage index), and the pass yields between two documents (2026-11-12).
 - **An index run's work in progress is not a problem.** While a run is under way or waiting its turn
   (`lib/docs-index.ts` knows: one queue per project, in this process), every document that is not fresh carries
   `docs.list.indexing` (`running` with its percent and passages embedded, or `waiting`) and `rag.status.indexing`
@@ -915,10 +922,15 @@ above) and by naming only the wanted choice's models.
   downloaded by `models pullRuntime`, SHA-256 pinned in the code, CUDA/Vulkan/CPU chosen from the PC).
 - **Where the embeddings run, per PC** (2026-11-12, `lib/fit/placement.ts` `embedPlace`; `rag.status.embeddingPlace`,
   said under Settings › Models › Embeddings): « the best solution for the machine » — a usable card computes them
-  when the model installed runs there (a GGUF model in llama-server, CUDA or Vulkan; an ONNX model with a DirectML
-  form in the embed worker on `dml`: « Embedding: graphics card… »); otherwise the processor, in the embed worker with
-  onnxruntime `intraOpNumThreads` = the PC's threads less two and `interOpNumThreads` = 1 (« Embedding: processor, N
-  cores, separate process »). **A card never changes the model installed**: BGE-M3 8-bit (the Light pack) has no
+  when the model installed runs there (a GGUF model in llama-server when the llama.cpp build has CUDA or Vulkan:
+  « Embedding: graphics card (CUDA), llama.cpp »; an ONNX model with a DirectML form in the embed worker on `dml`:
+  « Embedding: graphics card (DirectML), separate process »); otherwise the processor, with the PC's threads less two
+  — in the embed worker as onnxruntime `intraOpNumThreads` (`interOpNumThreads` = 1: « Embedding: processor, N cores,
+  separate process »), in llama-server as `-t`/`-tb` with no device (« Embedding: processor, N cores, llama.cpp »),
+  both at low priority. The device is read from this PC's profile, so the first resolution of a process profiles the
+  PC (`activeModels`, ~350 ms once): before 2026-11-12 a model found on disk and not registered (16-bit BGE-M3 in
+  `TESTIMUS_MODELS` or a shared folder) went to the processor when an index started before anything had profiled
+  the PC. **A card never changes the model installed**: BGE-M3 8-bit (the Light pack) has no
   DirectML form, so on a PC with a card it stays on the processor, in the worker; moving to the card is choosing a
   model that runs there (bge-m3 16-bit, Qwen3 0.6B 16-bit, a GGUF), through the packs or Settings › Models, which index
   again with it. The device is not part of a space's fingerprint (above), and the worker's vectors are the core's to
@@ -2057,6 +2069,25 @@ first-class: every screen works without the bridge.
   worker); the 306 passages above took 118 s in the core and 227 s in the worker under heavier load; 30 long texts
   alone, 9.7 s in the core and 2.7–3.0 s in the worker, at normal or low priority, with 12 or 22 threads alike. No
   steady cost of the worker shows. At low priority the
-  worker gives way to whatever else runs, which is the point. Not measured: the 4 000 passages of the spec's proof
-  (the shape holds — the core's memory no longer grows with the model), a PC with only the processor and 8 threads,
-  the DirectML path (`dml` in the worker) on a real card.
+  worker gives way to whatever else runs, which is the point.
+
+  **On the card, and 4 151 passages** (same day, the RTX 5080 of the dev PC shared with another project's two
+  llama-servers; the 125 documents of the RATP project after its 2026-11-10 import, 4 151 passages, one `serve` each,
+  `jobs.list` polled every few seconds; machine CPU 21–46 % busy on average during the runs, so read the durations as
+  orders of magnitude):
+
+  | 4 151 passages | card, DirectML (BGE-M3 16-bit, embed worker) | card, CUDA (Qwen3 0.6B Q8, llama-server) | processor (BGE-M3 8-bit, embed worker, 22 threads) |
+  |---|---|---|---|
+  | Embedding | 1 min 45 | 51 s | 29 min 12 |
+  | `jobs.list` over HTTP (p50 / p95 / max) | 2 / 6 / 46 ms | 2 / 29 / 79 ms | 2 / 3 / 167 ms |
+  | The core: CPU during / memory max / after | 0.06 core / 248 MB / 188 MB | 0.15 core / 284 MB / 150 MB | 0.01 core / 242 MB / 177 MB |
+  | The model's process | 1.7 GB, gone 35 s after the index (shortened idle) | 1.1 GB, gone after its 10 min idle | 4.0 GB, 14.8 cores, gone 40 s after (shortened idle) |
+  | Card memory added | ≈ 3.8 GB | ≈ 1.9 GB | — |
+  | A query | 140–200 ms | 105–165 ms | 160–220 ms |
+
+  `rag.eval` on the Syntec reference gives the same figures on the card and on the processor for each model: BGE-M3
+  16-bit recall@5 0.92, @10 0.96, MRR 0.750 (processor and DirectML); Qwen3 0.6B Q8 recall@5 0.91 on the processor,
+  0.92 on CUDA, @10 0.94, MRR 0.806 both. The first such index found the core blocked 9 s at its start (`jobs.list`
+  answering in 14 s): the graph read every document's names again for each document; read once per pass now (§6).
+  Not measured: BGE-M3 16-bit and Qwen3 0.6B through llama-server on the processor over the 4 151 passages (stopped,
+  judged to add nothing), a PC with only the processor and 8 threads.

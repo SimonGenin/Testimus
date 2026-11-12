@@ -11,14 +11,19 @@ sont celles de ce commit. Les choix marqués **Décidé** ont été tranchés av
 > - **I3** : fait le 2026-11-12 — tout le travail de `sharp` (tri des images vidéo, mosaïques, recadrages, images
 >   clés, photos) tourne dans le « frames worker », un processus Node à part en priorité basse (ARCHITECTURE.md §3,
 >   mesures en §16).
-> - **I4** : BGE-M3 8 bits n'a pas de forme DirectML : sur un PC à carte graphique il reste sur le processeur, dans
->   le programme séparé (passer à la carte = changer de modèle par les packs). llama-server sur processeur n'est pas
->   bridé. Mesuré sur 306 passages, pas 4 000 ; la voie DirectML n'est pas prouvée sur une vraie carte.
+> - **I4** : fait et mesuré le 2026-11-12 sur 4 151 passages (ARCHITECTURE.md §16) — carte graphique en DirectML
+>   (BGE-M3 16 bits) 1 min 45, en CUDA (Qwen3 0,6B, llama-server) 51 s, processeur (BGE-M3 8 bits) 29 min ; la page
+>   à 2 ms en médiane dans les trois cas, le core sous 300 Mo, même qualité de recherche carte et processeur.
+>   llama-server sur processeur est bridé (cœurs − 2, priorité basse). BGE-M3 8 bits (pack Light) n'a pas de forme
+>   DirectML : passer à la carte = changer de modèle par les packs, jamais en silence.
 > - **Import** : « Add documents » (quelques fichiers choisis) copie toujours aussitôt — seul l'import d'un dossier
 >   attend « Start » ; `docs.addFolder` en CLI/MCP démarre par défaut (`start: true`).
 > - **Prompts et skills** changés (generate-tests, plan-tests, analyze-test, check-test, fix-test, edit-test, chat,
->   learn, picture) : **pas mesurés** sur Sonnet high / Opus high comme CODE.md le demande.
-> - **Pas rejoué** : la charge réelle (« Ce qui reste à mesurer », en bas) ; un PC de collègue à 16 Go.
+>   learn, picture) : **pas mesurés** sur Sonnet high / Opus high comme CODE.md le demande — remis à plus tard par
+>   l'utilisateur.
+> - **Pas rejoué** : la charge réelle (« Ce qui reste à mesurer », en bas) — l'utilisateur la rejouera lui-même ; un
+>   dossier source prêt est dans `D:\Projects\Testimus\.build\workload\replay\src` (76 spécifications, 16 dossiers de
+>   photos, 24 vidéos, 6,3 Go, copiés du checkpoint du 11/11). Pas essayé sur un PC de collègue à 16 Go.
 >
 > Ce fichier peut être supprimé une fois ces restes tranchés.
 

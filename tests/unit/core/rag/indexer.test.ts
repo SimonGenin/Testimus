@@ -49,6 +49,30 @@ describe("projectDocs", () => {
   });
 });
 
+describe("indexProject — the core stays responsive", () => {
+  it("cutting the documents lets a timer through between two documents", async () => {
+    const seen: string[] = [];
+    let ticks = 0;
+    const tick = () => {
+      ticks++;
+      if (seen.length < 5) setTimeout(tick, 0);
+    };
+    setTimeout(tick, 0);
+    await indexProject(
+      dir,
+      ctxWith({
+        progress: (p) => {
+          if (p.message?.startsWith("Chunking")) seen.push(`${p.message}@${ticks}`);
+        },
+      }),
+      { model: null },
+    );
+    const at = seen.map((s) => Number(s.split("@")[1]));
+    expect(at.length).toBeGreaterThan(2);
+    expect(at.at(-1)).toBeGreaterThan(at[0]);
+  });
+});
+
 describe("indexProject — less common paths", () => {
   it("context headers: a non-Error failure keeps the defaults, an empty answer keeps a chunk's own header", async () => {
     const warnings: string[] = [];

@@ -18,7 +18,7 @@ import {
 
 const saved = { ...serverIo, http: env.http, timeouts: { ...serverTimeouts } };
 
-type FakeProc = Proc & { exit(code: number | null): void; say(text: string): void; args: string[] };
+type FakeProc = Proc & { exit(code: number | null): void; say(text: string): void; args: string[]; low: boolean };
 let procs: FakeProc[] = [];
 let killed: number[] = [];
 let clock = 1_000_000;
@@ -38,12 +38,13 @@ beforeEach(() => {
   let port = 50000;
   let healthCalls = 0;
   healthy = () => json(200, { status: "ok" });
-  serverIo.spawn = (_exe, args) => {
+  serverIo.spawn = (_exe, args, low = false) => {
     const listeners: ((t: string) => void)[] = [];
     let exit: (c: number | null) => void = () => {};
     const p: FakeProc = {
       pid: ++pid,
       args,
+      low,
       onOutput: (cb) => listeners.push(cb),
       exited: new Promise((r) => {
         exit = r;
@@ -106,6 +107,13 @@ describe("arguments", () => {
     expect(serverArgs("r.gguf", "rerank", 5001, "k").slice(2, 5)).toEqual(["--reranking", "--pooling", "rank"]);
   });
 
+  it("on the processor: no device, the threads it is given for generation and batches, never -ngl", () => {
+    const a = serverArgs("m.gguf", "embedding", 5000, "k", "b12032", 22);
+    expect(a.slice(7, 13)).toEqual(["-dev", "none", "-t", "22", "-tb", "22"]);
+    expect(a).not.toContain("-ngl");
+    expect(serverArgs("r.gguf", "rerank", 5001, "k", undefined, 6)).toEqual(expect.arrayContaining(["-t", "6"]));
+  });
+
   it("never starts without a key", () => {
     expect(() => serverArgs("m.gguf", "embedding", 5000, "")).toThrow(/API key/);
   });
@@ -123,6 +131,15 @@ describe("start", () => {
     expect(calls.filter((c) => c.url === "http://127.0.0.1:50001/health")).toHaveLength(3);
     expect(s.readyMs).toBe(2 * serverTimeouts.pollMs);
     expect(loadedServers()).toEqual([{ name: "emb.gguf", sizeMB: 610, vramMB: 610, runtime: "llamacpp" }]);
+  });
+
+  it("on the processor it starts at low priority with its threads; on the card at normal priority", async () => {
+    await ensureServer({ exe: "x.exe", model: "D:/m/cpu.gguf", kind: "embedding", onGpu: false, threads: 22 });
+    await ensureServer({ exe: "x.exe", model: "D:/m/gpu.gguf", kind: "embedding" });
+    expect(procs.map((p) => p.low)).toEqual([true, false]);
+    expect(procs[0].args).toEqual(expect.arrayContaining(["-dev", "none", "-t", "22"]));
+    expect(procs[1].args).toEqual(expect.arrayContaining(["-ngl", "99"]));
+    expect(procs[1].args).not.toContain("-t");
   });
 
   it("reuses the running server for the same model, even when asked twice at once", async () => {

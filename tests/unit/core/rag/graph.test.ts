@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { docEdges } from "../../../../src/core/rag/graph.ts";
+import { corpusOf, docEdges } from "../../../../src/core/rag/graph.ts";
 import type { DocJson, Edge, EdgeKind } from "../../../../src/core/types.ts";
 
 describe("the document graph", () => {
@@ -27,6 +27,17 @@ describe("the document graph", () => {
 
   describe("document graph", () => {
     const edges = edgesOf(A);
+
+    it("the corpus read once for a whole index run gives every document the edges it gets alone", () => {
+      const corpus = corpusOf(FIXTURE);
+      expect(corpus.map((c) => c.id)).toContain(A);
+      for (const c of corpus) {
+        const { doc, md } = read(c.names[0]);
+        expect(docEdges(FIXTURE, doc, md, [], corpus)).toEqual(docEdges(FIXTURE, doc, md, []));
+      }
+      const { doc, md } = read(A);
+      expect(docEdges(FIXTURE, doc, md, [], []).some((e) => !e.to.startsWith(`${A}#`))).toBe(false);
+    });
 
     it("every edge is a full reference and carries its document", () => {
       for (const e of edges) {

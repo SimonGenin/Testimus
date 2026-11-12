@@ -1,3 +1,4 @@
+import { constants, getPriority } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const smi: { err: Error | null; stdout: string | undefined } = { err: null, stdout: "" };
@@ -54,6 +55,15 @@ describe("llama-server process io", () => {
     expect(killChildren()).toContain(p.pid);
     expect(await p.exited).not.toBe(0);
     expect(liveChildren()).not.toContain(p.pid);
+  });
+
+  it("a server on the processor runs below normal priority, one on the card at the priority of Testimus", async () => {
+    const low = serverIo.spawn(node, ["-e", "setInterval(() => {}, 1000)"], true);
+    const normal = sleeper();
+    expect(getPriority(low.pid as number)).toBe(constants.priority.PRIORITY_BELOW_NORMAL);
+    expect(getPriority(normal.pid as number)).toBe(getPriority(process.pid));
+    killChildren();
+    await Promise.all([low.exited, normal.exited]);
   });
 
   it("finds a free loopback port", async () => {
