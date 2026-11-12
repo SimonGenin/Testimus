@@ -244,6 +244,20 @@ export function DocumentsScreen() {
         main: true,
         content: !docs ? (
           <DocLoading label="Loading the documents" read="docs.list" />
+        ) : !hasBody ? (
+          <div {...stylex.props(styles.empty)}>
+            <EmptyState
+              icon="documents"
+              title="No document yet"
+              text="Add the specifications your tests come from (.docx preferred, .pdf, .txt) and the photos or videos of the real system. Drop files anywhere on this screen or pick them."
+              actions={
+                <>
+                  {folderButton(true)}
+                  {addButton(true)}
+                </>
+              }
+            />
+          </div>
         ) : onOverview ? (
           <OverviewPane />
         ) : active ? (
@@ -352,23 +366,7 @@ export function DocumentsScreen() {
           </Banner>
         </div>
       )}
-      {list.isError && !uploads.length ? null : !hasBody ? (
-        <div {...stylex.props(styles.empty)}>
-          <EmptyState
-            icon="documents"
-            title="No document yet"
-            text="Add the specifications your tests come from (.docx preferred, .pdf, .txt) and the photos or videos of the real system. Drop files anywhere on this screen or pick them."
-            actions={
-              <>
-                {folderButton(true)}
-                {addButton(true)}
-              </>
-            }
-          />
-        </div>
-      ) : (
-        <Workspace ws={ws} />
-      )}
+      {list.isError && !uploads.length ? null : <Workspace ws={ws} />}
       {drag && (
         <div data-testid="drop-veil" aria-hidden="true" {...stylex.props(styles.veil)}>
           <span {...stylex.props(styles.veilMark)}>

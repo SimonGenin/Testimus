@@ -349,10 +349,11 @@ describe("Documents screen", () => {
     expect(await why({ embedding: "none", space: null })).toBe("This PC has no search pack yet");
   });
 
-  it("an empty project offers to add documents, and no path to type", async () => {
+  it("an empty project offers to add documents, keeps its Claude tab, and no path to type", async () => {
     api.routes["docs.list"] = () => [];
     mountDocs(<DocumentsScreen />);
     await screen.findByText("No document yet");
+    expect(screen.getByRole("tab", { name: /^Claude/ })).toBeInTheDocument();
     expect(screen.getByText(/\.docx preferred, \.pdf, \.txt\) and the photos or videos/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Add documents" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /from a path/ })).toBeNull();
