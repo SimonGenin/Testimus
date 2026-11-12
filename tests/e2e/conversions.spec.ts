@@ -24,10 +24,16 @@ test("several documents convert at once, the others wait their turn, each indexe
   await dialog.getByRole("button", { name: "Import 4 documents" }).click();
 
   const list = page.getByRole("region", { name: "Document list" });
+  await list
+    .getByRole("region", { name: /4 documents waiting to start/ })
+    .getByRole("button", { name: "Start all" })
+    .click();
   await expect(list.getByText("Converting 2 at a time · 2 waiting · indexed as they end")).toBeVisible({
     timeout: 30_000,
   });
-  await expect(list.getByRole("progressbar", { name: "Converting" })).toHaveCount(2);
+  await expect(
+    list.getByText(/^(Converting(?! \d at a time)|Describing the figures|Checking the citing tests)/),
+  ).toHaveCount(2);
   await expect(list.getByText("Waiting to convert")).toHaveCount(2);
   await shoot(page, "documents-converting-e2e");
 

@@ -1,16 +1,11 @@
-import { basename, extname, join } from "node:path";
+import { basename, join } from "node:path";
 import { z } from "zod";
-import { sleep, throwIfAborted } from "../../shared/run/work.ts";
-import { NOTE } from "../claude/schemas.ts";
+import { sleep } from "../../shared/run/work.ts";
 import { command, projectOf } from "../command.ts";
-import { showJob, waitJob } from "../jobs.ts";
-import { copyingLine } from "../lib/atomic.ts";
-import { addDoc } from "../lib/docs-convert.ts";
 import { FOLDER_MAX_FILES, FOLDER_REASONS, scanFolder } from "../lib/docs-folder.ts";
-import { isVideo } from "../lib/media.ts";
-import { addMediaDocs } from "../lib/media-add.ts";
-import type { DocJson } from "../types.ts";
-import { after, contexts, docJson, effort, kind, model } from "./docs-schemas.ts";
+import { addPending, type PendingUnit } from "../lib/docs-pending.ts";
+import { docJson, kind } from "./docs-schemas.ts";
+import { convertedSchema, rejectedSchema, startDocs, startOptions } from "./docs-start.ts";
 
 const dir = z
   .string()
@@ -62,8 +57,6 @@ const scanned = z.object({
     .describe(`True when the folder holds more than ${FOLDER_MAX_FILES} files: only those were read`),
 });
 
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
 export const commands = [
   command({
     name: "docs.scanFolder",
@@ -78,7 +71,7 @@ export const commands = [
   command({
     name: "docs.addFolder",
     summary:
-      "Import the documents of a folder (docs.scanFolder says which): each is copied into the project, then converted and indexed — one docs.convert job per document, several at a time, each indexed as it ends (the next index pass takes every document converted meanwhile). With files, only those.",
+      "Import the documents of a folder (docs.scanFolder says which). With start (the default here), each is copied into the project, then converted and indexed — one docs.convert job per document, several at a time, each indexed as it ends. With start false, they only enter the project waiting to start (their doc.json says where each original is and its size; nothing is copied): docs.planStart says what starting them takes, docs.start starts them, docs.remove takes one away. With files, only those.",
     input: z.object({
       dir,
       recursive,
@@ -86,44 +79,21 @@ export const commands = [
         .array(z.string())
         .optional()
         .describe("Only these files (their rel from docs.scanFolder); default: every document the folder holds"),
-      kind: kind.optional().describe("What the documents are (default spec)"),
-      convert: z
+      kind: kind.optional().describe("What the documents are (default spec; other for images and videos)"),
+      start: z
         .boolean()
         .default(true)
-        .describe("Convert each document once copied (default true); false only copies them"),
-      model,
-      effort,
-      note: NOTE,
-      contexts,
-      ...after,
-      index: z
-        .boolean()
-        .default(true)
-        .describe("Update the search index once the conversions are done, in one run (default true)"),
+        .describe(
+          "Copy and convert them now (default true: the command line asked); false adds them waiting to start, for docs.start — what the page does",
+        ),
+      ...startOptions,
     }),
     output: z.object({
-      added: z.array(docJson).describe("The documents copied into the project, in the folder's order"),
-      rejected: z
-        .array(
-          z.object({
-            name: z.string().describe("The file, as its rel in the folder"),
-            why: z.string().describe("Why it was not added"),
-            code: z
-              .enum(["left-aside", "failed"])
-              .describe("left-aside: named in files but not a document to add (see why); failed: the copy was refused"),
-          }),
-        )
-        .describe("The files asked for and not added"),
-      converted: z
-        .array(
-          z.object({
-            id: z.string().describe("The document"),
-            jobId: z.string().describe("Its docs.convert job"),
-            status: z.enum(["done", "failed", "cancelled"]).describe("How its conversion ended"),
-            error: z.string().optional().describe("Why it failed"),
-          }),
-        )
-        .describe("Each conversion, once ended (empty with convert false)"),
+      added: z
+        .array(docJson)
+        .describe("The documents added, in the folder's order: copied with start, waiting to start without"),
+      rejected: rejectedSchema,
+      converted: convertedSchema,
       truncated: z
         .boolean()
         .describe(`True when the folder holds more than ${FOLDER_MAX_FILES} files: only the first ones were read`),
@@ -135,8 +105,8 @@ export const commands = [
     label: (i) => basename(i.dir.replace(/[\\/]+$/, "")) || i.dir,
     async run(ctx, input) {
       const project = projectOf(ctx);
-      // ponytail: the folder is read again and copied on the next turn, so the page that started the import has the
-      // job's id at once and goes on — the copies themselves never hold the server (copyFileAtomic streams them)
+      // ponytail: the folder is read again on the next turn, so the page that started the import has the job's id at
+      // once and goes on — the copies themselves never hold the server (copyFileAtomic streams them)
       await sleep(0, ctx.signal);
       const scan = scanFolder(project, input.dir, input.recursive);
       const { truncated } = scan;
@@ -147,89 +117,44 @@ export const commands = [
         );
       const asked = input.files ? new Set(input.files.map((f) => f.replace(/\\/g, "/"))) : null;
       const chosen = scan.files.filter((f) => f.importable && (!asked || asked.has(f.rel)));
-      const rejected = [...(asked ?? [])]
+      const rejected: z.infer<typeof rejectedSchema> = [...(asked ?? [])]
         .filter((rel) => !chosen.some((f) => f.rel === rel))
         .map((rel) => ({
           name: rel,
           why: scan.files.find((f) => f.rel === rel)?.why ?? "not in the folder",
-          code: "left-aside" as "left-aside" | "failed",
+          code: "left-aside" as const,
         }));
-      ctx.steps?.([
-        { id: "copy", label: "Copy the documents" },
-        ...(input.convert ? [{ id: "convert", label: "Convert and index each document" }] : []),
-      ]);
-      ctx.step?.("copy");
-      const added: DocJson[] = [];
       const groups = new Map<string, typeof chosen>();
       for (const f of chosen.filter((x) => x.group))
         groups.set(f.group as string, [...(groups.get(f.group as string) ?? []), f]);
-      const one = chosen.filter((x) => !x.group);
-      const units: (typeof chosen)[] = [...one.map((f) => [f]), ...groups.values()];
-      for (const [i, unit] of units.entries()) {
-        throwIfAborted(ctx.signal);
-        const f = unit[0];
-        const of = units.length > 1 ? ` (file ${i + 1} of ${units.length})` : "";
-        const said = (message: string, done?: number, total?: number) =>
-          ctx.progress({ message: `${message}${of}`, done, total });
-        said(`Copying ${f.group ? `${f.group}/` : f.rel}`);
-        try {
-          if (f.group || isVideo(f.path)) {
-            const title = f.group ? basename(f.group === "." ? scan.dir : f.group) : basename(f.path, extname(f.path));
-            const r = await addMediaDocs(
-              project,
-              unit.map((x) => ({ path: x.path })),
-              { title, kind: input.kind, id: f.id },
-              ctx.signal,
-              (name, done, total) => said(copyingLine(name, done, total), done, total),
-            );
-            added.push(...r.added);
-            rejected.push(...r.rejected.map((x) => ({ name: x.name, why: x.why, code: "failed" as const })));
-            continue;
-          }
-          const pdf = f.twin ? join(scan.dir, f.twin) : undefined;
-          added.push(
-            await addDoc(project, { file: f.path, pdf, id: f.id, kind: input.kind, convert: false }, ctx.signal, said),
-          );
-        } catch (e) {
-          if (ctx.signal.aborted) throw e;
-          rejected.push({ name: f.rel, why: message(e), code: "failed" });
-        }
+      const sized = (f: { path: string; size: number }) => ({ path: f.path, size: f.size });
+      const units: PendingUnit[] = [
+        ...chosen
+          .filter((x) => !x.group)
+          .map((f) => {
+            const twin = f.twin ? scan.files.find((x) => x.rel === f.twin) : undefined;
+            return {
+              files: [sized(f)],
+              id: f.id,
+              ...(twin ? { pdf: { path: join(scan.dir, f.twin as string), size: twin.size } } : {}),
+            };
+          }),
+        ...[...groups.values()].map((unit) => ({
+          files: unit.map(sized),
+          id: unit[0].id,
+          images: basename(unit[0].group === "." ? scan.dir : (unit[0].group as string)),
+        })),
+      ];
+      if (!input.start) {
+        ctx.steps?.([{ id: "add", label: "Add the documents, waiting to start" }]);
+        ctx.step?.("add");
+        ctx.progress({ message: `Adding ${units.length === 1 ? "1 document" : `${units.length} documents`}` });
       }
-      if (!input.convert || !added.length || !ctx.invoke) return { added, rejected, converted: [], truncated };
-      ctx.step?.("convert");
-      const invoke = ctx.invoke;
-      const total = added.length;
-      let ended = 0;
-      ctx.progress({ message: `Converting ${total === 1 ? "1 document" : `${total} documents`}`, done: 0, total });
-      const converted = await Promise.all(
-        added.map(async (d) => {
-          const { jobId } = (await invoke(
-            "docs.convert",
-            {
-              id: d.id,
-              model: input.model,
-              effort: input.effort,
-              note: input.note,
-              contexts: input.contexts,
-              describeFigures: input.describeFigures,
-              triage: input.triage,
-              study: input.study,
-              index: input.index,
-            },
-            { signal: ctx.signal, wait: false },
-          )) as { jobId: string };
-          const error = await waitJob(jobId).then(
-            () => undefined,
-            (e) => message(e),
-          );
-          const said = showJob(project, jobId)?.job.status;
-          const status = said === "done" || said === "cancelled" ? said : error ? "failed" : "done";
-          ended++;
-          ctx.progress({ message: `Converted ${ended} of ${total}`, done: ended, total });
-          return { id: d.id, jobId, status, ...(error && status === "failed" ? { error } : {}) } as const;
-        }),
-      );
-      return { added, rejected, converted, truncated };
+      const r = await addPending(project, units, { kind: input.kind }, ctx.signal);
+      rejected.push(...r.rejected.map((x) => ({ ...x, code: "failed" as const })));
+      if (!input.start) return { added: r.added, rejected, converted: [], truncated };
+      const s = await startDocs(ctx, project, r.added, input);
+      return { added: s.started, rejected: [...rejected, ...s.rejected], converted: s.converted, truncated };
     },
   }),
 ];

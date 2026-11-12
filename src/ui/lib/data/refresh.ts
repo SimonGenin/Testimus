@@ -55,6 +55,7 @@ const PATHS: Rule[] = [
     (m) => [
       ["docs.overviewShow"],
       ["docs.list"],
+      ["docs.planStart"],
       ["docs.show", { id: m[1] }],
       ["rag.status"],
       ["project.info"],

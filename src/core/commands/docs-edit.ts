@@ -17,6 +17,7 @@ import {
   writeContext,
   writeDoc,
 } from "../lib/docs.ts";
+import { copyOf } from "../lib/docs-pending.ts";
 import { filesOf, isMediaDoc } from "../lib/media.ts";
 import { writeMediaMd } from "../lib/media-md.ts";
 import { docName } from "../lib/names.ts";
@@ -125,7 +126,7 @@ export const commands = [
   command({
     name: "docs.remove",
     summary:
-      "Remove a document and every trace of it: its folder (copy, doc.md, figures, context), its passages, vectors and links in the search index, and the other documents' references to it. Tests that cite it keep their sources and are re-checked, so they report the missing document. dryRun says what would go and which tests cite it.",
+      "Remove a document and every trace of it (one waiting to start leaves none: nothing was copied): its folder (copy, doc.md, figures, context), its passages, vectors and links in the search index, and the other documents' references to it. Tests that cite it keep their sources and are re-checked, so they report the missing document. dryRun says what would go and which tests cite it.",
     input: z.object({
       id,
       dryRun: z
@@ -158,6 +159,12 @@ export const commands = [
           passages,
           dryRun: true,
         };
+      if (doc.pending && copyOf(project, input.id))
+        throw new UserError(
+          `${input.id} is being copied.`,
+          "Cancel the start that copies it (its job), then remove it: it is then waiting to start again.",
+          "copying",
+        );
       const unlinked = removeDoc(project, input.id);
       unindexDoc(project, input.id);
       if (cited.length)
@@ -165,7 +172,7 @@ export const commands = [
           project,
           cited.map((t) => t.id),
         );
-      overviewAfterImport(project);
+      if (!doc.pending) overviewAfterImport(project);
       return { removed: input.id, folder, unlinked, citedBy: cited, passages, dryRun: false };
     },
   }),

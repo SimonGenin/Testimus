@@ -63,9 +63,10 @@ export const isPictureAnchor = (anchor: string) => /^(fig|img|frame):/.test(anch
 
 // ponytail: what a document is, in the words of the list — Word · PDF · Text · Images · 46 · Video · 12:40 (Sound ·
 // 12:40 for a recording of sound alone); images and videos together say both
-export function typeLabel(doc: Pick<Described, "source" | "type">): string {
+export function typeLabel(doc: Pick<Described, "source" | "type"> & { pending?: { files: unknown[] } }): string {
   const t = doc.type;
   const files = doc.source.files ?? [];
+  if (doc.pending && t === "images") return `Images · ${doc.pending.files.length}`;
   const images = files.filter((f) => f.kind === "image").length;
   const videos = files.filter((f) => f.kind === "video");
   if (t === "pdf") return "PDF";

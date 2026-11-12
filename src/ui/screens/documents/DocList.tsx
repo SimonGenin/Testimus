@@ -5,6 +5,7 @@ import type { IndexRun, SourceType } from "../../../core/types.ts";
 type DocRef = CommandOutput<"docs.list">[number];
 
 import { Badge } from "../../components/ui/Badge.tsx";
+import { Button } from "../../components/ui/Button.tsx";
 import { Icon, type IconName } from "../../components/ui/Icon.tsx";
 import { List } from "../../components/ui/List.tsx";
 import type { ListItemProps } from "../../components/ui/ListItem.tsx";
@@ -14,10 +15,12 @@ import { baseName } from "../../lib/desktop.ts";
 import { indexRunLine, indexRunPercent } from "../../lib/format.ts";
 import { typeLabel } from "../../lib/media.ts";
 import { OVERVIEW_ROUTE, OVERVIEW_TITLE, type OverviewShown, overviewMeta } from "../../lib/overview.ts";
+import { stageWith } from "../../lib/stage.ts";
 import { conversionsLine, owns, settled, type Upload } from "../../lib/uploads.ts";
 import { border, color, size, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
 import { DocBadges } from "./badges.tsx";
+import { PendingBatch } from "./PendingBatch.tsx";
 import { UploadFailure, uploadItem } from "./UploadItem.tsx";
 
 const styles = stylex.create({
@@ -58,13 +61,19 @@ const LEAD: Record<SourceType, IconName> = {
 };
 
 // ponytail: a document's row — its title, then what it is (Word · PDF · Text · Images · N · Video · mm:ss), Observed
-// for images and videos of the real system, its code, its state
-function docItem(d: DocRef): ListItemProps {
+// for images and videos of the real system, its code, its status and its stage (copied, converted, indexed: the
+// conversion going on is the stage, with Cancel on its job)
+function docItem(d: DocRef, running?: Upload, onCancel?: (jobId: string) => void): ListItemProps {
   const code = [d.code, d.version].filter(Boolean).join(" · ");
+  const jobId = running && !settled(running) ? running.jobId : undefined;
   return {
     title: d.title,
     tooltip: code ? `${code} — ${d.title}` : d.title,
     lead: <Icon name={LEAD[d.type]} />,
+    actions:
+      jobId && onCancel ? (
+        <Button size="xs" variant="quiet" iconOnly icon="stop" label="Cancel" onClick={() => onCancel(jobId)} />
+      ) : undefined,
     meta: (
       <span {...stylex.props(styles.lines)}>
         <span {...stylex.props(styles.badges)}>
@@ -73,7 +82,7 @@ function docItem(d: DocRef): ListItemProps {
           {code && <span {...stylex.props(type.mono, styles.mono)}>{code}</span>}
         </span>
         <span {...stylex.props(styles.badges)}>
-          <DocBadges doc={d} />
+          <DocBadges doc={{ ...d, stage: stageWith(d, running && !settled(running) ? running : undefined) }} />
         </span>
       </span>
     ),
@@ -128,6 +137,7 @@ export function DocList({
     ...uploads.filter((u) => !listed(u) && u.job !== "index").map((u) => ({ key: `upload-${u.key}`, upload: u })),
   ];
   const converting = conversionsLine(uploads);
+  const waiting = (docs ?? []).filter((d) => d.pending && d.stage.name !== "copying");
   const failures = uploads.filter((u) => u.phase === "failed" || u.phase === "index-failed");
   const pick = (key: string) => {
     const it = items.find((i) => i.key === key);
@@ -143,6 +153,7 @@ export function DocList({
         </div>
       )}
       <div {...stylex.props(styles.body)}>
+        {waiting.length > 0 && <PendingBatch docs={waiting} />}
         {converting && (
           <p role="status" {...stylex.props(type.small, styles.converting)}>
             {converting}
@@ -155,9 +166,9 @@ export function DocList({
           renderItem={(i) =>
             i.overview
               ? overviewItem(i.overview)
-              : i.upload && (!i.doc || !settled(i.upload))
-                ? uploadItem(i.upload, cancel)
-                : docItem(i.doc as DocRef)
+              : i.doc
+                ? docItem(i.doc, i.upload, cancel)
+                : uploadItem(i.upload as Upload, cancel)
           }
           groups={
             lead.length

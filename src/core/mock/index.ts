@@ -22,6 +22,7 @@ import "./claude-study.ts";
 import { mockHttp } from "./jira.ts";
 import { mockBatch } from "./jobs.ts";
 import { mockModelsOptions, seedChoice, setupModelsMock } from "./models.ts";
+import { mockStages } from "./stages.ts";
 import { setupUpdatesMock } from "./updates.ts";
 import { setupVideoMock } from "./video.ts";
 
@@ -112,6 +113,7 @@ export async function setupMock(): Promise<string | null> {
   const slow = readPace(process.env.TESTIMUS_MOCK_READ_MS ?? "");
   env.readMs = (name) => slow.get(name) ?? 0;
   mockBatch(project, Number(process.env.TESTIMUS_MOCK_JOBS) || 0);
+  mockStages(project, process.env.TESTIMUS_MOCK_STAGES === "1");
   return project;
 }
 

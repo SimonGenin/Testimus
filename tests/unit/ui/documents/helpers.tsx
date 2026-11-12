@@ -16,21 +16,40 @@ export const at = "2026-11-02T10:00:00.000Z";
 
 export type DocRef = CommandOutput<"docs.list">[number];
 
-export const doc = (id: string, over: Partial<DocRef> = {}): DocRef => ({
-  id,
-  code: `C-${id}`,
-  title: `Title ${id}`,
-  version: "01.01",
-  date: "",
-  kind: "spec",
-  status: "validated",
-  source: { name: "", sha256: "", file: "source.docx" },
-  type: "docx",
-  observed: false,
-  converted: { with: "", at, warnings: [] },
-  indexed: "fresh",
-  ...over,
-});
+// ponytail: the stage the core would say of a document at rest, unless the test gives one
+const stageAtRest = (d: Omit<DocRef, "stage">): DocRef["stage"] =>
+  d.pending
+    ? { name: "pending", bytes: d.pending.files.reduce((n, f) => n + f.size, 0) }
+    : !d.converted?.at
+      ? { name: "not-converted" }
+      : d.indexing?.state === "running"
+        ? { name: "indexing", percent: d.indexing.percent }
+        : d.indexing
+          ? { name: "waiting-index" }
+          : d.indexed === "fresh"
+            ? { name: "ready" }
+            : d.indexed === "stale"
+              ? { name: "stale" }
+              : { name: "not-indexed" };
+
+export const doc = (id: string, over: Partial<DocRef> = {}): DocRef => {
+  const d = {
+    id,
+    code: `C-${id}`,
+    title: `Title ${id}`,
+    version: "01.01",
+    date: "",
+    kind: "spec" as const,
+    status: "validated" as const,
+    source: { name: "", sha256: "", file: "source.docx" },
+    type: "docx" as const,
+    observed: false,
+    converted: { with: "", at, warnings: [] },
+    indexed: "fresh" as const,
+    ...over,
+  };
+  return { ...d, stage: over.stage ?? stageAtRest(d) };
+};
 
 // ponytail: the project's jobs as the server keeps them — a route made by startsJob lists its job, every event a test
 // emits updates it (jobs.list answers with it)

@@ -282,6 +282,12 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       const doc = readDoc(project, input.id);
+      if (doc.pending)
+        throw new UserError(
+          `${input.id} is waiting to start: nothing is copied yet.`,
+          `Start it first: testimus docs start ${input.id}`,
+          "pending",
+        );
       if (isMediaDoc(doc)) {
         const steps = convertSteps(MEDIA_STEPS, { ...input, study: true });
         ctx.steps?.(steps);

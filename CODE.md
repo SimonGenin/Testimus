@@ -23,7 +23,8 @@ src/core/lib/         the domain modules (analysis: a test's analysis, its proof
                         doctor-models), hash, zip, updates; runs (+ run-create, run-results, run-pages: test runs, test-runs/<run>/,
                         exported as pages and imported back);
                         docs (+ docs-convert, docs-index, docs-pipeline: add → convert → index; docs-folder: what
-                        a folder import adds); overview (docs/OVERVIEW.md: its format, basis, changes, the section
+                        a folder import adds; docs-pending: a document waiting for the go, its start and its plan;
+                        doc-stage: where a document is, for docs.list); overview (docs/OVERVIEW.md: its format, basis, changes, the section
                         check, the line every run gets; + overview-after: one update per import batch, in line);
                         media (an images or video document's files; + media-add, media-md: its doc.md,
                         media-pipeline: its conversion, media-migrate: the 2026-11-05 batches into documents);
@@ -71,7 +72,8 @@ src/ui/
   components/ui/      the kit — one component per control, StyleX, tokens only; the only place that renders a bare
                       <button>/<input>/<select>/<textarea>; type.ts (text styles), halo.ts (focus halo), icons.ts,
                       rowWindow.ts (long lists)
-  components/         claude/, jobs/ (the job panel, a history), shell/, sources/ — composites shared by several screens
+  components/         claude/, jobs/ (the job panel, a history), shell/, sources/ (a document's text, a source, a
+                      document's stage) — composites shared by several screens
   screens/<screen>/   one folder per screen (documents, generate, tests, review, run, settings, setup, doctor);
                       screens/kit/ is the catalogue (#/kit under --mock)
   lib/data/           the data layer: client (call, the HTTP seam), query (useRead, useCommand, execute, keys),
@@ -198,6 +200,7 @@ and the updates. Knobs:
 | `TESTIMUS_MOCK_INDEX` | `bm25`: start without vectors |
 | `TESTIMUS_MOCK_INDEX_MS` | ms the fake embedder takes per batch of passages once the sandbox is indexed: keeps an index run going |
 | `TESTIMUS_MOCK_JOBS` | `<n>`: a folder import of n conversions held under way at the start (about 60 % done, 10 % converting, the rest queued) — the activity and the job panel at scale |
+| `TESTIMUS_MOCK_STAGES` | `1`: the fixture with a document at each stage, held there (waiting to start, a copy failed, copying, not converted, a conversion failed, converting by type, waiting for the index, not up to date, ready) — the documents list as `npm run screens -- --only documents-stages` shoots it |
 | `TESTIMUS_MOCK_READ_MS` | `tests.list=12000,docs.list=3000`: those reads answer that many ms late, every time (the loading line under a skeleton, « answering slowly », Try again) |
 | `TESTIMUS_MOCK_DOWNLOAD_MS`, `TESTIMUS_MOCK_UPDATES`, `TESTIMUS_MOCK_UPDATE_MS` | fake downloads and updates |
 | `TESTIMUS_MOCK_FFMPEG` | `found` (default: a fake ffmpeg is registered), `absent`: videos are kept unread |

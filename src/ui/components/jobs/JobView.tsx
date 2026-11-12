@@ -12,6 +12,7 @@ import { Disclosure } from "../ui/Disclosure.tsx";
 import { Progress } from "../ui/Progress.tsx";
 import { type } from "../ui/type.ts";
 import { JobClaude } from "./JobClaude.tsx";
+import { JobDocStage } from "./JobDocStage.tsx";
 import { JobFiles } from "./JobFiles.tsx";
 import { FullLog } from "./JobFullLog.tsx";
 import { JobHead } from "./JobHead.tsx";
@@ -34,6 +35,9 @@ const ids = (v: unknown, key?: string): string[] =>
     : [];
 const one = (v: unknown): string[] => (typeof v === "string" && v ? [v] : []);
 
+// ponytail: the jobs about one document (their subject is its id): the panel says where that document is
+const DOC_JOBS = new Set(["docs.convert", "media.keep", "media.propose", "media.measure", "media.lighten"]);
+
 const DOC = { screen: "documents" as const, one: "Open the document", many: "Open the documents" };
 const REVIEW = { screen: "review" as const, one: "Review this test", many: "Review these tests" };
 
@@ -44,7 +48,7 @@ const RESULTS: Record<string, { screen: Screen; one: string; many: string; of: (
   check: { ...REVIEW, of: (r) => ids(r.tests, "id") },
   fix: { ...REVIEW, of: (_r, j) => one(j.subject) },
   pull: { screen: "tests", one: "Open the test", many: "Open the tests", of: (r) => ids(r.pulled) },
-  "docs.add": { ...DOC, of: (r) => [...one(r.id), ...ids(r.added, "id")] },
+  "docs.add": { ...DOC, of: (r) => [...one(r.id), ...ids(r.added, "id"), ...ids(r.started, "id")] },
   "docs.convert": { ...DOC, of: (r) => [...one(r.id), ...one(r.doc)] },
   "media.keep": { ...DOC, of: (r) => one(r.doc) },
   "media.propose": { ...DOC, of: (r) => one(r.doc) },
@@ -111,6 +115,8 @@ export function JobView({
         onAgain={job.status === "failed" || job.interrupted ? undefined : onAgain}
         onOpen={onOpen}
       />
+
+      {DOC_JOBS.has(job.kind) && <JobDocStage id={job.subject} />}
 
       {quiet?.stuck && (
         <Banner tone="warning" title="This job may be stuck">

@@ -1576,6 +1576,39 @@ export function SCENARIOS(essai: string): Scenario[] {
       ],
     },
     {
+      id: "documents-stages",
+      note: "A document at each stage (TESTIMUS_MOCK_STAGES): waiting to start (the batch's summary, one copy failed), copying, not converted, its conversion failed, converting by type, waiting for the index, not up to date, ready",
+      env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_STAGES: "1" },
+      shots: [
+        {
+          id: "documents",
+          note: "The list: the batch waiting to start at its head (volume, room, Claude's runs, time), then each document's stage",
+          hash: "#/documents/SPEC_ATTENTE",
+          prep: (p) => see(p, /3 documents waiting to start/),
+        },
+        {
+          id: "pending-doc",
+          note: "A document waiting to start, opened: its originals, what starting it takes, Start and Remove",
+          hash: "#/documents/Essai_moteur",
+          prep: (p) => see(p, /The last start stopped/),
+        },
+        {
+          id: "job-panel",
+          note: "A conversion's job beside the screen: its document's stage at the top",
+          hash: "#/documents",
+          prep: async (p) => {
+            await tap(p, /\d+ jobs running/);
+            await p
+              .getByRole("dialog", { name: /^Running/ })
+              .getByRole("button", { name: /^Convert document/ })
+              .first()
+              .click({ timeout: T });
+            await see(p, /Describing the figures|Reading the pictures|Transcribing|Waiting to index/);
+          },
+        },
+      ],
+    },
+    {
       id: "jobs-batch",
       note: "A folder import of 81 conversions under way (TESTIMUS_MOCK_JOBS): the top bar's activity and the job panel at scale",
       env: { TESTIMUS_MOCK_SEED: "fixture", TESTIMUS_MOCK_JOBS: "81" },

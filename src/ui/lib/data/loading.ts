@@ -13,6 +13,7 @@ const WORDS = {
   "contexts.list": "the contexts",
   "contexts.show": "the context",
   "docs.list": "the documents",
+  "docs.planStart": "what starting the documents takes",
   "docs.overviewShow": "how the documents fit together",
   "docs.remove": "the tests that cite it",
   "docs.show": "the document",
