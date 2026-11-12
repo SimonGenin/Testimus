@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { refuseLeftOut } from "../claude/access.ts";
@@ -104,7 +105,7 @@ export const commands = [
         );
       let out: Awaited<ReturnType<typeof renderPage>>;
       try {
-        out = await renderPage(readFileSync(pdf), input.page, r as [number, number, number, number] | undefined);
+        out = await renderPage(await readFile(pdf), input.page, r as [number, number, number, number] | undefined);
       } catch (e) {
         if (e instanceof RangeError) throw new UserError(e.message, "Give a page number the PDF has.");
         throw e;

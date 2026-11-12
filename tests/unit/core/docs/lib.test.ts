@@ -119,7 +119,11 @@ describe("addDoc", () => {
     const doc = await addDoc(project, { file: docx, pdf, kind: "amendment" as never }, undefined, (m) => steps.push(m));
     expect(doc.kind).toBe("amendment");
     expect(existsSync(join(project, "docs", doc.id, "source.pdf"))).toBe(true);
-    expect(steps).toEqual(["Copying the original", "Converting docx", "Writing doc.md and figures"]);
+    expect(steps[0]).toMatch(/^Copying DOC_A_01\.00\.docx — 0 \/ \d+ KB$/);
+    expect(steps.filter((m) => !m.startsWith("Copying DOC_A_01.00.docx — "))).toEqual([
+      "Converting docx",
+      "Writing doc.md and figures",
+    ]);
     const again = await reconvertDoc(project, doc.id);
     expect(again.source.sha256).toBe(doc.source.sha256);
   });

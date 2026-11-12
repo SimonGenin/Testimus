@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { scope, throwIfAborted } from "../../shared/run/work.ts";
 import { triage } from "../claude/actions.ts";
@@ -14,11 +15,13 @@ import { startJob } from "../jobs.ts";
 import { type IndexReport, indexProject } from "../rag/indexer.ts";
 import { hintsOf, inspectDocx, inspectPdf } from "../rag/inspect.ts";
 import type { CitingTest, DocConversion, DocJson, DocKind } from "../types.ts";
-import { writeAtomic } from "./atomic.ts";
+import { WEIGHT_MB } from "./agents.ts";
+import { copyingLine, writeAtomic } from "./atomic.ts";
 import { recheckMechanical, testsCiting } from "./check.ts";
 import { docDir, readDoc, writeDoc } from "./docs.ts";
 import { addDoc, convertedCopy, reconvertDoc, setConversion, twinOf } from "./docs-convert.ts";
-import { conversionSlot, indexAfterConversions, whileConverting } from "./docs-index.ts";
+import { conversionSlot, queueIndex, whileConverting } from "./docs-index.ts";
+import { sourceType } from "./media.ts";
 import { overviewAfterImport } from "./overview-after.ts";
 
 // ponytail: the Claude runs a conversion starts are built by the modules it calls (tests/unit/core/claude/catalog.test.ts)
@@ -84,8 +87,8 @@ async function withTriage(ctx: Ctx, project: string, doc: DocJson, claude: JobRu
   }
 }
 
-// ponytail: the index run that follows a conversion is a job of its own under the conversion's step; it waits for
-// the other conversions, and a failed run never undoes the conversion
+// ponytail: the index pass that follows a conversion is a job of its own under the conversion's step; it waits only
+// for the pass already running (« N documents before »), and a failed pass never undoes the conversion
 export async function withIndex(ctx: Ctx, project: string, claude: JobRun): Promise<IndexOutcome> {
   ctx.step?.("index");
   const run = (signal: AbortSignal) => {
@@ -102,7 +105,7 @@ export async function withIndex(ctx: Ctx, project: string, claude: JobRun): Prom
   };
   try {
     const waiting = (m: string) => ctx.progress({ message: m });
-    const r = await indexAfterConversions(project, run, { signal: ctx.signal, waiting });
+    const r = await queueIndex(project, run, { signal: ctx.signal, waiting });
     overviewAfterImport(project, claude);
     return { chunks: r.chunks, ...(r.degraded ? { degraded: r.degraded } : {}) };
   } catch (e) {
@@ -130,8 +133,8 @@ export function recheckCiting(ctx: Ctx, project: string, doc: DocJson): CitingTe
 
 export type Converted = { doc: DocJson; citedBy: CitingTest[]; index?: Promise<IndexOutcome> };
 
-// ponytail: the figures, the citing tests and the triage belong to the conversion (its slot); the index run is only
-// asked for — before the slot is let go, so the run waits for this conversion's batch and is shared (inSlot awaits it)
+// ponytail: the figures, the citing tests and the triage belong to the conversion (its place in the pool); the index
+// pass is only asked for — the conversion's place is let go while it waits for it (inSlot awaits it)
 export async function afterConversion(
   ctx: Ctx,
   project: string,
@@ -148,16 +151,25 @@ export async function afterConversion(
 
 export const QUEUE_STEP = { id: "queue", label: "Wait for the other conversions" };
 
-// ponytail: a conversion job runs in one of the project's conversion slots (lib/docs-index.ts); waiting for one is a
-// step of its own (« Waiting to convert » on the page), and the index run it asked for is awaited once the slot is free
+// ponytail: what a document's conversion weighs in memory: a video far more than pictures or a written document
+export const weightOf = (doc: Pick<DocJson, "source">): number => {
+  const t = sourceType(doc);
+  return t === "video" || t === "mixed" ? WEIGHT_MB.video : t === "images" ? WEIGHT_MB.images : WEIGHT_MB.document;
+};
+
+// ponytail: a conversion job runs in the project's conversion pool (lib/docs-index.ts), weighing weightMB; waiting
+// for its turn is a step of its own (« Waiting to convert » on the page), and the index pass it asked for is awaited
+// once its place is free
 export async function inSlot(
   ctx: Ctx,
   project: string,
   steps: { id: string; label: string }[],
   work: () => Promise<Converted>,
+  weightMB: number = WEIGHT_MB.document,
 ): Promise<DocJson & Aftermath> {
   const r = await conversionSlot(project, work, {
     signal: ctx.signal,
+    weightMB,
     onWait: (n) => {
       ctx.steps?.([QUEUE_STEP, ...steps]);
       ctx.step?.("queue");
@@ -172,8 +184,8 @@ export async function inSlot(
 // the other copy saved beside it
 function inspectFiles(files: { docx?: string; pdf?: string }, signal: AbortSignal) {
   return Promise.all([
-    files.docx ? inspectDocx(readFileSync(files.docx)) : undefined,
-    files.pdf ? inspectPdf(readFileSync(files.pdf), signal) : undefined,
+    files.docx ? readFile(files.docx).then(inspectDocx) : undefined,
+    files.pdf ? readFile(files.pdf, { signal }).then((b) => inspectPdf(b, signal)) : undefined,
   ]);
 }
 
@@ -271,6 +283,10 @@ export function convertWith(
   });
 }
 
+// ponytail: a file's copy said in its job's line, in bytes
+export const copying = (ctx: Ctx) => (name: string, done: number, total: number) =>
+  ctx.progress({ message: copyingLine(name, done, total), done, total });
+
 export type Picked = { path?: string; name?: string; dataBase64?: string };
 export type AddInput = {
   file?: string;
@@ -310,7 +326,7 @@ export async function copyIn(
   const file = input.dataBase64 ? save(input.name || "document.docx", input.dataBase64) : input.file;
   if (!file) throw new UserError("No document given.", "Give --file <path>, or name + dataBase64.");
   const pdf = input.pdfBase64 ? save(input.pdfName || "rendering.pdf", input.pdfBase64) : input.pdf;
-  const progress = (message: string) => ctx.progress({ message });
+  const progress = (message: string, done?: number, total?: number) => ctx.progress({ message, done, total });
   const added = await (convert
     ? whileConverting(project, () =>
         addDoc(project, { file, pdf, id: input.id, kind: input.kind }, ctx.signal, progress),

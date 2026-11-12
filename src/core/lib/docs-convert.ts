@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -15,17 +16,21 @@ import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
 import { convertText } from "../rag/convert-text.ts";
 import { renderPage } from "../rag/pdf.ts";
 import type { DocConversion, DocJson, DocKind, DocStats, FigureEntry } from "../types.ts";
-import { copyFileAtomic, writeAtomic } from "./atomic.ts";
+import { byteSteps, copyFileAtomic, copyingLine, writeAtomic } from "./atomic.ts";
 import { docDir, isConverted, readDoc, writeDoc } from "./docs.ts";
 import { idOf } from "./docs-folder.ts";
-import { sha256 } from "./hash.ts";
+import { sha256File } from "./hash.ts";
 import { readJson, writeJson } from "./project.ts";
+import { shortOfRoom } from "./video/disk.ts";
 
-type Progress = (message: string) => void;
+type Progress = (message: string, done?: number, total?: number) => void;
 
 const stemOf = (doc: Pick<DocJson, "source">) => basename(doc.source.name, extname(doc.source.name));
 
-const copyOf = (dir: string, file: string) => ({ file, sha256: sha256(readFileSync(join(dir, file))) });
+const copyOf = async (dir: string, file: string, signal?: AbortSignal) => ({
+  file,
+  sha256: await sha256File(join(dir, file), signal),
+});
 
 const fromOf = (file: string) => (extname(file).toLowerCase() === ".docx" ? "docx" : "pdf");
 
@@ -35,11 +40,12 @@ const isText = (ext: string) => ext === ".txt" || ext === ".md";
 export async function convertSource(file: string, opts: ConvertOpts & { pdf?: string }): Promise<Converted> {
   const ext = extname(file).toLowerCase();
   if (ext === ".docx") {
-    const pdf = opts.pdf && existsSync(opts.pdf) ? await pdfFigures(readFileSync(opts.pdf), opts.signal) : undefined;
-    return convertDocx(readFileSync(file), { ...opts, pdfFigures: pdf });
+    const pdf = opts.pdf && existsSync(opts.pdf) ? await pdfFigures(await readFile(opts.pdf), opts.signal) : undefined;
+    return convertDocx(await readFile(file), { ...opts, pdfFigures: pdf });
   }
-  if (ext === ".pdf") return convertPdf(readFileSync(file), opts);
-  if (isText(ext)) return convertText(readFileSync(file), { markdown: ext === ".md", title: opts.title || opts.code });
+  if (ext === ".pdf") return convertPdf(await readFile(file), opts);
+  if (isText(ext))
+    return convertText(await readFile(file), { markdown: ext === ".md", title: opts.title || opts.code });
   throw new UserError(
     `Cannot convert ${ext || "a file without extension"}.`,
     "Give a .docx (preferred), a .pdf or a .txt.",
@@ -111,13 +117,29 @@ export async function addDoc(
         "This file is already a copy inside the project's docs folder.",
         "Add the client's original from where it lives; Testimus copies it. To reconvert, use docs.convert.",
       );
+  const pdf = input.pdf && ext === ".docx" ? resolve(input.pdf) : undefined;
+  if (pdf && !existsSync(pdf))
+    throw new UserError(`File not found: ${pdf}`, "Give the PDF rendering of the same document.");
+  const total = statSync(file).size + (pdf ? statSync(pdf).size : 0);
+  const short = shortOfRoom(project, total);
+  if (short)
+    throw new UserError(
+      `Not enough room on the project's drive: ${basename(file)} needs about ${short.needMB} MB and ${short.freeMB} MB are free.`,
+      "Free some room on the project's drive, then add it again.",
+    );
   mkdirSync(dir, { recursive: true });
   try {
-    progress("Copying the original");
-    await copyFileAtomic(file, target);
-    if (input.pdf && ext === ".docx") await copyFileAtomic(resolve(input.pdf), pdfTarget);
-    const source = { name: file, ...copyOf(dir, `source${ext}`) };
-    const twin = input.pdf && ext === ".docx" ? { twin: copyOf(dir, "source.pdf") } : {};
+    const said = (done: number) => progress(copyingLine(basename(file), done, total), done, total);
+    said(0);
+    const onBytes = byteSteps(total, said);
+    const source = {
+      name: file,
+      file: `source${ext}`,
+      sha256: await copyFileAtomic(file, target, { signal, onBytes }),
+    };
+    const twin = pdf
+      ? { twin: { file: "source.pdf", sha256: await copyFileAtomic(pdf, pdfTarget, { signal, onBytes }) } }
+      : {};
     if (input.convert === false) {
       const doc: DocJson = {
         id,
@@ -166,7 +188,7 @@ export async function addDoc(
 }
 
 // ponytail: a PDF rendering added after the .docx is copied beside it, where the next conversion takes its figures from
-export function attachPdf(project: string, id: string, pdf: string): void {
+export async function attachPdf(project: string, id: string, pdf: string, signal?: AbortSignal): Promise<void> {
   const doc = readDoc(project, id);
   const file = resolve(pdf);
   if (extname(doc.source.file || "").toLowerCase() !== ".docx")
@@ -176,25 +198,24 @@ export function attachPdf(project: string, id: string, pdf: string): void {
     );
   if (extname(file).toLowerCase() !== ".pdf" || !existsSync(file))
     throw new UserError(`Not a .pdf file: ${file}`, "Give the PDF rendering of the same document.");
-  writeAtomic(join(docDir(project, id), "source.pdf"), readFileSync(file));
-  writeDoc(project, { ...doc, twin: copyOf(docDir(project, id), "source.pdf") });
+  const sha256 = await copyFileAtomic(file, join(docDir(project, id), "source.pdf"), { signal });
+  writeDoc(project, { ...doc, twin: { file: "source.pdf", sha256 } });
 }
 
 // ponytail: the .docx of a document added from its .pdf becomes its source — the .pdf stays beside it and lends
 // its pictures, as when both were added together
-export function attachDocx(project: string, id: string, docx: string): DocJson {
+export async function attachDocx(project: string, id: string, docx: string, signal?: AbortSignal): Promise<DocJson> {
   const doc = readDoc(project, id);
   const file = resolve(docx);
   if (extname(doc.source.file || "").toLowerCase() !== ".pdf")
     throw new UserError(`${id} was added from a .docx already.`, "Give its PDF rendering with --pdf instead.");
   if (extname(file).toLowerCase() !== ".docx" || !existsSync(file))
     throw new UserError(`Not a .docx file: ${file}`, "Give the Word file of the same document.");
-  writeAtomic(join(docDir(project, id), "source.docx"), readFileSync(file));
-  const dir = docDir(project, id);
+  const sha256 = await copyFileAtomic(file, join(docDir(project, id), "source.docx"), { signal });
   const next: DocJson = {
     ...doc,
-    source: { name: file, ...copyOf(dir, "source.docx") },
-    twin: copyOf(dir, doc.source.file),
+    source: { name: file, file: "source.docx", sha256 },
+    twin: { file: doc.source.file, sha256: doc.source.sha256 },
   };
   writeDoc(project, next);
   return next;
@@ -238,7 +259,7 @@ async function cropsOf(pdf: string, figures: DocConversion["figures"] = []) {
     warnings.push(`Figure ${keys}: kept as a region of a PDF page, but the document has no PDF copy`);
     return { crops, warnings };
   }
-  const buf = readFileSync(pdf);
+  const buf = await readFile(pdf);
   for (const f of figures)
     try {
       const { png } = await renderPage(buf, f.page, f.region);
@@ -293,8 +314,8 @@ export async function reconvertDoc(
     ...doc,
     title,
     date: doc.date || c.meta.date,
-    source: { ...doc.source, sha256: sha256(readFileSync(source)) },
-    ...(doc.twin && existsSync(join(dir, doc.twin.file)) ? { twin: copyOf(dir, doc.twin.file) } : {}),
+    source: { ...doc.source, sha256: await sha256File(source, signal) },
+    ...(doc.twin && existsSync(join(dir, doc.twin.file)) ? { twin: await copyOf(dir, doc.twin.file, signal) } : {}),
     converted: { with: c.convertedWith, at: env.now().toISOString(), warnings: c.warnings, stats },
   };
   writeDoc(project, next);

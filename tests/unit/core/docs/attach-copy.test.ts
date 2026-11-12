@@ -33,46 +33,46 @@ const fromPdf = () => {
 };
 
 describe("a PDF rendering added to a document from Word", () => {
-  it("is copied beside the .docx and named as its twin", () => {
-    attachPdf(P, ID, file("D401.pdf", "%PDF rendering"));
+  it("is copied beside the .docx and named as its twin", async () => {
+    await attachPdf(P, ID, file("D401.pdf", "%PDF rendering"));
     expect(readFileSync(join(P, "docs", ID, "source.pdf"), "utf8")).toBe("%PDF rendering");
     expect(readDoc(P, ID).twin?.file).toBe("source.pdf");
   });
 
-  it("is refused when it is not a .pdf, or not there", () => {
-    expect(() => attachPdf(P, ID, file("D401.docx"))).toThrow(/Not a \.pdf file/);
-    expect(() => attachPdf(P, ID, join(outside, "missing.pdf"))).toThrow(/Not a \.pdf file/);
+  it("is refused when it is not a .pdf, or not there", async () => {
+    await expect(attachPdf(P, ID, file("D401.docx"))).rejects.toThrow(/Not a \.pdf file/);
+    await expect(attachPdf(P, ID, join(outside, "missing.pdf"))).rejects.toThrow(/Not a \.pdf file/);
     expect(existsSync(join(P, "docs", ID, "source.pdf"))).toBe(false);
   });
 
-  it("is refused for a document added from its .pdf, which has no .docx to complete", () => {
+  it("is refused for a document added from its .pdf, which has no .docx to complete", async () => {
     fromPdf();
-    expect(() => attachPdf(P, ID, file("D401.pdf"))).toThrow(
+    await expect(attachPdf(P, ID, file("D401.pdf"))).rejects.toThrow(
       `${ID} was added from a .pdf: it has no .docx to complete.`,
     );
   });
 });
 
 describe("a Word file added to a document from its PDF", () => {
-  it("becomes the source, and the .pdf stays beside it as its twin", () => {
+  it("becomes the source, and the .pdf stays beside it as its twin", async () => {
     fromPdf();
     const docx = file("D401.docx", "PK word");
-    const next = attachDocx(P, ID, docx);
+    const next = await attachDocx(P, ID, docx);
     expect(next.source).toMatchObject({ name: docx, file: "source.docx" });
     expect(next.twin?.file).toBe("source.pdf");
     expect(readDoc(P, ID).source.file).toBe("source.docx");
     expect(readFileSync(join(P, "docs", ID, "source.docx"), "utf8")).toBe("PK word");
   });
 
-  it("is refused for a document added from Word already, and when it is not a .docx", () => {
-    expect(() => attachDocx(P, ID, file("D401.docx"))).toThrow(`${ID} was added from a .docx already.`);
+  it("is refused for a document added from Word already, and when it is not a .docx", async () => {
+    await expect(attachDocx(P, ID, file("D401.docx"))).rejects.toThrow(`${ID} was added from a .docx already.`);
     fromPdf();
-    expect(() => attachDocx(P, ID, file("D401.txt"))).toThrow(/Not a \.docx file/);
+    await expect(attachDocx(P, ID, file("D401.txt"))).rejects.toThrow(/Not a \.docx file/);
   });
 });
 
 describe("the other copy of an original", () => {
-  it("is the file of the same name with the other extension, and none for an upload", () => {
+  it("is the file of the same name with the other extension, and none for an upload", async () => {
     const docx = file("Spec.docx");
     const pdf = file("Spec.pdf");
     expect(twinOf({ name: docx, file: "source.docx", sha256: "" })).toBe(pdf);

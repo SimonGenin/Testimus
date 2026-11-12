@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
-import { writeAtomic } from "./atomic.ts";
+import { copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { readJson } from "./project.ts";
 import { FORMAT, filesUnder, outsidePath, PICTURE, plainFile } from "./run-pages.ts";
 import {
@@ -108,7 +109,7 @@ export type Conflict = {
 
 export type ImportInput = { dir?: string; file?: string; run?: string; dryRun?: boolean };
 
-export function importRun(project: string, input: ImportInput) {
+export async function importRun(project: string, input: ImportInput) {
   const src = readSource(input);
   const slug = input.run ?? src.slug;
   if (!slug)
@@ -195,7 +196,7 @@ export function importRun(project: string, input: ImportInput) {
     const pictures: { file: string; bytes: Uint8Array }[] = [];
     for (const a of sent.shots) {
       if (next.attachments.some((x) => x.file === a.file)) continue;
-      const bytes = a.data ? dataOf(a.data) : picture(src.dir, t.id, a.file);
+      const bytes = a.data ? dataOf(a.data) : await picture(src.dir, t.id, a.file);
       if (!bytes?.length) continue;
       pictures.push({ file: a.file, bytes });
       const step = !moved && Number.isInteger(a.step) && (a.step ?? 0) >= 1 && (a.step ?? 0) <= t.steps.length;
@@ -215,7 +216,7 @@ export function importRun(project: string, input: ImportInput) {
     ...plan,
   };
   if (input.dryRun) return out;
-  if (creates) createFromPages(project, slug, src);
+  if (creates) await createFromPages(project, slug, src);
   const dir = runDir(project, slug);
   for (const w of writes) {
     for (const p of w.pictures) writeAtomic(join(dir, "results", w.test, p.file), p.bytes);
@@ -226,15 +227,17 @@ export function importRun(project: string, input: ImportInput) {
   return out;
 }
 
-const picture = (dir: string, testId: string, name: string) =>
-  plainFile(dir, `results/${testId}/${name}`) ? new Uint8Array(readFileSync(join(dir, "results", testId, name))) : null;
+const picture = async (dir: string, testId: string, name: string) =>
+  plainFile(dir, `results/${testId}/${name}`)
+    ? new Uint8Array(await readFile(join(dir, "results", testId, name)))
+    : null;
 
-function createFromPages(project: string, slug: string, src: Source): void {
+async function createFromPages(project: string, slug: string, src: Source): Promise<void> {
   const dir = runDir(project, slug);
   if (existsSync(dir)) throw new UserError(`test-runs/${slug} already exists.`);
   const { name, createdAt, createdBy, tests } = src.run;
   writeAtomic(join(dir, "run.json"), `${JSON.stringify({ name, createdAt, createdBy, tests }, null, 2)}\n`);
   for (const rel of filesUnder(join(src.dir, "images")))
     if (/^[^/]+\/[^/]+$/.test(rel) && PICTURE.test(basename(rel)) && plainFile(src.dir, `images/${rel}`))
-      writeAtomic(join(dir, "images", rel), readFileSync(join(src.dir, "images", rel)));
+      await copyFileAtomic(join(src.dir, "images", rel), join(dir, "images", rel));
 }

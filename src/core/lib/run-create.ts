@@ -1,10 +1,10 @@
-import { existsSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { existsSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { runImage } from "../../shared/run-image.ts";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
 import type { Review } from "../types.ts";
-import { writeAtomic } from "./atomic.ts";
+import { copyFileAtomic } from "./atomic.ts";
 import { fieldOrder } from "./columns.ts";
 import { writeJson } from "./project.ts";
 import { osUser } from "./review.ts";
@@ -101,7 +101,7 @@ export function freezeTest(project: string, id: string, order: readonly string[]
 
 export type NewRun = { name: string; ids: string[] };
 
-export function createRun(project: string, n: NewRun): string {
+export async function createRun(project: string, n: NewRun): Promise<string> {
   const name = n.name.trim();
   if (!name) throw new UserError("A run needs a name.", 'Name it, e.g. --name "Recette J5 — Sectionneurs".');
   if (!n.ids.length)
@@ -119,7 +119,7 @@ export function createRun(project: string, n: NewRun): string {
     for (const t of tests)
       for (const file of new Set(t.steps.flatMap((s) => s.images))) {
         const from = join(testDir(project, t.id), file);
-        if (existsSync(from)) writeAtomic(join(tmp, runImage(t.id, file)), readFileSync(from));
+        if (existsSync(from)) await copyFileAtomic(from, join(tmp, runImage(t.id, file)));
       }
     const run: RunFile = {
       name,

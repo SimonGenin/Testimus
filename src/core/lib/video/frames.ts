@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { clock } from "../../rag/anchors.ts";
 import type { SpokenLine, VideoDensity } from "../../types.ts";
 import { writeAtomic } from "../atomic.ts";
+import { sharpOf } from "../sharp.ts";
 import { SCAN_FPS } from "./io.ts";
 
 export const MOSAIC_SIDE = 3;
@@ -20,8 +21,6 @@ const PIXEL_MOVED = 32;
 const CHANGED_PIXELS = 16;
 const CROP_MIN = 320;
 const CROP_MAX = 1400;
-
-const sharpOf = async () => (await import("sharp")).default;
 
 export type Box = [x: number, y: number, w: number, h: number];
 export type Candidate = { at: number; why: "screen" | "before" | "said" | "regular" };
@@ -108,7 +107,7 @@ export function candidatesOf(o: {
 
 export async function grid(file: string): Promise<Buffer> {
   const sharp = await sharpOf();
-  return sharp(readFileSync(file))
+  return sharp(await readFile(file))
     .removeAlpha()
     .resize(GRID_W * CELL, GRID_H * CELL, { fit: "fill" })
     .raw()
@@ -169,7 +168,7 @@ export async function distinct<T extends { file: string }>(frames: T[]): Promise
 // filmed by hand, the sharpest is kept, never the one blurred by the move
 export async function sharpness(file: string): Promise<number> {
   const sharp = await sharpOf();
-  const s = await sharp(readFileSync(file))
+  const s = await sharp(await readFile(file))
     .greyscale()
     .resize(320, 180, { fit: "fill" })
     .convolve({ width: 3, height: 3, kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0], scale: 1, offset: 128 })
@@ -182,7 +181,7 @@ export async function sharpness(file: string): Promise<number> {
 // crop is where Claude reads the alarm's message or the button's label without asking for the whole frame
 export async function crop(file: string, box: Box, out: string): Promise<{ width: number; height: number } | null> {
   const sharp = await sharpOf();
-  const input = readFileSync(file);
+  const input = await readFile(file);
   const meta = await sharp(input).metadata();
   const W = meta.width ?? 0;
   const H = meta.height ?? 0;
@@ -206,18 +205,22 @@ export async function crop(file: string, box: Box, out: string): Promise<{ width
 const esc = (s: string) => s.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
 // ponytail: a mosaic is 3 × 3 frames in time order, each with its number and moment in its corner, 1440 px wide — under
-// the size past which a picture is made smaller before Claude sees it; a place that changed is framed
+// the size past which a picture is made smaller before Claude sees it; a place that changed is framed. Its tiles are
+// drawn one after the other: nine pipelines at once took every thread the core answers the page with
 export async function mosaic(
   frames: { at: number; file: string; box?: Box }[],
   out: string,
   first: number,
 ): Promise<void> {
   const sharp = await sharpOf();
-  const tiles = await Promise.all(
-    frames.map((f) =>
-      sharp(readFileSync(f.file)).resize(TILE_W, TILE_H, { fit: "contain", background: "#000000" }).jpeg().toBuffer(),
-    ),
-  );
+  const tiles: Buffer[] = [];
+  for (const f of frames)
+    tiles.push(
+      await sharp(await readFile(f.file))
+        .resize(TILE_W, TILE_H, { fit: "contain", background: "#000000" })
+        .jpeg()
+        .toBuffer(),
+    );
   const labels = frames
     .map((f, i) => {
       const x = (i % MOSAIC_SIDE) * TILE_W;
@@ -251,7 +254,7 @@ export async function mosaic(
 // ponytail: a key frame as Claude and the tester see it, like a photo — a JPEG of at most 2000 px a side
 export async function normalizeFrame(src: string, out: string): Promise<{ width: number; height: number }> {
   const sharp = await sharpOf();
-  const r = await sharp(readFileSync(src))
+  const r = await sharp(await readFile(src))
     .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: "inside", withoutEnlargement: true })
     .flatten({ background: "#ffffff" })
     .jpeg({ quality: 85 })

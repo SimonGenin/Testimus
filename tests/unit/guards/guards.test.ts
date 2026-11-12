@@ -16,6 +16,7 @@ const LIMITS: Record<GuardName, number> = {
   "N4d inline styles with only constant values": 0,
   "N7 child_process, process.kill or taskkill outside src/shared/run/process.ts": 0,
   "N7 setTimeout or setInterval in src/core": 0,
+  "N7 synchronous whole-file read or copy where the core handles the user's files": 0,
   // ponytail: 42 EXTRA + 4 CONTAINERS + 7 BREAKPOINTS (design-system audit n° 14): asked of the design sessions, never more
   "G8 token values written by scripts/tokens.ts, not read from design/tokens.css": 53,
   "G8 vocabulary colour aliases of tokens.css never read in src/ui": 0,

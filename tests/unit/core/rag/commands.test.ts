@@ -52,21 +52,12 @@ describe("rag commands through the registry, each output checked against its sch
     expect(spaces[0]).toMatchObject({ id: r.space, active: true, complete: true });
   });
 
-  it("rag.index waits for a conversion writing a document, and says so", async () => {
+  it("rag.index never waits for a conversion writing a document: the conversion's own pass follows", async () => {
     let finish = () => {};
     const converting = whileConverting(dir, () => new Promise<void>((ok) => (finish = ok)));
-    let done = false;
-    const run = call<Index>("rag.index", {}, dir).then((r) => {
-      done = true;
-      return r;
-    });
-    await new Promise((ok) => setTimeout(ok, 50));
-    expect(done).toBe(false);
-    const running = await call<{ kind: string; message?: string }[]>("jobs.list", { running: true }, dir);
-    expect(running.find((j) => j.kind === "rag-index")?.message).toBe("Waiting for the other conversions");
+    expect((await call<Index>("rag.index", {}, dir)).chunks).toBeGreaterThan(0);
     finish();
     await converting;
-    expect((await run).chunks).toBeGreaterThan(0);
   });
 
   it("rag.dropSpace refuses the active space without force, then drops it", async () => {

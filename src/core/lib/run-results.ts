@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, rmSync, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, join } from "node:path";
 import { UserError } from "../command.ts";
 import { env } from "../env.ts";
@@ -105,7 +106,7 @@ export type AttachInput = { step?: number; file?: string; dataBase64?: string; n
 
 // ponytail: a screenshot is copied into results/<testId>/ under a name of its own (capture-<8hex>.<ext>): a file the
 // tester picked (absolute path) or a picture pasted in the page
-export function attachCapture(project: string, slug: string, testId: string, a: AttachInput) {
+export async function attachCapture(project: string, slug: string, testId: string, a: AttachInput) {
   const t = testOf(project, slug, testId);
   if (!a.file === !a.dataBase64)
     throw new UserError("Give either a file or the picture's data.", "runs attach --file <absolute path>.");
@@ -116,7 +117,7 @@ export function attachCapture(project: string, slug: string, testId: string, a: 
     if (!isAbsolute(a.file)) throw new UserError(`${a.file} is not an absolute path.`, "Give the file's full path.");
     if (!existsSync(a.file) || !statSync(a.file).isFile()) throw new UserError(`No file ${a.file}.`, "Check the path.");
     ext = extname(a.file);
-    bytes = new Uint8Array(readFileSync(a.file));
+    bytes = new Uint8Array(await readFile(a.file));
   } else {
     ext = extname(a.name ?? "") || ".png";
     bytes = new Uint8Array(Buffer.from((a.dataBase64 ?? "").replace(/^data:[^,]*,/, ""), "base64"));

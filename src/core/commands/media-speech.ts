@@ -8,6 +8,7 @@ import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { claudeVersion } from "../claude/status.ts";
 import { command, projectOf, UserError } from "../command.ts";
 import { env } from "../env.ts";
+import { WEIGHT_MB } from "../lib/agents.ts";
 import { docDir, listDocs, readDoc, readFigures, writeFigures } from "../lib/docs.ts";
 import { afterConversion, convertSteps, inSlot, recheckCiting, runOf, withIndex } from "../lib/docs-pipeline.ts";
 import { machineProfile } from "../lib/machine/profile.ts";
@@ -351,20 +352,26 @@ export const commands = [
       ctx.steps?.(steps);
       if (input.all)
         rmSync(join(docDir(project, input.doc), "video", String(f.n), "transcript"), { recursive: true, force: true });
-      const d = await inSlot(ctx, project, steps, async () => {
-        ctx.step?.("convert");
-        const converted = await convertMedia(ctx, project, input.doc, {
-          read: shouldDescribeFigures(project),
-          again: true,
-          video: f.n,
-          run: runOf(input),
-        });
-        return afterConversion(ctx, project, converted, runOf(input), {
-          describeFigures: false,
-          study: true,
-          index: input.index,
-        });
-      });
+      const d = await inSlot(
+        ctx,
+        project,
+        steps,
+        async () => {
+          ctx.step?.("convert");
+          const converted = await convertMedia(ctx, project, input.doc, {
+            read: shouldDescribeFigures(project),
+            again: true,
+            video: f.n,
+            run: runOf(input),
+          });
+          return afterConversion(ctx, project, converted, runOf(input), {
+            describeFigures: false,
+            study: true,
+            index: input.index,
+          });
+        },
+        WEIGHT_MB.video,
+      );
       const v = readVideo(project, input.doc, f.n);
       const report = readReport(project, input.doc, f.n);
       return {

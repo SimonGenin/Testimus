@@ -1,19 +1,20 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { reasonOf, type Semaphore, scope, semaphore, throwIfAborted } from "../../shared/run/work.ts";
+import { reasonOf, scope, throwIfAborted } from "../../shared/run/work.ts";
 import { activeModels } from "../rag/activation.ts";
 import { indexFile, openDb } from "../rag/db.ts";
 import { spaceOf } from "../rag/fingerprint.ts";
 import { type LiveIndex, liveIndex } from "../rag/indexer.ts";
 import type { DocIndexing, DocRef, IndexRun } from "../types.ts";
-import { conversionsAtOnce } from "./agents.ts";
+import { type AgentPool, conversionPool } from "./agents.ts";
 import { listDocs } from "./docs.ts";
 
-type Slots = { n: number; take: Semaphore; users: number };
+type Slots = { pool: AgentPool; users: number };
 type Shared = { p: Promise<unknown>; ctl: AbortController; users: number; settled: boolean };
 type Queue = {
   converting: Set<Promise<unknown>>;
   running: Promise<unknown> | null;
+  reads: number | null;
   waiting: Shared | null;
   slots: Slots | null;
 };
@@ -24,7 +25,7 @@ function queueOf(project: string): Queue {
   const key = resolve(project).toLowerCase();
   let q = queues.get(key);
   if (!q) {
-    q = { converting: new Set(), running: null, waiting: null, slots: null };
+    q = { converting: new Set(), running: null, reads: null, waiting: null, slots: null };
     queues.set(key, q);
   }
   return q;
@@ -32,7 +33,8 @@ function queueOf(project: string): Queue {
 
 const until = <T>(p: Promise<T>, signal?: AbortSignal): Promise<T> => (signal ? scope(() => p, { signal }) : p);
 
-// ponytail: a conversion writing a document's folder — an index run that would read it half-written waits for it
+// ponytail: a conversion writing a document's folder — the work that reads every document once the import is over
+// (the overview) waits for it; the index does not (queueIndex)
 export function whileConverting<T>(project: string, work: () => Promise<T>): Promise<T> {
   const q = queueOf(project);
   const p = work();
@@ -42,34 +44,48 @@ export function whileConverting<T>(project: string, work: () => Promise<T>): Pro
   return p;
 }
 
-// ponytail: at most conversionsAtOnce() conversions of a project go at a time — counted when a batch starts (the slots
-// are made again once every conversion of the last batch ended); one asked for meanwhile waits its turn (onWait), and
-// an index run waits for it as for those going. A conversion that fails frees its slot like one that ends
+// ponytail: a project's conversions go through one adaptive pool (lib/agents.ts) — as many at once as the agents
+// setting, the cores and the free memory allow, looked at again every few seconds; each weighs what it takes in memory
+// (a video far more than a Word document) and starts only when the free memory covers it. The pool is made again once
+// every conversion of the last batch ended (a changed setting is then read). One asked for meanwhile waits its turn
+// (onWait); a conversion that fails frees its place like one that ends
 export function conversionSlot<T>(
   project: string,
   work: () => Promise<T>,
-  o: { signal?: AbortSignal; onWait?: (atOnce: number) => void } = {},
+  o: { signal?: AbortSignal; weightMB?: number; onWait?: (atOnce: number) => void } = {},
 ): Promise<T> {
   const q = queueOf(project);
-  if (!q.slots?.users) {
-    const n = conversionsAtOnce();
-    q.slots = { n, take: semaphore(n), users: 0 };
-  }
+  if (!q.slots?.users) q.slots = { pool: conversionPool(), users: 0 };
   const slots = q.slots;
-  if (slots.users >= slots.n) o.onWait?.(slots.n);
   slots.users++;
   return whileConverting(project, () =>
-    slots.take(work, o.signal).finally(() => {
-      slots.users--;
-    }),
+    slots.pool
+      .run(work, { weightMB: o.weightMB, signal: o.signal, onWait: () => o.onWait?.(slots.pool.limit()) })
+      .finally(() => {
+        slots.users--;
+      }),
   );
 }
 
-function start<T>(q: Queue, run: () => Promise<T>): Promise<T> {
+// ponytail: the documents the pass reads (those not fresh when it starts) — what a conversion waiting for the next
+// pass has before it
+function readsOf(project: string): number | null {
+  try {
+    return listDocs(project).filter((d) => d.indexed !== "fresh").length;
+  } catch {
+    return null;
+  }
+}
+
+function start<T>(q: Queue, project: string, run: () => Promise<T>): Promise<T> {
+  q.reads = readsOf(project);
   const p = run();
   q.running = p;
   const done = () => {
-    if (q.running === p) q.running = null;
+    if (q.running === p) {
+      q.running = null;
+      q.reads = null;
+    }
   };
   p.then(done, done);
   return p;
@@ -100,32 +116,42 @@ function shared<T>(work: (signal: AbortSignal) => Promise<T>): Shared {
   return s;
 }
 
-// ponytail: one index run at a time per project, never while a conversion is writing a document: a run asked for
-// meanwhile waits for both, and the runs asked for while it waits share it (it reads every document when it starts).
-// The run gets a signal of its own: it is cancelled when everyone who asked for it cancelled — one conversion's cancel
-// only ends that conversion's wait — or when its own job is cancelled
-export function indexAfterConversions<T>(
+const waitingLine = (reads: number | null) =>
+  reads === null
+    ? "Waiting for the running index"
+    : `Waiting for the running index (${reads === 1 ? "1 document" : `${reads} documents`} before)`;
+
+// ponytail: the index as documents come — one pass at a time per project, and a pass waits for nothing else: a
+// document converted joins the next pass, which starts as soon as the running one ends and reads everything ready then
+// (one document at first, several once the index is busy); the passes asked for while one waits share it. A document
+// a conversion is writing while a pass reads it is read again by the next pass, the one its conversion asks for once
+// done. A pass gets a signal of its own: it is cancelled when everyone who asked for it cancelled — one conversion's
+// cancel only ends that conversion's wait — or when its own job is cancelled
+export function queueIndex<T>(
   project: string,
   run: (signal: AbortSignal) => Promise<T>,
   o: { signal?: AbortSignal; waiting?: (message: string) => void } = {},
 ): Promise<T> {
   const q = queueOf(project);
-  if (q.waiting) return join(q, q.waiting, o.signal);
-  if (!q.running && !q.converting.size)
+  if (q.waiting) {
+    o.waiting?.(waitingLine(q.reads));
+    return join(q, q.waiting, o.signal);
+  }
+  if (!q.running)
     return join(
       q,
-      shared((signal) => start(q, () => run(signal))),
+      shared((signal) => start(q, project, () => run(signal))),
       o.signal,
     );
-  o.waiting?.(q.converting.size ? "Waiting for the other conversions" : "Waiting for the index run");
+  o.waiting?.(waitingLine(q.reads));
   const s: Shared = shared(async (signal) => {
-    while (q.running || q.converting.size) {
-      await Promise.allSettled([q.running, ...q.converting]);
+    while (q.running) {
+      await Promise.allSettled([q.running]);
       throwIfAborted(signal);
     }
     if (q.waiting === s) q.waiting = null;
     throwIfAborted(signal);
-    return start(q, () => run(signal));
+    return start(q, project, () => run(signal));
   });
   q.waiting = s;
   return join(q, s, o.signal);

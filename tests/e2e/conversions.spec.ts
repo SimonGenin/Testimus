@@ -11,7 +11,7 @@ test.use({ viewport: { width: 1920, height: 1080 } });
 
 type Job = { kind: string; status: string; startedAt: string };
 
-test("several documents convert at once, the others wait their turn, then one index run", async ({ page }) => {
+test("several documents convert at once, the others wait their turn, each indexed as it ends", async ({ page }) => {
   await api(server.url, "system.set", { agentsMax: 2, agentsAdaptive: false });
   const dir = mkdtempSync(join(tmpdir(), "testimus-e2e-many-"));
   for (const n of ["MA", "MB", "MC", "MD"]) writeFileSync(join(dir, `SPEC_${n}_01_00.docx`), sampleDocx());
@@ -24,7 +24,7 @@ test("several documents convert at once, the others wait their turn, then one in
   await dialog.getByRole("button", { name: "Import 4 documents" }).click();
 
   const list = page.getByRole("region", { name: "Document list" });
-  await expect(list.getByText("Converting 2 at a time · 2 waiting · then one index run")).toBeVisible({
+  await expect(list.getByText("Converting 2 at a time · 2 waiting · indexed as they end")).toBeVisible({
     timeout: 30_000,
   });
   await expect(list.getByRole("progressbar", { name: "Converting" })).toHaveCount(2);
@@ -32,15 +32,12 @@ test("several documents convert at once, the others wait their turn, then one in
   await shoot(page, "documents-converting-e2e");
 
   await expect(list.getByText(/Converting \d at a time/)).toHaveCount(0, { timeout: 90_000 });
-  await expect
-    .poll(
-      async () => {
-        const jobs = (await api<Job[]>(server.url, "jobs.list")).filter((j) => j.startedAt >= since);
-        const converts = jobs.filter((j) => j.kind === "docs.convert");
-        const index = jobs.filter((j) => j.kind === "rag-index");
-        return `${converts.filter((j) => j.status === "done").length} converted, ${index.length} index run ${index.map((j) => j.status).join()}`;
-      },
-      { timeout: 90_000 },
-    )
-    .toBe("4 converted, 1 index run done");
+  const passes = async () => {
+    const jobs = (await api<Job[]>(server.url, "jobs.list")).filter((j) => j.startedAt >= since);
+    const converted = jobs.filter((j) => j.kind === "docs.convert" && j.status === "done").length;
+    const index = jobs.filter((j) => j.kind === "rag-index");
+    return converted === 4 && index.every((j) => j.status === "done") ? index.length : 0;
+  };
+  await expect.poll(passes, { timeout: 90_000 }).toBeGreaterThan(0);
+  expect(await passes()).toBeLessThanOrEqual(4);
 });

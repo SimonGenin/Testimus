@@ -79,13 +79,14 @@ test("a .docx added is listed unconverted, then converted and indexed on demand"
   await (await chooser).setFiles(file);
   const rows = page.getByRole("region", { name: "Document list" }).getByRole("option", { name: /SOSIE_/ });
   await expect(rows).toHaveCount(3, { timeout: 30_000 });
-  const listed = JSON.stringify(await api(server.url, "docs.list"));
-  const added = [...listed.matchAll(/"id":"([^"]+)"/g)]
-    .map((m) => m[1])
-    .find(
-      (id) => id.startsWith("SOSIE_") && !id.startsWith("SOSIE_211_D401-1_3") && !id.startsWith("SOSIE_211_D401-1_4"),
-    );
-  expect(added).toBeTruthy();
+  const newId = async () =>
+    [...JSON.stringify(await api(server.url, "docs.list")).matchAll(/"id":"([^"]+)"/g)]
+      .map((m) => m[1])
+      .find(
+        (id) => id.startsWith("SOSIE_") && !id.startsWith("SOSIE_211_D401-1_3") && !id.startsWith("SOSIE_211_D401-1_4"),
+      );
+  await expect.poll(newId, { timeout: 30_000 }).toBeTruthy();
+  const added = await newId();
   const row = page
     .getByRole("region", { name: "Document list" })
     .getByRole("option", { name: new RegExp(`${added} · `) });

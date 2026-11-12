@@ -4,7 +4,7 @@ import { env } from "../env.ts";
 import { normalizeAnchor } from "../rag/anchors.ts";
 import { anchorsOf } from "../rag/convert.ts";
 import type { DocJson, FigureEntry, MediaFile } from "../types.ts";
-import { writeAtomic } from "./atomic.ts";
+import { copyFileAtomic, writeAtomic } from "./atomic.ts";
 import { recheckMechanical, testsCiting } from "./check.ts";
 import { docDir, docIds, readFigures, writeContext, writeDoc, writeFigures } from "./docs.ts";
 import { imageAnchor, imageCaption, imageEntry, ordered, withFiles } from "./media.ts";
@@ -105,7 +105,7 @@ function rewriteTests(project: string, parent: DocJson, plans: Map<string, Plan>
   return out;
 }
 
-function migrateLot(project: string, parent: DocJson, lot: LegacyLot, id: string): Migrated {
+async function migrateLot(project: string, parent: DocJson, lot: LegacyLot, id: string): Promise<Migrated> {
   const from = docDir(project, parent.id);
   const lotDir = join(from, "media", lot.id);
   const dir = docDir(project, id);
@@ -117,12 +117,11 @@ function migrateLot(project: string, parent: DocJson, lot: LegacyLot, id: string
     const n = i + 1;
     const src = join(lotDir, it.file);
     const name = basename(it.file);
-    if (existsSync(src)) writeAtomic(join(dir, "files", name), readFileSync(src));
+    if (existsSync(src)) await copyFileAtomic(src, join(dir, "files", name));
     const pic = it.figure ? join(from, it.figure) : "";
     const has = !!pic && existsSync(pic);
     if (has) {
-      mkdirSync(join(dir, "figures"), { recursive: true });
-      writeAtomic(join(dir, "figures", `img-${n}.jpg`), readFileSync(pic));
+      await copyFileAtomic(pic, join(dir, "figures", `img-${n}.jpg`));
     }
     const f: MediaFile = {
       n,
@@ -204,7 +203,7 @@ function cleanParent(project: string, id: string): void {
 // its context.md, reference kept, relatesTo naming the document it was attached to; the tests' sources that cited the
 // annex are rewritten to the new anchors (the report lists each line). Idempotent: a project without batches is left
 // as it is. dryRun says what would happen
-export function migrateMedia(project: string, dryRun = false): MigrationReport {
+export async function migrateMedia(project: string, dryRun = false): Promise<MigrationReport> {
   const report: MigrationReport = { migrated: [], rewritten: [], dryRun };
   const taken = new Set<string>();
   const touched = new Set<string>();
@@ -224,7 +223,7 @@ export function migrateMedia(project: string, dryRun = false): MigrationReport {
       plans.set(lot.id, { doc: id, title: lot.title, items });
       if (dryRun)
         report.migrated.push({ from: parentId, lot: lot.id, doc: id, title: lot.title, images: lot.items.length });
-      else report.migrated.push(migrateLot(project, parent, lot, id));
+      else report.migrated.push(await migrateLot(project, parent, lot, id));
     }
     const rewritten = rewriteTests(project, parent, plans, dryRun);
     report.rewritten.push(...rewritten);
@@ -238,20 +237,30 @@ export function migrateMedia(project: string, dryRun = false): MigrationReport {
 }
 
 const done = new Set<string>();
+const going = new Map<string, Promise<MigrationReport | null>>();
 
 // ponytail: run once per project and process, before the first command that names it — a project shared by a
 // colleague on an older version is migrated the first time this version opens it. One that fails (a file held:
-// EBUSY) is not done: the next command tries again, and takes the documents already made
-export function migrateOnOpen(project: string): MigrationReport | null {
+// EBUSY) is not done: the next command tries again, and takes the documents already made. Null at once when there is
+// nothing to do; the commands asked while it copies wait for the same migration
+export function migrateOnOpen(project: string): Promise<MigrationReport | null> | null {
   const key = resolve(project).toLowerCase();
   if (done.has(key)) return null;
   if (!existsSync(join(project, "docs")) || !needsMigration(project)) {
     done.add(key);
     return null;
   }
+  const already = going.get(key);
+  if (already) return already;
+  const p = migrateNow(project, key).finally(() => going.delete(key));
+  going.set(key, p);
+  return p;
+}
+
+async function migrateNow(project: string, key: string): Promise<MigrationReport | null> {
   let report: MigrationReport;
   try {
-    report = migrateMedia(project);
+    report = await migrateMedia(project);
   } catch {
     return null;
   }

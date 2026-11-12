@@ -111,7 +111,7 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
   `not-a-document`…). A failing request never stops the core.
 - **One place for processes, waits and cleanup**: `src/shared/run/` (Node only, so the desktop shell may import it).
   `work.ts`: cancellable `sleep`/`timeout`, `retry` (growing delay or `Retry-After`), `semaphore` (the six Jira calls,
-  the conversion slots; waiters leave on cancel), `scope` (cleanups run last-in first-out whatever ends it), `every`, `debounce` (with
+  the two ffmpeg at a time; waiters leave on cancel), `scope` (cleanups run last-in first-out whatever ends it), `every`, `debounce` (with
   `maxMs`). `process.ts`: start a program directly or through a `.cmd` shim (cmd metacharacters refused), the registry of
   live children, kill **the whole tree** (`taskkill /T /F` on Windows, process groups elsewhere), lines of stdout/stderr,
   every child killed when the parent goes. Nothing else in `src/` spawns, kills or waits (guard).
@@ -141,6 +141,24 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
     first page 1.14 MB → 158 KB.
   - Left as it is, measured: the first `tests.list` of the big project still parses 600 `test.md` (0.5–0.9 s, mostly
     the first disk reads); every later read only stats.
+- **Nothing unbounded is synchronous in the core** (2026-11-12, after the import of 10 November held the page 3 h 31):
+  no operation whose time grows with the size of a user's file runs synchronously in the process that answers the
+  page; a long one gives the hand back, says how far it is and follows its job's signal. A user's file (an original, a
+  video, a picture, a run's screenshot, a context's file) is copied by stream (`lib/atomic.ts` `copyFileAtomic`: beside
+  its target then renamed, stopped between two 4 MB chunks by the job's signal — a cancelled copy leaves no `.tmp` and
+  the add takes its half document folder away —, its SHA-256 computed as the bytes pass, so a file is read once, never
+  hashed then copied), weighed before it is read (its size from `stat` against the drive's room for every file, and the
+  videos' cap — `video/disk.ts`), and says its bytes (« Copying VID.mp4 — 2.1 / 5.4 GB », `done`/`total` in bytes, at
+  most once a hundredth; a folder import adds « (file 3 of 12) »). Whole-file reads are `fs.promises` (a conversion's
+  source, a PDF drawn, a picture prepared, a run's screenshots), folders are copied by `fs.promises.cp`. A guard (N7,
+  `tests/unit/guards/scan.ts` `USER_FILES`) refuses `readFileSync` without an encoding, `copyFileSync` and `cpSync` in
+  the modules that handle a user's files; a text read (`doc.json`, `test.md`, a template) is bounded and stays
+  synchronous. sharp works in the core with a quarter of the cores and no cache (`lib/sharp.ts`), reads its frames
+  asynchronously and draws a mosaic's tiles one after the other; moving it to a child process was not done: its
+  results are buffers compared in the core (a frame's grid against the one before), which a child would have to send
+  back, and the seam of `src/shared/run/` runs programs, not Node work (open, §16, with the index's worker). The room
+  the videos take is walked again only for a video whose `doc.json` moved (it was every video folder for each video
+  of a batch).
 - **A job's `changed` comes from the watcher** when one follows the project (2026-11-08, `lib/changed.ts`): the
   watcher keeps a stamp of the project's files (size, mtime) up to date from the paths it reports — a folder renamed
   into place is walked, a path gone takes what it held — made once at the project's first job; each job running
@@ -275,7 +293,8 @@ docs/<docId>/
   (after `source.last`, the highest ever given) and never reused — so adding an image never moves another's anchor and
   a removed image's number never points at another picture (a file name is not stable enough: two cameras both write
   `IMG_0042.jpg`). Its file keeps its name under `files/`, else `<n>-<name>`, else `<n>-<k>-<name>` — never over a
-  file there; a file from this PC is hashed and copied as it streams (a video passes 2 GiB, more than a Buffer holds).
+  file there; a file from this PC is hashed while it is copied, as it streams (a video passes 2 GiB, more than a Buffer
+  holds); the same file twice is found by that hash and its copy taken away again (§3 « Nothing unbounded »).
 - **Conversion prefers `.docx`** (structure and images intact); PDF is the fallback (headings from numbering or font
   size, or the tagged structure; RATP PDFs draw heading numbers as pictures). A `.docx` and the `.pdf` of the same name
   are one document. `doc.json.conversion` keeps how it was converted (chosen by the `study-document` skill or the team),
@@ -289,22 +308,33 @@ docs/<docId>/
   figure; description and labels are Claude's reading, never quotable.
 - **The pipeline** (`lib/docs-pipeline.ts`): add (copy only) → convert (job: optional study, conversion, figure
   descriptions, re-check of the citing tests, triage of the warnings by Claude when present) → index (a child job,
-  **one index run at a time** per `rag.db`; runs asked for meanwhile share the next one). A failed index run keeps the
+  **one index pass at a time** per `rag.db`; passes asked for meanwhile share the next one). A failed index pass keeps the
   conversion.
-- **Several conversions at once** (2026-11-08). Each conversion (`docs.convert`, `docs.add` with convert) is its own
-  job and holds one of the project's conversion slots (`lib/docs-index.ts` `conversionSlot`, a `semaphore` of
-  `src/shared/run/work.ts`) from its start to the end of its triage: the conversion (an images or video document's files too), the figure
-  descriptions (so Claude's figure runs are bounded by the slots too, one run at a time per document), the re-check.
-  The slots number `conversionsAtOnce()` (`lib/agents.ts`): the agents setting that bounds generation; adaptive, no
-  more than the cores less one and the free memory (1 GB each) allow — counted when a batch starts, made again once
-  the last batch is over. A conversion asked for meanwhile waits its turn (a `queue` step, « Waiting to convert » on
-  the page); a failed one frees its slot and stops none of the others. Every conversion asked for, waiting or going,
-  counts for the index: a conversion **asks** for its index run before it lets its slot go (it never waits for the run
-  inside the slot, which would wait for itself), so the run starts once the last conversion of the batch is done and
-  is shared by all — one index run for a folder import. The shared run has a signal of its own (`lib/docs-index.ts`):
-  a conversion cancelled stops only its own wait; the run is cancelled once everyone waiting for it cancelled, or when
-  its own `rag-index` job is cancelled. The Documents list shows « Converting · … » on each conversion
-  going, « Waiting to convert » on those in line, and « Converting 2 at a time · 2 waiting · then one index run ». `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
+- **Several conversions at once** (2026-11-08; one adaptive pool and the index as they end, 2026-11-12). Each
+  conversion (`docs.convert`, `docs.add` with convert) is its own job and holds a place in the project's conversion
+  pool (`lib/docs-index.ts` `conversionSlot`) from its start to the end of its triage: the conversion (an images or
+  video document's files too), the figure descriptions (so Claude's figure runs are bounded by the pool too, one run at
+  a time per document), the re-check. The pool is the generation's (`lib/agents.ts` `agentPool`, `conversionPool`): as
+  many at once as the agents setting allows; adaptive, no more than the cores less one, starting at two and looked at
+  again every 3 s (CPU and free memory), made again once the last batch is over. Each conversion **weighs** what it
+  takes in memory (`WEIGHT_MB`: a Word or PDF document ~1 000 MB — a Claude —, pictures ~1 000 MB, a video ~2 500 MB —
+  ffmpeg, its frames in sharp and a Claude —; `docs-pipeline.ts` `weightOf`): a weighed task starts only when the free
+  memory, less what the tasks started since the last look will still take, covers it — the first always goes (on a
+  16 GB PC with 6 GB free, three videos do not start together). A fixed agents setting (not adaptive) starts what it
+  says, unweighed. Whatever the conversions, at most two ffmpeg run at once on the PC (`video/io.ts`
+  `FFMPEG_AT_ONCE`) and one transcription (`video/speech.ts`). A conversion asked for meanwhile waits its turn (a
+  `queue` step, « Waiting to convert » on the page); a failed one frees its place and stops none of the others.
+  **The index takes each document as it ends** (WORKLOAD.md §2 bis: with 129 conversions the one run waited 4 h 24): a
+  conversion asks for an index pass once converted and lets its place go; the pass waits for nothing but the pass
+  already running — « Waiting for the running index (N documents before) », N the documents that pass reads — and
+  starts as soon as it ends, reading every document ready then (one document at first, several once the index is
+  busy); the conversions that end meanwhile share it. A document a conversion is still writing while a pass reads it
+  (a reconversion) is read again by the next pass, the one its own conversion asks for (`doc.json` is written last; a
+  new document has none until it is converted, so no pass sees it before). The shared pass has a signal of its own
+  (`lib/docs-index.ts` `queueIndex`): a conversion cancelled stops only its own wait; the pass is cancelled once
+  everyone waiting for it cancelled, or when its own `rag-index` job is cancelled. The Documents list shows
+  « Converting · … » on each conversion going, « Waiting to convert » on those in line, and « Converting 2 at a time ·
+  2 waiting · indexed as they end ». `docs.remove` deletes every trace (folder, index rows in every space, graph edges, others' `amends`);
   citing tests are left and their sources become `source-missing`.
 - **A folder** (`lib/docs-folder.ts`): `docs.scanFolder` reads a folder (sub-folders by default, hidden ones and the
   project's own folder skipped, at most 2 000 files) and says, file by file, whether an import adds it: each `.docx`,
@@ -316,7 +346,7 @@ docs/<docId>/
   and macOS); a file that goes while the folder is read is left out; past 2 000 files `truncated` says so, in the
   scan and in `docs.addFolder`'s result, with a warning in its log. `docs.addFolder` copies the
   documents asked for (the same `addDoc` as `docs.add`), then starts one `docs.convert` job per document, children of
-  the import job, and waits for them (they share the slots and the one index run below). A network path
+  the import job, and waits for them (they share the pool and the index passes above). A network path
   (`\\server\share`) is refused (§13). Decided: a document already in the project is shown, unticked, never replaced —
   reconverting is `docs.convert`. Decided (2026-11-08): **the images of one folder are one images document**, named
   after that folder (`group` = the folder's path, « . » for the folder itself) — a team files a visit's photos in a
@@ -562,7 +592,7 @@ docs/<docId>/
   - **After each import, one update per batch** (`lib/overview-after.ts`): `withIndex` asks for it once its index run
     ended (or failed) — and `docs.remove` too —, when the option is on and `claude --version` answers. The update is
     a job of its own, nobody's child (`jobs.ts outsideJobs`); the asks that come while it waits join it, so a folder
-    of 10 documents (one index run) makes one update. The job waits for the project's conversions, its index run
+    of 10 documents (several index passes, §5) makes one update — it waits for every conversion of the import. The job waits for the project's conversions, its index run
     (`docs-index.ts indexWork`) and every `generate` job (`jobs.ts runningOf`) to end — never written under a
     generation reading it — then for the update before it, then for them again (one may have begun meanwhile). Never
     asked from inside a Claude run (`insideClaude()`, the MCP server a run calls, as `check.ts semanticPlan`). A
@@ -723,6 +753,11 @@ above) and by naming only the wanted choice's models.
 - `rag.index` updates chunks, FTS and edges once, then embeds only what the **active** space lacks; a changed chunk
   makes the other spaces incomplete, and re-activating one embeds only the missing chunks. The last index state is in
   `rag.db` (meta `index_state`) and drives `docs.list.indexed` (`missing` / `stale` / `fresh`).
+- **The index follows the imports as they go** (2026-11-12): an index pass waits only for the pass already running,
+  never for the conversions (§5 « Several conversions at once »): a document is searchable minutes after its own
+  conversion, not after the batch's last; `rag.index` asked by hand joins the same queue (`lib/docs-index.ts`
+  `queueIndex`). Each pass reads every document then ready, so a large import makes a few passes, each an unchanged
+  document's « unchanged » for the others.
 - **An index run's work in progress is not a problem.** While a run is under way or waiting its turn
   (`lib/docs-index.ts` knows: one queue per project, in this process), every document that is not fresh carries
   `docs.list.indexing` (`running` with its percent and passages embedded, or `waiting`) and `rag.status.indexing`
@@ -1611,6 +1646,10 @@ first-class: every screen works without the bridge.
   PCs reach Hugging Face and claude.ai through the company proxy (unchecked).
 - A document whose outline alone is longer than an answer of `docs.show` (≈ 2 000 headings) still gets it whole on
   the first page and with `brief`: paging the toc too waits for a real document that needs it.
+- A video's picture work (sharp: grids, sharpness, crops, mosaics) stays in the core, modest (§3 « Nothing
+  unbounded »): a child of its own, or the index's separate program, would take it out of the process that answers the
+  page, once a seam for Node work in a child exists. To measure on three real videos: `jobs.list` under 100 ms, the
+  core under one core.
 - Requirement coverage is computed **outside** the app, from the step column the team fills with requirement ids.
 - Not proven yet: signing and execution policy on a tester's PC (E0); live read-only checks of `xray.pull` and of the
   `issue` reads on the Windows PC; whether a custom field is cleared with `""` or `null`; the benchmark's gold set

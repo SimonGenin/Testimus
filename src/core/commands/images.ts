@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 import { command, projectOf, UserError } from "../command.ts";
@@ -76,7 +77,7 @@ export function storeImage(project: string, id: string, dataBase64: string, ext:
   return addImage(project, id, new Uint8Array(bytes), e);
 }
 
-export function attachImage(project: string, input: AttachInput): Attached {
+export async function attachImage(project: string, input: AttachInput): Promise<Attached> {
   if (!input.file === !input.figure)
     throw new UserError("Give either a file or a figure.", 'tests.addImage --file shot.png, or --figure "DOC#fig:40".');
   if (!input.step) throw new UserError("Say which step shows the picture.", "Add --step <n> (1-based).");
@@ -98,7 +99,7 @@ export function attachImage(project: string, input: AttachInput): Attached {
     );
   const fig = input.figure ? figureFile(project, input.figure) : null;
   const src = fig ? fig.path : sourceFile(project, input.file as string);
-  const img = addImage(project, input.id, new Uint8Array(readFileSync(src)), extname(src));
+  const img = addImage(project, input.id, new Uint8Array(await readFile(src)), extname(src));
   if (fig) img.figure = fig.figure;
   step.images.push(img);
   const text = (step.fields[field] ?? "").replace(/\s+$/, "");

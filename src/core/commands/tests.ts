@@ -358,7 +358,7 @@ export const commands = [
     async run(ctx, input) {
       const dir = projectOf(ctx);
       mustExist(dir, input.id);
-      return { id: cloneLocalTest(dir, input.id, fieldOrder(dir)) };
+      return { id: await cloneLocalTest(dir, input.id, fieldOrder(dir)) };
     },
   }),
   command({

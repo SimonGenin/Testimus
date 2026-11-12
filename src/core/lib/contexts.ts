@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import {
   contextDir,
@@ -9,7 +9,7 @@ import {
   writeContextFile,
 } from "../claude/prompt.ts";
 import { UserError } from "../command.ts";
-import { copyDirAtomic, fileMtime, writeAtomic } from "./atomic.ts";
+import { copyDirAtomic, copyFileAtomic, fileMtime, writeAtomic } from "./atomic.ts";
 import { isProject } from "./project.ts";
 import { hex8 } from "./store.ts";
 
@@ -101,15 +101,15 @@ export function createContext(
   return showContext(project, cid);
 }
 
-export function copyContext(project: string, from: string, cid: string): ContextDetail {
+export async function copyContext(project: string, from: string, cid: string): Promise<ContextDetail> {
   const source = contextFolder(otherProject(from, project), cid);
   const id = freshId(project, cid);
   mkdirSync(join(project, "contexts"), { recursive: true });
-  copyDirAtomic(source, contextDir(project, id));
+  await copyDirAtomic(source, contextDir(project, id));
   return showContext(project, id);
 }
 
-export function shareContext(project: string, cid: string, shared: boolean): ContextDetail {
+export async function shareContext(project: string, cid: string, shared: boolean): Promise<ContextDetail> {
   const from = contextFolder(project, cid);
   if (isShared(project, cid) === shared) return showContext(project, cid);
   const to = join(shared ? sharedContexts() : join(project, "contexts"), cid);
@@ -120,7 +120,7 @@ export function shareContext(project: string, cid: string, shared: boolean): Con
     );
   mkdirSync(join(to, ".."), { recursive: true });
   // ponytail: copy then delete — the library sits in AppData, the project often on another drive
-  copyDirAtomic(from, to);
+  await copyDirAtomic(from, to);
   rmSync(from, { recursive: true, force: true });
   return showContext(project, cid);
 }
@@ -150,11 +150,12 @@ function freeName(dir: string, name: string): string {
   return out;
 }
 
-export function addContextFile(
+export async function addContextFile(
   project: string,
   cid: string,
   f: { file?: string; name?: string; dataBase64?: string },
-): string {
+  signal?: AbortSignal,
+): Promise<string> {
   const files = join(contextFolder(project, cid), "files");
   mkdirSync(files, { recursive: true });
   if (f.dataBase64 !== undefined) {
@@ -166,7 +167,7 @@ export function addContextFile(
     if (!isAbsolute(f.file) || !existsSync(f.file) || !statSync(f.file).isFile())
       throw new UserError(`No file ${f.file}.`, "Give the absolute path of an existing file.");
     const added = freeName(files, safeName(f.file));
-    writeAtomic(join(files, added), readFileSync(f.file));
+    await copyFileAtomic(f.file, join(files, added), { signal });
     return added;
   }
   throw new UserError("Give a file or an upload.", "contexts addFile <id> /path/to/glossary.pdf");

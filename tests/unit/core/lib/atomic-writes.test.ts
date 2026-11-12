@@ -138,17 +138,17 @@ describe("atomic writes: temp file, then rename", () => {
     expect(tmpsIn(P)).toEqual([]);
   });
 
-  it("a folder is copied beside its target then renamed; a failed rename leaves neither a half copy nor a .tmp", () => {
+  it("a folder is copied beside its target then renamed; a failed rename leaves neither a half copy nor a .tmp", async () => {
     const src = join(P, "src-dir");
     mkdirSync(join(src, "sub"), { recursive: true });
     fs.writeFileSync(join(src, "sub", "a.txt"), "A");
     const to = join(P, "copies", "dest");
-    copyDirAtomic(src, to);
+    await copyDirAtomic(src, to);
     expect(readFileSync(join(to, "sub", "a.txt"), "utf8")).toBe("A");
     expect(rename.mock.calls.at(-1)).toEqual([`${to}.tmp`, to]);
     expect(readdirSync(join(P, "copies"))).toEqual(["dest"]);
     failRename();
-    expect(() => copyDirAtomic(src, join(P, "copies", "other"))).toThrow("EPERM");
+    await expect(copyDirAtomic(src, join(P, "copies", "other"))).rejects.toThrow("EPERM");
     expect(readdirSync(join(P, "copies"))).toEqual(["dest"]);
   });
 

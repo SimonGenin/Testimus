@@ -94,7 +94,13 @@ describe("Converting a document", () => {
         { id: "index", label: "Update the search index", status: "running" },
       ],
     });
-    emit({ jobId: "conv-2", at, type: "progress", message: "Waiting for the other conversions", step: "index" });
+    emit({
+      jobId: "conv-2",
+      at,
+      type: "progress",
+      message: "Waiting for the running index (2 documents before)",
+      step: "index",
+    });
     expect(await within(listOf()).findByRole("progressbar", { name: "Indexing" })).toBeInTheDocument();
     emit({ jobId: "conv-2", at, type: "progress", message: "m", done: 3, total: 4, step: "index" });
     expect(await within(listOf()).findByText(/75%/)).toBeInTheDocument();
@@ -211,7 +217,13 @@ describe("Converting a document", () => {
         { id: "index", label: "Update the search index", status: "running" },
       ],
     });
-    emit({ jobId: "conv-5", at, type: "progress", message: "Waiting for the other conversions", step: "index" });
+    emit({
+      jobId: "conv-5",
+      at,
+      type: "progress",
+      message: "Waiting for the running index (2 documents before)",
+      step: "index",
+    });
     side = await screen.findByRole("region", { name: "C-NEW3 details" });
     const again = await within(side).findByRole("region", { name: "Reading the document" });
     await waitFor(() => expect(within(again).getByRole("listitem", { current: "step" })).toHaveTextContent("Indexing"));

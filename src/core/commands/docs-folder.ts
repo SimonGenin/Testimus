@@ -4,6 +4,7 @@ import { sleep, throwIfAborted } from "../../shared/run/work.ts";
 import { NOTE } from "../claude/schemas.ts";
 import { command, projectOf } from "../command.ts";
 import { showJob, waitJob } from "../jobs.ts";
+import { copyingLine } from "../lib/atomic.ts";
 import { addDoc } from "../lib/docs-convert.ts";
 import { FOLDER_MAX_FILES, FOLDER_REASONS, scanFolder } from "../lib/docs-folder.ts";
 import { isVideo } from "../lib/media.ts";
@@ -77,7 +78,7 @@ export const commands = [
   command({
     name: "docs.addFolder",
     summary:
-      "Import the documents of a folder (docs.scanFolder says which): each is copied into the project, then converted and indexed — one docs.convert job per document, several at a time, and one index run once they are done. With files, only those.",
+      "Import the documents of a folder (docs.scanFolder says which): each is copied into the project, then converted and indexed — one docs.convert job per document, several at a time, each indexed as it ends (the next index pass takes every document converted meanwhile). With files, only those.",
     input: z.object({
       dir,
       recursive,
@@ -135,7 +136,7 @@ export const commands = [
     async run(ctx, input) {
       const project = projectOf(ctx);
       // ponytail: the folder is read again and copied on the next turn, so the page that started the import has the
-      // job's id at once and goes on — the copies themselves never hold the server (copyFileAtomic, sha256File)
+      // job's id at once and goes on — the copies themselves never hold the server (copyFileAtomic streams them)
       await sleep(0, ctx.signal);
       const scan = scanFolder(project, input.dir, input.recursive);
       const { truncated } = scan;
@@ -167,7 +168,10 @@ export const commands = [
       for (const [i, unit] of units.entries()) {
         throwIfAborted(ctx.signal);
         const f = unit[0];
-        ctx.progress({ message: `Copying ${f.group ? `${f.group}/` : f.rel}`, done: i, total: units.length });
+        const of = units.length > 1 ? ` (file ${i + 1} of ${units.length})` : "";
+        const said = (message: string, done?: number, total?: number) =>
+          ctx.progress({ message: `${message}${of}`, done, total });
+        said(`Copying ${f.group ? `${f.group}/` : f.rel}`);
         try {
           if (f.group || isVideo(f.path)) {
             const title = f.group ? basename(f.group === "." ? scan.dir : f.group) : basename(f.path, extname(f.path));
@@ -176,6 +180,7 @@ export const commands = [
               unit.map((x) => ({ path: x.path })),
               { title, kind: input.kind, id: f.id },
               ctx.signal,
+              (name, done, total) => said(copyingLine(name, done, total), done, total),
             );
             added.push(...r.added);
             rejected.push(...r.rejected.map((x) => ({ name: x.name, why: x.why, code: "failed" as const })));
@@ -183,7 +188,7 @@ export const commands = [
           }
           const pdf = f.twin ? join(scan.dir, f.twin) : undefined;
           added.push(
-            await addDoc(project, { file: f.path, pdf, id: f.id, kind: input.kind, convert: false }, ctx.signal),
+            await addDoc(project, { file: f.path, pdf, id: f.id, kind: input.kind, convert: false }, ctx.signal, said),
           );
         } catch (e) {
           if (ctx.signal.aborted) throw e;

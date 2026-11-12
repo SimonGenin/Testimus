@@ -3,7 +3,7 @@ import { z } from "zod";
 import { claudeHeaders } from "../claude/headers.ts";
 import { EFFORT, MODEL, NOTE } from "../claude/schemas.ts";
 import { command, projectOf, UserError } from "../command.ts";
-import { docsFreshness, indexAfterConversions, indexRunOf } from "../lib/docs-index.ts";
+import { docsFreshness, indexRunOf, queueIndex } from "../lib/docs-index.ts";
 import { activeModels } from "../rag/activation.ts";
 import { chunkCount, dropSpace, getMeta, listSpaces, vectorCount, withIndex } from "../rag/db.ts";
 import { dimsOf, spaceOf } from "../rag/fingerprint.ts";
@@ -67,14 +67,10 @@ export const commands = [
     run: (ctx, { force, model, effort, note }) => {
       const project = projectOf(ctx);
       const claude = { model, effort, note };
-      return indexAfterConversions(
-        project,
-        () => indexProject(project, ctx, { force, claude, describe: claudeHeaders }),
-        {
-          signal: ctx.signal,
-          waiting: (message) => ctx.progress({ message }),
-        },
-      );
+      return queueIndex(project, () => indexProject(project, ctx, { force, claude, describe: claudeHeaders }), {
+        signal: ctx.signal,
+        waiting: (message) => ctx.progress({ message }),
+      });
     },
   }),
   command({

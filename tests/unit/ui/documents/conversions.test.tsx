@@ -38,7 +38,7 @@ const conversion = (id: string, waits: boolean): Job => ({
 });
 
 describe("Several conversions at once", () => {
-  it("shows each conversion going, those waiting their turn, and the one index run that follows", async () => {
+  it("shows each conversion going, those waiting their turn, and the index that takes each as it ends", async () => {
     const ids = ["A", "B", "C", "D"];
     api.routes["docs.list"] = () => ids.map((id) => doc(id, { converted: undefined, indexed: "missing" }));
     api.routes["rag.status"] = () => ({});
@@ -50,7 +50,7 @@ describe("Several conversions at once", () => {
     mountDocs(<DocumentsScreen />);
     const list = await screen.findByRole("region", { name: "Document list" });
     expect(
-      await within(list).findByText("Converting 2 at a time · 2 waiting · then one index run"),
+      await within(list).findByText("Converting 2 at a time · 2 waiting · indexed as they end"),
     ).toBeInTheDocument();
     expect(within(list).getAllByRole("progressbar", { name: "Converting" })).toHaveLength(2);
     expect(within(list).getAllByText("Waiting to convert")).toHaveLength(2);

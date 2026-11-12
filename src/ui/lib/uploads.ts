@@ -337,13 +337,13 @@ export function useReindex(): { reindex: () => void; indexing: boolean; failure:
   };
 }
 
-// ponytail: several conversions under way — how many go at once, how many wait their turn, and the one index run that
-// follows them; nothing for a single conversion
+// ponytail: several conversions under way — how many go at once, how many wait their turn, and the index that takes
+// each one as it ends; nothing for a single conversion
 export function conversionsLine(rows: Upload[]): string | null {
   const going = rows.filter((u) => u.job === "convert" && (u.phase === "converting" || u.phase === "waiting"));
   const waiting = going.filter((u) => u.phase === "waiting").length;
   const now = going.length - waiting;
   if (!waiting && now < 2) return null;
-  const index = going.some((u) => u.index) ? "then one index run" : "";
+  const index = going.some((u) => u.index) ? "indexed as they end" : "";
   return [`Converting ${now} at a time`, waiting ? `${waiting} waiting` : "", index].filter(Boolean).join(" · ");
 }

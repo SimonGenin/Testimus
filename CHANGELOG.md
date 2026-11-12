@@ -7,6 +7,9 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 ## Unreleased
 
 - Importer un dossier (même plein de vidéos) ne bloque plus : la fenêtre se ferme aussitôt, la copie, la conversion et l'indexation avancent dans un job en arrière-plan, et l'application reste utilisable pendant la copie.
+- Une copie en cours (même une vidéo de plusieurs Go) s'annule pour de vrai et dit où elle en est en octets (« Copying VID.mp4 — 2.1 / 5.4 GB », et le fichier sur combien dans un import de dossier) ; chaque fichier n'est lu qu'une fois, et la place libre du disque est vérifiée avant de le lire, pour tous les fichiers (Word, PDF, images), plus seulement les vidéos.
+- Pendant un import, chaque document devient cherchable peu après sa propre conversion : l'index n'attend plus la fin de toutes les conversions, seulement le passage d'index en cours (« Waiting for the running index (N documents before) »).
+- Les conversions s'adaptent à la machine pendant l'import : une vidéo compte pour plus de mémoire qu'un Word (trois vidéos ne partent pas ensemble sur un PC à 16 Go), au plus deux ffmpeg à la fois, et le tri des images d'une vidéo prend moins de processeur.
 
 ## 0.0.9
 
