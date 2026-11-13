@@ -53,7 +53,6 @@ const styles = stylex.create({
   body: { display: "flex", flexDirection: "column", gap: space.s3 },
   line: { margin: 0, color: color.text },
   muted: { margin: 0, color: color.textMuted },
-  fold: { alignSelf: "flex-end" },
 });
 
 const writingOf = (m: string) => m.match(/Writing (local-[0-9a-f]{8})/i)?.[1]?.toLowerCase();
@@ -101,7 +100,6 @@ export type RunHeadProps = {
   count: number;
   doing: string;
   left?: number;
-  allFolded?: boolean;
   onCancel: () => void;
   onReview: () => void;
   /** the run's job, beside the screen */
@@ -109,7 +107,6 @@ export type RunHeadProps = {
   onResume?: () => void;
   /** run the failed job again with the input it kept (jobs.rerun) */
   onRetry?: () => void;
-  onFoldAll?: (folded: boolean) => void;
 };
 
 function Head({
@@ -155,18 +152,13 @@ export function RunHead({
   count,
   doing,
   left = 0,
-  allFolded = false,
   onCancel,
   onReview,
   onOpenJob,
   onResume,
   onRetry,
-  onFoldAll,
 }: RunHeadProps) {
   if (!job) return null;
-  const foldAll = onFoldAll && (
-    <Button variant="quiet" label={allFolded ? "Unfold all" : "Fold all"} onClick={() => onFoldAll(!allFolded)} />
-  );
   if (job.status === "running")
     return (
       <div {...stylex.props(styles.body)}>
@@ -193,7 +185,6 @@ export function RunHead({
           actions={
             <>
               <Timer seconds={Math.round((now - Date.parse(job.startedAt)) / 1000)} />
-              {foldAll}
               <Button variant="quiet" icon="stop" label="Cancel" onClick={onCancel} />
             </>
           }
@@ -208,12 +199,9 @@ export function RunHead({
         title={`${plural(count, "test")} ${result?.revised?.length && !result.tests.length ? "changed" : "written"}`}
         meta={`in ${duration(job, now)} · ${plural(read, "passage")} read`}
         actions={
-          <>
-            {foldAll}
-            {count > 0 && (
-              <Button variant="primary" iconAfter="arrow-right" label="Review these tests" onClick={onReview} />
-            )}
-          </>
+          count > 0 && (
+            <Button variant="primary" iconAfter="arrow-right" label="Review these tests" onClick={onReview} />
+          )
         }
       />
     );
@@ -251,7 +239,6 @@ export function RunHead({
             <Raw text={job.error} />
           </Disclosure>
         )}
-        {foldAll && <span {...stylex.props(styles.fold)}>{foldAll}</span>}
       </div>
     );
   return (
@@ -259,7 +246,6 @@ export function RunHead({
       badge={<Badge tone="neutral" icon="stop" label={`Cancelled${count ? ` · ${plural(count, "test")} kept` : ""}`} />}
       actions={
         <>
-          {foldAll}
           {resume("md")}
           {review("md")}
         </>
@@ -279,7 +265,7 @@ export function GenSummary({
   checked: string;
   /** the run's job, beside the screen */
   onOpenJob?: () => void;
-  /** the not-covered list, folded with the rest by the screen's « Fold all » */
+  /** the not-covered list's fold, controlled by its owner; folded at first otherwise */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {

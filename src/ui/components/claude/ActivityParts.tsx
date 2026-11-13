@@ -51,7 +51,7 @@ export type Go = {
   test?: (id: string) => void;
 };
 
-// ponytail: where a reference of « What Claude did » leads — a section opens its passage over the screen (the way to
+// ponytail: where a reference of « Claude's work » leads — a section opens its passage over the screen (the way to
 // the document is in it), a document and a test are opened on their screen; outside the app (the kit, a test) they
 // stay words
 export function useGo(): Go {

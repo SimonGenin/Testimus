@@ -24,7 +24,7 @@ export const section: KitSection = {
   file: "ReadMap.tsx",
   summary:
     "Where Claude read in a document: its lines as a bar cut by chapter, what it read, the sections it opened from the index, and a legend.",
-  note: "What Claude did draws one per document it read (design _docs.mjs docBar). The chapters are named in a grid that follows their length, so a long or a close name is cut, never laid over the next one.",
+  note: "Claude's work draws one per document it read (design _docs.mjs docBar). The chapters are named in a grid that follows their length, so a long or a close name is cut, never laid over the next one.",
   guidelines: [
     {
       head: "Anatomy",
@@ -32,7 +32,7 @@ export const section: KitSection = {
     },
     {
       head: "Rules",
-      text: "A chapter or a section is named by its number (« §5.6 ») when it has one, else by its heading. Never a pin above the bar: what was opened is drawn on the bar, where it is. A section the owner can open (onOpen: What Claude did opens its passage) has its badge as a button, drawn outline; one the document does not have stays a plain badge.",
+      text: "A chapter or a section is named by its number (« §5.6 ») when it has one, else by its heading. Never a pin above the bar: what was opened is drawn on the bar, where it is. A section the owner can open (onOpen: Claude's work opens its passage) has its badge as a button, drawn outline; one the document does not have stays a plain badge.",
     },
   ],
   states: () => (

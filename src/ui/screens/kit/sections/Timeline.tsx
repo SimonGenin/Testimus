@@ -8,7 +8,7 @@ export const section: KitSection = {
   file: "Timeline.tsx",
   summary:
     "The steps of a job or the phases of a Claude run, in order: done, running, failed, skipped, waiting — each an icon whose word is read out. A step holds what it did, a banner or the processes it ran.",
-  note: "Added to the kit on purpose: a job's steps, « What Claude did » and Generate's run were three timelines drawn by hand.",
+  note: "Added to the kit on purpose: a job's steps, « Claude's work » and Generate's run were three timelines drawn by hand.",
   states: () => (
     <States>
       <Cell label="every state · time · note" wide column>
@@ -51,10 +51,10 @@ export const section: KitSection = {
           ]}
         />
       </Cell>
-      <Cell label="claude (What Claude did)" wide column>
+      <Cell label="claude (Claude's work)" wide column>
         <Timeline
           tone="claude"
-          label="What Claude did"
+          label="Claude's work"
           items={[
             { key: "search", state: "done", title: "Searched the documents", note: "6 passages" },
             { key: "write", state: "running", title: "Writing step 3" },

@@ -266,37 +266,6 @@ describe("Generate › result helpers", () => {
     expect(onResume).toHaveBeenCalledTimes(1);
   });
 
-  it("RunHead: fold all and unfold all, before any test too (what Claude did folds with the tests)", () => {
-    const onFoldAll = vi.fn();
-    const head = (count: number, allFolded: boolean, j = job()) => {
-      cleanup();
-      render(
-        <RunHead
-          job={j}
-          now={Date.parse(at)}
-          result={null}
-          read={0}
-          count={count}
-          doing=""
-          allFolded={allFolded}
-          onCancel={() => {}}
-          onReview={() => {}}
-          onFoldAll={onFoldAll}
-        />,
-      );
-    };
-    head(0, false);
-    expect(screen.getByRole("button", { name: "Fold all" })).toBeInTheDocument();
-    head(2, false);
-    fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
-    expect(onFoldAll).toHaveBeenLastCalledWith(true);
-    head(2, true, job({ status: "done", endedAt: at }));
-    fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
-    expect(onFoldAll).toHaveBeenLastCalledWith(false);
-    head(2, false, job({ status: "cancelled", endedAt: at }));
-    expect(screen.getByRole("button", { name: "Fold all" })).toBeInTheDocument();
-  });
-
   it("GenSummary: an unreadable report, skipped items, changed tests", () => {
     const { rerender } = render(
       <GenSummary

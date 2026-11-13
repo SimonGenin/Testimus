@@ -126,7 +126,7 @@ describe("the job panel at scale", () => {
     expect(within(stuck).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
-  it("reads a finished job's runs from their folders only when What Claude did is opened", async () => {
+  it("reads a finished job's runs from their folders only when Claude's work is opened", async () => {
     server = [
       job({
         id: "g1",
@@ -158,7 +158,7 @@ describe("the job panel at scale", () => {
     net.routes["jobs.activity"] = () => ({ events: said });
     drawer("g1");
     const side = await panel("Generate tests");
-    const fold = await within(side).findByRole("button", { name: /What Claude did/ });
+    const fold = await within(side).findByRole("button", { name: /Claude's work/ });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(callsOf("jobs.activity")).toHaveLength(0);
     fireEvent.click(fold);

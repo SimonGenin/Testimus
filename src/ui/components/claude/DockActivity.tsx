@@ -70,7 +70,7 @@ export function DockActivity({ turn: t }: { turn: Turn }) {
           )
         }
       >
-        <ol aria-label="What Claude did" {...stylex.props(type.small, styles.steps)}>
+        <ol aria-label="Claude's work" {...stylex.props(type.small, styles.steps)}>
           {t.tools.map((x, i) => (
             <li key={i} {...stylex.props(styles.step)}>
               <span {...stylex.props(styles.label)}>{nameTests(x.label, names)}</span>

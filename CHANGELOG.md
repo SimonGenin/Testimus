@@ -6,6 +6,8 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+- Generate : ce que Claude a fait s'appelle désormais « Claude's work » et devient un onglet à côté de « Tests written » (déplaçable dans une autre section) au lieu d'un bloc replié sous les tests ; « Fold all » disparaît.
+
 ## 0.0.10
 
 - Un job s'ouvre dans un onglet « Job » à côté de l'écran, comme une source, au lieu d'un panneau posé par-dessus. L'historique sous les étapes d'un test et dans Documents › Details est retiré.

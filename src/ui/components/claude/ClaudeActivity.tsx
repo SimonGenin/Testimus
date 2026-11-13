@@ -22,6 +22,10 @@ import { claudeSaid } from "./useClaudeStatus.ts";
 
 const styles = stylex.create({
   heading: { margin: 0, font: "inherit" },
+  tab: { display: "flex", flexDirection: "column", gap: space.s4, minWidth: 0 },
+  tabHead: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2 },
+  h2: { margin: 0 },
+  mark: { display: "inline-flex", color: color.claudeText },
   body: { display: "flex", flexDirection: "column", gap: space.s3, minWidth: 0 },
   line: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.text },
   quiet: { color: color.textMuted },
@@ -211,7 +215,7 @@ function PhaseBody({ phase: p, live, names, go }: { phase: Phase; live: boolean;
         ))}
       {said && p.kind !== "end" && (
         <p data-testid="act-said" {...stylex.props(type.compact, styles.said)}>
-          <span {...stylex.props(styles.spark)}>
+          <span {...stylex.props(styles.mark)}>
             <Icon name="claude" size="sm" />
           </span>
           {said}
@@ -242,7 +246,7 @@ function PhaseBody({ phase: p, live, names, go }: { phase: Phase; live: boolean;
   );
 }
 
-// ponytail: « What Claude did » (« What Claude is doing » while it runs) — a Claude run folded into phases (got ready, read, planned, wrote, checked), each
+// ponytail: « Claude's work » (« Claude at work » while it runs) — a Claude run folded into phases (got ready, read, planned, wrote, checked), each
 // with what it read and where, what it wrote and the check's verdicts; the raw output on demand, at its foot
 export function ClaudeActivity({
   events,
@@ -253,6 +257,7 @@ export function ClaudeActivity({
   open,
   onOpenChange,
   reading = false,
+  frame = "card",
 }: {
   events: JobEvent[];
   running: boolean;
@@ -262,7 +267,9 @@ export function ClaudeActivity({
   /** the run's model and effort, from the job's input: they open the head's line */
   model?: string;
   effort?: string;
-  /** controlled by the screen (Generate's « Fold all »); open at first otherwise */
+  /** card: folded in a card (the job panel); tab: the whole of a tab, unfolded (Generate's Claude's work tab) */
+  frame?: "card" | "tab";
+  /** the card's fold, controlled by its owner; open at first otherwise */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
@@ -282,8 +289,8 @@ export function ClaudeActivity({
   const names: TestNames = (id) => written.get(id) || nameOf(id);
   // ponytail: a run whose Claude stopped on an error does not end on a green « Done »
   const stopped = !running && !!claudeSaid(events);
-  // ponytail: the head says where the run is — while Claude works it is not yet « what Claude did »
-  const label = running ? "What Claude is doing" : stopped ? "What Claude did before it stopped" : "What Claude did";
+  // ponytail: the head says where the run is — while Claude works it is « Claude at work »
+  const label = running ? "Claude at work" : stopped ? "Claude's work, until it stopped" : "Claude's work";
   const items: TimelineItem[] = phases.map((p, i) => {
     const live = running && i === phases.length - 1;
     const warned = p.acts.some((a) => a.level === "warn");
@@ -314,24 +321,42 @@ export function ClaudeActivity({
     };
   });
   const line = [head, !shown && phases.length > 0 ? plural(phases.length, "phase") : ""].filter(Boolean).join(" · ");
+  const body = (
+    <>
+      {reading && <Loading read="jobs.activity" />}
+      {!phases.length && !reading && (
+        <p {...stylex.props(type.compact, styles.muted)}>
+          {running ? "Claude is starting." : "Nothing was recorded for this run."}
+        </p>
+      )}
+      {phases.length > 0 && <Timeline label="Phases" tone="claude" items={items} />}
+      <Disclosure
+        quiet
+        summary={`${raw ? "Hide" : "Show"} raw output (${plural(events.length, "event")})`}
+        open={raw}
+        onOpenChange={setRaw}
+      >
+        <JobLog events={events} label="Raw output" />
+      </Disclosure>
+    </>
+  );
+  if (frame === "tab")
+    return (
+      <section aria-label={label} {...stylex.props(styles.tab)}>
+        <div {...stylex.props(styles.tabHead)}>
+          <span {...stylex.props(styles.mark)}>
+            <Icon name="claude" size="sm" />
+          </span>
+          <h2 {...stylex.props(type.titleSm, styles.h2)}>{label}</h2>
+          {head && <span {...stylex.props(type.small, styles.quiet)}>{head}</span>}
+        </div>
+        {body}
+      </section>
+    );
   return (
     <Card density="compact">
       <Disclosure icon="claude" summary={label} open={shown} onOpenChange={setShown} meta={line}>
-        {reading && <Loading read="jobs.activity" />}
-        {!phases.length && !reading && (
-          <p {...stylex.props(type.compact, styles.muted)}>
-            {running ? "Claude is starting." : "Nothing was recorded for this run."}
-          </p>
-        )}
-        {phases.length > 0 && <Timeline label="Phases" tone="claude" items={items} />}
-        <Disclosure
-          quiet
-          summary={`${raw ? "Hide" : "Show"} raw output (${plural(events.length, "event")})`}
-          open={raw}
-          onOpenChange={setRaw}
-        >
-          <JobLog events={events} label="Raw output" />
-        </Disclosure>
+        {body}
       </Disclosure>
     </Card>
   );

@@ -80,17 +80,15 @@ describe("the design's icons in the kit", () => {
     render(
       <>
         <Checkbox label="Glossaire RATP" icon="context" checked onChange={() => {}} />
-        <Disclosure summary="What Claude did" icon="claude">
+        <Disclosure summary="Claude's work" icon="claude">
           <p>x</p>
         </Disclosure>
       </>,
     );
     expect(screen.getByRole("checkbox", { name: "Glossaire RATP" })).toBeChecked();
     expect(iconOf(screen.getByText("Glossaire RATP"))).toBe("context");
-    expect(iconOf(screen.getByRole("button", { name: "What Claude did" }))).toBe("chevron-right");
-    expect(
-      screen.getByRole("button", { name: "What Claude did" }).querySelector('[data-icon="claude"]'),
-    ).not.toBeNull();
+    expect(iconOf(screen.getByRole("button", { name: "Claude's work" }))).toBe("chevron-right");
+    expect(screen.getByRole("button", { name: "Claude's work" }).querySelector('[data-icon="claude"]')).not.toBeNull();
   });
 
   it("a danger confirmation heads with alert-circle; its verb can go without the trash (icon: null)", () => {

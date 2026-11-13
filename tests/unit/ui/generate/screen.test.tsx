@@ -87,6 +87,8 @@ const base = (info: ReturnType<typeof project> | null = project()) => {
 };
 
 const go = (name: RegExp | string = /^Generate/) => screen.getByRole("button", { name });
+const claudeWork = () => fireEvent.click(screen.getByRole("tab", { name: /^Claude's work/ }));
+const testsTab = () => fireEvent.click(screen.getByRole("tab", { name: /^Tests written/ }));
 // ponytail: the documents are one line until « Narrow… » unfolds them
 const narrowed = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Narrow…" }));
@@ -119,9 +121,9 @@ describe("Generate screen", () => {
     expect(a.navigate).toHaveBeenCalledWith("review", "local-aaaaaaaa");
     fireEvent.click(screen.getByRole("button", { name: /Review these tests/ }));
     expect(a.navigate).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("button", { name: "What Claude did" })).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
-    expect(screen.getByRole("region", { name: "What Claude did" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Claude's work" })).toBeNull();
+    claudeWork();
+    expect(screen.getByRole("region", { name: "Claude's work" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show raw output (1 event)" }));
     expect(screen.getByRole("log", { name: "Raw output" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Hide raw output (1 event)" }));
@@ -140,8 +142,9 @@ describe("Generate screen", () => {
     api.routes["jobs.show"] = () => ({ job: job({ id: "g1", status: "failed", error: "Claude crashed" }), events: [] });
     mountData(<GenerateScreen />);
     expect(await screen.findByText("Claude crashed")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
+    claudeWork();
     expect(screen.getByRole("button", { name: "Show raw output (0 events)" })).toBeInTheDocument();
+    testsTab();
     cleanup();
     api.routes["jobs.list"] = () => [job({ id: "g2", status: "done" })];
     api.routes["jobs.show"] = () => ({ job: job({ id: "g2", status: "done", endedAt: at }), events: [] });
@@ -535,7 +538,7 @@ describe("Generate screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
     await waitFor(() => expect(screen.queryByText("Claude is installed but not signed in")).toBeNull());
     expect(named("claude.status").at(-1)?.input).toEqual({ refresh: true, signIn: true });
-    fireEvent.click(screen.getByRole("button", { name: "What Claude did before it stopped" }));
+    claudeWork();
     const end = await screen.findByRole("heading", { name: "Stopped · 0 tests written" });
     expect(within(end.closest("li") as HTMLElement).getByRole("img", { name: "Failed" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^Done/ })).toBeNull();
@@ -543,8 +546,8 @@ describe("Generate screen", () => {
     expect(code.parentElement).toHaveTextContent(
       "Run claude once in a terminal and sign in with your Claude account, then retry.",
     );
-    expect(screen.getByRole("button", { name: /What Claude did/ }).parentElement).toHaveTextContent(
-      "What Claude did before it stoppedsonnet · medium",
+    expect(screen.getByRole("heading", { name: "Claude's work, until it stopped" }).parentElement).toHaveTextContent(
+      "Claude's work, until it stoppedsonnet · medium",
     );
   });
 
@@ -565,8 +568,10 @@ describe("Generate screen", () => {
     await waitFor(() => expect(go()).toBeEnabled());
     fireEvent.click(go());
     expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "What Claude is doing" }));
+    claudeWork();
+    expect(screen.getByRole("heading", { name: "Claude at work" })).toBeInTheDocument();
     expect(screen.getByText("Claude is starting.")).toBeInTheDocument();
+    testsTab();
     expect(screen.getByLabelText("What should be tested?")).toHaveAttribute("readonly");
     const landing = screen.getByRole("region", { name: "Tests written" });
     expect(landing).toHaveTextContent("Read only while Claude writes");
@@ -626,7 +631,7 @@ describe("Generate screen", () => {
     expect(await screen.findByRole("heading", { name: "Getting ready" })).toBeInTheDocument();
   });
 
-  it("starts with everything folded — the tests, what Claude did, what was not covered — and folds it all again", async () => {
+  it("starts with the not-covered list folded; Claude's work is a tab beside the tests, not a fold under them", async () => {
     base();
     api.routes["jobs.list"] = () => [job({ id: "g0", status: "done" })];
     api.routes["jobs.show"] = () => ({
@@ -648,24 +653,19 @@ describe("Generate screen", () => {
     mountData(<GenerateScreen />);
     expect(await screen.findByRole("region", { name: /^Un/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Un" })).toBeNull();
-    const folds = [
-      ["What Claude did", "What Claude did"],
-      ["Not written · 1", "Not written"],
-    ];
-    const shut = () => {
-      for (const [b] of folds)
-        expect(screen.getByRole("button", { name: b })).toHaveAttribute("aria-expanded", "false");
-    };
-    shut();
-    fireEvent.click(screen.getByRole("button", { name: "Unfold all" }));
-    for (const [, r] of folds) expect(screen.getByRole("region", { name: r })).toBeInTheDocument();
-    expect(screen.queryByText("do local-aaaaaaaa")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
-    shut();
-    fireEvent.click(screen.getByRole("button", { name: "Not written · 1" }));
-    expect(screen.getByRole("region", { name: "Not written" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Fold all" }));
-    shut();
+    expect(screen.getByRole("button", { name: "Not written · 1" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /Fold all|Unfold all/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Claude's work" })).toBeNull();
+    const tests = screen.getByRole("tab", { name: /^Tests written/ });
+    expect(screen.getByRole("tablist", { name: /^Section 2/ })).toContainElement(
+      screen.getByRole("tab", { name: /^Claude's work/ }),
+    );
+    expect(tests).toHaveAttribute("aria-selected", "true");
+    claudeWork();
+    expect(screen.getByRole("region", { name: "Claude's work" })).toHaveTextContent(
+      "Nothing was recorded for this run.",
+    );
+    expect(screen.queryByRole("region", { name: /^Un/ })).toBeNull();
   });
 });
 

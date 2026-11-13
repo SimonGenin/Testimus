@@ -65,7 +65,7 @@ test("a request runs live, the tests land, and « Review these tests » opens th
   await shoot(page, "generate-running");
 
   await expect(result.getByRole("heading", { name: "2 tests written", exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(result.getByRole("button", { name: "What Claude did" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("tab", { name: /^Claude's work/ })).toBeVisible();
   await result.getByRole("button", { name: /^Not written · 3/ }).click();
   await expect(result.getByText(/sectionneur avec TK/).first()).toBeVisible();
   const groups = result.getByRole("region", { name: "Not written" }).getByRole("region");

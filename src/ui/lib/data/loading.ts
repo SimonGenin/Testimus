@@ -20,7 +20,7 @@ const WORDS = {
   "gen.show": "the generation",
   "issue.comments": "the comments",
   "issue.people": "the people",
-  "jobs.activity": "what Claude did",
+  "jobs.activity": "Claude's work",
   "jobs.list": "the jobs",
   "jobs.show": "the job",
   "media.disk": "the room the videos take",

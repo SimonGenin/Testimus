@@ -22,16 +22,18 @@ import { useWorkspace } from "../../lib/workspace/useWorkspace.ts";
 import { color, space } from "../../styles/tokens.stylex.ts";
 import { useCancel } from "../settings/jobs.ts";
 import { AskChanges, type AskInput } from "./AskChanges.tsx";
+import { GenActivity } from "./GenActivity.tsx";
 import { ReplaceTests } from "./ReplaceTests.tsx";
 import { RequestForm } from "./RequestForm.tsx";
 import { ResultPane } from "./ResultPane.tsx";
 import { useGenerateForm } from "./useGenerateForm.ts";
 import { useGeneration } from "./useGeneration.ts";
 
-// ponytail: the request on the left, the tests Claude writes in the middle, Claude folded on the right
+// ponytail: the request on the left, the tests Claude writes in the middle with what Claude did beside them in their
+// section, Claude folded on the right
 const LAYOUT = layoutOf(
   column(480, section(["request"])),
-  column(null, section(["result"])),
+  column(null, section(["result", "activity"])),
   column(400, section(["claude"], true)),
 );
 // ponytail: the document work Generate waits for, by what runs
@@ -299,6 +301,14 @@ export function GenerateScreen() {
     tabs: [
       { id: "request", label: asking ? "Ask for changes" : "Request", icon: "generate", content: request },
       { id: "result", label: planned ? "Plan" : "Tests written", icon: "tests", main: true, content: result },
+      {
+        id: "activity",
+        label: "Claude's work",
+        icon: "claude",
+        claude: true,
+        dot: gen.running ? "claude" : undefined,
+        content: <GenActivity gen={gen} />,
+      },
       claudeTab,
     ],
   });

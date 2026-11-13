@@ -10,6 +10,7 @@ let n = 0;
 
 // ponytail: each test gets its own project, so the drafts of the request (kept for the page's life) never leak
 export function freshPage(): void {
+  localStorage.clear();
   fakeFetch();
   FakeEventSource.last = null;
   vi.stubGlobal("EventSource", FakeEventSource);

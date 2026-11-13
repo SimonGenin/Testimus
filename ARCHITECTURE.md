@@ -118,7 +118,7 @@ into Xray by a script, review done in Jira after import, Xray Editor's three fix
     the job's memory (`jobs.show` of a job this core runs or ran), not in its file. The run keeps them in
     `.testimus/runs/<runId>/activity.jsonl` (`claude/activity.ts`, written once at the run's end); the job's file keeps
     each run's summary on its process (`run`: id, model, effort, duration, cost, tokens, tests written, error). The
-    panel of a finished job reads a run's events with `jobs.activity { id, process? }` when « What Claude did » is
+    panel of a finished job reads a run's events with `jobs.activity { id, process? }` when « Claude's work » is
     opened. A pid learnt after a start is sent live, not written (the end carries it). Measured on a mock generation of
     10 tests (5 planned runs, the check): 242 events / 135 KB → 117 events / 78 KB.
   - **`changed` is the job's own**: a job keeps only the paths under the folders it owns — its subject's
@@ -1798,7 +1798,7 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   while the page was open (a parent's failure stands for its children's; Claude's triage is not one); one job opens
   in the **Job tab** of the screen shown (`components/jobs/JobTab.tsx`, offered to its sections as the Source tab is;
   a dialog only on a screen without sections; `JobPanel.tsx`: where it is, the way to what it made, what went wrong
-  and what to do, its steps, What Claude did, the files it changed, the log folded; no process, pid or job id), from a
+  and what to do, its steps, Claude's work, the files it changed, the log folded; no process, pid or job id), from a
   toast, the activity or a screen that started it. **No history of a test or a document** (removed 2026-11-12: the
   list of jobs under a test's steps and in Documents › Details was read by nobody, and the jobs logged before their
   `changed` was scoped made it wrong); `jobs.list about` stays for Claude and the CLI.
@@ -1808,7 +1808,7 @@ state), one column when the pane is narrow. `#/settings/<page>-<group>` opens a 
   (`shell/ActivityGroup.tsx`). Every `Popover` takes at most the room left in the window on its side of the trigger
   (`useAnchor`'s `room`) and its body scrolls. The panel's files are listed one by one up to 50, then by folder with
   their count, each unfolding on its files (a log that kept only folders past 200 paths says them the same way).
-  « What Claude did » of a finished job is folded and read from the runs' folders when opened (`jobs/JobClaude.tsx`).
+  « Claude's work » of a finished job is folded and read from the runs' folders when opened (`jobs/JobClaude.tsx`).
   The kit's `Timeline` and a run's actions (`claude/ActList.tsx`) draw through the row window from 150 rows
   (`rowWindow.ts windowed`). The mock holds such an import under way with `TESTIMUS_MOCK_JOBS=<n>` (screens scenario
   `jobs-batch`, e2e `activity-batch.spec.ts`).

@@ -41,9 +41,9 @@ describe("Claude's activity in the dock", () => {
     render(<DockActivity turn={turn({ running: true })} />);
     expect(screen.getByText("Ran the check…")).toBeInTheDocument();
     expect(screen.getByText("generate-tests")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "What Claude did" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Claude's work" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /4 steps/ }));
-    const list = screen.getByRole("list", { name: "What Claude did" });
+    const list = screen.getByRole("list", { name: "Claude's work" });
     expect(list.querySelectorAll("li")).toHaveLength(4);
     expect(list).toHaveTextContent("Read SECIB0:06");
     expect(list).toHaveTextContent("Ran the check1:15");

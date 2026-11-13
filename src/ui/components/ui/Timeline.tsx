@@ -77,7 +77,7 @@ export type TimelineProps = {
   /** what the steps are of (« Steps of the job ») */
   label: string;
   items: TimelineItem[];
-  /** claude: the running step is Claude's (What Claude did) — violet; else the accent */
+  /** claude: the running step is Claude's (Claude's work) — violet; else the accent */
   tone?: "accent" | "claude";
   /** nested under a step, or in a narrow pane: smaller titles, tighter */
   compact?: boolean;

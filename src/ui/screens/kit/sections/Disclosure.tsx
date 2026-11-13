@@ -6,7 +6,7 @@ export const section: KitSection = {
   family: "Navigation",
   file: "Disclosure.tsx",
   summary:
-    "Folds a part of a pane behind its summary: « Technical details », « Sources read », « What Claude did ». The summary is a button that says whether it is open and which region it opens.",
+    "Folds a part of a pane behind its summary: « Technical details », « Sources read », « Claude's work ». The summary is a button that says whether it is open and which region it opens.",
   note: "Added to the kit on purpose (the screens' fifteen hand-made folds and <details>): its trigger is its own small button until Button has an expanded option.",
   states: () => (
     <States>
@@ -31,10 +31,10 @@ export const section: KitSection = {
         </Disclosure>
       </Cell>
       <Cell label="hover · focus" column>
-        <Disclosure summary="What Claude did" debugState="hover">
+        <Disclosure summary="Claude's work" debugState="hover">
           …
         </Disclosure>
-        <Disclosure summary="What Claude did" debugState="focus">
+        <Disclosure summary="Claude's work" debugState="focus">
           …
         </Disclosure>
       </Cell>

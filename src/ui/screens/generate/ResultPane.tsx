@@ -1,7 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import type { LocalTestRef } from "../../../core/types.ts";
-import { askedOf, ClaudeActivity } from "../../components/claude/ClaudeActivity.tsx";
 import { type ClaudeStatus, ConnectClaude } from "../../components/claude/ConnectClaude.tsx";
 import { DiagnosisText } from "../../components/claude/DiagnosisText.tsx";
 import { Button } from "../../components/ui/Button.tsx";
@@ -13,7 +12,7 @@ import { activityOf, DOING } from "../../lib/activity.ts";
 import { useApp } from "../../lib/app.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { plural } from "../../lib/format.ts";
-import { color, container, space } from "../../styles/tokens.stylex.ts";
+import { color, space } from "../../styles/tokens.stylex.ts";
 import { checkLine, failedRun, GenSummary, RunHead } from "./GenResult.tsx";
 import { GenTests } from "./GenTests.tsx";
 import { landedRows, writingRows } from "./genRows.ts";
@@ -36,20 +35,7 @@ const styles = stylex.create({
   muted: { margin: 0, color: color.textMuted },
   fixes: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.s2, color: color.claudeText },
   grow: { flex: "1 1 16rem", minWidth: 0, color: color.textMuted },
-  split: {
-    display: "grid",
-    gridTemplateColumns: { default: "minmax(0, 3fr) minmax(0, 2fr)", [container.paneCompact]: "minmax(0, 1fr)" },
-    gap: space.s5,
-    alignItems: "start",
-  },
-  col: { minWidth: 0 },
 });
-
-// ponytail: « Fold all » folds everything the pane folds — what Claude did and what was not covered; all starts folded;
-// flip holds what was toggled by hand since
-type Fold = { all: boolean; flip: Set<string> };
-const ACTIVITY = "activity";
-const SKIPPED = "skipped";
 
 export function ResultPane({
   gen,
@@ -76,7 +62,6 @@ export function ResultPane({
   plan?: Omit<Parameters<typeof PlanReview>[0], "generation" | "failed">;
 }) {
   const app = useApp();
-  const [fold, setFold] = useState<Fold>({ all: true, flip: new Set() });
   const [now, setNow] = useState(Date.now());
   const refs = useRead("tests.list", { generating: true }, { enabled: gen.ids.length > 0 || gen.running });
   const fixes = useGenFixes(gen.result?.generation ?? null);
@@ -132,13 +117,6 @@ export function ResultPane({
       </div>
     );
 
-  const isOpen = (id: string) => fold.all === fold.flip.has(id);
-  const toggle = (id: string) =>
-    setFold((cur) => {
-      const flip = new Set(cur.flip);
-      if (!flip.delete(id)) flip.add(id);
-      return { all: cur.all, flip };
-    });
   const doing = DOING[activityOf(gen.events).at(-1)?.kind ?? "prepare"];
   const head = (
     <Card density="compact">
@@ -156,16 +134,12 @@ export function ResultPane({
           onOpenJob={job ? () => app.openJob(job.id) : undefined}
           onResume={() => stopped?.generation && onResume(stopped.generation)}
           onRetry={onRetry}
-          allFolded={[ACTIVITY, ...(result?.skipped?.length ? [SKIPPED] : [])].every((id) => !isOpen(id))}
-          onFoldAll={(all) => setFold({ all, flip: new Set() })}
         />
         {result && (
           <GenSummary
             result={result}
             checked={checkLine([...result.tests, ...(result.revised ?? [])], result.checks)}
             onOpenJob={job ? () => app.openJob(job.id) : undefined}
-            open={isOpen(SKIPPED)}
-            onOpenChange={(o) => o !== isOpen(SKIPPED) && toggle(SKIPPED)}
           />
         )}
         {fixes.count > 0 && !running && (
@@ -194,55 +168,34 @@ export function ResultPane({
   );
   const listed = refs.data as LocalTestRef[] | undefined;
   const shownIds = onlyFixes && fixes.count ? ids.filter((id) => fixes.tests.includes(id)) : ids;
-  const asked = askedOf(job, app.info?.project.claude);
-  const activity = (
-    <ClaudeActivity
-      events={gen.events}
-      running={running}
-      now={now}
-      model={asked.model}
-      effort={asked.effort}
-      open={isOpen(ACTIVITY)}
-      onOpenChange={(o) => o !== isOpen(ACTIVITY) && toggle(ACTIVITY)}
-    />
-  );
   const ended = !running ? (result ?? stopped) : null;
   if (ended?.state === "planned" && ended.generation && plan)
     return (
       <div {...stylex.props(styles.pane)}>
         <PlanReview generation={ended.generation} failed={ended.ok === false ? ended.summary : undefined} {...plan} />
-        {activity}
       </div>
     );
   return (
     <div {...stylex.props(styles.pane)}>
       {head}
       {running ? (
-        <div {...stylex.props(styles.split)}>
-          <div {...stylex.props(styles.col)}>
-            <GenTests
-              rows={writingRows(gen.writing, listed)}
-              running
-              refs={listed}
-              onReview={(id) => app.navigate("review", id)}
-            />
-          </div>
-          <div {...stylex.props(styles.col)}>{activity}</div>
-        </div>
+        <GenTests
+          rows={writingRows(gen.writing, listed)}
+          running
+          refs={listed}
+          onReview={(id) => app.navigate("review", id)}
+        />
       ) : (
-        <>
-          {ids.length > 0 && (
-            <GenTests
-              rows={landedRows(shownIds, listed)}
-              running={false}
-              refs={listed}
-              checks={result?.checks}
-              fixes={fixes}
-              onReview={(id) => app.navigate("review", id)}
-            />
-          )}
-          {activity}
-        </>
+        ids.length > 0 && (
+          <GenTests
+            rows={landedRows(shownIds, listed)}
+            running={false}
+            refs={listed}
+            checks={result?.checks}
+            fixes={fixes}
+            onReview={(id) => app.navigate("review", id)}
+          />
+        )
       )}
     </div>
   );

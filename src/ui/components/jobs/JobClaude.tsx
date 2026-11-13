@@ -3,7 +3,7 @@ import type { Job, JobEvent } from "../../../core/types.ts";
 import { useRead } from "../../lib/data/query.ts";
 import { ClaudeActivity } from "../claude/ClaudeActivity.tsx";
 
-// ponytail: « What Claude did » in the job panel — from the job's events while it runs (and while this server keeps
+// ponytail: « Claude's work » in the job panel — from the job's events while it runs (and while this server keeps
 // them), else read from the runs' own folders when opened: a finished job's file keeps only each run's summary
 export function JobClaude({
   job,

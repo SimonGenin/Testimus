@@ -257,10 +257,10 @@ describe("GenActivity", () => {
     expect(screen.getByText(/Planned “Alarmes”/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Hide the 4 actions" }));
     expect(screen.queryByText(/Planned “Alarmes”/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "What Claude did" }));
+    fireEvent.click(screen.getByRole("button", { name: "Claude's work" }));
     expect(screen.queryByRole("heading", { name: "Got ready" })).toBeNull();
     expect(screen.queryByRole("button", { name: /raw output/ })).toBeNull();
-    const fold = screen.getByRole("button", { name: "What Claude did" });
+    const fold = screen.getByRole("button", { name: "Claude's work" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(fold.querySelector('[data-icon="claude"]')).not.toBeNull();
     expect(screen.getByText("6 phases")).toBeInTheDocument();
@@ -445,9 +445,9 @@ describe("what the index and the check add", () => {
       tool("mcp__testimus__tests_save", { id: "local-bbbbbbbb", test: { summary: "Other" } }),
     ];
     const { rerender } = render(<GenActivity events={events} running now={Date.now()} />);
-    expect(screen.getByRole("region", { name: "What Claude is doing" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Claude at work" })).toBeInTheDocument();
     rerender(<GenActivity events={events} running={false} now={Date.now()} />);
-    expect(screen.getByRole("region", { name: "What Claude did" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Claude's work" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Read Q" })).toBeInTheDocument();
     expect(await screen.findByText("3 sections opened from the index")).toBeInTheDocument();
     const legend = screen.getByText("3 sections opened from the index").closest("li") as HTMLElement;
@@ -480,7 +480,7 @@ describe("what the index and the check add", () => {
   });
 });
 
-describe("What Claude did: its references lead to what they name", () => {
+describe("Claude's work: its references lead to what they name", () => {
   it("opens a document, a section's passage and a test from the app; outside it they stay words", async () => {
     api.routes["docs.show"] = () => ({ ...SHAPE, md: "" });
     sec = 0;
@@ -531,7 +531,7 @@ describe("What Claude did: its references lead to what they name", () => {
   });
 });
 
-describe("What Claude did: the head's line and the bar's section marks (design jobs-claude)", () => {
+describe("Claude's work: the head's line and the bar's section marks (design jobs-claude)", () => {
   it("says model · effort · m:ss · tokens from the run's result, and the chapters and opened sections by line", () => {
     const result: JobEvent = {
       jobId: "g",

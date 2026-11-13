@@ -245,7 +245,7 @@ describe("the job panel", () => {
     expect(await panel("Add document")).toBeInTheDocument();
   });
 
-  it("heads What Claude did with the run's model and effort, else the project's defaults", async () => {
+  it("heads Claude's work with the run's model and effort, else the project's defaults", async () => {
     const ran = (id: string): JobEvent[] => [
       {
         jobId: id,
@@ -266,7 +266,7 @@ describe("the job panel", () => {
     ];
     net.routes["jobs.show"] = (i) => ({ job: server.find((j) => j.id === i.id), events: ran(String(i.id)) });
     const head = async () =>
-      (await within(await panel("Claude fix")).findByRole("button", { name: /What Claude did/ })).parentElement;
+      (await within(await panel("Claude fix")).findByRole("button", { name: /Claude's work/ })).parentElement;
     drawer("fix-1");
     await waitFor(async () => expect(await head()).toHaveTextContent("opus · high · 0:04 · 18k tokens in · 640 out"));
     cleanup();

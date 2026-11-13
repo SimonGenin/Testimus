@@ -83,7 +83,7 @@ export type DisclosureProps = {
   countTone?: BadgeTone;
   /** a secondary fold (raw output, details under a banner): the summary in the muted tone */
   quiet?: boolean;
-  /** before the summary, what the fold is about (« What Claude did »: claude, in Claude's colour) */
+  /** before the summary, what the fold is about (« Claude's work »: claude, in Claude's colour) */
   icon?: IconName;
   /** shown when open; not rendered when folded */
   children: ReactNode;
