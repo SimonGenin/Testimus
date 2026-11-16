@@ -6,6 +6,8 @@ instead); `npm run publish <x.x.x>` turns « Unreleased » into that version.
 
 ## Unreleased
 
+## 0.0.11
+
 - Les tableaux s'importent comme documents, un à un ou dans un dossier : CSV (.csv, .tsv) et classeurs Excel (.xlsx, .xlsm, chaque feuille lue comme un tableau ; dates, pourcentages, cellules fusionnées et formules relus comme Excel les affiche). Avant la conversion, Claude lit le tableau et dit ce qu'il contient, ce que veut dire chaque colonne (codes, unités, abréviations), quelle colonne identifie les lignes et laquelle les titre ou les regroupe, et écarte les feuilles qui ne sont pas des données (page de garde, historique). Chaque ligne devient une section citable par son identifiant (`§ALM-012`), le sens des colonnes s'affiche en tête du document et sert à la recherche ; « Convert again » propose de faire relire les colonnes. Un vieux .xls est refusé avec la consigne de l'enregistrer en .xlsx.
 - Generate : ce que Claude a fait s'appelle désormais « Claude's work » et devient un onglet à côté de « Tests written » (déplaçable dans une autre section) au lieu d'un bloc replié sous les tests ; « Fold all » disparaît.
 
