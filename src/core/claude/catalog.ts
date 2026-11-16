@@ -25,6 +25,7 @@ import { contextDir, isShared, type PromptTemplate, readContextFile } from "./pr
 import { prompts as scoped } from "./scoped.ts";
 import { prompts as status } from "./status.ts";
 import { prompts as study } from "./study.ts";
+import { prompts as table } from "./table.ts";
 
 export type Origin = "skill" | "built" | "file" | "context";
 
@@ -73,6 +74,7 @@ export const BUILT: PromptTemplate[] = [
   ...glossary,
   ...overview,
   ...study,
+  ...table,
   ...chat,
   ...learn,
   ...columns,

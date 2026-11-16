@@ -20,10 +20,11 @@ import {
   weightOf,
   withUploads,
 } from "../lib/docs-pipeline.ts";
-import { filesOf, isImage, isMediaDoc, isVideo } from "../lib/media.ts";
+import { filesOf, isImage, isMediaDoc, isVideo, sourceType } from "../lib/media.ts";
 import { addMediaDocs } from "../lib/media-add.ts";
 import { convertMedia, MEDIA_STEPS } from "../lib/media-pipeline.ts";
 import { docName } from "../lib/names.ts";
+import { TABLE_FILE } from "../rag/convert-table.ts";
 import type { DocJson } from "../types.ts";
 import {
   after,
@@ -52,13 +53,13 @@ export const commands = [
   command({
     name: "docs.add",
     summary:
-      "Copy a .docx (preferred), .pdf, .txt, an image, a video or a sound recording (.mp3, .m4a, .wav…) into the project and convert it: doc.md with anchors and figures, or for an image or a video a document of its own (img:<n>, t:mm:ss, frame:mm:ss); with convert false, only copy it (docs.convert converts it later).",
+      "Copy a .docx (preferred), .pdf, .txt, a table (.csv, .tsv, an Excel .xlsx: Claude reads its columns first), an image, a video or a sound recording (.mp3, .m4a, .wav…) into the project and convert it: doc.md with anchors and figures, or for an image or a video a document of its own (img:<n>, t:mm:ss, frame:mm:ss); with convert false, only copy it (docs.convert converts it later).",
     input: z.object({
       file: z
         .string()
         .optional()
         .describe(
-          "Path of the original .docx, .pdf, .txt, image or video; it is copied, never opened in place or changed",
+          "Path of the original .docx, .pdf, .txt, .csv, .xlsx, image or video; it is copied, never opened in place or changed",
         ),
       name: z.string().optional().describe("File name of an uploaded document (with dataBase64, instead of file)"),
       dataBase64: z.string().optional().describe("Content of an uploaded file, base64 (the UI's drop zone)"),
@@ -131,7 +132,8 @@ export const commands = [
             weightOf(added[0]),
           );
         }
-        const studied = input.convert && (input.study || !!input.conversion);
+        const table = TABLE_FILE.test(named);
+        const studied = input.convert && (input.study || !!input.conversion || table);
         if (!input.convert) {
           ctx.steps?.([{ id: "copy", label: "Copy the original" }]);
           ctx.step?.("copy");
@@ -141,7 +143,10 @@ export const commands = [
         const steps = convertSteps(
           [
             ...(studied ? [{ id: "copy", label: "Copy the original" }] : []),
-            { id: "convert", label: studied ? "Study and convert" : "Copy and convert" },
+            {
+              id: "convert",
+              label: table ? "Read the columns and convert" : studied ? "Study and convert" : "Copy and convert",
+            },
           ],
           input,
         );
@@ -190,7 +195,7 @@ export const commands = [
             code: z
               .enum(["not-a-document", "failed"])
               .describe(
-                "not-a-document: not a .docx, .pdf, .txt, image or video; failed: the copy was refused (see why)",
+                "not-a-document: not a .docx, .pdf, .txt, .csv, .xlsx, image or video; failed: the copy was refused (see why)",
               ),
           }),
         )
@@ -208,7 +213,7 @@ export const commands = [
           added: [] as DocJson[],
           rejected: rejected.map((f) => ({
             name: nameOf(f),
-            why: "Only Word (.docx), PDF, text (.txt), image and video files can be added.",
+            why: "Only Word (.docx), PDF, text (.txt), table (.csv, .xlsx), image and video files can be added.",
             code: "not-a-document" as "not-a-document" | "failed",
           })),
         };
@@ -307,7 +312,17 @@ export const commands = [
       if (input.pdf) await attachPdf(project, input.id, input.pdf, ctx.signal);
       if (input.docx) await attachDocx(project, input.id, input.docx, ctx.signal);
       const steps = convertSteps(
-        [{ id: "convert", label: input.study ? "Study and convert" : "Convert to text" }],
+        [
+          {
+            id: "convert",
+            label:
+              sourceType(doc) === "table"
+                ? "Read the columns and convert"
+                : input.study
+                  ? "Study and convert"
+                  : "Convert to text",
+          },
+        ],
         input,
       );
       ctx.steps?.(steps);

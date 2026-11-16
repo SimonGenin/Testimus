@@ -5,7 +5,16 @@ import { docDir, findDoc, readDocMd, readFigures } from "../../lib/docs.ts";
 import { readProject } from "../../lib/project.ts";
 import type { DocJson, FigureEntry, Passage, PassageOutlineItem } from "../../types.ts";
 import { momentId, momentOf, normalizeAnchor } from "../anchors.ts";
-import { docFigures, lines, markerLine, parseSections, type Section, sectionAt, stripComments } from "../chunk.ts";
+import {
+  docFigures,
+  lines,
+  markerLine,
+  parseSections,
+  type Section,
+  sectionAt,
+  shownText,
+  stripComments,
+} from "../chunk.ts";
 
 type FigureView = FigureEntry & {
   docId: string;
@@ -82,7 +91,7 @@ export function capLines(
   max: number,
   focus?: number,
 ): { text: string; truncated: boolean; a: number; b: number } {
-  const all = stripComments(ls.slice(from, to).join("\n"));
+  const all = shownText(ls.slice(from, to).join("\n"));
   if (all.length <= max) return { text: all, truncated: false, a: from, b: to };
   const at = focus !== undefined && focus >= from && focus < to ? focus : from;
   let a = at;
@@ -101,7 +110,7 @@ export function capLines(
   }
   const start = tableStart(ls, at);
   const head = start >= 0 && start < at && a > start ? ls.slice(start, Math.min(start + 2, a)) : [];
-  return { text: stripComments([...head, ...ls.slice(a, b)].join("\n")), truncated: true, a, b };
+  return { text: shownText([...head, ...ls.slice(a, b)].join("\n")), truncated: true, a, b };
 }
 
 const squeeze = (s: string) => stripComments(s).replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();

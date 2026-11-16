@@ -405,9 +405,9 @@ docs/<docId>/
   citing tests are left and their sources become `source-missing`.
 - **A folder** (`lib/docs-folder.ts`): `docs.scanFolder` reads a folder (sub-folders by default, hidden ones and the
   project's own folder skipped, at most 2 000 files) and says, file by file, whether an import adds it: each `.docx`,
-  `.pdf`, `.txt` or `.md` is a document, the `.pdf` of the same name beside a `.docx` is its rendering (its twin), each
+  `.pdf`, `.txt`, `.md`, `.csv`, `.tsv`, `.xlsx` or `.xlsm` is a document, the `.pdf` of the same name beside a `.docx` is its rendering (its twin), each
   video is a document; the rest is left aside with a reason — not a document (Thumbs.db, desktop.ini, hidden or
-  temporary files), Word's lock file (`~$…`), a kind not converted yet (`.doc`, HEIC, sound, spreadsheets…), empty,
+  temporary files), Word's lock file (`~$…`), a kind not converted yet (`.doc`, `.xls`, HEIC, `.ods`…), empty,
   already in the project (same id or same file name), or the same id as another file found. The id is the code read
   from the name, accents and ligatures dropped (œ → oe), made a valid folder name. The project's own folder, or one inside it, is refused (paths compared without case on Windows
   and macOS); a file that goes while the folder is read is left out; past 2 000 files `truncated` says so, in the
@@ -427,7 +427,7 @@ docs/<docId>/
   a document yet: the index skips it (no `doc.md`), `docs.convert` and `media.*` refuse it (code `pending`).
   `docs.planStart` says what starting them takes, before anything moves: the documents by type, the bytes to copy
   against the room on the project's drive (a video counts half its size again, 200 MB stay free; short → `docs.start`
-  refuses, code `no-room`), Claude's runs (one per Word or PDF document, one per 20 photos, about 3 for a video under
+  refuses, code `no-room`), Claude's runs (one per Word, PDF or table document, one per 20 photos, about 3 for a video under
   10 min and 12 beyond — §16) and a time: the copies one after the other at about 60 MB/s, then the conversions side by
   side in the pool's places (about a minute each for a Word or PDF document: ~5 a minute with 5 places, measured on
   2026-11-10), the videos one at a time (`media.estimate`'s figure, else about 12 min — a 50 min video took that). An
@@ -451,7 +451,7 @@ docs/<docId>/
   (draft, submitted, validated) is the team's word and stays apart.
 - **Amendments**: `doc.json.amends` lists what a document amends; the graph links it (document and section level), and
   an amendment wins over what it amends.
-- **A document has a source type** (2026-11-08): `docx` · `pdf` · `txt` (a `.txt` or `.md`) — read from the copy's
+- **A document has a source type** (2026-11-08): `docx` · `pdf` · `txt` (a `.txt` or `.md`) · `table` (a `.csv`, `.tsv`, `.xlsx` or `.xlsm`) — read from the copy's
   extension —, or `images` · `video` · `mixed` written in `doc.json.source.type`, for a document made of files of its
   own (`source.files`, copied under `files/`, `source.file` = `files`, `source.sha256` = the hash of their hashes). An
   image or several images form a document as sections form a text, and a video is itself a set of images: no picture
@@ -463,6 +463,47 @@ docs/<docId>/
 - **A text file** (`rag/convert-text.ts`): UTF-8 (BOM dropped), else Windows-1252; a `.md` keeps its headings, each
   anchored by its number or its title's slug; a `.txt` is its text under one section titled by its file name (a line
   starting with `#` is escaped, `<!--` defused).
+- **A table** (2026-11-16; `.csv`, `.tsv`, source type `table`; `rag/convert-table.ts`, `claude/table.ts`): decoded
+  as a text file, cut by RFC 4180 (a quoted cell holds the delimiter, line breaks and `""`), the delimiter the one that
+  cuts the first lines into the same width most often (Excel's `sep=;` line says it), the header the first line that
+  fills most of that width — the lines above are a preamble, kept as text. **One section a row**, under the title and
+  a `## Columns` section: the row's heading is its key and its title (`## ALM-012 Porte ouverte <!-- § ALM-012 -->`),
+  its text a line a column (`- **Criticité** : 2`, a cell's other lines indented, an empty cell left out); a `group`
+  column puts the rows under a section per value (`###` rows). **The anchor is the key's value**, never the row's
+  place: a new export of the table keeps the tests citing it; a table without a key names its rows by their title's
+  slug, else `row-<8 hex of the cells>`; a key twice is `-2` with a warning. **Claude reads the table before its
+  first conversion** — decided (2026-11-16): a column named « Crit. » or « Etat » means nothing to a search nor to a
+  run that writes a test, and only a reading of the values says what it holds. One `study` run (read-only, effort
+  low; prompt « Read the columns of a table », skill `study-document` part « A table ») is given the profile Testimus
+  read — each column's fill, distinct values, a few of them, and Testimus' own guess — may `Read` the original for more
+  rows, and answers a ```` ```table ```` block (`DOC_TABLE`): `about` (what the table is), `columns[]` (`meaning`:
+  what it holds and how to read its values; `skip`: empty, internal, a copy), `key`, `title`, `group`, and the
+  `delimiter` or `headerRow` only when the guess is wrong; a column it names that the table lacks is dropped. It is
+  kept as `doc.json.conversion.table`, so every reconversion gives the same result; `docs.convert` reads it again only
+  with `study` (« Convert again » › « Claude reads the columns again »), or takes one given as `conversion`. Without
+  Claude (or when its block is unusable) the table is converted from Testimus' guess — the key is the first column
+  filled on every row with values of their own, one named like an id first; empty columns left out — with a warning,
+  and Claude reads it at the next conversion. **What Claude read is beside the text, never in it**: `about` and each
+  meaning are comments `<!-- = … -->` (beside a column's name in `## Columns`), so the check never takes them for a
+  quote (`check.ts plainText` drops comments); the chunker and `rag.passage` show them under their line (`= …`,
+  `rag/chunk.ts shownText`), so they are searched and every run reading a passage sees them, and the page draws them
+  muted under the column (`DocText`, which draws a list an item a line). `docs.add` and `docs.addFiles` take a table,
+  a folder import counts it a document.
+- **An Excel workbook** (2026-11-16; `.xlsx`, `.xlsm`, source type `table`, labelled « Excel »; `rag/convert-xlsx.ts`)
+  is a set of tables, one a sheet, read with no dependency: the zip (`lib/zip.ts readZip`) and its XML parts — the
+  workbook names its sheets in order and points at each part, the cells hold shared strings (rich runs joined, the
+  phonetic runs left out, `_xHHHH_` decoded), inline strings, numbers rid of binary noise (`toPrecision(15)`),
+  booleans (`TRUE`/`FALSE`), errors and a formula's last value. **A date is told by its cell's number format**, never
+  by its value (Excel's own date ids, or a format code with d/m/y/h/s outside quotes and brackets), written ISO
+  (`2025-03-12`, `2025-03-12 14:30`, a time alone `14:30`), the 1904 system when the workbook says so; a percentage
+  format writes `12.5%`. A merged range reads as its first cell in each of its cells (a sub-system written once over
+  ten rows names each). A hidden sheet and an empty one are left aside, a hidden one with a warning. Claude's run is
+  the same as a table's, given each sheet's profile (it cannot `Read` the zip), and answers `{ sheets: [{ name,
+  skip?, …a table's fields }] }` (`DOC_SHEETS`), kept as `doc.json.conversion.sheets`; `skip` leaves out a sheet that is
+  not data (a cover, a revision history). One sheet left reads as a table alone; several are a `##` section a sheet
+  (`§<sheet>`), its `### Columns` (`§<sheet>-columns`) and its rows (`###`, `####` under a group), a row's anchor its
+  key, unique in the whole document. Checked on a workbook saved by Excel itself (2026-11-16). An old binary `.xls` is
+  refused, saying to save it as `.xlsx` (the folder import leaves it aside with that reason); `.ods` still waits.
 - **An images or video document's `doc.md` holds what a source may quote** (`lib/media-md.ts`): each image's
   caption — its file name and when it was taken — on its own line (`![IMG_0042.jpg — 2026-10-12
   14:03](figures/img-1.jpg) <!-- img 1 -->`), in the order the images were taken; each video under its own section

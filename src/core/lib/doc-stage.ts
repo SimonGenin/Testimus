@@ -17,7 +17,7 @@ function convertingStep(d: DocRef, j: Job): StageStep {
   if (step === "queue") return "waiting";
   if (step === "cited" || step === "triage") return "checking";
   const t = sourceType(d);
-  if (t === "docx" || t === "pdf" || t === "txt") return step === "figures" ? "figures" : "text";
+  if (t === "docx" || t === "pdf" || t === "txt" || t === "table") return step === "figures" ? "figures" : "text";
   if (t === "images") return "pictures";
   if (step === "read") return "frames";
   const line = runningStep(j)?.message ?? j.message ?? "";

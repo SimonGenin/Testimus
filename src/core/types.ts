@@ -287,9 +287,10 @@ export type DocStage = {
 };
 
 // ponytail: what a document is made of — a Word or PDF file (with its twin), a text file, or files of its own: one or
-// several images, a video, or images and videos together. No type: read from source.file's extension. `name` is
-// where the original came from (its path on this PC, the name of an upload, the first file of an images document)
-export type SourceType = "docx" | "pdf" | "txt" | "images" | "video" | "mixed";
+// several images, a video, or images and videos together. No type: read from source.file's extension (a .csv or .tsv is
+// a table). `name` is where the original came from (its path on this PC, the name of an upload, the first file of an
+// images document)
+export type SourceType = "docx" | "pdf" | "txt" | "table" | "images" | "video" | "mixed";
 export type DocSource = {
   type?: SourceType;
   name: string;
@@ -421,7 +422,26 @@ export type DocConversion = {
   numbers?: { number: string; title: string }[];
   // figures the conversion finds no picture for, drawn from a region of a page of the PDF copy
   figures?: { key: string; page: number; region: [number, number, number, number] }[];
+  // a table (.csv, .tsv): how its rows become sections and what its columns hold, read by Claude
+  table?: DocTable;
+  // an Excel workbook (.xlsx, .xlsm): the same for each of its sheets, by name
+  sheets?: DocSheet[];
   notes?: string;
+};
+// ponytail: a sheet of a workbook read as a table — by its name; skip: not data (a cover, a revision history)
+export type DocSheet = DocTable & { name: string; skip?: boolean };
+// ponytail: a table's reading, by column name (never by position): the delimiter and the header line when Testimus'
+// own guess is wrong, the column whose value names a row (its anchor), the one that titles it, the one that groups the
+// rows into sections, what the table is and what each column holds (Claude's reading: shown and searched, never
+// quotable), the columns left out
+export type DocTable = {
+  delimiter?: "," | ";" | "\t" | "|";
+  headerRow?: number;
+  key?: string;
+  title?: string;
+  group?: string;
+  about?: string;
+  columns?: { name: string; meaning?: string; skip?: boolean }[];
 };
 export type FigureEntry = {
   file: string;

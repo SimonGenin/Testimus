@@ -54,12 +54,37 @@ const styles = stylex.create({
   },
   caption: { display: "flex", alignItems: "center", gap: space.s2, color: color.textMuted },
   empty: { margin: 0, color: color.textMuted },
+  item: { whiteSpace: "pre-line" },
+  beside: { display: "block", color: color.textMuted },
 });
 
 const clean = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "").trim();
 const squeeze = (s: string) => s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 
 const isTable = (b: string) => /^\|/.test(b);
+
+// ponytail: a list — a table's row is one line a column — is drawn an item a line, a cell's own lines kept, with what
+// Claude read beside an item (« <!-- = … --> », a column's meaning) under it, muted: shown, never the document's text
+const BESIDE = /\s*<!--\s*=\s*([\s\S]*?)\s*-->/;
+const isList = (raw: string) => {
+  const ls = raw.trim().split("\n");
+  return ls[0].startsWith("- ") && ls.every((l) => /^(?:- | {2}\S)/.test(l));
+};
+function listItems(raw: string): { text: string; beside: string }[] {
+  const items: { text: string; beside: string }[] = [];
+  for (const l of raw.trim().split("\n")) {
+    const beside = BESIDE.exec(l)?.[1] ?? "";
+    const text = clean(l);
+    if (l.startsWith("- ")) items.push({ text, beside });
+    else if (items.length) {
+      const last = items[items.length - 1];
+      last.text = `${last.text}\n${text}`;
+      last.beside ||= beside;
+    }
+  }
+  return items;
+}
+
 // ponytail: a body row of a table (not its head, not the rule under it) — FigureTable keys its rows by this line
 const isRow = (lines: string[], j: number) => j > 0 && !/^\|?[\s:|-]+$/.test(lines[j]?.trim() ?? "");
 // ponytail: a table's name is the caption the converter writes right after it (« Figure 25 – Bouton AA »)
@@ -307,6 +332,29 @@ export function DocText({
               {side(null)}
               <div {...focusMark(inHead)} {...stylex.props(styles.block, inHead && styles.focus)}>
                 <FigureTable table={b} label={captionOf(raws[i + 1]) ?? "Table"} lit={inHead ? null : lit} />
+              </div>
+            </div>
+          );
+        }
+        if (isList(raw)) {
+          const items = listItems(raw);
+          let quoted = false;
+          const marks = items.map((it) => {
+            if (!hot || quoted) return null;
+            const m = marked(it.text, focus);
+            if (m) quoted = true;
+            return m;
+          });
+          return (
+            <div key={i} {...stylex.props(row)}>
+              {side(null)}
+              <div {...focusMark(hot && !quoted)} {...stylex.props(styles.block, hot && !quoted && styles.focus)}>
+                {items.map((it, j) => (
+                  <p key={j} {...stylex.props(styles.para, styles.item)}>
+                    {marks[j] ?? inline(it.text)}
+                    {it.beside && <span {...stylex.props(type.small, styles.beside)}>{it.beside}</span>}
+                  </p>
+                ))}
               </div>
             </div>
           );

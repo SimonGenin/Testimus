@@ -55,6 +55,7 @@ const LEAD: Record<SourceType, IconName> = {
   docx: "documents",
   pdf: "file",
   txt: "text",
+  table: "table",
   images: "image",
   video: "play",
   mixed: "image",

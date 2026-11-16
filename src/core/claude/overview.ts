@@ -32,6 +32,7 @@ const TYPE: Record<string, string> = {
   docx: "Word",
   pdf: "PDF",
   txt: "text",
+  table: "table",
   images: "images",
   video: "video",
   mixed: "images and video",

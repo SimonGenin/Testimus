@@ -159,4 +159,21 @@ describe("figures inside a paragraph", () => {
     expect(container.querySelector("figure img")).toHaveAttribute("alt", "Schéma [1]");
     expect(container.querySelector("p")).toBeNull();
   });
+
+  it("draws a list an item a line, a cell's lines kept, and what Claude read beside an item under it", () => {
+    const md = [
+      "- **Crit.** <!-- = 1 = mineure, 3 = critique -->\n- **Libellé**",
+      "- **Action** : Desserrer le frein.\n  Appeler le PCC\n- **Crit.** : 3",
+    ].join("\n\n");
+    const { container } = render(<DocText docId="D1" md={md} focus="Appeler le PCC" />);
+    const items = [...container.querySelectorAll("p")].map((p) => p.textContent);
+    expect(items).toEqual([
+      "- Crit.1 = mineure, 3 = critique",
+      "- Libellé",
+      "- Action : Desserrer le frein.\nAppeler le PCC",
+      "- Crit. : 3",
+    ]);
+    expect(screen.getByText("1 = mineure, 3 = critique", { selector: "span" })).toBeInTheDocument();
+    expect(marked(container).map(kind)).toEqual(["MARK"]);
+  });
 });

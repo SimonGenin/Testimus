@@ -1,6 +1,6 @@
 ---
 name: study-document
-description: Study a client document before Testimus converts it (which copy, which PDF reader, heading numbers printed on the page but missing from the text), and compare the converted doc.md with page images of the original afterwards — headings and their numbers, tables, figures at the right place, nothing dropped. Use when Testimus asks for a study or a conversion check, or when asked whether a document was converted well.
+description: Study a client document before Testimus converts it (which copy, which PDF reader, heading numbers printed on the page but missing from the text; for a table — .csv, .tsv — what it is, what each column holds and how its rows become sections), and compare the converted doc.md with page images of the original afterwards — headings and their numbers, tables, figures at the right place, nothing dropped. Use when Testimus asks for a study, a table reading or a conversion check, or when asked whether a document was converted well.
 ---
 
 # Study a document, check its conversion
@@ -77,7 +77,44 @@ Then, in this order:
 - **Only the client can fix it** — a drawing flattened to text in the client's own files, a scan
   with no source: say it in your last line, propose nothing.
 
+## A table
+
+A `.csv` or `.tsv` becomes one section per row, under its title: the row's heading is its key
+and its title, its text one line per column (`- **Column** : value`). The columns head the
+document, each with the meaning you give it — shown beside the name and searched, never quotable.
+A test cites a row as `§<key>` and quotes a value as the row writes it. The request gives what
+Testimus read: each column's fill, its distinct values and a few of them, and its own guess.
+`Read` the original for more rows when the samples leave a column unclear — its first lines, a
+few in the middle — never the whole of a long file.
+
+- **about** — what the table is, in one or two sentences: alarms of a sub-system, a list of
+  requirements, the signals of an interface, a matrix of states…
+- **columns** — every column, by its name exactly as in the profile: `meaning` says what it holds
+  and how to read its values — a code and what it stands for, a unit, the meaning of
+  abbreviations and of each value of a short list (« 1 = minor, 3 = critical » when the values
+  show it), the column it refers to. What the header and the values show, never a guess about the
+  product: « unclear » is an answer. `skip: true` only for a column empty on every row, internal
+  to the tool that exported it (a database id, a last-modified stamp) or a copy of another.
+- **key** — the column whose value names a row: an id, a code, a reference, filled on every row
+  and its own on each (`unique` in the profile). It anchors the row (`§ALM-012`), so every test
+  citing it follows it through a new export: never a row number or a column whose values repeat.
+  None fits → leave it out: rows are then named by their title.
+- **title** — a short column that says what the row is (a label, a name), when there is one.
+- **group** — a column whose few values cut the rows into parts (a chapter, a sub-system, a
+  category), when reading by part helps; a group for each row is no group.
+- **delimiter**, **headerRow** — only when Testimus' guess is wrong (one column holding whole
+  lines, a header that is a title line).
+
+**An Excel workbook** (`.xlsx`, `.xlsm`) is read sheet by sheet: the profile gives each sheet by
+its name — dates already written as `2025-03-12`, percentages as `12.5%`, a merged cell's value in
+each of its cells, a formula's last value — and the sheets Testimus left aside (hidden, empty).
+`Read` cannot open a workbook: work from the profile. Answer `{ "sheets": [...] }`, each sheet
+by its name with the fields above (no delimiter); `skip: true` for a sheet that is not data a
+tester looks up — a cover, a revision history, a blank form, a list of values only the other
+sheets use. A workbook left with one sheet reads as a table alone; with several, each is a
+section (`§<sheet>`) with its own `§<sheet>-columns`.
+
 ## Reply
 
-A study: only the `conversion` block. A check: the block when other options are better, then one
-line — what you compared and what differs.
+A table: only the `table` block. A study: only the `conversion` block. A check: the block when
+other options are better, then one line — what you compared and what differs.

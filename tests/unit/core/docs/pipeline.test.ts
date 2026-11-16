@@ -37,7 +37,7 @@ describe("pairing the files dropped together", () => {
   it("makes one document of a .docx and the .pdf of the same name, keeps a .pdf or a text file alone, refuses the rest", () => {
     const r = pairFiles([
       { path: "/c/notes.txt" },
-      { path: "/c/budget.xlsx" },
+      { path: "/c/budget.pptx" },
       { name: "B.pdf", dataBase64: "x" },
       { path: "/c/A.PDF" },
       { path: "/c/a.docx" },
@@ -48,7 +48,7 @@ describe("pairing the files dropped together", () => {
       { main: { name: "B.pdf", dataBase64: "x" } },
       { main: { path: "/c/notes.txt" } },
     ]);
-    expect(r.rejected).toEqual([{ path: "/c/budget.xlsx" }, { name: "nothing.docx" }]);
+    expect(r.rejected).toEqual([{ path: "/c/budget.pptx" }, { name: "nothing.docx" }]);
   });
 });
 
@@ -65,7 +65,7 @@ describe("docs.addFiles", () => {
           { path: docx },
           { name: "UP_02.pdf", dataBase64: b64(taggedPdf()) },
           { path: client(P, "readme.txt", "x") },
-          { path: client(P, "budget.xlsx", "x") },
+          { path: client(P, "budget.pptx", "x") },
           { path: client(P, "SOSIE_211_D401-1_3_01_01.docx", sampleDocx()) },
         ],
       },
@@ -79,8 +79,8 @@ describe("docs.addFiles", () => {
     expect(r.added.every((d) => d.converted === undefined)).toBe(true);
     expect(r.rejected).toEqual([
       {
-        name: "budget.xlsx",
-        why: "Only Word (.docx), PDF, text (.txt), image and video files can be added.",
+        name: "budget.pptx",
+        why: "Only Word (.docx), PDF, text (.txt), table (.csv, .xlsx), image and video files can be added.",
         code: "not-a-document",
       },
       { name: "SOSIE_211_D401-1_3_01_01.docx", why: "Document SOSIE_211_D401-1_3 already exists.", code: "failed" },

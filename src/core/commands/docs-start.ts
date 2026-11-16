@@ -161,6 +161,7 @@ export const commands = [
           docx: z.number().describe("Word documents"),
           pdf: z.number().describe("PDF documents"),
           txt: z.number().describe("Text documents"),
+          table: z.number().describe("Tables (.csv, .tsv)"),
           images: z.number().describe("Images documents (the images of a folder)"),
           video: z.number().describe("Videos and sound recordings"),
           mixed: z.number().describe("Images and videos together (never pending: kept for the shape)"),

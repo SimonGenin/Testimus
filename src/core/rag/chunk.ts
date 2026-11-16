@@ -58,6 +58,23 @@ export function stripComments(text: string): string {
     .trim();
 }
 
+const BESIDE = /^(.*?)\s*<!--\s*=\s*(.*?)\s*-->\s*$/;
+
+// ponytail: what Claude read beside a line (« <!-- = … --> »: a table's column meaning, what the table is) is shown
+// and searched under it, never quotable — the check reads doc.md without its comments
+export function shownText(text: string): string {
+  return stripComments(
+    text
+      .split("\n")
+      .map((l) => {
+        const m = BESIDE.exec(l);
+        if (!m?.[2]) return l;
+        return m[1].trim() ? `${m[1]}\n  = ${m[2]}` : `= ${m[2]}`;
+      })
+      .join("\n"),
+  );
+}
+
 export function parseSections(md: string): Section[] {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const sections: Section[] = [];
@@ -237,7 +254,7 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[]): Chun
   const chunks: Chunk[] = [];
   for (const s of sections) {
     const body = withoutMedia(s.body);
-    const parts = split(body).filter((p) => stripComments(p));
+    const parts = split(body).filter((p) => shownText(p));
     parts.forEach((raw, i) => {
       chunks.push({
         id: `${doc.id}#${s.anchor}${parts.length > 1 ? `~${i + 1}` : ""}`,
@@ -246,7 +263,7 @@ export function chunkDoc(doc: DocJson, md: string, entries: FigureEntry[]): Chun
         path: s.path,
         figureIds: ids(raw, FIG),
         header: defaultHeader(doc, s),
-        text: stripComments(raw),
+        text: shownText(raw),
         kind: "section",
       });
     });

@@ -144,9 +144,9 @@ describe("docs commands", () => {
   });
 
   it("refuses what it cannot convert and leaves no folder behind", async () => {
-    const xls = join(project, "..", "notes.xlsx");
-    writeFileSync(xls, "x");
-    await expect(run(project, "docs.add", { file: xls })).rejects.toThrow(/Cannot add/);
+    const deck = join(project, "..", "notes.pptx");
+    writeFileSync(deck, "x");
+    await expect(run(project, "docs.add", { file: deck })).rejects.toThrow(/Cannot add/);
     const bad = join(project, "..", "broken_01.00.docx");
     writeFileSync(bad, "not a zip");
     await expect(run(project, "docs.add", { file: bad })).rejects.toThrow();

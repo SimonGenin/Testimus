@@ -84,7 +84,7 @@ describe("convertSource", () => {
   it("converts a pdf and refuses another extension", async () => {
     const c = await convertSource(client("x.pdf", samplePdf()), { code: "X" });
     expect(c.md).toContain("Sectionneur");
-    await expect(convertSource(client("x.xlsx", "t"), { code: "X" })).rejects.toThrow(/Cannot convert \.xlsx/);
+    await expect(convertSource(client("x.pptx", "t"), { code: "X" })).rejects.toThrow(/Cannot convert \.pptx/);
     expect((await convertSource(client("x.txt", "t"), { code: "X" })).md).toBe("# X <!-- § x -->\n\nt\n");
     await expect(convertSource(client("noext", "t"), { code: "X" })).rejects.toThrow(
       /Cannot convert a file without extension/,

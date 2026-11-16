@@ -97,7 +97,7 @@ describe("docs.addFolder with start false", () => {
       convertSeconds: number;
     }>("docs.planStart", {}, P);
     expect(plan.ids).toHaveLength(6);
-    expect(plan.byType).toEqual({ docx: 2, pdf: 1, txt: 1, images: 1, video: 1, mixed: 0 });
+    expect(plan.byType).toEqual({ docx: 2, pdf: 1, txt: 1, table: 0, images: 1, video: 1, mixed: 0 });
     expect(plan.files).toBe(8);
     expect(plan.bytes).toBeGreaterThan(sampleDocx().length * 2);
     expect(plan.short).toBe(false);

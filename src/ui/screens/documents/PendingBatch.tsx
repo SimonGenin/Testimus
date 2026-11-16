@@ -32,6 +32,7 @@ const TYPES: [keyof Plan["byType"], string, string][] = [
   ["docx", "Word", "Word"],
   ["pdf", "PDF", "PDF"],
   ["txt", "text", "text"],
+  ["table", "table", "tables"],
   ["images", "folder of images", "folders of images"],
   ["video", "video", "videos"],
   ["mixed", "images and videos", "images and videos"],

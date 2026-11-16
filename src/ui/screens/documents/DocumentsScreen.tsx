@@ -188,7 +188,7 @@ export function DocumentsScreen() {
                     name: "Documents, images, videos and sound",
                     extensions: [...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS],
                   },
-                  { name: "Word, PDF or text", extensions: DOC_EXTENSIONS },
+                  { name: "Word, PDF, text or tables", extensions: DOC_EXTENSIONS },
                   { name: "Images", extensions: IMAGE_EXTENSIONS },
                   { name: "Videos and sound", extensions: [...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS] },
                 ],

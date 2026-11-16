@@ -119,7 +119,17 @@ export const bytesOf = (d: Pick<DocJson, "pending">) =>
 function clean(project: string, id: string): void {
   const dir = docDir(project, id);
   rmSync(join(dir, "files"), { recursive: true, force: true });
-  for (const f of ["source.docx", "source.pdf", "source.txt", "source.md"]) rmSync(join(dir, f), { force: true });
+  for (const f of [
+    "source.docx",
+    "source.pdf",
+    "source.txt",
+    "source.md",
+    "source.csv",
+    "source.tsv",
+    "source.xlsx",
+    "source.xlsm",
+  ])
+    rmSync(join(dir, f), { force: true });
 }
 
 const settled = (doc: DocJson): DocJson => {
@@ -261,7 +271,7 @@ export type PendingPlan = {
 
 // ponytail: what starting pending documents would take, said before the go — the documents by type, the bytes to
 // copy against the room on the project's drive (a video takes half its size again: its sound, its frames, a lighter
-// copy; 200 MB are left free), Claude's runs (one per Word or PDF document, one per 20 photos, about 3 for a video
+// copy; 200 MB are left free), Claude's runs (one per Word, PDF or table document, one per 20 photos, about 3 for a video
 // under 10 min and 12 beyond — ARCHITECTURE.md §16) and the time: the copies one after the other at a local disk's
 // pace, then the conversions side by side in the pool's places (about 5 Word documents a minute with 5 places, measured
 // 2026-11-10), the videos one at a time (one transcription at a time on the PC: media.estimate's figure, else about
@@ -270,7 +280,7 @@ export function pendingPlan(project: string, ids?: string[]): PendingPlan {
   const all = pendingIds(project);
   const chosen = ids ? all.filter((id) => ids.includes(id)) : all;
   const docs = chosen.map((id) => readDoc(project, id));
-  const byType: Record<SourceType, number> = { docx: 0, pdf: 0, txt: 0, images: 0, video: 0, mixed: 0 };
+  const byType: Record<SourceType, number> = { docx: 0, pdf: 0, txt: 0, table: 0, images: 0, video: 0, mixed: 0 };
   let bytes = 0;
   let videoBytes = 0;
   let files = 0;
@@ -289,7 +299,10 @@ export function pendingPlan(project: string, ids?: string[]): PendingPlan {
       runs += 1;
       pooled += DOC_S;
     } else if (t === "txt") pooled += TEXT_S;
-    else if (t === "images") {
+    else if (t === "table") {
+      runs += 1;
+      pooled += RUN_S;
+    } else if (t === "images") {
       const n = Math.ceil(p.files.length / PICTURES_A_RUN);
       runs += n;
       pooled += n * RUN_S;

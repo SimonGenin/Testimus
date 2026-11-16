@@ -270,3 +270,59 @@ export const RUN_ID = z
   .string()
   .regex(/^[\w-]+$/, "A run id: run-<digits>-<hex>")
   .describe("The runId your prompt gave you: the answer the proposal goes under");
+
+const COLUMN_NAME = z.string().min(1);
+
+export const DOC_TABLE = z
+  .object({
+    delimiter: z
+      .enum([",", ";", "\t", "|"])
+      .optional()
+      .describe("The delimiter, only when Testimus' own guess is wrong"),
+    headerRow: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(
+        "The line of the header, from 1, only when Testimus' own guess is wrong; the lines above are a preamble",
+      ),
+    key: COLUMN_NAME.optional().describe(
+      "The column whose value names a row (an id, a code): each row is anchored by it (§ALM-012); absent when no column is filled on every row with values of their own",
+    ),
+    title: COLUMN_NAME.optional().describe("The column whose short value titles a row's heading beside its key"),
+    group: COLUMN_NAME.optional().describe(
+      "The column whose value groups the rows into sections (a chapter, a sub-system), when there is one",
+    ),
+    about: z.string().optional().describe("What the table is, in one or two sentences"),
+    columns: z
+      .array(
+        z.object({
+          name: COLUMN_NAME.describe("The column's name, exactly as in the header"),
+          meaning: z
+            .string()
+            .optional()
+            .describe("What the column holds and how to read its values (codes, units, abbreviations)"),
+          skip: z.boolean().optional().describe("Left out of the text: empty, internal, a copy of another column"),
+        }),
+      )
+      .optional()
+      .describe("What each column holds, by name; a column not listed is kept without a meaning"),
+  })
+  .describe(
+    "A table (.csv, .tsv): how its rows become sections and what its columns hold — Claude's reading, kept in doc.json",
+  );
+
+export const DOC_SHEET = DOC_TABLE.omit({ delimiter: true })
+  .extend({
+    name: z.string().min(1).describe("The sheet's name, exactly as on its tab in Excel"),
+    skip: z
+      .boolean()
+      .optional()
+      .describe("Left out of the document: not data a tester looks up (a cover, a revision history, a blank form)"),
+  })
+  .describe("A sheet of an Excel workbook read as a table");
+
+export const DOC_SHEETS = z
+  .object({ sheets: z.array(DOC_SHEET).describe("Each sheet of the workbook, by name") })
+  .describe("An Excel workbook (.xlsx, .xlsm): each of its sheets read as a table");

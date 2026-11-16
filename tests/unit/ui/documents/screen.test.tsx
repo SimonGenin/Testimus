@@ -465,7 +465,7 @@ describe("Documents screen", () => {
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
     expect(input).toHaveAttribute(
       "accept",
-      ".docx,.pdf,.txt,.md,.jpg,.jpeg,.png,.webp,.mp4,.mov,.m4v,.mkv,.webm,.avi,.wmv,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac",
+      ".docx,.pdf,.txt,.md,.csv,.tsv,.xlsx,.xlsm,.jpg,.jpeg,.png,.webp,.mp4,.mov,.m4v,.mkv,.webm,.avi,.wmv,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac",
     );
     expect(input).toHaveAttribute("multiple");
     fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
@@ -627,6 +627,10 @@ describe("Documents screen on the desktop", () => {
             "pdf",
             "txt",
             "md",
+            "csv",
+            "tsv",
+            "xlsx",
+            "xlsm",
             "jpg",
             "jpeg",
             "png",
@@ -647,7 +651,7 @@ describe("Documents screen on the desktop", () => {
             "flac",
           ],
         },
-        { name: "Word, PDF or text", extensions: ["docx", "pdf", "txt", "md"] },
+        { name: "Word, PDF, text or tables", extensions: ["docx", "pdf", "txt", "md", "csv", "tsv", "xlsx", "xlsm"] },
         { name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] },
         {
           name: "Videos and sound",

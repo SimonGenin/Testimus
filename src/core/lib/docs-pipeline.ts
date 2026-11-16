@@ -10,6 +10,7 @@ import { claudeHeaders } from "../claude/headers.ts";
 import type { JobRun } from "../claude/prompt.ts";
 import { claudeVersion } from "../claude/status.ts";
 import { checkConversion, sameConversion, studyDoc } from "../claude/study.ts";
+import { readTableColumns } from "../claude/table.ts";
 import { type Ctx, UserError } from "../command.ts";
 import { startJob } from "../jobs.ts";
 import { type IndexReport, indexProject } from "../rag/indexer.ts";
@@ -25,7 +26,7 @@ import { sourceType } from "./media.ts";
 import { overviewAfterImport } from "./overview-after.ts";
 
 // ponytail: the Claude runs a conversion starts are built by the modules it calls (tests/unit/core/claude/catalog.test.ts)
-export const promptsUsed = ["figures", "triage-doc"];
+export const promptsUsed = ["figures", "triage-doc", "table"];
 
 export type AfterConvert = { describeFigures?: boolean; triage?: boolean; study?: boolean; index?: boolean };
 export type IndexOutcome = { chunks?: number; degraded?: string; error?: string };
@@ -253,6 +254,7 @@ export function convertWith(
 ): Promise<DocJson> {
   return whileConverting(project, async () => {
     const progress = (message: string) => ctx.progress({ message });
+    if (sourceType(readDoc(project, id)) === "table") return convertTableDoc(ctx, project, id, o, claude);
     const hasPdf = () => existsSync(join(docDir(project, id), "source.pdf"));
     if (o.conversion) setConversion(project, id, o.conversion);
     else if (o.study && hasPdf())
@@ -281,6 +283,39 @@ export function convertWith(
     }
     return doc;
   });
+}
+
+// ponytail: a table's columns are read by Claude before its first conversion (and again with study) — what each holds,
+// which names a row, which titles or groups them —, kept in doc.json so every reconversion gives the same result; without
+// Claude, or when its run fails, Testimus converts it from its own guess and says so in a warning
+async function convertTableDoc(
+  ctx: Ctx,
+  project: string,
+  id: string,
+  o: { study?: boolean; conversion?: DocConversion },
+  claude: JobRun,
+): Promise<DocJson> {
+  const progress = (message: string) => ctx.progress({ message });
+  const doc = readDoc(project, id);
+  if (o.conversion) setConversion(project, id, o.conversion);
+  else if (o.study || !(doc.conversion?.table || doc.conversion?.sheets)) {
+    const probe = await claudeVersion();
+    if (!probe.ok) ctx.log("info", `Claude is not available here (${probe.text}): Testimus reads the columns alone.`);
+    else
+      try {
+        const r = await readTableColumns(ctx, project, doc, claude);
+        if (r.conversion) setConversion(project, id, { ...doc.conversion, ...r.conversion });
+        else
+          ctx.log(
+            "warn",
+            `Claude's reading of the columns of ${id} could not be used${r.errors.length ? ` (${r.errors.join("; ")})` : ""}: ${r.summary.slice(0, 300)}`,
+          );
+      } catch (e) {
+        if (ctx.signal.aborted) throw e;
+        ctx.log("warn", `Claude did not read the columns of ${id}: ${message(e)}`);
+      }
+  }
+  return reconvertDoc(project, id, ctx.signal, progress);
 }
 
 // ponytail: a file's copy said in its job's line, in bytes
@@ -342,9 +377,10 @@ export const nameOf = (p: Picked) => p.name || (p.path ? basename(p.path) : "");
 const stem = (n: string) => n.replace(/\.[^.]+$/, "").toLowerCase();
 
 // ponytail: of the files a person dropped or picked, each .docx is one document with the .pdf of the same name as
-// its rendering; a .pdf or a text file alone is one document; anything else is refused
+// its rendering; a .pdf, a text file or a table alone is one document; anything else is refused
 export function pairFiles(files: Picked[]): { docs: { main: Picked; pdf?: Picked }[]; rejected: Picked[] } {
-  const ok = (p: Picked) => /\.(docx|pdf|txt|md)$/i.test(nameOf(p)) && (p.path || p.dataBase64 !== undefined);
+  const ok = (p: Picked) =>
+    /\.(docx|pdf|txt|md|csv|tsv|xlsx|xlsm)$/i.test(nameOf(p)) && (p.path || p.dataBase64 !== undefined);
   const words = files.filter((f) => ok(f) && /\.docx$/i.test(nameOf(f)));
   const pdfs = files.filter((f) => ok(f) && /\.pdf$/i.test(nameOf(f)));
   const paired = new Set<Picked>();
@@ -354,7 +390,8 @@ export function pairFiles(files: Picked[]): { docs: { main: Picked; pdf?: Picked
     return pdf ? { main, pdf } : { main };
   });
   for (const p of pdfs) if (!paired.has(p)) docs.push({ main: p });
-  for (const t of files.filter((f) => ok(f) && /\.(txt|md)$/i.test(nameOf(f)))) docs.push({ main: t });
+  for (const t of files.filter((f) => ok(f) && /\.(txt|md|csv|tsv|xlsx|xlsm)$/i.test(nameOf(f))))
+    docs.push({ main: t });
   return { docs, rejected: files.filter((f) => !ok(f)) };
 }
 

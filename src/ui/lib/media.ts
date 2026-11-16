@@ -9,7 +9,7 @@ export const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
 export const VIDEO_EXTENSIONS = ["mp4", "mov", "m4v", "mkv", "webm", "avi", "wmv"];
 // ponytail: a recording of sound alone is a video document without a picture — heard and cited the same way
 export const SOUND_EXTENSIONS = ["mp3", "m4a", "aac", "wav", "ogg", "opus", "flac"];
-export const DOC_EXTENSIONS = ["docx", "pdf", "txt", "md"];
+export const DOC_EXTENSIONS = ["docx", "pdf", "txt", "md", "csv", "tsv", "xlsx", "xlsm"];
 const ext = (list: string[]) => list.map((e) => `.${e}`).join(",");
 export const MEDIA_ACCEPT = ext([...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS]);
 export const DOC_ACCEPT = ext([...DOC_EXTENSIONS, ...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...SOUND_EXTENSIONS]);
@@ -71,6 +71,7 @@ export function typeLabel(doc: Pick<Described, "source" | "type"> & { pending?: 
   const videos = files.filter((f) => f.kind === "video");
   if (t === "pdf") return "PDF";
   if (t === "txt") return "Text";
+  if (t === "table") return /\.xls[xm]$/i.test(doc.source.name) ? "Excel" : "Table";
   if (t === "images") return `Images · ${images}`;
   if (t === "video") {
     const word = videos.length > 0 && videos.every((v) => isSound(v.name)) ? "Sound" : "Video";

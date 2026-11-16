@@ -117,7 +117,9 @@ REQ-EXP-012
 One line per claim: `- <docId>#<anchor> "<short quote copied exactly from doc.md>"`.
 
 - Anchors, as `doc.md` writes them: `§<number>` a section (the title's slug for an unnumbered
-  one), `req:<id>` a requirement, `fig:<n>` a figure (the quote is its caption), `page:<n>` a page
+  one; a row of a table — a `.csv`, a sheet of an Excel workbook — is a section anchored by its
+  key, `§ALM-012`, its columns `- **Column** : value` lines to quote from; what each column holds
+  is in the table's `§columns`, or the sheet's `§<sheet>-columns`), `req:<id>` a requirement, `fig:<n>` a figure (the quote is its caption), `page:<n>` a page
   of a PDF, `img:<n>` an image of an observed document.
 - In a video (`media_transcript`, `media_show`): `t:mm:ss` what is said at that second, or
   `t:mm:ss..mm:ss` over a range — the quote is the words said there, as the transcript writes

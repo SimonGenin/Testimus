@@ -12,9 +12,9 @@ export const PICKED = z
   .describe("The files, each by path or by name and content; they are copied into the project");
 
 export const SOURCE_TYPE = z
-  .enum(["docx", "pdf", "txt", "images", "video", "mixed"])
+  .enum(["docx", "pdf", "txt", "table", "images", "video", "mixed"])
   .describe(
-    "What the document is made of: a Word or PDF file, a text file, one or several images, a video, or images and videos together",
+    "What the document is made of: a Word or PDF file, a text file, a table (.csv, .tsv), one or several images, a video, or images and videos together",
   );
 
 export const SPOKEN = z

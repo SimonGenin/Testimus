@@ -43,9 +43,9 @@ export const FOLDER_MAX_FILES = 2000;
 
 const SYSTEM = /^(thumbs\.db|ehthumbs\.db|desktop\.ini|\.ds_store)$/i;
 const TEMP = /\.(tmp|temp|bak|crdownload|part)$/i;
-const LATER = /\.(docm|dotx?|xlsx?|xlsm|pptx?|rtf|odt|ods|odp|csv|html?|msg|eml|vsdx?|gif|bmp|tiff?|heic)$/i;
+const LATER = /\.(docm|dotx?|pptx?|rtf|odt|ods|odp|html?|msg|eml|vsdx?|gif|bmp|tiff?|heic)$/i;
 
-const DOCUMENT = /\.(docx|pdf|txt|md)$/i;
+const DOCUMENT = /\.(docx|pdf|txt|md|csv|tsv|xlsx|xlsm)$/i;
 
 const keyOf = (p: string) => join(dirname(p), basename(p, extname(p)).toLowerCase());
 const isExt = (p: string, ext: string) => extname(p).toLowerCase() === ext;
@@ -73,6 +73,8 @@ function asideOf(name: string, size: number): { reason: FolderReason; why: strin
   if (SYSTEM.test(name) || name.startsWith(".") || TEMP.test(name))
     return { reason: "not-a-document", why: "not a document" };
   if (isExt(name, ".doc")) return { reason: "not-supported", why: "an old Word .doc: save it as .docx in Word first" };
+  if (isExt(name, ".xls"))
+    return { reason: "not-supported", why: "an old Excel .xls: save it as .xlsx in Excel first" };
   if (!DOCUMENT.test(name) && !isImage(name) && !isVideo(name))
     return LATER.test(name)
       ? { reason: "not-supported", why: `Testimus cannot convert ${extname(name).toLowerCase()} files yet` }
@@ -144,7 +146,7 @@ function projectNames(project: string | null): { ids: Set<string>; names: Set<st
   return { ids, names };
 }
 
-// ponytail: what an import of a folder would add, file by file — each .docx, .pdf or .txt is a document (a .pdf beside
+// ponytail: what an import of a folder would add, file by file — each .docx, .pdf, .txt, .csv or .xlsx is a document (a .pdf beside
 // a .docx of the same name is its rendering, added with it), each video is one, and the images of one folder are one
 // images document named after that folder (group = the folder's rel, « . » for the folder itself); everything else is
 // left aside with the reason; the project's own folder (or one inside it) is refused, and never read when it is under

@@ -34,6 +34,7 @@ export const isVideo = (name: string) => VIDEO.test(name);
 export function sourceType(doc: Pick<DocJson, "source">): SourceType {
   if (doc.source.type) return doc.source.type;
   const ext = extname(doc.source.file || doc.source.name || "").toLowerCase();
+  if (ext === ".csv" || ext === ".tsv" || ext === ".xlsx" || ext === ".xlsm") return "table";
   return ext === ".pdf" ? "pdf" : ext === ".txt" || ext === ".md" ? "txt" : "docx";
 }
 

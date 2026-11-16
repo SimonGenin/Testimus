@@ -13,7 +13,9 @@ import {
 } from "../rag/convert.ts";
 import { convertDocx } from "../rag/convert-docx.ts";
 import { convertPdf, pdfFigures } from "../rag/convert-pdf.ts";
+import { convertTable, TABLE_FILE } from "../rag/convert-table.ts";
 import { convertText } from "../rag/convert-text.ts";
+import { convertWorkbook, WORKBOOK_FILE } from "../rag/convert-xlsx.ts";
 import { renderPage } from "../rag/pdf.ts";
 import type { DocConversion, DocJson, DocKind, DocStats, FigureEntry } from "../types.ts";
 import { byteSteps, copyFileAtomic, copyingLine, writeAtomic } from "./atomic.ts";
@@ -34,21 +36,32 @@ const copyOf = async (dir: string, file: string, signal?: AbortSignal) => ({
 
 const fromOf = (file: string) => (extname(file).toLowerCase() === ".docx" ? "docx" : "pdf");
 
-export const CONVERTED = /\.(docx|pdf|txt|md)$/i;
-const isText = (ext: string) => ext === ".txt" || ext === ".md";
+export const CONVERTED = /\.(docx|pdf|txt|md|csv|tsv|xlsx|xlsm)$/i;
+const isText = (ext: string) => ext === ".txt" || ext === ".md" || TABLE_FILE.test(ext);
 
-export async function convertSource(file: string, opts: ConvertOpts & { pdf?: string }): Promise<Converted> {
+export async function convertSource(
+  file: string,
+  opts: ConvertOpts & { pdf?: string; table?: DocConversion["table"]; sheets?: DocConversion["sheets"] },
+): Promise<Converted> {
   const ext = extname(file).toLowerCase();
   if (ext === ".docx") {
     const pdf = opts.pdf && existsSync(opts.pdf) ? await pdfFigures(await readFile(opts.pdf), opts.signal) : undefined;
     return convertDocx(await readFile(file), { ...opts, pdfFigures: pdf });
   }
   if (ext === ".pdf") return convertPdf(await readFile(file), opts);
+  if (WORKBOOK_FILE.test(ext))
+    return convertWorkbook(await readFile(file), { title: opts.title || opts.code, sheets: opts.sheets });
+  if (TABLE_FILE.test(ext))
+    return convertTable(await readFile(file), {
+      title: opts.title || opts.code,
+      table: opts.table,
+      tsv: ext === ".tsv",
+    });
   if (isText(ext))
     return convertText(await readFile(file), { markdown: ext === ".md", title: opts.title || opts.code });
   throw new UserError(
     `Cannot convert ${ext || "a file without extension"}.`,
-    "Give a .docx (preferred), a .pdf or a .txt.",
+    "Give a .docx (preferred), a .pdf, a .txt, a .csv or an .xlsx.",
   );
 }
 
@@ -91,7 +104,9 @@ export async function addDoc(
   if (!CONVERTED.test(file))
     throw new UserError(
       `Cannot add ${ext || "a file without extension"} this way.`,
-      "Give a .docx (preferred), a .pdf or a .txt; images and videos are added with docs.addFiles or media.add.",
+      ext === ".xls"
+        ? "Save it as an Excel workbook (.xlsx) in Excel first, then add that."
+        : "Give a .docx (preferred), a .pdf, a .txt, a .csv or an .xlsx; images and videos are added with docs.addFiles or media.add.",
     );
   if (input.pdf && extname(input.pdf).toLowerCase() !== ".pdf")
     throw new UserError(`--pdf must be a .pdf file: ${input.pdf}`, "Give the PDF rendering of the same document.");
@@ -294,6 +309,8 @@ export async function reconvertDoc(
     pdf: extname(file).toLowerCase() === ".docx" && existsSync(pdf) ? pdf : undefined,
     reader: o.reader,
     numbers: o.numbers,
+    table: o.table,
+    sheets: o.sheets,
     crops,
     signal,
   });

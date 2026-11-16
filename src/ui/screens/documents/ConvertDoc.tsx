@@ -40,6 +40,17 @@ export function useClaudeOffline(): string | false {
 
 // ponytail: the options a study (or the team) chose, as kept in doc.json — every conversion follows them
 function optionsOf(c: DocConversion): string {
+  if (c.table) {
+    const read = c.table.columns?.filter((x) => x.meaning).length ?? 0;
+    const key = c.table.key ? `, its rows named by « ${c.table.key} »` : "";
+    return `Claude read the table: ${read} column${read === 1 ? "" : "s"} explained${key}.`;
+  }
+  if (c.sheets) {
+    const kept = c.sheets.filter((s) => !s.skip);
+    const read = kept.reduce((n, s) => n + (s.columns?.filter((x) => x.meaning).length ?? 0), 0);
+    const aside = c.sheets.length - kept.length;
+    return `Claude read the workbook: ${kept.length} sheet${kept.length === 1 ? "" : "s"}, ${read} column${read === 1 ? "" : "s"} explained${aside ? `, ${aside} sheet${aside === 1 ? "" : "s"} left aside` : ""}.`;
+  }
   const parts = [
     c.from && `the .${c.from} copy`,
     c.reader && (c.reader === "tagged" ? "the PDF tags" : "the page layout"),
@@ -98,6 +109,27 @@ function Options({
   onStudy: (on: boolean) => void;
 }) {
   const noFigures = again && doc.converted?.stats?.figures === 0;
+  if (doc.type === "table")
+    return (
+      <div {...stylex.props(styles.group)}>
+        <h3 {...stylex.props(type.small, type.strong, styles.caption)}>While converting</h3>
+        {again ? (
+          <Checkbox
+            checked={study && !offline}
+            disabled={offline}
+            onChange={onStudy}
+            label="Claude reads the columns again"
+            hint="Claude says what the table is and what each column holds, and chooses the column that names the rows, the one that titles them and the one that groups them. One Claude run; otherwise its last reading is kept."
+          />
+        ) : (
+          <p {...stylex.props(type.small, styles.caption)}>
+            Claude first reads what the table is and what each column holds, and which column names its rows. One Claude
+            run.
+          </p>
+        )}
+        <ClaudeChoice />
+      </div>
+    );
   if (isMedia(doc.type)) {
     const files = doc.source.files ?? [];
     const videos = files.filter((f) => f.kind === "video");

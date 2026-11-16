@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CONTEXT_IDS, EFFORT, MODEL } from "../claude/schemas.ts";
-import { REVIEW } from "../schemas.ts";
+import { DOC_SHEET, DOC_TABLE, REVIEW } from "../schemas.ts";
 import { DOC_STAGES, STAGE_STEPS } from "../types.ts";
 import { MEDIA_FILE, SOURCE_TYPE } from "./media-schemas.ts";
 
@@ -57,6 +57,11 @@ export const conversion = z
       .describe(
         "Figures the conversion finds no picture for (a caption alone, a shape drawn in Word), taken from a region of a page of the PDF copy; every reconversion draws them again",
       ),
+    table: DOC_TABLE.optional(),
+    sheets: z
+      .array(DOC_SHEET)
+      .optional()
+      .describe("An Excel workbook: each sheet read as a table, by name (Claude's reading)"),
     notes: z
       .string()
       .optional()
