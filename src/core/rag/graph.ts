@@ -16,6 +16,8 @@ const SAME_DOC: RegExp[] = [
 ];
 const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const trimNum = (n: string) => n.replace(/\.+$/, "");
+const SIBLINGS_ALL = 300;
+const SIBLINGS_NEAR = 5;
 
 // ponytail: every document's names and section numbers, read once per index run — reading them again for each
 // document made the graph quadratic (9 s of a blocked core for 125 documents)
@@ -67,14 +69,17 @@ export function docEdges(
   );
   for (const a of amended) add(doc.id, a.id, "amends");
 
+  const toOthers = others.map((o) => ({
+    o,
+    re: new RegExp(String.raw`(?:${o.names.map(reEscape).join("|")})\s*,?\s*(?:§|${KEYWORD})\s*${NUM}`, "gi"),
+  }));
   for (const s of sections) {
     const from = ref(s.anchor);
     const text = ownText(s);
     for (const f of s.body.matchAll(/<!--\s*fig\s+(\S+?)\s*-->/g)) add(from, ref(`fig:${f[1]}`), "shows");
 
     const taken: [number, number][] = [];
-    for (const o of others) {
-      const re = new RegExp(String.raw`(?:${o.names.map(reEscape).join("|")})\s*,?\s*(?:§|${KEYWORD})\s*${NUM}`, "gi");
+    for (const { o, re } of toOthers) {
       for (const m of text.matchAll(re)) {
         const n = trimNum(m[1]);
         taken.push([m.index, m.index + m[0].length]);
@@ -99,10 +104,12 @@ export function docEdges(
     if (parent && has(parent)) add(ref(s.anchor), ref(`§${parent}`), "parent");
   }
   const groups = new Map<string, Section[]>();
-  for (const s of numbered.values()) {
-    const parent = s.number.split(".").slice(0, -1).join(".");
-    groups.set(parent, [...(groups.get(parent) ?? []), s]);
-  }
+  const addTo = (m: Map<string, Section[]>, k: string, s: Section) => {
+    const g = m.get(k);
+    if (g) g.push(s);
+    else m.set(k, [s]);
+  };
+  for (const s of numbered.values()) addTo(groups, s.number.split(".").slice(0, -1).join("."), s);
   // ponytail: a section without a number (a requirement under « 5.6.6 Sectionneur ») hangs from the heading above
   // it, and the unnumbered sections of one heading are siblings — a specification written as requirements is linked
   // like one written as numbered sections
@@ -110,9 +117,15 @@ export function docEdges(
   for (const s of sections) {
     if (s.number || !s.parent) continue;
     add(ref(s.anchor), ref(s.parent), "parent");
-    under.set(s.parent, [...(under.get(s.parent) ?? []), s]);
+    addTo(under, s.parent, s);
   }
+  // ponytail: siblings are every pair of a group up to 300 (a chapter of 260 rules is linked whole), the nearest five
+  // on each side beyond — the rows of a table (3 700 under one title) made 13 million edges and the index ran out of
+  // memory
   for (const g of [...groups.values(), ...under.values()])
-    for (const a of g) for (const b of g) if (a !== b) add(ref(a.anchor), ref(b.anchor), "sibling");
+    g.forEach((a, i) => {
+      const near = g.length <= SIBLINGS_ALL ? g : g.slice(Math.max(0, i - SIBLINGS_NEAR), i + SIBLINGS_NEAR + 1);
+      for (const b of near) if (a !== b) add(ref(a.anchor), ref(b.anchor), "sibling");
+    });
   return out;
 }

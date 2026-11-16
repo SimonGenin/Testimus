@@ -76,6 +76,28 @@ describe("the document graph", () => {
       expect(s).toHaveLength(4 * 3 + 2);
     });
 
+    it("siblings of a large group (a table's rows) are the nearest five on each side, not every pair", () => {
+      const rows = Array.from({ length: 3000 }, (_, i) => `## R-${i} <!-- § R-${i} -->\n\n- **Texte** : ligne ${i}`);
+      const md = ["# Matrice <!-- § matrice -->", "## Columns <!-- § columns -->", ...rows].join("\n\n");
+      const doc = { id: "M", code: "M", title: "Matrice" } as DocJson;
+      const s = docEdges(FIXTURE, doc, md, [], []).filter((e) => e.kind === "sibling");
+      const of5 = (r: string) => s.filter((e) => e.from === `M#§${r}`).map((e) => e.to.slice(3));
+      expect(of5("R-0")).toEqual(["columns", "R-1", "R-2", "R-3", "R-4", "R-5"]);
+      expect(of5("R-100")).toEqual([
+        "R-95",
+        "R-96",
+        "R-97",
+        "R-98",
+        "R-99",
+        "R-101",
+        "R-102",
+        "R-103",
+        "R-104",
+        "R-105",
+      ]);
+      expect(s.length).toBeLessThan(3002 * 10);
+    });
+
     it("shows: section → the figures marked in it", () => {
       expect(of(edges, "shows")).toEqual([`${a("§2.1")} -> ${a("fig:1")}`]);
     });
